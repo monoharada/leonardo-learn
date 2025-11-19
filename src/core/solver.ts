@@ -91,10 +91,15 @@ export const findColorForContrast = (
     }
 
     if (validResults.length === 0) return null;
-    if (validResults.length === 1) return validResults[0];
+
+    const first = validResults[0];
+    if (validResults.length === 1 && first) return first;
+
+    const second = validResults[1];
+    if (!first || !second) return first || null;
 
     // Return the one closest to original lightness
-    const d0 = Math.abs(validResults[0].oklch.l - fgL);
-    const d1 = Math.abs(validResults[1].oklch.l - fgL);
-    return d0 < d1 ? validResults[0] : validResults[1];
+    const d0 = Math.abs(first.oklch.l - fgL);
+    const d1 = Math.abs(second.oklch.l - fgL);
+    return d0 < d1 ? first : second;
 };
