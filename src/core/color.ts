@@ -2,6 +2,7 @@ import {
     type ColorObject,
     toHex,
     toOklch,
+    clampChroma,
 } from "../utils/color-space";
 import { getContrast } from "../utils/wcag";
 
@@ -12,15 +13,19 @@ import { getContrast } from "../utils/wcag";
 export class Color {
     private _oklch: ColorObject;
 
-    constructor(color: string | ColorObject) {
+    constructor(color: string | ColorObject, options?: { skipClamp?: boolean }) {
         if (typeof color === "string") {
             const parsed = toOklch(color);
             if (!parsed) {
                 throw new Error(`Invalid color string: ${color}`);
             }
-            this._oklch = parsed;
+            // Clamp chroma to ensure color is in sRGB gamut while preserving hue
+            // Skip clamping if explicitly requested (e.g., for key color override)
+            this._oklch = options?.skipClamp ? parsed : clampChroma(parsed);
         } else {
-            this._oklch = { ...color, mode: "oklch" };
+            // Clamp chroma to ensure color is in sRGB gamut while preserving hue
+            // Skip clamping if explicitly requested (e.g., for key color override)
+            this._oklch = options?.skipClamp ? { ...color, mode: "oklch" } : clampChroma({ ...color, mode: "oklch" });
         }
     }
 
