@@ -120,6 +120,37 @@
                     </small>
                 </div>
 
+                <div style="margin-bottom: 1rem;">
+                    <label for="contrastIntensity" style="display:block; font-weight:bold; margin-bottom:0.5rem;">
+                        コントラスト強度
+                    </label>
+                    <select id="contrastIntensity"
+                        style="width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px;">
+                        <option value="subtle">控えめ（明度範囲: 狭い）</option>
+                        <option value="moderate" selected>標準（バランス）</option>
+                        <option value="strong">強め（メリハリ強）</option>
+                        <option value="vivid">鮮やか（最大範囲）</option>
+                    </select>
+                    <small style="color: #666; font-size: 0.8rem; display:block; margin-top:0.25rem;">
+                        1200（最も暗い）と50（最も明るい）の間隔を調整します
+                    </small>
+                </div>
+
+                <div style="margin-bottom: 1rem;">
+                    <label for="lightnessDistribution" style="display:block; font-weight:bold; margin-bottom:0.5rem;">
+                        明度分布
+                    </label>
+                    <select id="lightnessDistribution"
+                        style="width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px;">
+                        <option value="linear" selected>リニア（等間隔）</option>
+                        <option value="easeIn">暗い側重視（暗い色の階調を細かく）</option>
+                        <option value="easeOut">明るい側重視（明るい色の階調を細かく）</option>
+                    </select>
+                    <small style="color: #666; font-size: 0.8rem; display:block; margin-top:0.25rem;">
+                        明度のステップ間隔の分布を調整します
+                    </small>
+                </div>
+
             </div>
 
             <div id="app" class="palette">

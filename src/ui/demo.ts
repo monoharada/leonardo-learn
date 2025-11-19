@@ -16,7 +16,27 @@ interface PaletteConfig {
 	keyColors: string[]; // Format: "#hex" or "#hex@step" (e.g., "#b3e5fc@300")
 	ratios: number[];
 }
+
+type ContrastIntensity = "subtle" | "moderate" | "strong" | "vivid";
+type LightnessDistribution = "linear" | "easeIn" | "easeOut";
+
 // ... (rest of file)
+
+// Contrast ranges for different intensity levels
+const contrastRanges: Record<ContrastIntensity, { min: number; max: number }> =
+	{
+		subtle: { min: 0.35, max: 0.85 }, // Narrow range for subtle contrast
+		moderate: { min: 0.25, max: 0.92 }, // Balanced range (default)
+		strong: { min: 0.2, max: 0.95 }, // Wide range for strong contrast
+		vivid: { min: 0.15, max: 0.98 }, // Maximum range for vivid colors
+	};
+
+// Easing functions for lightness distribution
+const easingFunctions: Record<LightnessDistribution, (t: number) => number> = {
+	linear: (t: number) => t,
+	easeIn: (t: number) => t * t, // Slower at start, faster at end (more steps in dark colors)
+	easeOut: (t: number) => 1 - (1 - t) ** 2, // Faster at start, slower at end (more steps in light colors)
+};
 
 // Default State
 const state = {
@@ -24,17 +44,19 @@ const state = {
 		{
 			id: "color",
 			name: "Color",
-			keyColors: ["#008BF2"], // Blue (step will be selected via UI)
+			keyColors: ["#008BF2@600"], // Blue at step 600 (default)
 			ratios: [21, 15, 10, 7, 4.5, 3, 1],
 		},
 		{
 			id: "neutral",
 			name: "Neutral",
-			keyColors: ["#1a1a1a"],
+			keyColors: ["#1a1a1a@800"], // Dark gray at step 800
 			ratios: [21, 15, 10, 7, 4.5, 3, 1],
 		},
 	] as PaletteConfig[],
 	activeId: "color",
+	contrastIntensity: "moderate" as ContrastIntensity,
+	lightnessDistribution: "linear" as LightnessDistribution,
 };
 
 export const runDemo = () => {
@@ -389,37 +411,42 @@ export const runDemo = () => {
 			const lightnessScale: number[] = [];
 			const totalSteps = 13;
 
-			// Calculate lightness range - avoid extremes where chroma is impossible
-			// sRGB gamut is very limited at L<0.20 and L>0.95
-			// Adjust minL based on hue for natural-looking darks
-			let minL = 0.2; // Default darkest color
-			const hue = keyColor.oklch.h ?? 0;
+			// Get contrast intensity and lightness distribution from state
+			const contrastRange = contrastRanges[state.contrastIntensity];
+			const easingFunction = easingFunctions[state.lightnessDistribution];
 
-			// Lime (100-130): Slightly lighter darks to avoid muddy black
+			// Calculate lightness range based on contrast intensity
+			// Adjust minL based on hue for natural-looking darks
+			const hue = keyColor.oklch.h ?? 0;
+			let minL = contrastRange.min;
+
+			// Lime (100-130): Adjust minimum lightness to avoid muddy black
 			if (hue >= 100 && hue < 130) {
-				minL = 0.27;
+				minL = Math.max(minL, 0.27);
 			}
 
-			const maxL = 0.95; // Lightest useful color (was 0.98)
+			const maxL = contrastRange.max;
 			const lightnessRange = maxL - minL;
 
-			// Calculate step size based on key color position
-			// If key is at index 6 (middle), distribute evenly
-			// If key is at index 10 (lighter), compress dark side, expand light side
+			// Calculate step size based on key color position with easing
+			// Apply easing function to distribute steps according to selected distribution
 			for (let i = 0; i < totalSteps; i++) {
 				if (i === keyArrayIndex) {
 					lightnessScale.push(baseL); // Use exact key color lightness
 				} else {
-					// Linear interpolation based on distance from key
-					const progress = i / (totalSteps - 1); // 0 to 1
-					const targetL = minL + lightnessRange * progress;
+					// Apply easing function to progress
+					const rawProgress = i / (totalSteps - 1); // 0 to 1
+					const easedProgress = easingFunction(rawProgress);
+					const targetL = minL + lightnessRange * easedProgress;
 
 					// Adjust to anchor at key color position
 					const keyProgress = keyArrayIndex / (totalSteps - 1);
-					const offset = baseL - (minL + lightnessRange * keyProgress);
+					const easedKeyProgress = easingFunction(keyProgress);
+					const offset = baseL - (minL + lightnessRange * easedKeyProgress);
 
 					// For the lightest color (index 12), allow higher lightness for differentiation
-					const effectiveMaxL = i === totalSteps - 1 ? 0.98 : maxL;
+					const effectiveMaxL =
+						i === totalSteps - 1 ? Math.min(maxL + 0.03, 0.98) : maxL;
 					const adjustedL = Math.max(
 						minL,
 						Math.min(effectiveMaxL, targetL + offset),
@@ -729,7 +756,7 @@ export const runDemo = () => {
 			stepSelect.value = String(recommended);
 
 			// Update hint message
-			stepHint.innerHTML = `💡 このカラーの明度に基づき、<strong>${recommended}</strong> が最適なスケール配置として推奨されます`;
+			stepHint.innerHTML = `<strong>${hexColor}</strong>の明度から<strong>${recommended}</strong>を最適なスケール配置としました`;
 
 			// Automatically generate palette with recommended step
 			const p = getActivePalette();
@@ -755,6 +782,30 @@ export const runDemo = () => {
 			}
 		}
 	});
+
+	// Contrast intensity control
+	const contrastIntensitySelect = document.getElementById(
+		"contrastIntensity",
+	) as HTMLSelectElement;
+	if (contrastIntensitySelect) {
+		contrastIntensitySelect.addEventListener("change", () => {
+			state.contrastIntensity =
+				contrastIntensitySelect.value as ContrastIntensity;
+			renderMain();
+		});
+	}
+
+	// Lightness distribution control
+	const lightnessDistributionSelect = document.getElementById(
+		"lightnessDistribution",
+	) as HTMLSelectElement;
+	if (lightnessDistributionSelect) {
+		lightnessDistributionSelect.addEventListener("change", () => {
+			state.lightnessDistribution =
+				lightnessDistributionSelect.value as LightnessDistribution;
+			renderMain();
+		});
+	}
 
 	// Init
 	renderSidebar();
