@@ -374,6 +374,7 @@ export const runDemo = () => {
 			const keyStep = keyColorsWithSteps[0]?.step ?? 600;
 
 			// Detect achromatic (neutral/gray) colors
+			// Force achromatic for Neutral palette
 			const p = getActivePalette();
 			const isNeutralPalette = p?.id === "neutral";
 			const isAchromatic = isNeutralPalette || baseC < 0.01;
@@ -424,13 +425,17 @@ export const runDemo = () => {
 			const keyArrayIndex = 12 - keyStepIndex;
 
 			// Calculate lightness range - avoid extremes where chroma is impossible
-			const hue = keyColor.oklch.h ?? 0;
+			// sRGB gamut is very limited at L<0.20 and L>0.95
+			// Adjust minL based on hue for natural-looking darks
 			let minL = 0.2; // Default darkest color
+			const hue = keyColor.oklch.h ?? 0;
+
 			// Lime (100-130): Slightly lighter darks to avoid muddy black
 			if (hue >= 100 && hue < 130) {
 				minL = 0.27;
 			}
-			const maxL = 0.95;
+
+			const maxL = 0.95; // Lightest useful color (was 0.98)
 			const lightnessRange = maxL - minL;
 
 			// Generate lightness scale with curve exponent
