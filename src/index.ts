@@ -6,6 +6,8 @@
 
 export * from "./core";
 export * from "./utils";
+export * from "./accessibility/wcag2";
+export * from "./accessibility/apca";
 
 // バージョン情報
 export const VERSION = "0.1.0";

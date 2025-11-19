@@ -1,49 +1,56 @@
 import { Color } from '../core/color';
 import { BackgroundColor } from '../core/background';
 import { Theme } from '../core/theme';
+import { verifyContrast } from '../accessibility/wcag2';
+import { getAPCA, getAPCAStatus } from '../accessibility/apca';
 
 export const runDemo = () => {
-    const app = document.getElementById('app');
-    if (!app) return;
+  const app = document.getElementById('app');
+  if (!app) return;
 
-    // 1. Define Key Colors (Black -> White)
-    const keyColors = [new Color('#000000'), new Color('#ffffff')];
-    const bg = BackgroundColor.White;
+  // 1. Define Key Colors (Black -> White)
+  const keyColors = [new Color('#000000'), new Color('#ffffff')];
+  const bg = BackgroundColor.White;
 
-    // 2. Define Target Ratios
-    // We want a full scale from Black (21:1) to White (1:1)
-    const ratios = [21, 15, 10, 7, 4.5, 3, 1];
+  // 2. Define Target Ratios
+  const ratios = [21, 15, 10, 7, 4.5, 3, 1];
 
-    // 3. Generate Theme
-    const theme = new Theme(keyColors, bg, ratios);
-    const colors = theme.colors;
+  // 3. Generate Theme
+  const theme = new Theme(keyColors, bg, ratios);
+  const colors = theme.colors;
 
-    // 4. Render
-    app.innerHTML = '';
-    colors.forEach((color, index) => {
-        const contrast = color.contrast(bg);
-        const hex = color.toHex();
-        const el = document.createElement('div');
-        el.className = 'swatch';
-        el.style.backgroundColor = hex;
+  // 4. Render
+  app.innerHTML = '';
+  colors.forEach((color, index) => {
+    const hex = color.toHex();
 
-        // Determine text color based on contrast for readability of the label itself
-        // Simple logic: if contrast with white < 4.5, use black text, else white (if bg is white)
-        // Actually, we are rendering ON the color.
-        // So we need to check contrast of Text(White/Black) vs Color.
-        const white = new Color('#ffffff');
-        const textCol = color.contrast(white) > 4.5 ? '#ffffff' : '#000000';
-        el.style.color = textCol;
+    // Accessibility Checks
+    const wcag = verifyContrast(color, bg);
+    const apcaLc = getAPCA(color, bg);
+    const apcaStatus = getAPCAStatus(apcaLc);
 
-        el.innerHTML = `
+    const el = document.createElement('div');
+    el.className = 'swatch';
+    el.style.backgroundColor = hex;
+
+    const white = new Color('#ffffff');
+    const textCol = color.contrast(white) > 4.5 ? '#ffffff' : '#000000';
+    el.style.color = textCol;
+
+    el.innerHTML = `
       <div class="swatch-info">
-        <span>${hex}</span>
-        <span>Target: ${ratios[index]}</span>
+        <div style="font-weight:bold;">${hex}</div>
+        <div>Target: ${ratios[index]}</div>
       </div>
-      <div class="contrast-badge">
-        ${contrast.toFixed(2)}:1
+      <div style="text-align:right; font-size: 0.8rem;">
+        <div class="contrast-badge" style="margin-bottom:4px;">
+          WCAG 2.1: <strong>${wcag.contrast.toFixed(2)}:1</strong> (${wcag.status})
+        </div>
+        <div class="contrast-badge">
+          APCA: <strong>Lc ${apcaLc.toFixed(1)}</strong> (${apcaStatus})
+        </div>
       </div>
     `;
-        app.appendChild(el);
-    });
+    app.appendChild(el);
+  });
 };
