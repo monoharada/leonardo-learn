@@ -1,72 +1,53 @@
 {
-  "name": "leonardo-learn",
-  "version": "0.1.0",
-  "description": "OKLCH色空間を使用したデザインシステム向けカラーパレット生成ツール（Adobe Leonardo inspired）",
-  "type": "module",
-  "main": "./dist/index.js",
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
-    }
-  },
-  "scripts": {
-    "dev": "bun run src/index.ts --watch",
-    "build": "bun build src/index.ts --outdir=dist --target=browser --minify --sourcemap && tsc --emitDeclarationOnly --outDir dist",
-    "test": "bun test",
-    "test:watch": "bun test --watch",
-    "test:coverage": "bun test --coverage",
-    "type-check": "tsc --noEmit",
-    "lint": "eslint src/**/*.ts",
-    "lint:fix": "eslint src/**/*.ts --fix",
-    "format": "prettier --write 'src/**/*.{ts,tsx,json,md}'",
-    "format:check": "prettier --check 'src/**/*.{ts,tsx,json,md}'",
-    "prepare": "simple-git-hooks"
-  },
-  "simple-git-hooks": {
-    "pre-commit": "bunx nano-staged"
-  },
-  "nano-staged": {
-    "*.{ts,tsx}": [
-      "prettier --write",
-      "eslint --fix",
-      "bun test --bail --findRelatedTests"
-    ],
-    "*.{json,md}": [
-      "prettier --write"
-    ]
-  },
-  "dependencies": {
-    "culori": "^4.0.1"
-  },
-  "devDependencies": {
-    "@types/bun": "latest",
-    "@typescript-eslint/eslint-plugin": "^6.21.0",
-    "@typescript-eslint/parser": "^6.21.0",
-    "eslint": "^8.56.0",
-    "nano-staged": "^0.8.0",
-    "prettier": "^3.2.4",
-    "simple-git-hooks": "^2.9.0",
-    "typescript": "^5.3.3"
-  },
-  "engines": {
-    "bun": ">=1.0.0"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/monoharada/leonardo-learn.git"
-  },
-  "keywords": [
-    "color",
-    "palette",
-    "design-system",
-    "accessibility",
-    "wcag",
-    "oklch",
-    "contrast"
-  ],
-  "author": "monoharada",
-  "license": "MIT"
+	"name": "leonardo-learn",
+	"version": "0.1.0",
+	"description": "OKLCH色空間を使用したデザインシステム向けカラーパレット生成ツール（Adobe Leonardo inspired）",
+	"type": "module",
+	"main": "./dist/index.js",
+	"module": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"import": "./dist/index.js",
+			"types": "./dist/index.d.ts"
+		}
+	},
+	"scripts": {
+		"dev": "bun run src/index.ts --watch",
+		"build": "bun build src/index.ts --outdir=dist --target=browser --minify --sourcemap && tsc --emitDeclarationOnly --outDir dist",
+		"test": "bun test",
+		"test:watch": "bun test --watch",
+		"test:coverage": "bun test --coverage",
+		"type-check": "tsc --noEmit",
+		"lint": "biome lint .",
+		"lint:fix": "biome lint --write .",
+		"format": "biome format --write .",
+		"check": "biome check --write ."
+	},
+	"dependencies": {
+		"culori": "^4.0.1"
+	},
+	"devDependencies": {
+		"@types/bun": "latest",
+		"@types/culori": "^4.0.1",
+		"typescript": "^5.3.3"
+	},
+	"engines": {
+		"bun": ">=1.0.0"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/monoharada/leonardo-learn.git"
+	},
+	"keywords": [
+		"color",
+		"palette",
+		"design-system",
+		"accessibility",
+		"wcag",
+		"oklch",
+		"contrast"
+	],
+	"author": "monoharada",
+	"license": "MIT"
 }

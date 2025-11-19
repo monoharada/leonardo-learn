@@ -1,7 +1,7 @@
 {
-	"feature_name": "{{FEATURE_NAME}}",
-	"created_at": "{{TIMESTAMP}}",
-	"updated_at": "{{TIMESTAMP}}",
+	"feature_name": "oklch-palette-generator",
+	"created_at": "2025-11-19T03:45:27Z",
+	"updated_at": "2025-11-19T03:45:27Z",
 	"language": "ja",
 	"phase": "initialized",
 	"approvals": {

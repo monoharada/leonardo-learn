@@ -5,6 +5,6 @@
  */
 
 // 将来的に実装されるユーティリティのプレースホルダー
-// export * from './color-space';
-// export * from './wcag';
+export * from "./color-space";
+export * from "./wcag";
 // export * from './types';

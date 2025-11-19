@@ -4,10 +4,10 @@
  * @packageDocumentation
  */
 
-export * from './core';
-export * from './utils';
+export * from "./core";
+export * from "./utils";
 
 // バージョン情報
-export const VERSION = '0.1.0';
+export const VERSION = "0.1.0";
 
 console.log(`leonardo-learn v${VERSION} - OKLCH Color Palette Generator`);

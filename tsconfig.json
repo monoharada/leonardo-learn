@@ -1,63 +1,56 @@
 {
-  "compilerOptions": {
-    // 厳格な型チェック（品質担保）
-    "strict": true,
-    "noImplicitAny": true,
-    "strictNullChecks": true,
-    "strictFunctionTypes": true,
-    "strictBindCallApply": true,
-    "strictPropertyInitialization": true,
-    "noImplicitThis": true,
-    "alwaysStrict": true,
+	"compilerOptions": {
+		// 厳格な型チェック（品質担保）
+		"strict": true,
+		"noImplicitAny": true,
+		"strictNullChecks": true,
+		"strictFunctionTypes": true,
+		"strictBindCallApply": true,
+		"strictPropertyInitialization": true,
+		"noImplicitThis": true,
+		"alwaysStrict": true,
 
-    // 未使用コードの検出
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true,
-    "noUncheckedIndexedAccess": true,
+		// 未使用コードの検出
+		"noUnusedLocals": true,
+		"noUnusedParameters": true,
+		"noImplicitReturns": true,
+		"noFallthroughCasesInSwitch": true,
+		"noUncheckedIndexedAccess": true,
 
-    // モジュール解決
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true,
-    "resolveJsonModule": true,
-    "isolatedModules": true,
+		// モジュール解決
+		"module": "ESNext",
+		"moduleResolution": "bundler",
+		"esModuleInterop": true,
+		"allowSyntheticDefaultImports": true,
+		"resolveJsonModule": true,
+		"isolatedModules": true,
 
-    // ターゲット環境
-    "target": "ES2022",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+		// ターゲット環境
+		"target": "ES2022",
+		"lib": ["ES2022", "DOM", "DOM.Iterable"],
 
-    // 出力設定
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "removeComments": false,
+		// 出力設定
+		"outDir": "./dist",
+		"rootDir": "./src",
+		"declaration": true,
+		"declarationMap": true,
+		"sourceMap": true,
+		"removeComments": false,
 
-    // パスエイリアス
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["./src/*"],
-      "@/core/*": ["./src/core/*"],
-      "@/utils/*": ["./src/utils/*"],
-      "@/ui/*": ["./src/ui/*"]
-    },
+		// パスエイリアス
+		"baseUrl": ".",
+		"paths": {
+			"@/*": ["./src/*"],
+			"@/core/*": ["./src/core/*"],
+			"@/utils/*": ["./src/utils/*"],
+			"@/ui/*": ["./src/ui/*"]
+		},
 
-    // その他
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "types": ["bun-types"]
-  },
-  "include": [
-    "src/**/*"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "**/*.test.ts",
-    "**/*.spec.ts"
-  ]
+		// その他
+		"skipLibCheck": true,
+		"forceConsistentCasingInFileNames": true,
+		"types": ["bun-types"]
+	},
+	"include": ["src/**/*"],
+	"exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts"]
 }
