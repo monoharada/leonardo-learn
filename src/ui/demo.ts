@@ -1,9 +1,8 @@
-import { getAPCA, getAPCAStatus } from "../accessibility/apca";
+import { getAPCA } from "../accessibility/apca";
 import { verifyContrast } from "../accessibility/wcag2";
 import { BackgroundColor } from "../core/background";
 import { Color } from "../core/color";
 import { Theme } from "../core/theme";
-import { getAPCALabel } from "./i18n";
 
 interface KeyColorWithStep {
 	color: string;
@@ -80,8 +79,10 @@ export const runDemo = () => {
 	// If we have extra steps (due to key color injection), we need to handle that.
 	// For now, let's just map linearly or use closest standard step.
 	// Simple approach: Map index to standard steps if length matches, else fallback.
+	// Standard Scale: 50, 100, 200 ... 1200 (13 steps)
+	// Light (50) -> Dark (1200)
 	const standardSteps = [
-		1200, 1100, 1000, 900, 800, 700, 600, 500, 400, 300, 200, 100, 50,
+		50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200,
 	];
 
 	const getTokenName = (name: string, index: number, total: number) => {
@@ -91,8 +92,7 @@ export const runDemo = () => {
 		}
 
 		// If mismatch (e.g. duplicates removed), try to map proportionally or just use standard steps if within range.
-		// Since we sort Descending (Dark -> Light), and standardSteps is Dark -> Light (1200 -> 50),
-		// we can try to align.
+		// We align with the visual order (Light -> Dark) which matches standardSteps (50 -> 1200).
 		if (index < standardSteps.length) {
 			return `${name.toLowerCase()}-${standardSteps[index]}`;
 		}
@@ -164,9 +164,8 @@ export const runDemo = () => {
 
 		// Standard 13-step scale (50-1200)
 		// 50 is lightest, 1200 is darkest
-		const standardSteps = [
-			50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200,
-		];
+		// Standard 13-step scale (50-1200)
+		// Uses the shared standardSteps definition
 		const standardRatios = [
 			1.05, // 50
 			1.1, // 100
@@ -557,31 +556,54 @@ export const runDemo = () => {
 			colors = theme.colors;
 		}
 
-		// Render Swatches
+		// Render Swatches - Horizontal Layout
+		// Reverse colors to go from Light (50) to Dark (1200)
+		colors.reverse();
+
+		// Render Swatches - Horizontal Layout
 		app.innerHTML = "";
+
+		// Container for horizontal palette
+		const paletteContainer = document.createElement("div");
+		paletteContainer.style.cssText = `
+			background: white;
+			border-radius: 12px;
+			padding: 2rem;
+			box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+			overflow-x: auto;
+		`;
+
+		// Swatches row
+		const swatchesRow = document.createElement("div");
+		swatchesRow.style.cssText = `
+			display: flex;
+			gap: 12px;
+			justify-content: center;
+			min-width: max-content;
+		`;
+
 		colors.forEach((color, index) => {
 			const hex = color.toHex();
 			const wcag = verifyContrast(color, bg);
 			const apcaLc = getAPCA(color, bg);
-			const apcaStatus = getAPCAStatus(apcaLc);
 			const tokenName = getTokenName(p.name, index, colors.length);
 
+			// Extract step number from token name (e.g., "color-600" -> "600")
+			const stepMatch = tokenName.match(/(\d+)$/);
+			const stepNumber = stepMatch ? (stepMatch[1] ?? "") : "";
+
 			// Check if this color corresponds to a key color
-			// Method 1: Check by explicit step (if specified)
-			// Method 2: Check by ratio match (if no step specified)
 			let isKeyColor = false;
 
 			keyColorsWithSteps.forEach((keyColorSpec, idx) => {
 				if (idx >= originalKeyColors.length) return;
 
 				if (keyColorSpec.step !== undefined) {
-					// Explicit step: match by token name
 					const expectedName = `${p.name.toLowerCase()}-${keyColorSpec.step}`;
 					if (tokenName === expectedName) {
 						isKeyColor = true;
 					}
 				} else {
-					// Auto mode: match by ratio
 					const keyColor = originalKeyColors[idx];
 					if (keyColor) {
 						const keyRatio = keyColor.contrast(bg);
@@ -592,35 +614,189 @@ export const runDemo = () => {
 				}
 			});
 
-			const keyIndicator = isKeyColor
-				? '<span style="background:#ffd700; color:black; padding:2px 4px; border-radius:4px; font-size:0.7rem; margin-left:8px;">KEY</span>'
-				: "";
+			// Create swatch element
+			const swatchWrapper = document.createElement("div");
+			swatchWrapper.style.cssText = `
+				position: relative;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				gap: 8px;
+			`;
 
-			const el = document.createElement("div");
-			el.className = "swatch";
-			el.style.backgroundColor = hex;
+			const swatch = document.createElement("div");
+			swatch.style.cssText = `
+				width: 80px;
+				height: 80px;
+				background-color: ${hex};
+				border-radius: ${isKeyColor ? "50%" : "8px"};
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+				cursor: pointer;
+				transition: transform 0.15s ease, box-shadow 0.15s ease;
+				position: relative;
+			`;
 
+			// Add hover effect
+			swatch.onmouseenter = () => {
+				swatch.style.transform = "scale(1.05) translateY(-2px)";
+				swatch.style.boxShadow = "0 8px 16px rgba(0,0,0,0.15)";
+			};
+
+			swatch.onmouseleave = () => {
+				swatch.style.transform = "scale(1)";
+				swatch.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)";
+			};
+
+			// Contrast Checks for Indicators
 			const white = new Color("#ffffff");
-			const textCol = color.contrast(white) > 4.5 ? "#ffffff" : "#000000";
-			el.style.color = textCol;
+			const black = new Color("#000000");
+			const whiteContrast = color.contrast(white);
+			const blackContrast = color.contrast(black);
+			const isWhitePass = whiteContrast >= 4.5;
+			const isBlackPass = blackContrast >= 4.5;
 
-			el.innerHTML = `
-        <div class="swatch-info">
-          <div style="font-weight:bold;">${tokenName} ${keyIndicator}</div>
-          <div style="font-size:0.8rem; opacity:0.8;">${hex}</div>
-        </div>
-        <div style="text-align:right; font-size: 0.8rem;">
-          <div class="contrast-badge" style="margin-bottom:4px;">
-            WCAG: <strong>${wcag.contrast.toFixed(2)}</strong>
-          </div>
-          <div class="contrast-badge">
-            APCA: <strong>${apcaLc.toFixed(0)}</strong>
-          </div>
-        </div>
-      `;
-			el.title = `APCA Status: ${getAPCALabel(apcaStatus)}`; // Show status on hover to save space
-			app.appendChild(el);
+			// Container for indicators
+			const indicators = document.createElement("div");
+			indicators.style.cssText = `
+				position: absolute;
+				top: 50%;
+				left: 50%;
+				transform: translate(-50%, -50%);
+				display: flex;
+				gap: 8px;
+				pointer-events: none;
+				align-items: center;
+				justify-content: center;
+			`;
+
+			// White Indicator
+			if (isWhitePass) {
+				const icon = document.createElement("div");
+				icon.style.cssText = `
+					display: flex;
+					align-items: center;
+					justify-content: center;
+				`;
+				icon.innerHTML = `
+					<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+						<polyline points="20 6 9 17 4 12"></polyline>
+					</svg>
+				`;
+				indicators.appendChild(icon);
+			}
+
+			// Black Indicator
+			if (isBlackPass) {
+				const icon = document.createElement("div");
+				icon.style.cssText = `
+					display: flex;
+					align-items: center;
+					justify-content: center;
+				`;
+				icon.innerHTML = `
+					<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+						<polyline points="20 6 9 17 4 12"></polyline>
+					</svg>
+				`;
+				indicators.appendChild(icon);
+			}
+
+			swatch.appendChild(indicators);
+
+			// Add Key Color Indicator (Outer Ring)
+			if (isKeyColor) {
+				const ring = document.createElement("div");
+				ring.style.cssText = `
+					position: absolute;
+					top: -6px;
+					left: -6px;
+					right: -6px;
+					bottom: -6px;
+					border: 3px solid #0052cc;
+					border-radius: 50%;
+					pointer-events: none;
+					z-index: 10;
+				`;
+				swatch.appendChild(ring);
+				// Also make the swatch circular
+				swatch.style.borderRadius = "50%";
+			}
+
+			swatchWrapper.appendChild(swatch);
+			swatchesRow.appendChild(swatchWrapper);
+
+			// Info below swatch
+			const info = document.createElement("div");
+			info.style.cssText = `
+				text-align: center;
+				display: flex;
+				flex-direction: column;
+				gap: 4px;
+				margin-top: 8px;
+			`;
+
+			const stepLabel = document.createElement("div");
+			stepLabel.style.cssText = `
+				font-size: 0.9rem;
+				font-weight: ${isKeyColor ? "bold" : "500"};
+				color: #333;
+			`;
+			stepLabel.textContent = stepNumber;
+
+			const hexLabel = document.createElement("div");
+			hexLabel.style.cssText = `
+				font-size: 0.75rem;
+				color: #666;
+				font-family: monospace;
+			`;
+			hexLabel.textContent = hex;
+
+			// Contrast Info
+			const contrastInfo = document.createElement("div");
+			contrastInfo.style.cssText = `
+				display: flex;
+				flex-direction: column;
+				gap: 2px;
+				font-size: 0.7rem;
+				margin-top: 4px;
+				background: #f5f5f5;
+				padding: 4px;
+				border-radius: 4px;
+			`;
+
+			// WCAG
+			const wcagEl = document.createElement("div");
+			const wcagScore = wcag.contrast;
+			const wcagColor =
+				wcagScore >= 4.5 ? "#2e7d32" : wcagScore >= 3 ? "#f57c00" : "#d32f2f";
+			wcagEl.style.color = wcagColor;
+			wcagEl.style.fontWeight = "500";
+			wcagEl.textContent = `WCAG: ${wcagScore.toFixed(2)}`;
+			wcagEl.title = `WCAG Contrast Ratio: ${wcagScore.toFixed(2)}`;
+
+			// APCA
+			const apcaEl = document.createElement("div");
+			const apcaScore = Math.abs(apcaLc);
+			const apcaColor =
+				apcaScore >= 75 ? "#2e7d32" : apcaScore >= 60 ? "#f57c00" : "#d32f2f";
+			apcaEl.style.color = apcaColor;
+			apcaEl.textContent = `APCA: ${apcaLc.toFixed(0)}`;
+			apcaEl.title = `APCA Lightness Contrast: ${apcaLc.toFixed(0)}`;
+
+			contrastInfo.appendChild(wcagEl);
+			contrastInfo.appendChild(apcaEl);
+
+			info.appendChild(stepLabel);
+			info.appendChild(hexLabel);
+			info.appendChild(contrastInfo);
+			swatchWrapper.appendChild(info);
 		});
+
+		paletteContainer.appendChild(swatchesRow);
+		app.appendChild(paletteContainer);
 	};
 
 	const saveChanges = () => {
