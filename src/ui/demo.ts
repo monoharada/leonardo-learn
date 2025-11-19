@@ -476,22 +476,49 @@ export const runDemo = () => {
 				// Strategy: Request high chroma, clampChroma() will find the actual maximum
 				// for this specific lightness and hue in sRGB gamut
 				let absoluteChroma: number;
-				if (l < 0.15) {
-					absoluteChroma = 0.15; // Let clampChroma() find max for dark colors
-				} else if (l < 0.25) {
-					absoluteChroma = 0.2;
-				} else if (l < 0.4) {
-					absoluteChroma = 0.25;
-				} else if (l < 0.55) {
-					absoluteChroma = 0.3; // Request peak vibrancy
-				} else if (l < 0.7) {
-					absoluteChroma = 0.25;
-				} else if (l < 0.85) {
-					absoluteChroma = 0.2;
-				} else if (l < 0.93) {
-					absoluteChroma = 0.15;
+
+				// Special handling for magenta/pink hues (280-350°)
+				// These hues require higher chroma to maintain vibrancy across lightness range
+				const isMagentaPink = baseH >= 280 && baseH <= 350;
+
+				if (isMagentaPink) {
+					// Magenta/pink: use higher chroma values for better vibrancy
+					if (l < 0.15) {
+						absoluteChroma = 0.2;
+					} else if (l < 0.25) {
+						absoluteChroma = 0.28;
+					} else if (l < 0.4) {
+						absoluteChroma = 0.35; // Higher for dark magenta
+					} else if (l < 0.55) {
+						absoluteChroma = 0.37; // Peak chroma for mid-range
+					} else if (l < 0.7) {
+						absoluteChroma = 0.35; // Maintain high chroma
+					} else if (l < 0.85) {
+						absoluteChroma = 0.28; // Gradual decrease
+					} else if (l < 0.93) {
+						absoluteChroma = 0.2;
+					} else {
+						absoluteChroma = 0.15;
+					}
 				} else {
-					absoluteChroma = 0.1; // Even light colors can be vibrant
+					// Default handling for other hues
+					if (l < 0.15) {
+						absoluteChroma = 0.15; // Let clampChroma() find max for dark colors
+					} else if (l < 0.25) {
+						absoluteChroma = 0.2;
+					} else if (l < 0.4) {
+						absoluteChroma = 0.25;
+					} else if (l < 0.55) {
+						absoluteChroma = 0.3; // Request peak vibrancy
+					} else if (l < 0.7) {
+						absoluteChroma = 0.25;
+					} else if (l < 0.85) {
+						absoluteChroma = 0.2;
+					} else if (l < 0.93) {
+						absoluteChroma = 0.15;
+					} else {
+						absoluteChroma = 0.1; // Even light colors can be vibrant
+					}
 				}
 
 				chromaValues.push(absoluteChroma);
