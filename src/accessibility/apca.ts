@@ -15,9 +15,11 @@ export const getAPCA = (textColor: Color, bgColor: Color): number => {
     const bgRgb = toRgb(bgColor.oklch);
 
     // Convert to Y (luminance) using apca-w3 helpers
-    // Assuming sRGB for now as it's the standard web target
-    const textY = sRGBtoY([textRgb.r * 255, textRgb.g * 255, textRgb.b * 255]);
-    const bgY = sRGBtoY([bgRgb.r * 255, bgRgb.g * 255, bgRgb.b * 255]);
+    // Ensure values are clamped to 0-255 to avoid NaN from negative floating point errors
+    const clamp = (v: number) => Math.max(0, Math.min(255, v * 255));
+
+    const textY = sRGBtoY([clamp(textRgb.r), clamp(textRgb.g), clamp(textRgb.b)]);
+    const bgY = sRGBtoY([clamp(bgRgb.r), clamp(bgRgb.g), clamp(bgRgb.b)]);
 
     return APCAcontrast(textY, bgY);
 };
