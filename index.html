@@ -62,17 +62,31 @@
                 <!-- List of palettes will go here -->
             </div>
 
+            <!-- Step count selector for scale intervals -->
+            <div style="margin-top: 1rem;">
+                <label for="stepCountSelect" style="display:block; font-weight:bold; margin-bottom:0.5rem;">スケール段数</label>
+                <select id="stepCountSelect" style="width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px;">
+                    <option value="6">6段階</option>
+                    <option value="8">8段階</option>
+                    <option value="10">10段階</option>
+                    <option value="12">12段階</option>
+                    <option value="13" selected>13段階 (デフォルト)</option>
+                </select>
+            </div>
+
             <button id="add-palette"
-                style="width: 100%; padding: 0.5rem; border: 1px dashed #ccc; background: none; cursor: pointer; border-radius: 4px;">+
+                style="width: 100%; padding: 0.5rem; border: 1px dashed #ccc; background: none; cursor: pointer; border-radius: 4px; margin-top: 1rem;">
                 Add Palette</button>
 
             <div style="margin-top: 2rem; border-top: 1px solid #eee; padding-top: 1rem;">
                 <button id="export-css"
-                    style="width: 100%; margin-bottom: 0.5rem; padding: 0.5rem; background: #eee; border: none; border-radius: 4px; cursor: pointer;">Export
-                    CSS</button>
+                    style="width: 100%; margin-bottom: 0.5rem; padding: 0.5rem; background: #eee; border: none; border-radius: 4px; cursor: pointer;">
+                Export
+                CSS</button>
                 <button id="export-json"
-                    style="width: 100%; padding: 0.5rem; background: #eee; border: none; border-radius: 4px; cursor: pointer;">Export
-                    JSON</button>
+                    style="width: 100%; padding: 0.5rem; background: #eee; border: none; border-radius: 4px; cursor: pointer;">
+                Export
+                JSON</button>
             </div>
         </div>
 
@@ -113,6 +127,18 @@
                         <option value="1100">1100</option>
                         <option value="1200">1200（最も暗い）</option>
                     </select>
+                    <small id="stepHint" style="color: #666; font-size: 0.8rem; display:block; margin-top:0.25rem;">
+                        このカラーをスケール内のどの位置に配置するか選択してください
+                    </small>
+                </div>
+
+                <div style="margin-bottom: 1rem;">
+                    <label for="stepCurveSelect" style="display:block; font-weight:bold; margin-top:0.5rem; margin-bottom:0.25rem;">スケール間隔曲線 (指数)</label>
+                <select id="stepCurveSelect" style="width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px;">
+                    <option value="1" selected>リニア (1)</option>
+                    <option value="0.5">イーズイン (0.5)</option>
+                    <option value="2">イーズアウト (2)</option>
+                </select>
                     <small id="stepHint" style="color: #666; font-size: 0.8rem; display:block; margin-top:0.25rem;">
                         このカラーをスケール内のどの位置に配置するか選択してください
                     </small>
