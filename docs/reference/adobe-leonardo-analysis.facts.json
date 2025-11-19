@@ -1,0 +1,156 @@
+{
+  "purpose": "Adobe Leonardoの技術詳細を理解し、OKLCH/日本語対応版開発の参考とする",
+  "generated_at": "2025-11-19T11:52:00Z",
+  "facts": [
+    {
+      "id": "F001",
+      "claim": "Leonardoはコントラスト比を起点として色を生成する",
+      "source": {
+        "url": "https://github.com/adobe/leonardo",
+        "title": "Leonardo",
+        "publisher": "Adobe",
+        "published": "2019-08-15",
+        "updated": "2024-03-14"
+      },
+      "evidence_excerpt": "conform to WCAG minimum contrast standards by using contrast ratio as the starting point",
+      "confidence": 0.95,
+      "tags": ["wcag", "contrast", "accessibility"],
+      "notes": "従来の色選択→確認の逆アプローチ"
+    },
+    {
+      "id": "F002",
+      "claim": "3000点の色スケールを生成して二分探索で目標値を見つける",
+      "source": {
+        "url": "https://github.com/adobe/leonardo",
+        "title": "Leonardo - utils.js",
+        "publisher": "Adobe",
+        "published": "2019-08-15",
+        "updated": "2024-03-14"
+      },
+      "evidence_excerpt": "3000-point scale that meet target contrast ratios",
+      "confidence": 0.92,
+      "tags": ["algorithm", "performance", "search"],
+      "notes": "searchColors関数で100回反復、誤差0.01閾値"
+    },
+    {
+      "id": "F003",
+      "claim": "7つの色空間での補間をサポート",
+      "source": {
+        "url": "https://github.com/adobe/leonardo",
+        "title": "Leonardo README",
+        "publisher": "Adobe",
+        "published": "2019-08-15",
+        "updated": "2024-03-14"
+      },
+      "evidence_excerpt": "LCH, LAB, CAM02, HSL, HSLuv, HSV, RGB",
+      "confidence": 0.98,
+      "tags": ["colorspace", "interpolation"],
+      "notes": "知覚的均一性のためLCH/LAB/CAM02を推奨"
+    },
+    {
+      "id": "F004",
+      "claim": "WCAG2とWCAG3（APCA）の両方の計算式をサポート",
+      "source": {
+        "url": "https://github.com/adobe/leonardo",
+        "title": "Leonardo - utils.js",
+        "publisher": "Adobe",
+        "published": "2019-08-15",
+        "updated": "2024-03-14"
+      },
+      "evidence_excerpt": "WCAG2: (L1 + 0.05) / (L2 + 0.05)...WCAG3: Uses APCA via APCAcontrast()",
+      "confidence": 0.89,
+      "tags": ["wcag", "apca", "standards"],
+      "notes": "WCAG3は将来標準、現在ドラフト"
+    },
+    {
+      "id": "F005",
+      "claim": "Theme/Color/BackgroundColorの3クラス構成",
+      "source": {
+        "url": "https://github.com/adobe/leonardo",
+        "title": "Leonardo - index.js",
+        "publisher": "Adobe",
+        "published": "2019-08-15",
+        "updated": "2024-03-14"
+      },
+      "evidence_excerpt": "exports: Color, BackgroundColor, Theme",
+      "confidence": 0.96,
+      "tags": ["architecture", "design-pattern"],
+      "notes": "責任分離による保守性向上"
+    },
+    {
+      "id": "F006",
+      "claim": "Catmull-Romスプラインをベジェ曲線に変換して滑らかな補間",
+      "source": {
+        "url": "https://github.com/adobe/leonardo",
+        "title": "Leonardo - utils.js",
+        "publisher": "Adobe",
+        "published": "2019-08-15",
+        "updated": "2024-03-14"
+      },
+      "evidence_excerpt": "Catmull-Rom spline curves converted to Bezier curves",
+      "confidence": 0.88,
+      "tags": ["algorithm", "interpolation", "smooth"],
+      "notes": "smooth=trueオプションで有効化"
+    },
+    {
+      "id": "F007",
+      "claim": "輝度計算はWCAG2.1仕様に準拠",
+      "source": {
+        "url": "https://github.com/adobe/leonardo",
+        "title": "Leonardo - utils.js",
+        "publisher": "Adobe",
+        "published": "2019-08-15",
+        "updated": "2024-03-14"
+      },
+      "evidence_excerpt": "v <= 0.03928 ? v/12.92 : ((v+0.055)/1.055)**2.4",
+      "confidence": 0.94,
+      "tags": ["wcag", "luminance", "formula"],
+      "notes": "sRGBガンマ補正を考慮した標準式"
+    },
+    {
+      "id": "F008",
+      "claim": "コントラスト乗数で全体的な明暗調整が可能",
+      "source": {
+        "url": "https://github.com/adobe/leonardo",
+        "title": "Leonardo - theme.js",
+        "publisher": "Adobe",
+        "published": "2019-08-15",
+        "updated": "2024-03-14"
+      },
+      "evidence_excerpt": "Modify target ratio based on contrast multiplier",
+      "confidence": 0.91,
+      "tags": ["theme", "adaptive", "contrast"],
+      "notes": "ユーザー環境に応じた動的調整用"
+    },
+    {
+      "id": "F009",
+      "claim": "chroma.jsをベースにD3 colorモジュールを採用",
+      "source": {
+        "url": "https://github.com/adobe/leonardo",
+        "title": "Leonardo README",
+        "publisher": "Adobe",
+        "published": "2019-08-15",
+        "updated": "2024-03-14"
+      },
+      "evidence_excerpt": "D3 specifically for...CIE CAM02",
+      "confidence": 0.87,
+      "tags": ["dependency", "d3", "chroma"],
+      "notes": "CAM02色外観モデルのサポートが決め手"
+    },
+    {
+      "id": "F010",
+      "claim": "モノレポ構造でpnpm/moonビルドシステム採用",
+      "source": {
+        "url": "https://github.com/adobe/leonardo",
+        "title": "Leonardo",
+        "publisher": "Adobe",
+        "published": "2019-08-15",
+        "updated": "2024-03-14"
+      },
+      "evidence_excerpt": "pnpm install...moon run dev",
+      "confidence": 0.93,
+      "tags": ["build", "monorepo", "tooling"],
+      "notes": "packages/とdocs/ui/の分離構成"
+    }
+  ]
+}
