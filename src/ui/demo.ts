@@ -630,8 +630,9 @@ export const runDemo = () => {
 		// Get hex color from input field
 		const hexColor = keyColorsInput.value.trim().split("@")[0]?.trim() ?? "";
 
-		// Get currently selected step from dropdown
-		const selectedStep = stepSelect.value;
+		// Get currently selected step from slider
+		const sliderIndex = Number.parseInt(stepSlider.value, 10);
+		const selectedStep = getStepFromSliderIndex(sliderIndex);
 
 		// Save with @step if step is selected, otherwise just the color
 		if (hexColor && selectedStep) {
@@ -760,11 +761,48 @@ export const runDemo = () => {
 		}
 	};
 
-	// UI: Step selection
-	const stepSelect = document.getElementById("stepSelect") as HTMLSelectElement;
+	// UI: Step selection with range slider
+	const stepSlider = document.getElementById("stepSlider") as HTMLInputElement;
 	const stepHint = document.getElementById("stepHint") as HTMLElement;
+	const stepValues = [
+		50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200,
+	];
 
-	// Update step recommendations when key color changes
+	// Helper: Get step value from slider index
+	const getStepFromSliderIndex = (index: number): number => {
+		return stepValues[index] ?? 600;
+	};
+
+	// Helper: Get slider index from step value
+	const getSliderIndexFromStep = (step: number): number => {
+		const index = stepValues.indexOf(step);
+		return index !== -1 ? index : 6; // Default to 600 (index 6)
+	};
+
+	// Debounce timer for color code input
+	let colorInputDebounceTimer: number | null = null;
+
+	// Update palette when color code changes (debounced + Enter key)
+	const applyColorChange = (hexColor: string) => {
+		const recommended = recommendStep(hexColor);
+		if (recommended !== null) {
+			// Auto-select recommended step
+			const sliderIndex = getSliderIndexFromStep(recommended);
+			stepSlider.value = String(sliderIndex);
+
+			// Update hint message
+			stepHint.innerHTML = `<strong>${hexColor}</strong>の明度から<strong>${recommended}</strong>を最適なスケール配置としました`;
+
+			// Automatically generate palette with recommended step
+			const p = getActivePalette();
+			if (p) {
+				p.keyColors = [`${hexColor}@${recommended}`];
+				renderMain();
+			}
+		}
+	};
+
+	// Color code input with debounce (300ms)
 	keyColorsInput.addEventListener("input", () => {
 		const value = keyColorsInput.value.trim();
 		if (!value) {
@@ -777,60 +815,107 @@ export const runDemo = () => {
 		const hexColor = value.split("@")[0]?.trim() ?? "";
 		if (!hexColor) return;
 
-		const recommended = recommendStep(hexColor);
-		if (recommended !== null) {
-			// Auto-select recommended step
-			stepSelect.value = String(recommended);
+		// Only apply if valid hex color (#RRGGBB)
+		if (/^#[0-9A-Fa-f]{6}$/.test(hexColor)) {
+			if (colorInputDebounceTimer) clearTimeout(colorInputDebounceTimer);
+			colorInputDebounceTimer = window.setTimeout(() => {
+				applyColorChange(hexColor);
+			}, 300);
+		}
+	});
 
-			// Update hint message
-			stepHint.innerHTML = `<strong>${hexColor}</strong>の明度から<strong>${recommended}</strong>を最適なスケール配置としました`;
+	// Enter key to immediately apply color code
+	keyColorsInput.addEventListener("keydown", (e) => {
+		if (e.key === "Enter") {
+			const value = keyColorsInput.value.trim();
+			const hexColor = value.split("@")[0]?.trim() ?? "";
 
-			// Automatically generate palette with recommended step
-			const p = getActivePalette();
-			if (p) {
-				p.keyColors = [`${hexColor}@${recommended}`];
-				// Keep input field clean (color only, no @step)
-				renderMain();
+			if (/^#[0-9A-Fa-f]{6}$/.test(hexColor)) {
+				if (colorInputDebounceTimer) clearTimeout(colorInputDebounceTimer);
+				applyColorChange(hexColor);
 			}
 		}
 	});
 
-	// Update palette when step is selected
-	stepSelect.addEventListener("change", () => {
-		const hexColor = keyColorsInput.value.trim().split("@")[0]?.trim() ?? "";
-		const selectedStep = stepSelect.value;
+	// Update palette when slider changes (real-time)
+	stepSlider.addEventListener("input", () => {
+		// Cancel debounce timer to prevent overwriting manual changes
+		if (colorInputDebounceTimer) {
+			clearTimeout(colorInputDebounceTimer);
+			colorInputDebounceTimer = null;
+		}
 
-		if (hexColor && selectedStep) {
+		const hexColor = keyColorsInput.value.trim().split("@")[0]?.trim() ?? "";
+		const sliderIndex = Number.parseInt(stepSlider.value, 10);
+		const selectedStep = getStepFromSliderIndex(sliderIndex);
+
+		if (hexColor && /^#[0-9A-Fa-f]{6}$/.test(hexColor)) {
 			const p = getActivePalette();
 			if (p) {
 				p.keyColors = [`${hexColor}@${selectedStep}`];
-				// Keep input field clean (color only, no @step)
+				stepHint.innerHTML = `<strong>${hexColor}</strong>をスケール位置<strong>${selectedStep}</strong>に配置しました`;
 				renderMain();
 			}
 		}
 	});
 
-	// Contrast intensity control
-	const contrastIntensitySelect = document.getElementById(
-		"contrastIntensity",
-	) as HTMLSelectElement;
-	if (contrastIntensitySelect) {
-		contrastIntensitySelect.addEventListener("change", () => {
-			state.contrastIntensity =
-				contrastIntensitySelect.value as ContrastIntensity;
-			renderMain();
+	// Button group helper: Update active state
+	const updateButtonGroupState = (
+		container: HTMLElement,
+		activeValue: string,
+	) => {
+		const buttons = container.querySelectorAll("button");
+		buttons.forEach((btn) => {
+			const value = btn.getAttribute("data-value");
+			if (value === activeValue) {
+				btn.style.border = "2px solid #0052cc";
+				btn.style.background = "#e3f2fd";
+				btn.style.fontWeight = "bold";
+				btn.classList.add("active");
+			} else {
+				btn.style.border = "1px solid #ccc";
+				btn.style.background = "white";
+				btn.style.fontWeight = "normal";
+				btn.classList.remove("active");
+			}
+		});
+	};
+
+	// Contrast intensity button group
+	const contrastIntensityButtons = document.getElementById(
+		"contrastIntensityButtons",
+	);
+	if (contrastIntensityButtons) {
+		contrastIntensityButtons.addEventListener("click", (e) => {
+			const target = e.target as HTMLElement;
+			if (target.tagName === "BUTTON") {
+				const value = target.getAttribute("data-value") as ContrastIntensity;
+				if (value) {
+					state.contrastIntensity = value;
+					updateButtonGroupState(contrastIntensityButtons, value);
+					renderMain();
+				}
+			}
 		});
 	}
 
-	// Lightness distribution control
-	const lightnessDistributionSelect = document.getElementById(
-		"lightnessDistribution",
-	) as HTMLSelectElement;
-	if (lightnessDistributionSelect) {
-		lightnessDistributionSelect.addEventListener("change", () => {
-			state.lightnessDistribution =
-				lightnessDistributionSelect.value as LightnessDistribution;
-			renderMain();
+	// Lightness distribution button group
+	const lightnessDistributionButtons = document.getElementById(
+		"lightnessDistributionButtons",
+	);
+	if (lightnessDistributionButtons) {
+		lightnessDistributionButtons.addEventListener("click", (e) => {
+			const target = e.target as HTMLElement;
+			if (target.tagName === "BUTTON") {
+				const value = target.getAttribute(
+					"data-value",
+				) as LightnessDistribution;
+				if (value) {
+					state.lightnessDistribution = value;
+					updateButtonGroupState(lightnessDistributionButtons, value);
+					renderMain();
+				}
+			}
 		});
 	}
 
