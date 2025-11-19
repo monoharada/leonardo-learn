@@ -109,8 +109,8 @@ export const runDemo = () => {
 
 	const updateEditor = () => {
 		const p = getActivePalette();
-		if (!p || !currentNameEl) return;
-		currentNameEl.textContent = p.name;
+		if (!p) return;
+		currentNameEl!.textContent = p.name;
 		// Display only hex colors, remove @step for clean UI
 		keyColorsInput.value = p.keyColors
 			.map((kc) => kc.split("@")[0]?.trim() ?? kc)
@@ -128,7 +128,7 @@ export const runDemo = () => {
 		if (parts.length > 1) {
 			const stepStr = parts[1]?.trim();
 			const parsedStep = parseInt(stepStr ?? "", 10);
-			if (!Number.isNaN(parsedStep)) {
+			if (!isNaN(parsedStep)) {
 				step = parsedStep;
 			}
 		}
@@ -174,7 +174,7 @@ export const runDemo = () => {
 			keyColors = keyColorsWithSteps.map(
 				(kc) => new Color(kc.color, { skipClamp: true }),
 			);
-		} catch (_e) {
+		} catch (e) {
 			return;
 		}
 
@@ -365,12 +365,10 @@ export const runDemo = () => {
 
 		// If explicit step is specified, generate colors directly without interpolation
 		if (hasExplicitStep && originalKeyColors.length > 0) {
-			const keyColor = originalKeyColors[0];
-			if (!keyColor) return;
-
+			const keyColor = originalKeyColors[0]!;
 			const baseL = keyColor.oklch.l;
 			const baseC = keyColor.oklch.c;
-			const baseH = keyColor.oklch.h ?? 0;
+			const baseH = keyColor.oklch.h ?? 0; // Ensure hue is defined
 			const keyStep = keyColorsWithSteps[0]?.step ?? 600;
 
 			// Detect achromatic (neutral/gray) colors
@@ -379,50 +377,17 @@ export const runDemo = () => {
 			const isNeutralPalette = p?.id === "neutral";
 			const isAchromatic = isNeutralPalette || baseC < 0.01;
 
-			// Helper: Generate standard step values based on totalSteps (dynamic)
-			const generateStandardSteps = (steps: number): number[] => {
-				const min = 50;
-				const max = 1200;
-				if (steps <= 1) return [min];
-				const stepSize = (max - min) / (steps - 1);
-				const arr: number[] = [];
-				for (let i = 0; i < steps; i++) {
-					arr.push(Math.round(min + i * stepSize));
-				}
-				return arr;
-			};
-
-			// Initialize UI control values
-			let totalSteps = 13;
-			let curveExponent = 1; // default linear
-
-			// Get initial values from UI controls
-			const stepCountSelect = document.getElementById(
-				"stepCountSelect",
-			) as HTMLSelectElement;
-			if (stepCountSelect) {
-				const initial = parseInt(stepCountSelect.value, 10);
-				if (!Number.isNaN(initial) && initial > 0) {
-					totalSteps = initial;
-				}
-			}
-
-			const stepCurveSelect = document.getElementById(
-				"stepCurveSelect",
-			) as HTMLSelectElement;
-			if (stepCurveSelect) {
-				const initialCurve = parseFloat(stepCurveSelect.value);
-				if (!Number.isNaN(initialCurve) && initialCurve > 0) {
-					curveExponent = initialCurve;
-				}
-			}
-
-			// Generate standard steps
-			let standardSteps = generateStandardSteps(totalSteps);
-
-			// Calculate the index of the key color
+			// Calculate the index of the key color in the 13-step array
+			// standardSteps: [50, 100, 200, ..., 1200]
+			// Array order: [1200, 1100, ..., 50] (reversed for display)
 			const keyStepIndex = standardSteps.indexOf(keyStep);
-			const keyArrayIndex = 12 - keyStepIndex;
+			const keyArrayIndex = 12 - keyStepIndex; // Reverse index (0 = darkest, 12 = lightest)
+
+			// Generate lightness scale centered on the key color's lightness
+			// The key color should be at keyArrayIndex with lightness baseL
+			// Distribute other steps evenly, maintaining perceptual uniformity
+			const lightnessScale: number[] = [];
+			const totalSteps = 13;
 
 			// Calculate lightness range - avoid extremes where chroma is impossible
 			// sRGB gamut is very limited at L<0.20 and L>0.95
@@ -438,47 +403,30 @@ export const runDemo = () => {
 			const maxL = 0.95; // Lightest useful color (was 0.98)
 			const lightnessRange = maxL - minL;
 
-			// Generate lightness scale with curve exponent
-			const lightnessScale: number[] = [];
+			// Calculate step size based on key color position
+			// If key is at index 6 (middle), distribute evenly
+			// If key is at index 10 (lighter), compress dark side, expand light side
 			for (let i = 0; i < totalSteps; i++) {
 				if (i === keyArrayIndex) {
-					lightnessScale.push(baseL);
+					lightnessScale.push(baseL); // Use exact key color lightness
 				} else {
-					// Linear interpolation modified by curve exponent
-					const progress = (i / (totalSteps - 1)) ** curveExponent;
+					// Linear interpolation based on distance from key
+					const progress = i / (totalSteps - 1); // 0 to 1
 					const targetL = minL + lightnessRange * progress;
+
+					// Adjust to anchor at key color position
 					const keyProgress = keyArrayIndex / (totalSteps - 1);
-					const offset =
-						baseL - (minL + lightnessRange * keyProgress ** curveExponent);
+					const offset = baseL - (minL + lightnessRange * keyProgress);
+
+					// For the lightest color (index 12), allow higher lightness for differentiation
 					const effectiveMaxL = i === totalSteps - 1 ? 0.98 : maxL;
 					const adjustedL = Math.max(
 						minL,
 						Math.min(effectiveMaxL, targetL + offset),
 					);
+
 					lightnessScale.push(adjustedL);
 				}
-			}
-
-			// Register event listeners for UI controls
-			if (stepCountSelect) {
-				stepCountSelect.addEventListener("change", () => {
-					const val = parseInt(stepCountSelect.value, 10);
-					if (!Number.isNaN(val) && val > 0) {
-						totalSteps = val;
-						standardSteps = generateStandardSteps(totalSteps);
-						renderMain();
-					}
-				});
-			}
-
-			if (stepCurveSelect) {
-				stepCurveSelect.addEventListener("change", () => {
-					const val = parseFloat(stepCurveSelect.value);
-					if (!Number.isNaN(val) && val > 0) {
-						curveExponent = val;
-						renderMain();
-					}
-				});
 			}
 
 			// Generate absolute chroma values based on lightness
@@ -489,8 +437,7 @@ export const runDemo = () => {
 			// Reference: Maximum safe chroma for each lightness in OKLCH->sRGB
 			// These values ensure hue preservation while maintaining vibrancy
 			for (let i = 0; i < totalSteps; i++) {
-				const l = lightnessScale[i];
-				if (l === undefined) continue;
+				const l = lightnessScale[i]!;
 
 				// If key color is achromatic (gray), keep entire palette achromatic
 				if (isAchromatic) {
@@ -527,7 +474,7 @@ export const runDemo = () => {
 			chromaValues[keyArrayIndex] = baseC;
 
 			colors = lightnessScale.map((l, i) => {
-				const targetC = chromaValues[i] ?? 0;
+				const targetC = chromaValues[i]!;
 				const generatedColor = new Color({
 					mode: "oklch",
 					l: l,
@@ -645,81 +592,68 @@ export const runDemo = () => {
 	// Event Listeners
 	keyColorsInput.onchange = saveChanges;
 
-	const addPaletteBtn = document.getElementById("add-palette");
-	if (addPaletteBtn) {
-		addPaletteBtn.onclick = () => {
-			const name = prompt("Palette Name?");
-			if (name) {
-				const id = name.toLowerCase().replace(/\s+/g, "-");
-				state.palettes.push({
-					id,
-					name,
-					keyColors: ["#000", "#fff"],
-					ratios: [21, 15, 10, 7, 4.5, 3, 1],
-				});
-				state.activeId = id;
-				renderSidebar();
-				updateEditor();
-				renderMain();
-			}
-		};
-	}
-
-	const exportCssBtn = document.getElementById("export-css");
-	if (exportCssBtn) {
-		exportCssBtn.onclick = () => {
-			let css = ":root {\n";
-			state.palettes.forEach((p) => {
-				const theme = new Theme(
-					p.keyColors.map((s) => new Color(s)),
-					BackgroundColor.White,
-					p.ratios,
-				);
-				theme.colors.forEach((c, i) => {
-					css += `  --color-${getTokenName(p.name, i, theme.colors.length)}: ${c.toHex()};\n`;
-				});
-				css += "\n";
+	document.getElementById("add-palette")!.onclick = () => {
+		const name = prompt("Palette Name?");
+		if (name) {
+			const id = name.toLowerCase().replace(/\s+/g, "-");
+			state.palettes.push({
+				id,
+				name,
+				keyColors: ["#000", "#fff"],
+				ratios: [21, 15, 10, 7, 4.5, 3, 1],
 			});
-			css += "}";
+			state.activeId = id;
+			renderSidebar();
+			updateEditor();
+			renderMain();
+		}
+	};
 
-			const dialog = document.getElementById(
-				"export-dialog",
-			) as HTMLDialogElement;
-			const area = document.getElementById(
-				"export-area",
-			) as HTMLTextAreaElement;
-			area.value = css;
-			dialog.showModal();
-		};
-	}
-
-	const exportJsonBtn = document.getElementById("export-json");
-	if (exportJsonBtn) {
-		exportJsonBtn.onclick = () => {
-			const json: Record<string, Record<number, string>> = {};
-			state.palettes.forEach((p) => {
-				const theme = new Theme(
-					p.keyColors.map((s) => new Color(s)),
-					BackgroundColor.White,
-					p.ratios,
-				);
-				const colors: Record<number, string> = {};
-				theme.colors.forEach((c, i) => {
-					colors[(i + 1) * 100] = c.toHex();
-				});
-				json[p.id] = colors;
+	document.getElementById("export-css")!.onclick = () => {
+		let css = ":root {\n";
+		state.palettes.forEach((p) => {
+			const theme = new Theme(
+				p.keyColors.map((s) => new Color(s)),
+				BackgroundColor.White,
+				p.ratios,
+			);
+			theme.colors.forEach((c, i) => {
+				css += `  --color-${getTokenName(p.name, i, theme.colors.length)}: ${c.toHex()};\n`;
 			});
+			css += "\n";
+		});
+		css += "}";
 
-			const dialog = document.getElementById(
-				"export-dialog",
-			) as HTMLDialogElement;
-			const area = document.getElementById(
-				"export-area",
-			) as HTMLTextAreaElement;
-			area.value = JSON.stringify(json, null, 2);
-			dialog.showModal();
-		};
-	}
+		const dialog = document.getElementById(
+			"export-dialog",
+		) as HTMLDialogElement;
+		const area = document.getElementById("export-area") as HTMLTextAreaElement;
+		area.value = css;
+		dialog.showModal();
+	};
+
+	document.getElementById("export-json")!.onclick = () => {
+		const json: any = {};
+		state.palettes.forEach((p) => {
+			const theme = new Theme(
+				p.keyColors.map((s) => new Color(s)),
+				BackgroundColor.White,
+				p.ratios,
+			);
+			const colors: any = {};
+			theme.colors.forEach((c, i) => {
+				colors[(i + 1) * 100] = c.toHex();
+			});
+			json[p.id] = colors;
+		});
+
+		const dialog = document.getElementById(
+			"export-dialog",
+		) as HTMLDialogElement;
+		const area = document.getElementById("export-area") as HTMLTextAreaElement;
+		area.value = JSON.stringify(json, null, 2);
+		dialog.showModal();
+	};
 
 	// Helper: Analyze color lightness and recommend optimal step
 	const recommendStep = (hexColor: string): number | null => {
@@ -767,7 +701,7 @@ export const runDemo = () => {
 			} else {
 				return 1200; // Very dark/black colors
 			}
-		} catch (_e) {
+		} catch (e) {
 			return null;
 		}
 	};

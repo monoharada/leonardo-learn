@@ -62,18 +62,6 @@
                 <!-- List of palettes will go here -->
             </div>
 
-            <!-- Step count selector for scale intervals -->
-            <div style="margin-top: 1rem;">
-                <label for="stepCountSelect" style="display:block; font-weight:bold; margin-bottom:0.5rem;">スケール段数</label>
-                <select id="stepCountSelect" style="width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px;">
-                    <option value="6">6段階</option>
-                    <option value="8">8段階</option>
-                    <option value="10">10段階</option>
-                    <option value="12">12段階</option>
-                    <option value="13" selected>13段階 (デフォルト)</option>
-                </select>
-            </div>
-
             <button id="add-palette"
                 style="width: 100%; padding: 0.5rem; border: 1px dashed #ccc; background: none; cursor: pointer; border-radius: 4px; margin-top: 1rem;">
                 Add Palette</button>
@@ -94,7 +82,7 @@
         <div style="flex: 1; padding: 2rem; overflow-y: auto;">
             <div id="editor-panel"
                 style="background: white; padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
-                <h2 id="current-palette-name" style="margin-top: 0;">Primary</h2>
+                <h2 id="current-palette-name" style="margin-top: 0;">Color</h2>
 
                 <div style="margin-bottom: 1rem;">
                     <label for="keyColors" style="display:block; font-weight:bold; margin-bottom:0.5rem;">キーカラー</label>
@@ -132,17 +120,6 @@
                     </small>
                 </div>
 
-                <div style="margin-bottom: 1rem;">
-                    <label for="stepCurveSelect" style="display:block; font-weight:bold; margin-top:0.5rem; margin-bottom:0.25rem;">スケール間隔曲線 (指数)</label>
-                <select id="stepCurveSelect" style="width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px;">
-                    <option value="1" selected>リニア (1)</option>
-                    <option value="0.5">イーズイン (0.5)</option>
-                    <option value="2">イーズアウト (2)</option>
-                </select>
-                    <small id="stepHint" style="color: #666; font-size: 0.8rem; display:block; margin-top:0.25rem;">
-                        このカラーをスケール内のどの位置に配置するか選択してください
-                    </small>
-                </div>
             </div>
 
             <div id="app" class="palette">
