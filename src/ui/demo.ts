@@ -893,82 +893,69 @@ export const runDemo = () => {
 		) => {
 			const card = document.createElement("div");
 			card.style.cssText = `
-				background: white;
+				background: ${isPass ? "white" : "#f5f5f5"};
 				border-radius: 12px;
 				padding: 1.5rem;
 				box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-				border: 1px solid #eee;
-				display: flex;
-				flex-direction: column;
-				gap: 1rem;
+				border: 1px solid ${isPass ? "#eee" : "#ddd"};
 			`;
 
-			// Title Row
-			const titleRow = document.createElement("div");
-			titleRow.style.cssText =
-				"display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;";
-
-			const dot = document.createElement("div");
-			dot.style.cssText = `width: 12px; height: 12px; border-radius: 50%; background: ${textColor}; border: 1px solid #ccc;`;
-
-			const label = document.createElement("span");
-			label.textContent = title;
-			label.style.fontWeight = "bold";
-			label.style.color = "#333";
-
-			titleRow.appendChild(dot);
-			titleRow.appendChild(label);
-			card.appendChild(titleRow);
-
-			// WCAG Section
-			const wcagSection = document.createElement("div");
 			const passBadge = isPass
-				? `<span style="background: #dcfce7; color: #166534; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; font-weight: bold;">合格 (AA)</span>`
-				: `<span style="background: #fee2e2; color: #991b1b; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; font-weight: bold;">不合格</span>`;
+				? '<span style="background: #e6f4ea; color: #137333; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: bold;">合格 (AA)</span>'
+				: '<span style="background: #fce8e6; color: #c5221f; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: bold;">不合格</span>';
 
-			wcagSection.innerHTML = `
-				<div style="font-size: 0.8rem; color: #666; margin-bottom: 4px;">WCAG コントラスト</div>
-				<div style="display: flex; align-items: baseline; gap: 1rem;">
-					<span style="font-size: 2rem; font-weight: bold; color: #333;">${wcag.toFixed(2)}</span>
+			card.innerHTML = `
+				<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+					<div style="display: flex; align-items: center; gap: 0.5rem;">
+						<div style="width: 12px; height: 12px; border-radius: 50%; background-color: ${textColor}; border: 1px solid #ddd;"></div>
+						<div style="font-weight: bold; color: #333;">${title}</div>
+					</div>
 					${passBadge}
 				</div>
-			`;
-			card.appendChild(wcagSection);
 
-			// APCA Section
-			const apcaSection = document.createElement("div");
-			apcaSection.style.marginTop = "0.5rem";
-			apcaSection.innerHTML = `
-				<div style="font-size: 0.8rem; color: #666; margin-bottom: 4px;">APCA (Lc)</div>
-				<div style="font-size: 1.5rem; font-weight: 500; color: #333;">${Math.abs(Math.round(apca))}</div>
-			`;
-			card.appendChild(apcaSection);
+				<div style="margin-bottom: 1.5rem;">
+					<div style="font-size: 0.8rem; color: #666; margin-bottom: 0.25rem;">WCAG コントラスト</div>
+					<div style="font-size: 2.5rem; font-weight: bold; color: #333;">${wcag.toFixed(2)}</div>
+				</div>
 
-			// Preview Box
-			const preview = document.createElement("div");
-			preview.style.cssText = `
-				margin-top: 1rem;
-				background: ${hex};
-				color: ${textColor};
-				padding: 1rem;
-				border-radius: 8px;
-				text-align: center;
-				font-weight: 500;
-				font-size: 0.9rem;
-				line-height: 1.6;
+				<div style="margin-bottom: 1.5rem;">
+					<div style="font-size: 0.8rem; color: #666; margin-bottom: 0.25rem;">APCA (Lc)</div>
+					<div style="font-size: 1.5rem; font-weight: bold; color: #333;">${Math.round(Math.abs(apca))}</div>
+				</div>
+
+				<div style="
+					background-color: ${hex};
+					color: ${textColor};
+					padding: 1rem;
+					border-radius: 8px;
+					font-size: 0.9rem;
+					line-height: 1.5;
+					text-align: center;
+				">
+					視認性の確認用テキストです。読みやすさを確認してください。
+				</div>
 			`;
-			preview.textContent =
-				"視認性の確認用テキストです。読みやすさを確認してください。";
-			card.appendChild(preview);
 
 			return card;
 		};
 
 		grid.appendChild(
-			createCard("白文字", "white", wcagWhite.contrast, apcaWhite, isWhitePass),
+			createCard(
+				"白に対するコントラスト",
+				"#ffffff",
+				wcagWhite.contrast,
+				apcaWhite,
+				isWhitePass,
+			),
 		);
 		grid.appendChild(
-			createCard("黒文字", "black", wcagBlack.contrast, apcaBlack, isBlackPass),
+			createCard(
+				"黒に対するコントラスト",
+				"#000000",
+				wcagBlack.contrast,
+				apcaBlack,
+				isBlackPass,
+			),
 		);
 
 		container.appendChild(grid);
@@ -988,7 +975,7 @@ export const runDemo = () => {
 
 		// Save with @step if step is selected, otherwise just the color
 		if (hexColor && selectedStep) {
-			p.keyColors = [`${hexColor}@${selectedStep}`];
+			p.keyColors = [`${hexColor} @${selectedStep} `];
 		} else if (hexColor) {
 			p.keyColors = [hexColor];
 		}
@@ -1020,12 +1007,12 @@ export const runDemo = () => {
 		let css = ":root {\n";
 		state.palettes.forEach((p) => {
 			const theme = new Theme(
-				p.keyColors.map((s) => new Color(s.split("@")[0] ?? "")),
+				p.keyColors.map((s) => new Color((s.split("@")[0] ?? "").trim())),
 				BackgroundColor.White,
 				p.ratios,
 			);
 			theme.colors.forEach((c, i) => {
-				css += `  --color-${getTokenName(p.name, i, theme.colors.length)}: ${c.toHex()};\n`;
+				css += `  --color - ${getTokenName(p.name, i, theme.colors.length)}: ${c.toHex()}; \n`;
 			});
 			css += "\n";
 		});
@@ -1043,7 +1030,7 @@ export const runDemo = () => {
 		const json: any = {};
 		state.palettes.forEach((p) => {
 			const theme = new Theme(
-				p.keyColors.map((s) => new Color(s.split("@")[0] ?? "")),
+				p.keyColors.map((s) => new Color((s.split("@")[0] ?? "").trim())),
 				BackgroundColor.White,
 				p.ratios,
 			);
@@ -1148,7 +1135,7 @@ export const runDemo = () => {
 			// Automatically generate palette with recommended step
 			const p = getActivePalette();
 			if (p) {
-				p.keyColors = [`${hexColor}@${recommended}`];
+				p.keyColors = [`${hexColor} @${recommended} `];
 				renderMain();
 			}
 		}
@@ -1180,11 +1167,11 @@ export const runDemo = () => {
 	keyColorsInput.addEventListener("keydown", (e) => {
 		if (e.key === "Enter") {
 			const value = keyColorsInput.value.trim();
-			const hexColor = value.split("@")[0]?.trim() ?? "";
+			const colorOnly = value.split("@")[0]?.trim() ?? "";
 
-			if (/^#[0-9A-Fa-f]{6}$/.test(hexColor)) {
+			if (/^#[0-9A-Fa-f]{6}$/.test(colorOnly)) {
 				if (colorInputDebounceTimer) clearTimeout(colorInputDebounceTimer);
-				applyColorChange(hexColor);
+				applyColorChange(colorOnly);
 			}
 		}
 	});
@@ -1204,7 +1191,7 @@ export const runDemo = () => {
 		if (hexColor && /^#[0-9A-Fa-f]{6}$/.test(hexColor)) {
 			const p = getActivePalette();
 			if (p) {
-				p.keyColors = [`${hexColor}@${selectedStep}`];
+				p.keyColors = [`${hexColor} @${selectedStep} `];
 				stepHint.innerHTML = `<strong>${hexColor}</strong>をスケール位置<strong>${selectedStep}</strong>に配置しました`;
 				renderMain();
 			}

@@ -82,32 +82,35 @@
         <div style="flex: 1; display: flex; flex-direction: column; height: 100vh; overflow: hidden;">
             
             <!-- Editor Panel (Top) -->
-            <div style="background: white; border-bottom: 1px solid #eee; height: 60vh; flex-shrink: 0;">
+            <div style="background: white; border-bottom: 1px solid #eee; height: 55vh; flex-shrink: 0;">
                 <div id="editor-panel" style="height: 100%; display: flex;">
                     
                     <!-- Left: Editor Controls -->
-                    <div id="editor-controls" style="flex: 0 0 450px; padding: 1.5rem; overflow-y: auto; border-right: 1px solid #eee;">
-                        <h2 id="current-palette-name" style="margin-top: 0;">Color</h2>
+                    <div id="editor-controls" style="flex: 0.8; padding: 2rem; border-right: 1px solid #eee; overflow: hidden;">
+                        <h2 id="current-palette-name" style="margin-top: 0; font-size: 1rem; margin-bottom: 0.75rem;">Color</h2>
 
-                        <div style="display: flex; flex-direction: column; gap: 2rem;">
+                        <div style="display: flex; flex-direction: column; gap: 1rem;">
                             <div>
-                                <div style="margin-bottom: 1rem;">
-                                    <label for="keyColors" style="display:block; font-weight:bold; margin-bottom:0.5rem;">キーカラー</label>
+                                <div style="margin-bottom: 0.75rem;">
+                                    <label for="keyColors" style="display:block; font-weight:bold; font-size: 0.85rem; margin-bottom:0.25rem;">キーカラー</label>
+                                    <div style="font-size: 0.9rem; color: #333; margin-bottom: 0.5rem;">
+                                        カラーコードを入力（例：#2BC8E4）。位置は下で選択。
+                                    </div>
                                     <input type="text" id="keyColors"
-                                        style="width: 100%; max-width: 400px; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; display: block;"
+                                        style="width: 100%; max-width: 150px; padding: 0.4rem; border: 1px solid #ccc; border-radius: 4px; display: block; font-size: 0.9rem;"
                                         placeholder="#2BC8E4">
-                                    <small style="color: #666; font-size: 0.8rem; display: block; margin-top: 0.5rem;">
-                                        カラーコードを入力してください（例：#2BC8E4）。スケール内の位置は下で選択します。
-                                    </small>
                                 </div>
 
-                                <div style="margin-bottom: 1rem;">
-                                    <label for="stepSlider" style="display:block; font-weight:bold; margin-bottom:0.5rem;">
+                                <div style="margin-bottom: 0.75rem;">
+                                    <label for="stepSlider" style="display:block; font-weight:bold; font-size: 0.85rem; margin-bottom:0.25rem;">
                                         スケール内の位置
                                     </label>
+                                    <div id="stepHint" style="font-size: 0.9rem; color: #333; line-height: 1.4; margin-bottom: 0.5rem;">
+                                        このカラーをスケール内のどの位置に配置するか選択
+                                    </div>
                                     <input type="range" id="stepSlider" min="0" max="12" value="6" step="1"
-                                        style="width: 100%; max-width: 400px; margin-bottom: 0.5rem;">
-                                    <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #666; margin-bottom: 0.5rem; max-width: 400px;">
+                                        style="width: 100%; margin-bottom: 0.25rem;">
+                                    <div style="display: flex; justify-content: space-between; font-size: 0.65rem; color: #666; margin-bottom: 0.25rem;">
                                         <span>50</span>
                                         <span>100</span>
                                         <span>200</span>
@@ -122,50 +125,47 @@
                                         <span>1100</span>
                                         <span>1200</span>
                                     </div>
-                                    <small id="stepHint" style="color: #666; font-size: 0.8rem; display:block; margin-top:0.25rem;">
-                                        このカラーをスケール内のどの位置に配置するか選択してください
-                                    </small>
                                 </div>
                             </div>
 
                             <div>
-                                <details open style="margin-bottom: 1rem;">
-                                    <summary style="font-weight: bold; cursor: pointer; padding: 0.5rem 0; user-select: none;">
+                                <details open style="margin-bottom: 0;">
+                                    <summary style="font-weight: bold; cursor: pointer; padding: 0.25rem 0; user-select: none; font-size: 0.9rem;">
                                         詳細設定
                                     </summary>
-                                    <div style="padding-top: 1rem;">
-                                        <div style="margin-bottom: 1rem;">
-                                            <label style="display:block; font-weight:bold; margin-bottom:0.5rem;">
+                                    <div style="padding-top: 0.5rem;">
+                                        <div style="margin-bottom: 0.75rem;">
+                                            <label style="display:block; font-weight:bold; font-size: 0.85rem; margin-bottom:0.25rem;">
                                                 コントラスト強度
                                             </label>
-                                            <div id="contrastIntensityButtons" style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem; max-width: 400px;">
-                                                <button data-value="subtle" style="flex: 1; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; background: white; cursor: pointer;">
+                                            <div id="contrastIntensityButtons" style="display: flex; gap: 0.25rem; margin-bottom: 0.25rem;">
+                                                <button data-value="subtle" style="flex: 1; padding: 0.3rem; border: 1px solid #ccc; border-radius: 4px; background: white; cursor: pointer; font-size: 0.8rem;">
                                                     控えめ
                                                 </button>
-                                                <button data-value="moderate" class="active" style="flex: 1; padding: 0.5rem; border: 2px solid #0052cc; border-radius: 4px; background: #e3f2fd; cursor: pointer; font-weight: bold;">
+                                                <button data-value="moderate" class="active" style="flex: 1; padding: 0.3rem; border: 2px solid #0052cc; border-radius: 4px; background: #e3f2fd; cursor: pointer; font-weight: bold; font-size: 0.8rem;">
                                                     標準
                                                 </button>
-                                                <button data-value="strong" style="flex: 1; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; background: white; cursor: pointer;">
+                                                <button data-value="strong" style="flex: 1; padding: 0.3rem; border: 1px solid #ccc; border-radius: 4px; background: white; cursor: pointer; font-size: 0.8rem;">
                                                     強め
                                                 </button>
-                                                <button data-value="vivid" style="flex: 1; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; background: white; cursor: pointer;">
+                                                <button data-value="vivid" style="flex: 1; padding: 0.3rem; border: 1px solid #ccc; border-radius: 4px; background: white; cursor: pointer; font-size: 0.8rem;">
                                                     鮮やか
                                                 </button>
                                             </div>
                                         </div>
 
-                                        <div style="margin-bottom: 1rem;">
-                                            <label style="display:block; font-weight:bold; margin-bottom:0.5rem;">
+                                        <div style="margin-bottom: 0;">
+                                            <label style="display:block; font-weight:bold; font-size: 0.85rem; margin-bottom:0.25rem;">
                                                 明度分布
                                             </label>
-                                            <div id="lightnessDistributionButtons" style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem; max-width: 400px;">
-                                                <button data-value="linear" class="active" style="flex: 1; padding: 0.5rem; border: 2px solid #0052cc; border-radius: 4px; background: #e3f2fd; cursor: pointer; font-weight: bold;">
+                                            <div id="lightnessDistributionButtons" style="display: flex; gap: 0.25rem; margin-bottom: 0.25rem;">
+                                                <button data-value="linear" class="active" style="flex: 1; padding: 0.3rem; border: 2px solid #0052cc; border-radius: 4px; background: #e3f2fd; cursor: pointer; font-weight: bold; font-size: 0.8rem;">
                                                     リニア
                                                 </button>
-                                                <button data-value="easeIn" style="flex: 1; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; background: white; cursor: pointer;">
+                                                <button data-value="easeIn" style="flex: 1; padding: 0.3rem; border: 1px solid #ccc; border-radius: 4px; background: white; cursor: pointer; font-size: 0.8rem;">
                                                     暗い側
                                                 </button>
-                                                <button data-value="easeOut" style="flex: 1; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; background: white; cursor: pointer;">
+                                                <button data-value="easeOut" style="flex: 1; padding: 0.3rem; border: 1px solid #ccc; border-radius: 4px; background: white; cursor: pointer; font-size: 0.8rem;">
                                                     明るい側
                                                 </button>
                                             </div>
@@ -177,7 +177,7 @@
                     </div>
 
                     <!-- Right: Detail Dashboard -->
-                    <div id="detail-panel" style="flex: 1; padding: 2rem; overflow-y: auto; background: #f8f9fa; display: flex; align-items: center; justify-content: center;">
+                    <div id="detail-panel" style="flex: 1.2; padding: 2rem; overflow: hidden; background: #f8f9fa; display: flex; align-items: center; justify-content: center;">
                         <div style="color: #999; text-align: center;">
                             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 1rem;">
                                 <circle cx="12" cy="12" r="10"></circle>
