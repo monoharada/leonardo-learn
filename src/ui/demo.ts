@@ -566,26 +566,41 @@ export const runDemo = () => {
 		// Container for horizontal palette
 		const paletteContainer = document.createElement("div");
 		paletteContainer.style.cssText = `
-			background: white;
-			border-radius: 12px;
-			padding: 2rem;
-			box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-			overflow-x: auto;
+			display: flex;
+			flex-direction: column;
+			gap: 1rem;
+			margin-top: 2rem;
+			padding-bottom: 2rem;
+			width: 100%;
+			overflow-x: hidden; /* Prevent scroll */
 		`;
 
 		// Swatches row
 		const swatchesRow = document.createElement("div");
 		swatchesRow.style.cssText = `
 			display: flex;
-			gap: 12px;
-			justify-content: center;
-			min-width: max-content;
+			justify-content: space-between;
+			gap: 8px;
+			padding: 16px; /* Space for shadows */
+			width: 100%;
+			box-sizing: border-box;
 		`;
 
 		colors.forEach((color, index) => {
 			const hex = color.toHex();
-			const wcag = verifyContrast(color, bg);
-			const apcaLc = getAPCA(color, bg);
+			// Contrast Checks
+			// We want to check legibility of White/Black text ON this color (Background)
+			const white = new Color("#ffffff");
+			const black = new Color("#000000");
+
+			// WCAG: Contrast(Text, Bg) - Symmetric
+			const wcagWhite = verifyContrast(white, color);
+			const wcagBlack = verifyContrast(black, color);
+
+			// APCA: getAPCA(Text, Bg) - Asymmetric
+			const apcaWhite = getAPCA(white, color);
+			const apcaBlack = getAPCA(black, color);
+
 			const tokenName = getTokenName(p.name, index, colors.length);
 
 			// Extract step number from token name (e.g., "color-600" -> "600")
@@ -607,7 +622,7 @@ export const runDemo = () => {
 					const keyColor = originalKeyColors[idx];
 					if (keyColor) {
 						const keyRatio = keyColor.contrast(bg);
-						if (Math.abs(keyRatio - wcag.contrast) < 0.01) {
+						if (Math.abs(keyRatio - wcagWhite.contrast) < 0.01) {
 							isKeyColor = true;
 						}
 					}
@@ -622,14 +637,18 @@ export const runDemo = () => {
 				flex-direction: column;
 				align-items: center;
 				gap: 8px;
+				flex: 1;
+				min-width: 0;
 			`;
 
 			const swatch = document.createElement("div");
+			swatch.className = "color-swatch";
 			swatch.style.cssText = `
-				width: 80px;
-				height: 80px;
+				width: 100%;
+				height: auto;
+				aspect-ratio: 1 / 1;
 				background-color: ${hex};
-				border-radius: ${isKeyColor ? "50%" : "8px"};
+				border-radius: ${isKeyColor ? "50%" : "12px"};
 				display: flex;
 				align-items: center;
 				justify-content: center;
@@ -637,26 +656,27 @@ export const runDemo = () => {
 				cursor: pointer;
 				transition: transform 0.15s ease, box-shadow 0.15s ease;
 				position: relative;
+				z-index: 1;
 			`;
 
 			// Add hover effect
 			swatch.onmouseenter = () => {
+				if (swatch.dataset.selected === "true") return;
 				swatch.style.transform = "scale(1.05) translateY(-2px)";
 				swatch.style.boxShadow = "0 8px 16px rgba(0,0,0,0.15)";
+				swatch.style.zIndex = "10";
 			};
 
 			swatch.onmouseleave = () => {
+				if (swatch.dataset.selected === "true") return;
 				swatch.style.transform = "scale(1)";
 				swatch.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)";
+				swatch.style.zIndex = "1";
 			};
 
 			// Contrast Checks for Indicators
-			const white = new Color("#ffffff");
-			const black = new Color("#000000");
-			const whiteContrast = color.contrast(white);
-			const blackContrast = color.contrast(black);
-			const isWhitePass = whiteContrast >= 4.5;
-			const isBlackPass = blackContrast >= 4.5;
+			const isWhitePass = wcagWhite.contrast >= 4.5;
+			const isBlackPass = wcagBlack.contrast >= 4.5;
 
 			// Container for indicators
 			const indicators = document.createElement("div");
@@ -681,7 +701,7 @@ export const runDemo = () => {
 					justify-content: center;
 				`;
 				icon.innerHTML = `
-					<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+					<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
 						<polyline points="20 6 9 17 4 12"></polyline>
 					</svg>
 				`;
@@ -697,7 +717,7 @@ export const runDemo = () => {
 					justify-content: center;
 				`;
 				icon.innerHTML = `
-					<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+					<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
 						<polyline points="20 6 9 17 4 12"></polyline>
 					</svg>
 				`;
@@ -724,23 +744,59 @@ export const runDemo = () => {
 				// Also make the swatch circular
 				swatch.style.borderRadius = "50%";
 			}
-
 			swatchWrapper.appendChild(swatch);
+
+			// Add click handler for Detail View
+			swatchWrapper.onclick = () => {
+				renderDetailPanel(
+					stepNumber,
+					hex,
+					wcagWhite,
+					wcagBlack,
+					apcaWhite,
+					apcaBlack,
+				);
+
+				// Update selection visual
+				document.querySelectorAll(".color-swatch").forEach((s) => {
+					const el = s as HTMLElement;
+					el.dataset.selected = "false";
+					el.style.transform = "scale(1)";
+					el.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)"; // Reset to default
+					el.style.zIndex = "1";
+				});
+
+				// Apply new selection style to the clicked swatch
+				swatch.dataset.selected = "true";
+				swatch.style.transform = "scale(1.1)";
+				swatch.style.boxShadow = "0 0 0 4px #fff, 0 0 0 7px #0052cc";
+				swatch.style.zIndex = "10";
+			};
+
+			swatchWrapper.classList.add("swatch-wrapper");
+			swatchWrapper.style.cursor = "pointer";
+
+			// Auto-select key color or middle color on initial render
+			if (isKeyColor) {
+				setTimeout(() => swatchWrapper.click(), 0);
+			}
+
 			swatchesRow.appendChild(swatchWrapper);
 
-			// Info below swatch
+			// Info below swatch (Compact)
 			const info = document.createElement("div");
 			info.style.cssText = `
 				text-align: center;
 				display: flex;
 				flex-direction: column;
-				gap: 4px;
-				margin-top: 8px;
+				gap: 2px;
+				margin-top: 12px;
+				width: 100%;
 			`;
 
 			const stepLabel = document.createElement("div");
 			stepLabel.style.cssText = `
-				font-size: 0.9rem;
+				font-size: 1rem;
 				font-weight: ${isKeyColor ? "bold" : "500"};
 				color: #333;
 			`;
@@ -748,55 +804,175 @@ export const runDemo = () => {
 
 			const hexLabel = document.createElement("div");
 			hexLabel.style.cssText = `
-				font-size: 0.75rem;
+				font-size: 0.8rem;
 				color: #666;
 				font-family: monospace;
 			`;
 			hexLabel.textContent = hex;
 
-			// Contrast Info
-			const contrastInfo = document.createElement("div");
-			contrastInfo.style.cssText = `
-				display: flex;
-				flex-direction: column;
-				gap: 2px;
-				font-size: 0.7rem;
-				margin-top: 4px;
-				background: #f5f5f5;
-				padding: 4px;
-				border-radius: 4px;
-			`;
-
-			// WCAG
-			const wcagEl = document.createElement("div");
-			const wcagScore = wcag.contrast;
-			const wcagColor =
-				wcagScore >= 4.5 ? "#2e7d32" : wcagScore >= 3 ? "#f57c00" : "#d32f2f";
-			wcagEl.style.color = wcagColor;
-			wcagEl.style.fontWeight = "500";
-			wcagEl.textContent = `WCAG: ${wcagScore.toFixed(2)}`;
-			wcagEl.title = `WCAG Contrast Ratio: ${wcagScore.toFixed(2)}`;
-
-			// APCA
-			const apcaEl = document.createElement("div");
-			const apcaScore = Math.abs(apcaLc);
-			const apcaColor =
-				apcaScore >= 75 ? "#2e7d32" : apcaScore >= 60 ? "#f57c00" : "#d32f2f";
-			apcaEl.style.color = apcaColor;
-			apcaEl.textContent = `APCA: ${apcaLc.toFixed(0)}`;
-			apcaEl.title = `APCA Lightness Contrast: ${apcaLc.toFixed(0)}`;
-
-			contrastInfo.appendChild(wcagEl);
-			contrastInfo.appendChild(apcaEl);
-
 			info.appendChild(stepLabel);
 			info.appendChild(hexLabel);
-			info.appendChild(contrastInfo);
+
 			swatchWrapper.appendChild(info);
 		});
 
 		paletteContainer.appendChild(swatchesRow);
 		app.appendChild(paletteContainer);
+	};
+
+	// Render Detail Panel Function
+	const renderDetailPanel = (
+		step: string,
+		hex: string,
+		wcagWhite: any,
+		wcagBlack: any,
+		apcaWhite: number,
+		apcaBlack: number,
+	) => {
+		const panel = document.getElementById("detail-panel");
+		if (!panel) return;
+
+		const isWhitePass = wcagWhite.contrast >= 4.5;
+		const isBlackPass = wcagBlack.contrast >= 4.5;
+
+		panel.innerHTML = "";
+		panel.style.display = "block";
+
+		// Container
+		const container = document.createElement("div");
+		container.style.cssText = `
+			display: flex;
+			flex-direction: column;
+			gap: 2rem;
+			height: 100%;
+		`;
+
+		// Header: Large Swatch + Title
+		const header = document.createElement("div");
+		header.style.cssText = `
+			display: flex;
+			align-items: center;
+			gap: 2rem;
+		`;
+
+		const largeSwatch = document.createElement("div");
+		largeSwatch.style.cssText = `
+			width: 120px;
+			height: 120px;
+			background-color: ${hex};
+			border-radius: 16px;
+			box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+			flex-shrink: 0;
+		`;
+
+		const titleArea = document.createElement("div");
+		titleArea.innerHTML = `
+			<div style="font-size: 2rem; font-weight: bold; margin-bottom: 0.5rem;">${step}</div>
+			<div style="font-size: 1.2rem; font-family: monospace; color: #666;">${hex}</div>
+		`;
+
+		header.appendChild(largeSwatch);
+		header.appendChild(titleArea);
+		container.appendChild(header);
+
+		// Dashboard Grid
+		const grid = document.createElement("div");
+		grid.style.cssText = `
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 1.5rem;
+		`;
+
+		// Helper for Cards
+		const createCard = (
+			title: string,
+			textColor: string,
+			wcag: number,
+			apca: number,
+			isPass: boolean,
+		) => {
+			const card = document.createElement("div");
+			card.style.cssText = `
+				background: white;
+				border-radius: 12px;
+				padding: 1.5rem;
+				box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+				border: 1px solid #eee;
+				display: flex;
+				flex-direction: column;
+				gap: 1rem;
+			`;
+
+			// Title Row
+			const titleRow = document.createElement("div");
+			titleRow.style.cssText =
+				"display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;";
+
+			const dot = document.createElement("div");
+			dot.style.cssText = `width: 12px; height: 12px; border-radius: 50%; background: ${textColor}; border: 1px solid #ccc;`;
+
+			const label = document.createElement("span");
+			label.textContent = title;
+			label.style.fontWeight = "bold";
+			label.style.color = "#333";
+
+			titleRow.appendChild(dot);
+			titleRow.appendChild(label);
+			card.appendChild(titleRow);
+
+			// WCAG Section
+			const wcagSection = document.createElement("div");
+			const passBadge = isPass
+				? `<span style="background: #dcfce7; color: #166534; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; font-weight: bold;">合格 (AA)</span>`
+				: `<span style="background: #fee2e2; color: #991b1b; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; font-weight: bold;">不合格</span>`;
+
+			wcagSection.innerHTML = `
+				<div style="font-size: 0.8rem; color: #666; margin-bottom: 4px;">WCAG コントラスト</div>
+				<div style="display: flex; align-items: baseline; gap: 1rem;">
+					<span style="font-size: 2rem; font-weight: bold; color: #333;">${wcag.toFixed(2)}</span>
+					${passBadge}
+				</div>
+			`;
+			card.appendChild(wcagSection);
+
+			// APCA Section
+			const apcaSection = document.createElement("div");
+			apcaSection.style.marginTop = "0.5rem";
+			apcaSection.innerHTML = `
+				<div style="font-size: 0.8rem; color: #666; margin-bottom: 4px;">APCA (Lc)</div>
+				<div style="font-size: 1.5rem; font-weight: 500; color: #333;">${Math.abs(Math.round(apca))}</div>
+			`;
+			card.appendChild(apcaSection);
+
+			// Preview Box
+			const preview = document.createElement("div");
+			preview.style.cssText = `
+				margin-top: 1rem;
+				background: ${hex};
+				color: ${textColor};
+				padding: 1rem;
+				border-radius: 8px;
+				text-align: center;
+				font-weight: 500;
+				font-size: 0.9rem;
+				line-height: 1.6;
+			`;
+			preview.textContent =
+				"視認性の確認用テキストです。読みやすさを確認してください。";
+			card.appendChild(preview);
+
+			return card;
+		};
+
+		grid.appendChild(
+			createCard("白文字", "white", wcagWhite.contrast, apcaWhite, isWhitePass),
+		);
+		grid.appendChild(
+			createCard("黒文字", "black", wcagBlack.contrast, apcaBlack, isBlackPass),
+		);
+
+		container.appendChild(grid);
+		panel.appendChild(container);
 	};
 
 	const saveChanges = () => {
