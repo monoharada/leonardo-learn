@@ -1020,7 +1020,7 @@ export const runDemo = () => {
 		let css = ":root {\n";
 		state.palettes.forEach((p) => {
 			const theme = new Theme(
-				p.keyColors.map((s) => new Color(s)),
+				p.keyColors.map((s) => new Color(s.split("@")[0] ?? "")),
 				BackgroundColor.White,
 				p.ratios,
 			);
@@ -1043,7 +1043,7 @@ export const runDemo = () => {
 		const json: any = {};
 		state.palettes.forEach((p) => {
 			const theme = new Theme(
-				p.keyColors.map((s) => new Color(s)),
+				p.keyColors.map((s) => new Color(s.split("@")[0] ?? "")),
 				BackgroundColor.White,
 				p.ratios,
 			);
