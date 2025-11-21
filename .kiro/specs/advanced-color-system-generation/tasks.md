@@ -189,19 +189,19 @@
 
 - [ ] 6. エクスポートフォーマット対応
 
-- [ ] 6.1 (P) [C] CSSエクスポーターを実装する
+- [x] 6.1 (P) [C] CSSエクスポーターを実装する
   - CSS Custom Properties形式でのエクスポート（OKLCH値 + sRGB fallback）を実装する
   - @supportsによる広色域検出付きfallback形式を生成する
   - セマンティックトークン名（--color-primary-500等）の自動生成を実装する
   - _Requirements: 7.1, 7.5, 7.6, 7.7_
 
-- [ ] 6.2 (P) [C] DTCGエクスポーターを実装する
+- [x] 6.2 (P) [C] DTCGエクスポーターを実装する
   - W3C Design Tokens（DTCG）形式でのエクスポートを実装する
   - semanticトークンとaliasトークンの分離を行う
   - $value、$type形式に準拠した出力を生成する
   - _Requirements: 7.2_
 
-- [ ] 6.3 (P) [C] Tailwindエクスポーターを実装する
+- [x] 6.3 (P) [C] Tailwindエクスポーターを実装する
   - Tailwind CSS設定形式（theme.extend.colors）でのエクスポートを実装する
   - OKLCH値を使用したカラー定義を生成する
   - _Requirements: 7.3_
