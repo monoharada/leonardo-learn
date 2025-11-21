@@ -120,15 +120,16 @@ describe("RoleConfig", () => {
 		});
 
 		describe("neutralVariant role", () => {
-			test("should have very low chroma range (0.00-0.02)", () => {
+			test("should have low chroma range (0.02-0.06) for subtle color tint", () => {
 				const config = DEFAULT_ROLE_CONFIGS.neutralVariant;
-				expect(config.chromaRange[0]).toBe(0.0);
-				expect(config.chromaRange[1]).toBe(0.02);
+				expect(config.chromaRange[0]).toBe(0.02);
+				expect(config.chromaRange[1]).toBe(0.06);
 			});
 
-			test("should be marked as neutral", () => {
+			test("should be marked as neutral and variant", () => {
 				const config = DEFAULT_ROLE_CONFIGS.neutralVariant;
 				expect(config.isNeutral).toBe(true);
+				expect(config.isVariant).toBe(true);
 			});
 		});
 	});

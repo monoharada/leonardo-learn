@@ -5,6 +5,8 @@
  */
 
 export * from "./accessibility/apca";
+export * from "./accessibility/cvd-simulator";
+export * from "./accessibility/distinguishability";
 export * from "./accessibility/wcag2";
 export * from "./core";
 export * from "./utils";

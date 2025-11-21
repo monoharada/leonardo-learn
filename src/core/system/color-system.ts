@@ -155,6 +155,31 @@ export class ColorSystem {
 
 		// ニュートラルロールの場合
 		if (roleConfig.isNeutral) {
+			// neutralVariant: ソースカラーのHueを持つ低彩度色
+			if (roleConfig.isVariant) {
+				const sourceOklch = sourceColor.oklch;
+				const sourceHue = sourceOklch.h || 0;
+				const [chromaMin, chromaMax] = roleConfig.chromaRange;
+				const targetChroma = (chromaMin + chromaMax) / 2;
+
+				// ソースカラーのHueを持つ低彩度色を作成
+				const variantColor = new Color({
+					mode: "oklch",
+					l: 0.5, // tone 50相当
+					c: targetChroma,
+					h: sourceHue,
+				});
+
+				// M3トーンスケールを生成
+				const m3Scale = generateM3ToneScale(variantColor);
+				return {
+					tones: m3Scale.tones,
+					role,
+					sourceColor: variantColor,
+				};
+			}
+
+			// 純粋なneutral: 無彩色
 			const neutralScale = generateNeutralScale(sourceColor);
 			const tones = new Map<number, Color>();
 

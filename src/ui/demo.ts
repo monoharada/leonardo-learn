@@ -22,6 +22,7 @@ interface PaletteConfig {
 	keyColors: string[]; // Format: "#hex" or "#hex@step" (e.g., "#b3e5fc@300")
 	ratios: number[];
 	harmony: HarmonyType;
+	baseChromaName?: string; // 基本クロマ名（セマンティックカラー用）
 }
 
 type ContrastIntensity = "subtle" | "moderate" | "strong" | "vivid";
@@ -228,6 +229,7 @@ export const runDemo = () => {
 				keyColors: [`${sc.keyColor.toHex()}@600`], // Default to step 600
 				ratios: [21, 15, 10, 7, 4.5, 3, 1],
 				harmony: paletteHarmony,
+				baseChromaName: sc.baseChromaName,
 			};
 		});
 
@@ -732,7 +734,12 @@ export const runDemo = () => {
 			const section = document.createElement("section");
 
 			const header = document.createElement("h2");
-			header.textContent = p.name;
+			// すべてのパレットで「基本クロマ名 | ロール名」形式で表示
+			if (p.baseChromaName) {
+				header.textContent = `${p.baseChromaName} | ${p.name}`;
+			} else {
+				header.textContent = p.name;
+			}
 			header.style.fontSize = "1.1rem";
 			header.style.marginBottom = "1rem";
 			header.style.color = "#333";

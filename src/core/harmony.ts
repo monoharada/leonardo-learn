@@ -1,3 +1,4 @@
+import { findNearestChroma, snapToBaseChroma } from "./base-chroma";
 import { Color } from "./color";
 import { ColorSystem } from "./system/color-system";
 
@@ -115,41 +116,60 @@ export interface SystemPaletteColor {
 	name: string;
 	keyColor: Color;
 	role: "primary" | "secondary" | "accent" | "neutral" | "semantic";
+	baseChromaName?: string; // 基本クロマ名（セマンティックの場合に使用）
 }
 
 export function generateSystemPalette(
 	keyColor: Color,
 	harmonyType: HarmonyType = HarmonyType.COMPLEMENTARY,
 ): SystemPaletteColor[] {
-	const baseHue = keyColor.oklch.h || 0;
 	const baseLightness = keyColor.oklch.l;
 	const baseChroma = keyColor.oklch.c;
 
+	// Snap key color to nearest base chroma
+	const { color: snappedKeyColor, chroma: primaryChroma } =
+		snapToBaseChroma(keyColor);
+	const baseHue = snappedKeyColor.oklch.h || 0;
+
+	// Helper to create color and snap to base chroma
 	const createColor = (
 		hue: number,
 		chroma: number,
 		lightness: number,
-		name: string,
+		roleName: string,
 		role: SystemPaletteColor["role"],
 	): SystemPaletteColor => {
 		let h = hue % 360;
 		if (h < 0) h += 360;
+
+		const tempColor = new Color({
+			mode: "oklch",
+			l: lightness,
+			c: chroma,
+			h: h,
+		});
+
+		// Snap to nearest base chroma
+		const { color: snappedColor, chroma: baseChromaInfo } =
+			snapToBaseChroma(tempColor);
+
 		return {
-			name,
+			name: roleName,
 			role,
-			keyColor: new Color({
-				mode: "oklch",
-				l: lightness,
-				c: chroma,
-				h: h,
-			}),
+			keyColor: snappedColor,
+			baseChromaName: baseChromaInfo.displayName,
 		};
 	};
 
 	const palette: SystemPaletteColor[] = [];
 
-	// 1. Primary
-	palette.push({ name: "Primary", keyColor: keyColor, role: "primary" });
+	// 1. Primary (already snapped)
+	palette.push({
+		name: "Primary",
+		keyColor: snappedKeyColor,
+		role: "primary",
+		baseChromaName: primaryChroma.displayName,
+	});
 
 	// 2. Harmony Colors (Secondary / Accents) based on Type
 	switch (harmonyType) {
@@ -340,32 +360,44 @@ export function generateSystemPalette(
 				return color || null;
 			};
 
+			// Helper to get base chroma name from color
+			const getBaseChromaName = (color: Color): string => {
+				const hue = color.oklch.h ?? 0;
+				return findNearestChroma(hue).displayName;
+			};
+
 			// Primary is already added, now add others from M3 result
 			const secondaryColor = getToneColor("secondary", 40);
 			if (secondaryColor) {
+				const keyColor = new Color({
+					mode: "oklch",
+					l: secondaryColor.oklch.l,
+					c: secondaryColor.oklch.c,
+					h: secondaryColor.oklch.h,
+				});
+				// M3 の Secondary は彩度が低いので Muted を追加
+				const baseChroma = getBaseChromaName(keyColor);
 				palette.push({
 					name: "Secondary",
 					role: "secondary",
-					keyColor: new Color({
-						mode: "oklch",
-						l: secondaryColor.oklch.l,
-						c: secondaryColor.oklch.c,
-						h: secondaryColor.oklch.h,
-					}),
+					keyColor,
+					baseChromaName: `${baseChroma} Muted`,
 				});
 			}
 
 			const tertiaryColor = getToneColor("tertiary", 40);
 			if (tertiaryColor) {
+				const keyColor = new Color({
+					mode: "oklch",
+					l: tertiaryColor.oklch.l,
+					c: tertiaryColor.oklch.c,
+					h: tertiaryColor.oklch.h,
+				});
 				palette.push({
 					name: "Accent 1",
 					role: "accent",
-					keyColor: new Color({
-						mode: "oklch",
-						l: tertiaryColor.oklch.l,
-						c: tertiaryColor.oklch.c,
-						h: tertiaryColor.oklch.h,
-					}),
+					keyColor,
+					baseChromaName: getBaseChromaName(keyColor),
 				});
 			}
 
@@ -401,43 +433,49 @@ export function generateSystemPalette(
 			// Add semantics from M3
 			const successColor = getToneColor("success", 40);
 			if (successColor) {
+				const keyColor = new Color({
+					mode: "oklch",
+					l: successColor.oklch.l,
+					c: successColor.oklch.c,
+					h: successColor.oklch.h,
+				});
 				palette.push({
 					name: "Success",
 					role: "semantic",
-					keyColor: new Color({
-						mode: "oklch",
-						l: successColor.oklch.l,
-						c: successColor.oklch.c,
-						h: successColor.oklch.h,
-					}),
+					keyColor,
+					baseChromaName: getBaseChromaName(keyColor),
 				});
 			}
 
 			const warningColor = getToneColor("warning", 40);
 			if (warningColor) {
+				const keyColor = new Color({
+					mode: "oklch",
+					l: warningColor.oklch.l,
+					c: warningColor.oklch.c,
+					h: warningColor.oklch.h,
+				});
 				palette.push({
 					name: "Warning",
 					role: "semantic",
-					keyColor: new Color({
-						mode: "oklch",
-						l: warningColor.oklch.l,
-						c: warningColor.oklch.c,
-						h: warningColor.oklch.h,
-					}),
+					keyColor,
+					baseChromaName: getBaseChromaName(keyColor),
 				});
 			}
 
 			const errorColor = getToneColor("error", 40);
 			if (errorColor) {
+				const keyColor = new Color({
+					mode: "oklch",
+					l: errorColor.oklch.l,
+					c: errorColor.oklch.c,
+					h: errorColor.oklch.h,
+				});
 				palette.push({
 					name: "Error",
 					role: "semantic",
-					keyColor: new Color({
-						mode: "oklch",
-						l: errorColor.oklch.l,
-						c: errorColor.oklch.c,
-						h: errorColor.oklch.h,
-					}),
+					keyColor,
+					baseChromaName: getBaseChromaName(keyColor),
 				});
 			}
 
@@ -446,28 +484,85 @@ export function generateSystemPalette(
 		}
 	}
 
-	// 3. Neutrals
+	// 3. Neutrals (keep original names, don't snap)
 	// Gray: Very low chroma, same hue
-	palette.push(createColor(baseHue, 0.01, 0.5, "Gray", "neutral"));
+	palette.push({
+		name: "Gray",
+		role: "neutral",
+		keyColor: new Color({
+			mode: "oklch",
+			l: 0.5,
+			c: 0.01,
+			h: baseHue,
+		}),
+	});
 	// Slate: Slightly more chroma, same hue (Cool gray)
-	palette.push(createColor(baseHue, 0.03, 0.5, "Slate", "neutral"));
+	palette.push({
+		name: "Slate",
+		role: "neutral",
+		keyColor: new Color({
+			mode: "oklch",
+			l: 0.5,
+			c: 0.03,
+			h: baseHue,
+		}),
+	});
 
-	// 4. Semantics
+	// 4. Semantics (use base chroma hues)
+	// 既存のパレットで使われている基本クロマと重複しないようにする
 	const semanticChroma = Math.max(baseChroma, 0.12);
 	const semanticLightness = baseLightness;
 
-	palette.push(
-		createColor(145, semanticChroma, semanticLightness, "Success", "semantic"),
-	); // Green
-	palette.push(
-		createColor(100, semanticChroma, semanticLightness, "Warning", "semantic"),
-	); // Yellow
-	palette.push(
-		createColor(30, semanticChroma, semanticLightness, "Error", "semantic"),
-	); // Red
-	palette.push(
-		createColor(250, semanticChroma, semanticLightness, "Info", "semantic"),
-	); // Blue
+	// 既に使用されている基本クロマ名を収集
+	const usedChromaNames = new Set<string>();
+	for (const p of palette) {
+		if (p.baseChromaName) {
+			usedChromaNames.add(p.baseChromaName.toLowerCase());
+		}
+	}
+
+	// セマンティックカラーの定義（優先色と代替色のリスト）
+	const semanticDefinitions = [
+		{ name: "Success", hues: [145, 175, 125] }, // Green -> Teal -> Lime
+		{ name: "Warning", hues: [75, 55, 95] }, // Amber -> Orange -> Yellow
+		{ name: "Error", hues: [25, 350, 300] }, // Red -> Pink -> Purple
+		{ name: "Info", hues: [250, 195, 275, 175, 300] }, // Blue -> Cyan -> Indigo -> Teal -> Purple
+	];
+
+	for (const semantic of semanticDefinitions) {
+		let selectedColor: SystemPaletteColor | null = null;
+
+		// 使われていない色を見つけるまで試す
+		for (const hue of semantic.hues) {
+			const testColor = createColor(
+				hue,
+				semanticChroma,
+				semanticLightness,
+				semantic.name,
+				"semantic",
+			);
+			const chromaName = testColor.baseChromaName?.toLowerCase();
+
+			if (chromaName && !usedChromaNames.has(chromaName)) {
+				selectedColor = testColor;
+				usedChromaNames.add(chromaName);
+				break;
+			}
+		}
+
+		// すべて使われている場合は最初の色を使用
+		if (!selectedColor) {
+			selectedColor = createColor(
+				semantic.hues[0]!,
+				semanticChroma,
+				semanticLightness,
+				semantic.name,
+				"semantic",
+			);
+		}
+
+		palette.push(selectedColor);
+	}
 
 	return palette;
 }

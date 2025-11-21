@@ -124,9 +124,10 @@ export const DEFAULT_ROLE_CONFIGS: Record<RoleType, RoleConfig> = {
 	},
 	neutralVariant: {
 		name: "neutralVariant",
-		chromaRange: [0.0, 0.02],
+		chromaRange: [0.02, 0.06],
 		lightnessRange: [0.0, 1.0],
 		isNeutral: true,
+		isVariant: true,
 	},
 };
 
