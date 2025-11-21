@@ -774,7 +774,11 @@ export const runDemo = () => {
 					: reversedKeyColorIndex;
 				const safeIndex =
 					initialIndex >= 0 ? initialIndex : reversedKeyColorIndex;
-				updateDetail(colors[safeIndex] || keyColor, safeIndex);
+				// configStepがある場合はその色を、ない場合はkeyColorを表示
+				const initialColor = configStep
+					? colors[safeIndex] || keyColor
+					: keyColor;
+				updateDetail(initialColor, safeIndex);
 				dialog.showModal();
 			};
 
