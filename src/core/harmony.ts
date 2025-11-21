@@ -166,15 +166,10 @@ export function generateHarmonyPalette(
 		};
 	};
 
-	// Primary色を追加
+	// Primary色を追加（元の入力色を保持）
 	palette.push({
 		name: "Primary",
-		keyColor: new Color({
-			mode: "oklch",
-			l: baseLightness,
-			c: baseChroma,
-			h: primaryChroma.hue,
-		}),
+		keyColor: keyColor,
 		role: "primary",
 		baseChromaName: primaryChroma.displayName,
 	});
@@ -282,15 +277,18 @@ export function generateFullChromaPalette(
 
 	// すべての13基本クロマを色相順（青から）に生成
 	for (const chromaDef of BASE_CHROMAS) {
-		const color = new Color({
-			mode: "oklch",
-			l: baseLightness,
-			c: baseChroma,
-			h: chromaDef.hue,
-		});
-
 		const isPrimary = chromaDef.name === primaryChroma.name;
 		const semanticName = semanticNames[chromaDef.name];
+
+		// Primaryは元の入力色を保持、それ以外は基本クロマのHueを使用
+		const color = isPrimary
+			? keyColor
+			: new Color({
+					mode: "oklch",
+					l: baseLightness,
+					c: baseChroma,
+					h: chromaDef.hue,
+				});
 
 		// 名前の決定: Primary > セマンティック > 空
 		let name = "";
