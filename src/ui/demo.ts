@@ -996,15 +996,15 @@ export const runDemo = () => {
 	renderMain();
 
 	// ColorSystem Demo - 新しいColorSystemファサードのプレビュー
-	// メインエリアにColorSystemデモを追加
-	const mainArea = document.querySelector("#app main") as HTMLElement;
-	if (mainArea) {
+	// #appの末尾にColorSystemデモを追加
+	const appContainer = document.querySelector("#app") as HTMLElement;
+	if (appContainer) {
 		const colorSystemContainer = document.createElement("div");
 		colorSystemContainer.id = "color-system-demo";
 		colorSystemContainer.style.marginTop = "2rem";
 		colorSystemContainer.style.paddingTop = "1rem";
 		colorSystemContainer.style.borderTop = "1px solid #eee";
-		mainArea.appendChild(colorSystemContainer);
+		appContainer.appendChild(colorSystemContainer);
 		runColorSystemDemo("color-system-demo");
 	}
 };
