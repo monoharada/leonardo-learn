@@ -230,10 +230,13 @@ export const runDemo = () => {
 			// For others, set to NONE as they are derived
 			const paletteHarmony = index === 0 ? harmonyType : HarmonyType.NONE;
 
+			// Primaryの場合は元の入力HEX値を使用（丸め誤差を防ぐ）
+			const hexValue = sc.role === "primary" ? inputHex : sc.keyColor.toHex();
+
 			return {
 				id: `sys-${index}-${sc.name.toLowerCase().replace(/\s+/g, "-")}`,
 				name: sc.name,
-				keyColors: [`${sc.keyColor.toHex()}@600`], // Default to step 600
+				keyColors: [`${hexValue}@600`], // Default to step 600
 				ratios: [21, 15, 10, 7, 4.5, 3, 1],
 				harmony: paletteHarmony,
 				baseChromaName: sc.baseChromaName,
@@ -259,10 +262,13 @@ export const runDemo = () => {
 				displayName = harmonyRoleMap.get(sc.baseChromaName) || sc.name;
 			}
 
+			// Primaryの場合は元の入力HEX値を使用（丸め誤差を防ぐ）
+			const hexValue = sc.role === "primary" ? inputHex : sc.keyColor.toHex();
+
 			return {
 				id: `shades-${index}-${sc.baseChromaName?.toLowerCase().replace(/\s+/g, "-") || displayName.toLowerCase().replace(/\s+/g, "-")}`,
 				name: displayName,
-				keyColors: [`${sc.keyColor.toHex()}@600`],
+				keyColors: [`${hexValue}@600`],
 				ratios: [21, 15, 10, 7, 4.5, 3, 1],
 				harmony: HarmonyType.NONE,
 				baseChromaName: sc.baseChromaName,
