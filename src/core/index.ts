@@ -4,8 +4,8 @@
  * @packageDocumentation
  */
 
-export * from './color';
-export * from './solver';
-export * from './interpolation';
-export * from './background';
-export { Theme } from './theme';
+export * from "./background";
+export * from "./color";
+export * from "./interpolation";
+export * from "./solver";
+export { Theme } from "./theme";

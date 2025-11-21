@@ -25,6 +25,7 @@
 		"check": "biome check --write ."
 	},
 	"dependencies": {
+		"@material/material-color-utilities": "^0.3.0",
 		"apca-w3": "^0.1.9",
 		"culori": "^4.0.1"
 	},

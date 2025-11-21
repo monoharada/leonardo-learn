@@ -1,3 +1,4 @@
 export default {
-	'*.{js,ts,json}': 'biome check --write --no-errors-on-unmatched --files-ignore-unknown=true',
+	"*.{js,ts,json}":
+		"biome check --write --no-errors-on-unmatched --files-ignore-unknown=true",
 };

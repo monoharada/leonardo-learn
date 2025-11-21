@@ -43,7 +43,7 @@
 
 - [ ] 1. ロール別パラメータ定義システム
 
-- [ ] 1.1 (P) [A] RoleConfigの型定義とデフォルト値を実装する
+- [x] 1.1 (P) [A] RoleConfigの型定義とデフォルト値を実装する
   - カラーロール（primary、secondary、tertiary、error、warning、success、neutral、neutralVariant）の型定義を作成する
   - 各ロールのChroma範囲、Lightness範囲、Hue範囲（オプション）を設定する構造体を定義する
   - primaryは高Chroma（0.16〜0.25）・中Lightness（40%〜70%）のデフォルト値を設定する
@@ -52,7 +52,7 @@
   - error/warning/successの色相制約（error: 15°〜45°、warning: 60°〜90°、success: 140°〜160°）を定義する
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7_
 
-- [ ] 1.1.1 [A] RoleConfigの単体テストを作成する
+- [x] 1.1.1 [A] RoleConfigの単体テストを作成する
   - 各ロールのデフォルト値が仕様通りか検証する
   - 無効なパラメータ範囲でエラーが発生することを確認する
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7_
@@ -68,7 +68,7 @@
   - 無効なパラメータ範囲に対するバリデーションを追加する
   - _Requirements: 1.9_
 
-- [ ] 1.4 (P) [A] ニュートラルスケール基本生成を実装する
+- [x] 1.4 (P) [A] ニュートラルスケール基本生成を実装する
   - 極低Chroma（0.00〜0.02）のグレースケール生成ロジックを実装する
   - 11段階以上のシェード（50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950）を生成する
   - ベースカラーの色相を維持しながら極低Chromaに変換する機能を追加する
@@ -115,14 +115,14 @@
 
 - [ ] 3. Material Design 3トーンスケール生成
 
-- [ ] 3.1 (P) [A] M3Generatorの基本トーンスケール生成を実装する
+- [x] 3.1 (P) [A] M3Generatorの基本トーンスケール生成を実装する
   - material-color-utilities依存を追加しHCT色空間へのアクセスを設定する
   - 13段階トーン値（0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 95, 99, 100）のスケール生成を実装する
   - HCT→ARGB→OKLCH変換パスを実装する
   - 変換精度を許容誤差ΔE < 0.01で保証する
   - _Requirements: 4.1, 4.2, 4.4_
 
-- [ ] 3.1.1 [A] M3変換精度の単体テストを作成する
+- [x] 3.1.1 [A] M3変換精度の単体テストを作成する
   - 複数のソースカラーでΔE < 0.01を検証する
   - エッジケース（極端なChroma、gamut境界）をテストする
   - _Requirements: 4.2, 4.4_
@@ -206,19 +206,19 @@
   - OKLCH値を使用したカラー定義を生成する
   - _Requirements: 7.3_
 
-- [ ] 6.4 (P) [A] JSONエクスポーターを実装する
+- [x] 6.4 (P) [A] JSONエクスポーターを実装する
   - JSON形式でのraw dataエクスポートを実装する
   - OKLCH、sRGB、Display P3形式での色値提供を実装する
   - _Requirements: 7.4, 7.5_
 
-- [ ] 6.4.1 [A] Exportersのスナップショットテストを作成する
+- [x] 6.4.1 [A] Exportersのスナップショットテストを作成する
   - 特定の入力に対する各フォーマットの出力をゴールデンとして保存する
   - リグレッション検出用のテストケースを用意する
   - _Requirements: 7.1, 7.2, 7.3, 7.4_
 
 - [ ] 7. ColorSystemファサードとプレビュー機能
 
-- [ ] 7.1 (P) [A] ColorSystemファサードクラスを実装する
+- [x] 7.1 (P) [A] ColorSystemファサードクラスを実装する
   - generate()、export()、save()、load()、compareParams()の統合APIを実装する
   - 4つのモード（default、m3、dads、m3+dads）の切り替えを実装する
   - 各コンポーネント（RoleConfig、M3Generator、DADSOptimizer、CollisionDetector、RoleAssigner、Exporters）を統括する
@@ -272,7 +272,7 @@
 
 - [ ] 10. 統合とテスト
 
-- [ ] 10.1 [A] demo.tsへのColorSystem統合を実装する
+- [x] 10.1 [A] demo.tsへのColorSystem統合を実装する
   - 既存のdemo.tsにColorSystemファサードを統合する
   - モード切り替えUI、プレビュー表示、エクスポート機能を接続する
   - 既存のgenerateSystemPalette()との後方互換性を維持する（defaultモードでラップ）

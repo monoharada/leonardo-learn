@@ -3,6 +3,7 @@ import { verifyContrast } from "../accessibility/wcag2";
 import { Color } from "../core/color";
 import { generateSystemPalette, HarmonyType } from "../core/harmony";
 import { findColorForContrast } from "../core/solver";
+import { runColorSystemDemo } from "./color-system-demo";
 
 interface KeyColorWithStep {
 	color: string;
@@ -993,4 +994,17 @@ export const runDemo = () => {
 	renderSidebar();
 	updateEditor();
 	renderMain();
+
+	// ColorSystem Demo - 新しいColorSystemファサードのプレビュー
+	// メインエリアにColorSystemデモを追加
+	const mainArea = document.querySelector("#app main") as HTMLElement;
+	if (mainArea) {
+		const colorSystemContainer = document.createElement("div");
+		colorSystemContainer.id = "color-system-demo";
+		colorSystemContainer.style.marginTop = "2rem";
+		colorSystemContainer.style.paddingTop = "1rem";
+		colorSystemContainer.style.borderTop = "1px solid #eee";
+		mainArea.appendChild(colorSystemContainer);
+		runColorSystemDemo("color-system-demo");
+	}
 };

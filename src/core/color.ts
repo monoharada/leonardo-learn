@@ -1,8 +1,8 @@
 import {
-    type ColorObject,
-    toHex,
-    toOklch,
-    clampChroma,
+	type ColorObject,
+	clampChroma,
+	toHex,
+	toOklch,
 } from "../utils/color-space";
 import { getContrast } from "../utils/wcag";
 
@@ -11,73 +11,75 @@ import { getContrast } from "../utils/wcag";
  * Stores state as OKLCH for perceptual uniformity.
  */
 export class Color {
-    private _oklch: ColorObject;
+	private _oklch: ColorObject;
 
-    constructor(color: string | ColorObject, options?: { skipClamp?: boolean }) {
-        if (typeof color === "string") {
-            const parsed = toOklch(color);
-            if (!parsed) {
-                throw new Error(`Invalid color string: ${color}`);
-            }
-            // Clamp chroma to ensure color is in sRGB gamut while preserving hue
-            // Skip clamping if explicitly requested (e.g., for key color override)
-            this._oklch = options?.skipClamp ? parsed : clampChroma(parsed);
-        } else {
-            // Clamp chroma to ensure color is in sRGB gamut while preserving hue
-            // Skip clamping if explicitly requested (e.g., for key color override)
-            this._oklch = options?.skipClamp ? { ...color, mode: "oklch" } : clampChroma({ ...color, mode: "oklch" });
-        }
-    }
+	constructor(color: string | ColorObject, options?: { skipClamp?: boolean }) {
+		if (typeof color === "string") {
+			const parsed = toOklch(color);
+			if (!parsed) {
+				throw new Error(`Invalid color string: ${color}`);
+			}
+			// Clamp chroma to ensure color is in sRGB gamut while preserving hue
+			// Skip clamping if explicitly requested (e.g., for key color override)
+			this._oklch = options?.skipClamp ? parsed : clampChroma(parsed);
+		} else {
+			// Clamp chroma to ensure color is in sRGB gamut while preserving hue
+			// Skip clamping if explicitly requested (e.g., for key color override)
+			this._oklch = options?.skipClamp
+				? { ...color, mode: "oklch" }
+				: clampChroma({ ...color, mode: "oklch" });
+		}
+	}
 
-    /**
-     * Get the underlying OKLCH object
-     */
-    get oklch(): ColorObject {
-        return { ...this._oklch };
-    }
+	/**
+	 * Get the underlying OKLCH object
+	 */
+	get oklch(): ColorObject {
+		return { ...this._oklch };
+	}
 
-    /**
-     * Get Hex string representation
-     */
-    toHex(): string {
-        return toHex(this._oklch);
-    }
+	/**
+	 * Get Hex string representation
+	 */
+	toHex(): string {
+		return toHex(this._oklch);
+	}
 
-    /**
-     * Get CSS string (oklch function)
-     */
-    toCss(): string {
-        const { l, c, h } = this._oklch;
-        // Handle undefined hue (achromatic)
-        const hue = h === undefined ? 0 : h;
-        return `oklch(${l.toFixed(4)} ${c.toFixed(4)} ${hue.toFixed(4)})`;
-    }
+	/**
+	 * Get CSS string (oklch function)
+	 */
+	toCss(): string {
+		const { l, c, h } = this._oklch;
+		// Handle undefined hue (achromatic)
+		const hue = h === undefined ? 0 : h;
+		return `oklch(${l.toFixed(4)} ${c.toFixed(4)} ${hue.toFixed(4)})`;
+	}
 
-    /**
-     * Get relative luminance
-     */
-    get luminance(): number {
-        // culori's wcagContrast uses relative luminance internally,
-        // but we might need to expose it.
-        // For now, we can use a helper or just rely on contrast.
-        // Let's implement getLuminance in wcag.ts if needed, or just use a placeholder.
-        // Actually, I missed adding getLuminance to wcag.ts in the previous step.
-        // I'll add it now or use a temporary implementation.
-        // culori has wcagLuminance.
-        return 0; // Placeholder, will fix in next step
-    }
+	/**
+	 * Get relative luminance
+	 */
+	get luminance(): number {
+		// culori's wcagContrast uses relative luminance internally,
+		// but we might need to expose it.
+		// For now, we can use a helper or just rely on contrast.
+		// Let's implement getLuminance in wcag.ts if needed, or just use a placeholder.
+		// Actually, I missed adding getLuminance to wcag.ts in the previous step.
+		// I'll add it now or use a temporary implementation.
+		// culori has wcagLuminance.
+		return 0; // Placeholder, will fix in next step
+	}
 
-    /**
-     * Calculate contrast ratio against another color
-     */
-    contrast(other: Color): number {
-        return getContrast(this._oklch, other.oklch);
-    }
+	/**
+	 * Calculate contrast ratio against another color
+	 */
+	contrast(other: Color): number {
+		return getContrast(this._oklch, other.oklch);
+	}
 
-    /**
-     * Clone this color
-     */
-    clone(): Color {
-        return new Color(this._oklch);
-    }
+	/**
+	 * Clone this color
+	 */
+	clone(): Color {
+		return new Color(this._oklch);
+	}
 }
