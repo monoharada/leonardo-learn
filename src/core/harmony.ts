@@ -272,6 +272,14 @@ export function generateFullChromaPalette(
 
 	const palette: SystemPaletteColor[] = [];
 
+	// セマンティックカラーの対応表
+	const semanticNames: Record<string, string> = {
+		green: "Success",
+		yellow: "Warning",
+		red: "Error",
+		cyan: "Info",
+	};
+
 	// すべての13基本クロマを色相順（青から）に生成
 	for (const chromaDef of BASE_CHROMAS) {
 		const color = new Color({
@@ -282,11 +290,20 @@ export function generateFullChromaPalette(
 		});
 
 		const isPrimary = chromaDef.name === primaryChroma.name;
+		const semanticName = semanticNames[chromaDef.name];
+
+		// 名前の決定: Primary > セマンティック > 空
+		let name = "";
+		if (isPrimary) {
+			name = "Primary";
+		} else if (semanticName) {
+			name = semanticName;
+		}
 
 		palette.push({
-			name: isPrimary ? "Primary" : "",
+			name,
 			keyColor: color,
-			role: isPrimary ? "primary" : "accent",
+			role: isPrimary ? "primary" : semanticName ? "semantic" : "accent",
 			baseChromaName: chromaDef.displayName,
 		});
 	}
