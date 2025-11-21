@@ -565,15 +565,27 @@ export const runDemo = () => {
 				const updateDetail = (color: Color, selectedIndex: number) => {
 					const colorL = color.oklch.l as number;
 					const detailSwatch = document.getElementById("detail-swatch");
-					const detailStep = document.getElementById("detail-step");
+					const detailTokenName = document.getElementById("detail-token-name");
 					const detailHex = document.getElementById("detail-hex");
+					const detailLightness = document.getElementById("detail-lightness");
 					const detailChromaName =
 						document.getElementById("detail-chroma-name");
 
+					// Step names for token generation
+					const stepNames = [
+						50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950, 1000, 1050,
+					];
+					const step = stepNames[selectedIndex] ?? 600;
+					const chromaNameLower = (p.baseChromaName || p.name || "color")
+						.toLowerCase()
+						.replace(/\s+/g, "-");
+
 					if (detailSwatch) detailSwatch.style.backgroundColor = color.toCss();
-					if (detailStep)
-						detailStep.textContent = `${Math.round(colorL * 100)}% Lightness`;
+					if (detailTokenName)
+						detailTokenName.textContent = `${chromaNameLower}-${step}`;
 					if (detailHex) detailHex.textContent = color.toHex();
+					if (detailLightness)
+						detailLightness.textContent = `${Math.round(colorL * 100)}% L`;
 
 					// Update chroma name display
 					if (detailChromaName) {
@@ -1019,16 +1031,29 @@ export const runDemo = () => {
 
 						// Populate Basic Info
 						const detailSwatch = document.getElementById("detail-swatch");
-						const detailStep = document.getElementById("detail-step");
+						const detailTokenName =
+							document.getElementById("detail-token-name");
 						const detailHex = document.getElementById("detail-hex");
+						const detailLightness = document.getElementById("detail-lightness");
 						const detailChromaName =
 							document.getElementById("detail-chroma-name");
 
+						// Step names for token generation
+						const stepNames = [
+							50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950, 1000, 1050,
+						];
+						const step = stepNames[selectedIndex] ?? 600;
+						const chromaNameLower = (p.baseChromaName || p.name || "color")
+							.toLowerCase()
+							.replace(/\s+/g, "-");
+
 						if (detailSwatch)
 							detailSwatch.style.backgroundColor = color.toCss();
-						if (detailStep)
-							detailStep.textContent = `${Math.round(colorL * 100)}% Lightness`;
+						if (detailTokenName)
+							detailTokenName.textContent = `${chromaNameLower}-${step}`;
 						if (detailHex) detailHex.textContent = color.toHex();
+						if (detailLightness)
+							detailLightness.textContent = `${Math.round(colorL * 100)}% L`;
 
 						// Update chroma name display
 						if (detailChromaName) {
