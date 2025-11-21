@@ -207,15 +207,20 @@
         <div id="detail-mini-scale" style="display: flex; height: 40px; border-radius: 20px 20px 0 0; overflow: hidden;">
             <!-- Mini swatches will be populated here -->
         </div>
-        <div style="padding: 2rem; background: #f9f9f9; border-bottom: 1px solid #eee; display: flex; align-items: center; justify-content: space-between;">
-            <div style="display: flex; align-items: center; gap: 1.5rem;">
-                <div id="detail-swatch" style="width: 80px; height: 80px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></div>
-                <div>
-                    <h2 id="detail-step" style="margin: 0; font-size: 2rem; font-weight: 800; letter-spacing: -0.02em;">600</h2>
-                    <code id="detail-hex" style="font-size: 1rem; color: #666;">#008bf2</code>
+        <div style="padding: 2rem; background: #f9f9f9; border-bottom: 1px solid #eee;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+                <div style="display: flex; align-items: center; gap: 1.5rem;">
+                    <div id="detail-swatch" style="width: 80px; height: 80px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></div>
+                    <div>
+                        <h2 id="detail-step" style="margin: 0; font-size: 2rem; font-weight: 800; letter-spacing: -0.02em;">600</h2>
+                        <code id="detail-hex" style="font-size: 1rem; color: #666;">#008bf2</code>
+                    </div>
                 </div>
+                <button onclick="document.getElementById('color-detail-dialog').close()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #999;">&times;</button>
             </div>
-            <button onclick="document.getElementById('color-detail-dialog').close()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #999;">&times;</button>
+            <button id="set-key-color-btn" style="padding: 0.5rem 1rem; background: transparent; color: #666; border: 1px solid #ccc; border-radius: 6px; font-size: 0.75rem; cursor: pointer;">
+                この色をキーカラーに設定
+            </button>
         </div>
         <div style="padding: 2rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
             <!-- White Contrast -->

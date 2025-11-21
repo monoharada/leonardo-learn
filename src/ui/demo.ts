@@ -327,21 +327,226 @@ export const runDemo = () => {
 			card.style.boxShadow = "0 2px 4px rgba(0,0,0,0.05)";
 			card.style.overflow = "hidden";
 			card.style.cursor = "pointer";
-			card.onclick = () => {
-				state.activeId = p.id;
-				state.viewMode = "shades";
-				// Update UI state
-				const vShades = document.getElementById("view-shades");
-				const vPalette = document.getElementById("view-palette");
-				if (vShades && vPalette) {
-					vShades.click(); // Trigger click handler to update styles
-				}
-				renderSidebar(); // Update active state in sidebar
-			};
 
 			const keyColorInput = p.keyColors[0];
 			if (!keyColorInput) return;
 			const { color: hex } = parseKeyColor(keyColorInput);
+			const keyColor = new Color(hex);
+
+			// Generate color scale for this palette
+			const contrastRanges: Record<ContrastIntensity, number[]> = {
+				subtle: [
+					1.05, 1.1, 1.15, 1.2, 1.3, 1.5, 2.0, 3.0, 4.5, 6.0, 8.0, 10.0, 12.0,
+				],
+				moderate: [
+					1.05, 1.1, 1.2, 1.35, 1.7, 2.5, 3.5, 4.5, 6.0, 8.5, 11.0, 14.0, 17.0,
+				],
+				strong: [
+					1.1, 1.2, 1.3, 1.5, 2.0, 3.0, 4.5, 6.0, 8.0, 11.0, 14.0, 17.0, 21.0,
+				],
+				vivid: [
+					1.15, 1.25, 1.4, 1.7, 2.5, 3.5, 5.0, 7.0, 9.0, 12.0, 15.0, 18.0, 21.0,
+				],
+			};
+
+			const baseRatios = [
+				...(contrastRanges[state.contrastIntensity] || contrastRanges.moderate),
+			];
+			const bgColor = new Color("#ffffff");
+			const keyContrastRatio = keyColor.contrast(bgColor);
+
+			let keyColorIndex = -1;
+			let minDiff = Infinity;
+			for (let i = 0; i < baseRatios.length; i++) {
+				const diff = Math.abs((baseRatios[i] ?? 0) - keyContrastRatio);
+				if (diff < minDiff) {
+					minDiff = diff;
+					keyColorIndex = i;
+				}
+			}
+			if (keyColorIndex >= 0) {
+				baseRatios[keyColorIndex] = keyContrastRatio;
+			}
+
+			const colors: Color[] = baseRatios.map((ratio, i) => {
+				if (i === keyColorIndex) return keyColor;
+				const solved = findColorForContrast(keyColor, bgColor, ratio);
+				return solved || keyColor;
+			});
+			colors.reverse();
+			const reversedKeyColorIndex = colors.length - 1 - keyColorIndex;
+
+			card.onclick = () => {
+				const dialog = document.getElementById(
+					"color-detail-dialog",
+				) as HTMLDialogElement;
+				if (!dialog) return;
+
+				// Helper to update detail panel
+				const updateDetail = (color: Color, selectedIndex: number) => {
+					const colorL = color.oklch.l as number;
+					const detailSwatch = document.getElementById("detail-swatch");
+					const detailStep = document.getElementById("detail-step");
+					const detailHex = document.getElementById("detail-hex");
+
+					if (detailSwatch) detailSwatch.style.backgroundColor = color.toCss();
+					if (detailStep)
+						detailStep.textContent = `${Math.round(colorL * 100)}% Lightness`;
+					if (detailHex) detailHex.textContent = color.toHex();
+
+					const setKeyColorBtn = document.getElementById(
+						"set-key-color-btn",
+					) as HTMLButtonElement;
+					if (setKeyColorBtn) {
+						setKeyColorBtn.textContent = `${color.toHex()} を ${p.name} のパレットの色に指定`;
+						setKeyColorBtn.onclick = () => {
+							p.keyColors = [`${color.toHex()}@600`];
+							dialog.close();
+							renderMain();
+						};
+					}
+
+					const updateCard = (bgHex: string, prefix: string) => {
+						const bg = new Color(bgHex);
+						const wcag = verifyContrast(color, bg);
+						const apca = getAPCA(color, bg);
+						const ratioVal = Math.round(wcag.contrast * 100) / 100;
+						const lc = Math.round(apca);
+
+						const badge = document.getElementById(`detail-${prefix}-badge`);
+						const ratioEl = document.getElementById(`detail-${prefix}-ratio`);
+						const apcaEl = document.getElementById(`detail-${prefix}-apca`);
+						const preview = document.getElementById(`detail-${prefix}-preview`);
+						const previewLarge = document.getElementById(
+							`detail-${prefix}-preview-large`,
+						);
+						const failIcon = document.getElementById(
+							`detail-${prefix}-fail-icon`,
+						);
+
+						if (ratioEl) ratioEl.textContent = `${ratioVal}`;
+						if (apcaEl) apcaEl.textContent = `${lc}`;
+						if (preview) {
+							preview.style.backgroundColor = color.toCss();
+							preview.style.color = bgHex;
+						}
+						if (previewLarge) {
+							previewLarge.style.backgroundColor = color.toCss();
+							previewLarge.style.color = bgHex;
+						}
+						if (badge) {
+							if (ratioVal >= 7.0) {
+								badge.textContent = "AAA";
+								badge.style.backgroundColor = "#e6f4ea";
+								badge.style.color = "#137333";
+								if (failIcon) failIcon.style.display = "none";
+							} else if (ratioVal >= 4.5) {
+								badge.textContent = "AA";
+								badge.style.backgroundColor = "#e6f4ea";
+								badge.style.color = "#137333";
+								if (failIcon) failIcon.style.display = "none";
+							} else if (ratioVal >= 3.0) {
+								badge.textContent = "Large Text";
+								badge.style.backgroundColor = "#fef7e0";
+								badge.style.color = "#b06000";
+								if (failIcon) failIcon.style.display = "none";
+							} else {
+								badge.textContent = "Fail";
+								badge.style.backgroundColor = "#fce8e6";
+								badge.style.color = "#c5221f";
+								if (failIcon) failIcon.style.display = "block";
+							}
+						}
+					};
+
+					const whiteContrastVal = verifyContrast(
+						color,
+						new Color("#ffffff"),
+					).contrast;
+					const blackContrastVal = verifyContrast(
+						color,
+						new Color("#000000"),
+					).contrast;
+					updateCard("#ffffff", "white");
+					updateCard("#000000", "black");
+
+					const whiteCard = document.querySelector(
+						".contrast-card:first-child",
+					) as HTMLElement;
+					const blackCard = document.querySelector(
+						".contrast-card:last-child",
+					) as HTMLElement;
+					if (whiteCard && blackCard) {
+						if (whiteContrastVal >= blackContrastVal) {
+							whiteCard.style.borderColor = "#ccc";
+							whiteCard.style.borderWidth = "2px";
+							blackCard.style.borderColor = "#eee";
+							blackCard.style.borderWidth = "1px";
+						} else {
+							blackCard.style.borderColor = "#ccc";
+							blackCard.style.borderWidth = "2px";
+							whiteCard.style.borderColor = "#eee";
+							whiteCard.style.borderWidth = "1px";
+						}
+					}
+
+					// Update mini scale checkmark
+					const miniScale = document.getElementById("detail-mini-scale");
+					if (miniScale) {
+						const miniSwatches = miniScale.children;
+						for (let i = 0; i < miniSwatches.length; i++) {
+							const ms = miniSwatches[i] as HTMLElement;
+							const existingCheck = ms.querySelector(".mini-check");
+							if (existingCheck) existingCheck.remove();
+							if (i === selectedIndex) {
+								const check = document.createElement("div");
+								check.className = "mini-check";
+								check.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+								check.style.position = "absolute";
+								check.style.top = "50%";
+								check.style.left = "50%";
+								check.style.transform = "translate(-50%, -50%)";
+								check.style.color = color.oklch.l > 0.5 ? "black" : "white";
+								ms.appendChild(check);
+							}
+						}
+					}
+				};
+
+				// Build mini scale
+				const miniScale = document.getElementById("detail-mini-scale");
+				if (miniScale) {
+					miniScale.innerHTML = "";
+					colors.forEach((c, i) => {
+						const miniSwatch = document.createElement("button");
+						miniSwatch.type = "button";
+						miniSwatch.style.flex = "1";
+						miniSwatch.style.backgroundColor = c.toCss();
+						miniSwatch.style.cursor = "pointer";
+						miniSwatch.style.position = "relative";
+						miniSwatch.style.border = "none";
+						miniSwatch.style.padding = "0";
+						miniSwatch.style.outline = "none";
+						miniSwatch.setAttribute("aria-label", `Color ${c.toHex()}`);
+						miniSwatch.onclick = (e) => {
+							e.stopPropagation();
+							updateDetail(c, i);
+						};
+						miniSwatch.onfocus = () => {
+							miniSwatch.style.outline = "2px solid white";
+							miniSwatch.style.outlineOffset = "-2px";
+						};
+						miniSwatch.onblur = () => {
+							miniSwatch.style.outline = "none";
+						};
+						miniScale.appendChild(miniSwatch);
+					});
+				}
+
+				// Show key color by default
+				updateDetail(keyColor, reversedKeyColorIndex);
+				dialog.showModal();
+			};
 
 			const swatch = document.createElement("div");
 			swatch.style.height = "120px";
@@ -603,6 +808,22 @@ export const runDemo = () => {
 						if (detailStep)
 							detailStep.textContent = `${Math.round(colorL * 100)}% Lightness`;
 						if (detailHex) detailHex.textContent = color.toHex();
+
+						// Update "Set as key color" button
+						const setKeyColorBtn = document.getElementById(
+							"set-key-color-btn",
+						) as HTMLButtonElement;
+						if (setKeyColorBtn) {
+							setKeyColorBtn.textContent = `${color.toHex()} を ${p.name} のパレットの色に指定`;
+							setKeyColorBtn.onclick = () => {
+								// Update the palette's key color
+								p.keyColors = [`${color.toHex()}@600`];
+
+								// Close dialog and re-render
+								dialog.close();
+								renderMain();
+							};
+						}
 
 						// Helper to update contrast card
 						const updateCard = (bgHex: string, prefix: string) => {
