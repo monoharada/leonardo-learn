@@ -662,8 +662,40 @@ export const runDemo = () => {
 							}
 						};
 
+						// Calculate both contrasts for comparison
+						const whiteContrastVal = verifyContrast(
+							color,
+							new Color("#ffffff"),
+						).contrast;
+						const blackContrastVal = verifyContrast(
+							color,
+							new Color("#000000"),
+						).contrast;
+
 						updateCard("#ffffff", "white");
 						updateCard("#000000", "black");
+
+						// Highlight the better contrast card with slightly stronger border
+						const whiteCard = document.querySelector(
+							".contrast-card:first-child",
+						) as HTMLElement;
+						const blackCard = document.querySelector(
+							".contrast-card:last-child",
+						) as HTMLElement;
+
+						if (whiteCard && blackCard) {
+							if (whiteContrastVal >= blackContrastVal) {
+								whiteCard.style.borderColor = "#ccc";
+								whiteCard.style.borderWidth = "2px";
+								blackCard.style.borderColor = "#eee";
+								blackCard.style.borderWidth = "1px";
+							} else {
+								blackCard.style.borderColor = "#ccc";
+								blackCard.style.borderWidth = "2px";
+								whiteCard.style.borderColor = "#eee";
+								whiteCard.style.borderWidth = "1px";
+							}
+						}
 
 						// Update mini scale selection indicator
 						const miniScale = document.getElementById("detail-mini-scale");
