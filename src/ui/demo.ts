@@ -587,12 +587,8 @@ export const runDemo = () => {
 					const stepNames = [
 						1200, 1100, 1000, 900, 800, 700, 600, 500, 400, 300, 200, 100, 50,
 					];
-					// キーカラーが選択された場合は、PaletteConfigのステップを使用
-					const isKeyColorSelected = selectedIndex === reversedKeyColorIndex;
-					const step =
-						isKeyColorSelected && configStep
-							? configStep
-							: (stepNames[selectedIndex] ?? 600);
+					// ステップ番号を取得
+					const step = stepNames[selectedIndex] ?? 600;
 					const chromaNameLower = (p.baseChromaName || p.name || "color")
 						.toLowerCase()
 						.replace(/\s+/g, "-");
@@ -765,7 +761,16 @@ export const runDemo = () => {
 				}
 
 				// Show key color by default
-				updateDetail(keyColor, reversedKeyColorIndex);
+				// configStepがある場合はそのステップに対応するインデックスを使用
+				const stepNames = [
+					1200, 1100, 1000, 900, 800, 700, 600, 500, 400, 300, 200, 100, 50,
+				];
+				const initialIndex = configStep
+					? stepNames.indexOf(configStep)
+					: reversedKeyColorIndex;
+				const safeIndex =
+					initialIndex >= 0 ? initialIndex : reversedKeyColorIndex;
+				updateDetail(colors[safeIndex] || keyColor, safeIndex);
 				dialog.showModal();
 			};
 
