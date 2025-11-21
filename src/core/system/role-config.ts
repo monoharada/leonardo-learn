@@ -14,8 +14,11 @@ export type RoleType =
 	| "secondary"
 	| "tertiary"
 	| "error"
+	| "errorVariant"
 	| "warning"
+	| "warningVariant"
 	| "success"
+	| "successVariant"
 	| "neutral"
 	| "neutralVariant";
 
@@ -33,6 +36,8 @@ export interface RoleConfig {
 	hueRange?: [number, number];
 	/** ニュートラルカラーかどうか */
 	isNeutral?: boolean;
+	/** バリアント（ソースカラーのLightnessに調和） */
+	isVariant?: boolean;
 }
 
 /**
@@ -78,17 +83,38 @@ export const DEFAULT_ROLE_CONFIGS: Record<RoleType, RoleConfig> = {
 		lightnessRange: [0.35, 0.65],
 		hueRange: [15, 45],
 	},
+	errorVariant: {
+		name: "errorVariant",
+		chromaRange: [0.18, 0.28],
+		lightnessRange: [0.35, 0.65],
+		hueRange: [15, 45],
+		isVariant: true,
+	},
 	warning: {
 		name: "warning",
 		chromaRange: [0.14, 0.22],
 		lightnessRange: [0.5, 0.75],
 		hueRange: [60, 90],
 	},
+	warningVariant: {
+		name: "warningVariant",
+		chromaRange: [0.14, 0.22],
+		lightnessRange: [0.5, 0.75],
+		hueRange: [60, 90],
+		isVariant: true,
+	},
 	success: {
 		name: "success",
 		chromaRange: [0.1, 0.18],
 		lightnessRange: [0.4, 0.65],
 		hueRange: [140, 160],
+	},
+	successVariant: {
+		name: "successVariant",
+		chromaRange: [0.1, 0.18],
+		lightnessRange: [0.4, 0.65],
+		hueRange: [140, 160],
+		isVariant: true,
 	},
 	neutral: {
 		name: "neutral",

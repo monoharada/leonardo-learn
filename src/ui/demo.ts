@@ -3,7 +3,8 @@ import { verifyContrast } from "../accessibility/wcag2";
 import { Color } from "../core/color";
 import { generateSystemPalette, HarmonyType } from "../core/harmony";
 import { findColorForContrast } from "../core/solver";
-import { runColorSystemDemo } from "./color-system-demo";
+
+// import { runColorSystemDemo } from "./color-system-demo";
 
 interface KeyColorWithStep {
 	color: string;
@@ -995,16 +996,6 @@ export const runDemo = () => {
 	updateEditor();
 	renderMain();
 
-	// ColorSystem Demo - 新しいColorSystemファサードのプレビュー
-	// #appの末尾にColorSystemデモを追加
-	const appContainer = document.querySelector("#app") as HTMLElement;
-	if (appContainer) {
-		const colorSystemContainer = document.createElement("div");
-		colorSystemContainer.id = "color-system-demo";
-		colorSystemContainer.style.marginTop = "2rem";
-		colorSystemContainer.style.paddingTop = "1rem";
-		colorSystemContainer.style.borderTop = "1px solid #eee";
-		appContainer.appendChild(colorSystemContainer);
-		runColorSystemDemo("color-system-demo");
-	}
+	// ColorSystem Demo has been integrated into Harmony buttons (M3 option)
+	// The separate demo panel is no longer needed
 };

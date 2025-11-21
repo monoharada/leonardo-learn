@@ -1,4 +1,5 @@
 import { Color } from "./color";
+import { ColorSystem } from "./system/color-system";
 
 export enum HarmonyType {
 	NONE = "none",
@@ -8,6 +9,7 @@ export enum HarmonyType {
 	SPLIT_COMPLEMENTARY = "split-complementary",
 	TETRADIC = "tetradic",
 	SQUARE = "square",
+	M3 = "m3", // Material Design 3 color system
 }
 
 export interface HarmonyColor {
@@ -300,6 +302,148 @@ export function generateSystemPalette(
 				),
 			);
 			break;
+		case HarmonyType.M3: {
+			// Material Design 3 color system using ColorSystem facade
+			const colorSystem = new ColorSystem();
+			const result = colorSystem.generate(keyColor.toHex(), {
+				mode: "m3",
+				roles: [
+					"primary",
+					"secondary",
+					"tertiary",
+					"neutral",
+					"neutralVariant",
+					"success",
+					"warning",
+					"error",
+				],
+			});
+
+			// Helper to extract tone from scale
+			const getToneColor = (
+				roleName: string,
+				toneValue: number,
+			): Color | null => {
+				const scale = result.scales.get(
+					roleName as
+						| "primary"
+						| "secondary"
+						| "tertiary"
+						| "error"
+						| "warning"
+						| "success"
+						| "neutral"
+						| "neutralVariant",
+				);
+				if (!scale) return null;
+				const color = scale.tones.get(toneValue);
+				return color || null;
+			};
+
+			// Primary is already added, now add others from M3 result
+			const secondaryColor = getToneColor("secondary", 40);
+			if (secondaryColor) {
+				palette.push({
+					name: "Secondary",
+					role: "secondary",
+					keyColor: new Color({
+						mode: "oklch",
+						l: secondaryColor.oklch.l,
+						c: secondaryColor.oklch.c,
+						h: secondaryColor.oklch.h,
+					}),
+				});
+			}
+
+			const tertiaryColor = getToneColor("tertiary", 40);
+			if (tertiaryColor) {
+				palette.push({
+					name: "Accent 1",
+					role: "accent",
+					keyColor: new Color({
+						mode: "oklch",
+						l: tertiaryColor.oklch.l,
+						c: tertiaryColor.oklch.c,
+						h: tertiaryColor.oklch.h,
+					}),
+				});
+			}
+
+			// Add neutrals from M3
+			const neutralColor = getToneColor("neutral", 50);
+			if (neutralColor) {
+				palette.push({
+					name: "Gray",
+					role: "neutral",
+					keyColor: new Color({
+						mode: "oklch",
+						l: neutralColor.oklch.l,
+						c: neutralColor.oklch.c,
+						h: neutralColor.oklch.h,
+					}),
+				});
+			}
+
+			const neutralVariantColor = getToneColor("neutralVariant", 50);
+			if (neutralVariantColor) {
+				palette.push({
+					name: "Slate",
+					role: "neutral",
+					keyColor: new Color({
+						mode: "oklch",
+						l: neutralVariantColor.oklch.l,
+						c: neutralVariantColor.oklch.c,
+						h: neutralVariantColor.oklch.h,
+					}),
+				});
+			}
+
+			// Add semantics from M3
+			const successColor = getToneColor("success", 40);
+			if (successColor) {
+				palette.push({
+					name: "Success",
+					role: "semantic",
+					keyColor: new Color({
+						mode: "oklch",
+						l: successColor.oklch.l,
+						c: successColor.oklch.c,
+						h: successColor.oklch.h,
+					}),
+				});
+			}
+
+			const warningColor = getToneColor("warning", 40);
+			if (warningColor) {
+				palette.push({
+					name: "Warning",
+					role: "semantic",
+					keyColor: new Color({
+						mode: "oklch",
+						l: warningColor.oklch.l,
+						c: warningColor.oklch.c,
+						h: warningColor.oklch.h,
+					}),
+				});
+			}
+
+			const errorColor = getToneColor("error", 40);
+			if (errorColor) {
+				palette.push({
+					name: "Error",
+					role: "semantic",
+					keyColor: new Color({
+						mode: "oklch",
+						l: errorColor.oklch.l,
+						c: errorColor.oklch.c,
+						h: errorColor.oklch.h,
+					}),
+				});
+			}
+
+			// Return early for M3 - we've already added all colors
+			return palette;
+		}
 	}
 
 	// 3. Neutrals

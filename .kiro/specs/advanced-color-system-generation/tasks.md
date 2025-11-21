@@ -57,7 +57,7 @@
   - 無効なパラメータ範囲でエラーが発生することを確認する
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7_
 
-- [ ] 1.2 (P) [B] WCAGコントラスト維持機能を実装する
+- [x] 1.2 (P) [B] WCAGコントラスト維持機能を実装する
   - ロール別調整適用時のWCAGコントラスト比要件維持ロジックを実装する
   - コントラスト検証と自動調整のフィードバックループを構築する
   - _Requirements: 1.8_
@@ -82,18 +82,18 @@
 
 - [ ] 2. セマンティック衝突検出システム
 
-- [ ] 2.1 (P) [B] CollisionDetectorの基本衝突検出を実装する
+- [x] 2.1 (P) [B] CollisionDetectorの基本衝突検出を実装する
   - 複数セマンティックカラー間のΔH/ΔC/ΔL計算機能を実装する
   - ベース閾値（ΔH < 30°、同一Lightness帯でΔC < 0.05かつΔL < 10%）による衝突判定を実装する
   - 衝突結果の重大度（warning/error）を判定する機能を追加する
   - _Requirements: 3.1, 3.2_
 
-- [ ] 2.1.1 [B] CollisionDetectorの単体テストを作成する
+- [x] 2.1.1 [B] CollisionDetectorの単体テストを作成する
   - 閾値境界での衝突検出パターンを網羅的にテストする
   - primary-error、warning-errorの強化閾値テストを含める
   - _Requirements: 3.1, 3.2, 3.3, 3.4_
 
-- [ ] 2.2 [B] 特定ペア強化閾値と調整提案を実装する
+- [x] 2.2 [B] 特定ペア強化閾値と調整提案を実装する
   - primary-error（ΔH < 45°）で強い警告と代替色相提案を生成する
   - warning-error（ΔH < 40°）でHue/Lightness調整を自動提案する
   - 調整優先順位（Chroma→Lightness→Hue）に従った提案生成ロジックを実装する
@@ -146,7 +146,7 @@
   - 検証結果をdesign.mdに追記する
   - _Requirements: 5.1, 5.2_
 
-- [ ] 4.1 (P) [B] DADSOptimizerの基本コントラスト最適化を実装する
+- [x] 4.1 (P) [B] DADSOptimizerの基本コントラスト最適化を実装する
   - Spikeの結果に基づき最適な実装方式を選択する
   - WCAG AAA（7:1以上）を満たすテキストカラーの自動生成機能を実装する
   - APCA（Lc値）に基づいたコントラスト計算を並行実行する
@@ -154,7 +154,7 @@
   - RoleConfigレンジ超過時の警告生成を追加する
   - _Requirements: 5.1, 5.2, 5.5_
 
-- [ ] 4.1.1 [B] DADSOptimizerの単体テストを作成する
+- [x] 4.1.1 [B] DADSOptimizerの単体テストを作成する
   - AAA達成可能/不可能なケースをテストする
   - Lightness調整後のコントラスト比を検証する
   - _Requirements: 5.1, 5.2, 5.5_
@@ -164,20 +164,20 @@
   - 背景色との組み合わせ検証機能を実装する
   - _Requirements: 5.4_
 
-- [ ] 4.3 [B] 推奨用途とインタラクティブ状態カラーを実装する
+- [x] 4.3 [B] 推奨用途とインタラクティブ状態カラーを実装する
   - 各シェードに推奨用途（テキスト、背景、境界線、アイコン等）を自動割当する
   - フォーカスインジケーター、エラー状態、選択状態などのインタラクティブ状態用カラーを自動生成する
   - _Requirements: 5.3, 5.6_
 
 - [ ] 5. ロール自動割当システム
 
-- [ ] 5.1 (P) [B] RoleAssignerの基本割当ロジックを実装する
+- [x] 5.1 (P) [B] RoleAssignerの基本割当ロジックを実装する
   - 各シェードに対してプライマリ用途とセカンダリ用途を自動割当する
   - 10種類のロールカテゴリ（background、surface、container、text、icon、border、focus、hover、active、disabled）を提供する
   - Lightness値に基づく用途推奨（80%以上→background/surface、20%以下→text/icon）を実装する
   - _Requirements: 6.1, 6.2, 6.3, 6.4_
 
-- [ ] 5.1.1 [B] RoleAssignerの単体テストを作成する
+- [x] 5.1.1 [B] RoleAssignerの単体テストを作成する
   - Lightness境界値での割当が正しいか検証する
   - 全ロールカテゴリが正しく適用されるかテストする
   - _Requirements: 6.1, 6.2, 6.3, 6.4_

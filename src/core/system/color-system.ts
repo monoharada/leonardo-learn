@@ -169,24 +169,91 @@ export class ColorSystem {
 			};
 		}
 
+		// ロールに応じてソースカラーを調整
+		let colorForScale = sourceColor;
+		const sourceOklch = sourceColor.oklch;
+		const sourceHue = sourceOklch.h || 0;
+
+		// セマンティックカラー（hueRangeが指定されている場合）
+		// キーカラーのHueを考慮して、被らない色を選択
+		if (roleConfig.hueRange) {
+			const [hueMin, hueMax] = roleConfig.hueRange;
+			const semanticHue = (hueMin + hueMax) / 2; // セマンティックカラーの目標Hue
+			const [chromaMin, chromaMax] = roleConfig.chromaRange;
+			const targetChroma = (chromaMin + chromaMax) / 2;
+
+			// キーカラーとセマンティックカラーのHue差を計算
+			let hueDiff = Math.abs(semanticHue - sourceHue);
+			if (hueDiff > 180) hueDiff = 360 - hueDiff;
+
+			let targetHue: number;
+
+			// キーカラーとセマンティックカラーが近い場合（30°以内）は調整
+			if (hueDiff < 30) {
+				// 被りを避けるため、反対方向にシフト
+				if (role === "error") {
+					// 赤系が被る場合、より赤方向（0°に近い方）または紫寄りに
+					targetHue = sourceHue > 30 ? 15 : 45;
+				} else if (role === "warning") {
+					// 黄系が被る場合、オレンジ寄りまたは黄緑寄りに
+					targetHue = sourceHue > 75 ? 60 : 90;
+				} else if (role === "success") {
+					// 緑系が被る場合、シアン寄りまたは黄緑寄りに
+					targetHue = sourceHue > 150 ? 130 : 170;
+				} else {
+					targetHue = semanticHue;
+				}
+			} else {
+				// 被らない場合は標準のセマンティックHueを使用
+				targetHue = semanticHue;
+			}
+
+			// ソースカラーのLightnessを使用
+			const targetLightness = sourceOklch.l;
+
+			colorForScale = new Color({
+				mode: "oklch",
+				l: targetLightness,
+				c: targetChroma,
+				h: targetHue,
+			});
+		} else if (role === "secondary") {
+			// M3 Secondary: 同じHue、Chroma 16 (HCT) ≈ 0.05 (OKLCH)
+			colorForScale = new Color({
+				mode: "oklch",
+				l: 0.5, // tone 40相当
+				c: 0.05, // HCT Chroma 16 ≈ OKLCH 0.05
+				h: sourceHue,
+			});
+		} else if (role === "tertiary") {
+			// M3 Tertiary: Hue +60°、Chroma 24 (HCT) ≈ 0.08 (OKLCH)
+			const tertiaryHue = (sourceHue + 60) % 360;
+			colorForScale = new Color({
+				mode: "oklch",
+				l: 0.5, // tone 40相当
+				c: 0.08, // HCT Chroma 24 ≈ OKLCH 0.08
+				h: tertiaryHue,
+			});
+		}
+
 		// M3モードの場合はM3トーンスケールを生成
 		if (mode === "m3" || mode === "m3+dads") {
-			const m3Scale = generateM3ToneScale(sourceColor);
+			const m3Scale = generateM3ToneScale(colorForScale);
 
 			return {
 				tones: m3Scale.tones,
 				role,
-				sourceColor,
+				sourceColor: colorForScale,
 			};
 		}
 
 		// デフォルトモード: M3トーンスケールをベースとして使用
-		const m3Scale = generateM3ToneScale(sourceColor);
+		const m3Scale = generateM3ToneScale(colorForScale);
 
 		return {
 			tones: m3Scale.tones,
 			role,
-			sourceColor,
+			sourceColor: colorForScale,
 		};
 	}
 
