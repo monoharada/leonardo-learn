@@ -1,4 +1,4 @@
-import { BASE_CHROMAS, snapToBaseChroma } from "./base-chroma";
+import { BASE_CHROMAS, DADS_CHROMAS, snapToBaseChroma } from "./base-chroma";
 import { Color } from "./color";
 
 export enum HarmonyType {
@@ -300,8 +300,9 @@ export function generateHarmonyPalette(
 		case HarmonyType.DADS:
 			// DADSモード: セマンティック・リンク・アクセントカラーを抽出
 			// Primaryは既に追加済みなので、DADS_COLORSから色を生成
+			// DADS_CHROMASを使用して正確なHue値を取得
 			for (const dadsDef of DADS_COLORS) {
-				const chromaDef = BASE_CHROMAS.find(
+				const chromaDef = DADS_CHROMAS.find(
 					(c) => c.name === dadsDef.chromaName,
 				);
 				if (!chromaDef) continue;

@@ -39,6 +39,24 @@ export const BASE_CHROMAS: BaseChromaDefinition[] = [
 ];
 
 /**
+ * DADS用の10色相定義
+ * 実際のDADSカラーパレットから抽出したHue値
+ * 色相順（青から）に並べる
+ */
+export const DADS_CHROMAS: BaseChromaDefinition[] = [
+	{ name: "blue", hue: 266, displayName: "Blue" },
+	{ name: "cyan", hue: 251, displayName: "Light Blue" },
+	{ name: "teal", hue: 216, displayName: "Cyan" },
+	{ name: "green", hue: 157, displayName: "Green" },
+	{ name: "lime", hue: 128, displayName: "Lime" },
+	{ name: "yellow", hue: 88, displayName: "Yellow" },
+	{ name: "orange", hue: 41, displayName: "Orange" },
+	{ name: "red", hue: 27, displayName: "Red" },
+	{ name: "magenta", hue: 328, displayName: "Magenta" },
+	{ name: "purple", hue: 299, displayName: "Purple" },
+];
+
+/**
  * Hue値の差を計算（円周上の最短距離）
  */
 function hueDistance(hue1: number, hue2: number): number {
