@@ -367,7 +367,7 @@ export const runDemo = () => {
 		};
 
 		const stepNames = [
-			50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950, 1000, 1050,
+			1200, 1100, 1000, 900, 800, 700, 600, 500, 400, 300, 200, 100, 50,
 		];
 
 		// エクスポートは全13色パレットを使用
@@ -583,9 +583,9 @@ export const runDemo = () => {
 					const detailChromaName =
 						document.getElementById("detail-chroma-name");
 
-					// Step names for token generation
+					// Step names for token generation (dark to light)
 					const stepNames = [
-						50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950, 1000, 1050,
+						1200, 1100, 1000, 900, 800, 700, 600, 500, 400, 300, 200, 100, 50,
 					];
 					// キーカラーが選択された場合は、PaletteConfigのステップを使用
 					const isKeyColorSelected = selectedIndex === reversedKeyColorIndex;
