@@ -1060,9 +1060,9 @@ export const runDemo = () => {
 						const detailChromaName =
 							document.getElementById("detail-chroma-name");
 
-						// Step names for token generation
+						// Step names for token generation (dark to light order: 1200→50)
 						const stepNames = [
-							50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950, 1000, 1050,
+							1200, 1100, 1000, 900, 800, 700, 600, 500, 400, 300, 200, 100, 50,
 						];
 						const step = stepNames[selectedIndex] ?? 600;
 						const chromaNameLower = (p.baseChromaName || p.name || "color")
