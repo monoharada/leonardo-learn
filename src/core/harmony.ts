@@ -10,7 +10,80 @@ export enum HarmonyType {
 	TETRADIC = "tetradic",
 	SQUARE = "square",
 	M3 = "m3", // Material Design 3 color system
+	DADS = "dads", // Design Accessible Design System
 }
+
+// DADS用のカラー定義
+export interface DADSColorDefinition {
+	name: string;
+	chromaName: string;
+	step: number;
+	category: "semantic" | "link" | "accent";
+}
+
+// DADS用のセマンティック・リンク・アクセントカラー定義
+export const DADS_COLORS: DADSColorDefinition[] = [
+	// Semantic - Success
+	{ name: "Success-1", chromaName: "green", step: 600, category: "semantic" },
+	{ name: "Success-2", chromaName: "green", step: 800, category: "semantic" },
+	// Semantic - Error
+	{ name: "Error-1", chromaName: "red", step: 800, category: "semantic" },
+	{ name: "Error-2", chromaName: "red", step: 900, category: "semantic" },
+	// Semantic - Warning (Yellow)
+	{
+		name: "Warning-YL1",
+		chromaName: "yellow",
+		step: 700,
+		category: "semantic",
+	},
+	{
+		name: "Warning-YL2",
+		chromaName: "yellow",
+		step: 900,
+		category: "semantic",
+	},
+	// Semantic - Warning (Orange alternative)
+	{
+		name: "Warning-OR1",
+		chromaName: "orange",
+		step: 600,
+		category: "semantic",
+	},
+	{
+		name: "Warning-OR2",
+		chromaName: "orange",
+		step: 800,
+		category: "semantic",
+	},
+	// Link colors
+	{ name: "Link-Default", chromaName: "blue", step: 1000, category: "link" },
+	{ name: "Link-Visited", chromaName: "magenta", step: 900, category: "link" },
+	{ name: "Link-Active", chromaName: "orange", step: 800, category: "link" },
+	// Accent colors
+	{
+		name: "Accent-Purple",
+		chromaName: "purple",
+		step: 500,
+		category: "accent",
+	},
+	{ name: "Accent-Blue", chromaName: "blue", step: 600, category: "accent" },
+	{ name: "Accent-Cyan", chromaName: "cyan", step: 600, category: "accent" },
+	{ name: "Accent-Teal", chromaName: "teal", step: 600, category: "accent" },
+	{ name: "Accent-Green", chromaName: "green", step: 800, category: "accent" },
+	{ name: "Accent-Lime", chromaName: "lime", step: 700, category: "accent" },
+	{
+		name: "Accent-Yellow",
+		chromaName: "yellow",
+		step: 700,
+		category: "accent",
+	},
+	{
+		name: "Accent-Orange",
+		chromaName: "orange",
+		step: 600,
+		category: "accent",
+	},
+];
 
 export interface HarmonyColor {
 	name: string;
@@ -221,6 +294,29 @@ export function generateHarmonyPalette(
 			// M3モード: Primary, Secondary, Tertiary
 			palette.push(createColorAtHue(baseHue + 120, "Secondary", "secondary"));
 			palette.push(createColorAtHue(baseHue + 240, "Tertiary", "accent"));
+			break;
+
+		case HarmonyType.DADS:
+			// DADSモード: セマンティック・リンク・アクセントカラーを抽出
+			// Primaryは既に追加済みなので、DADS_COLORSから色を生成
+			for (const dadsDef of DADS_COLORS) {
+				const chromaDef = BASE_CHROMAS.find(
+					(c) => c.name === dadsDef.chromaName,
+				);
+				if (!chromaDef) continue;
+
+				palette.push({
+					name: dadsDef.name,
+					keyColor: new Color({
+						mode: "oklch",
+						l: baseLightness,
+						c: baseChroma,
+						h: chromaDef.hue,
+					}),
+					role: dadsDef.category === "semantic" ? "semantic" : "accent",
+					baseChromaName: chromaDef.displayName,
+				});
+			}
 			break;
 	}
 
