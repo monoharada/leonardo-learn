@@ -723,7 +723,11 @@ export const runDemo = () => {
 								check.style.top = "50%";
 								check.style.left = "50%";
 								check.style.transform = "translate(-50%, -50%)";
-								check.style.color = color.oklch.l > 0.5 ? "black" : "white";
+								// Use actual contrast ratio to determine checkmark color
+								const contrastToWhite = color.contrast(new Color("white"));
+								const contrastToBlack = color.contrast(new Color("black"));
+								check.style.color =
+									contrastToWhite > contrastToBlack ? "white" : "black";
 								ms.appendChild(check);
 							}
 						}
@@ -1217,7 +1221,11 @@ export const runDemo = () => {
 									check.style.top = "50%";
 									check.style.left = "50%";
 									check.style.transform = "translate(-50%, -50%)";
-									check.style.color = color.oklch.l > 0.5 ? "black" : "white";
+									// Use actual contrast ratio to determine checkmark color
+									const contrastToWhite = color.contrast(new Color("white"));
+									const contrastToBlack = color.contrast(new Color("black"));
+									check.style.color =
+										contrastToWhite > contrastToBlack ? "white" : "black";
 									ms.appendChild(check);
 								}
 							}
