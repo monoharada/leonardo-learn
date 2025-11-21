@@ -146,7 +146,7 @@ export class ContrastMaintainer {
 		const requirements = options.requirements || this.getDefaultRequirements();
 
 		// 新しいトーンマップを作成
-		const adjustedTones = new Map<ToneValue | number, Color>();
+		const adjustedTones = new Map<ToneValue, Color>();
 
 		// 元のトーンをコピー
 		for (const [tone, color] of scale.tones) {
@@ -155,8 +155,8 @@ export class ContrastMaintainer {
 
 		// 各要件をチェックして調整
 		for (const req of requirements) {
-			const fgColor = adjustedTones.get(req.fg);
-			const bgColor = adjustedTones.get(req.bg);
+			const fgColor = adjustedTones.get(req.fg as ToneValue);
+			const bgColor = adjustedTones.get(req.bg as ToneValue);
 
 			if (!fgColor || !bgColor) continue;
 
@@ -170,7 +170,7 @@ export class ContrastMaintainer {
 					bgColor,
 					requiredRatio,
 				);
-				adjustedTones.set(req.fg, adjustedFg);
+				adjustedTones.set(req.fg as ToneValue, adjustedFg);
 			}
 		}
 
@@ -198,6 +198,8 @@ export class ContrastMaintainer {
 			for (let j = i + 1; j < toneValues.length; j++) {
 				const fgTone = toneValues[i];
 				const bgTone = toneValues[j];
+
+				if (fgTone === undefined || bgTone === undefined) continue;
 
 				const fgColor = scale.tones.get(fgTone);
 				const bgColor = scale.tones.get(bgTone);

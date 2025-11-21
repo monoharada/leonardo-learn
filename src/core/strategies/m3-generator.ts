@@ -26,6 +26,8 @@ export type ToneValue = (typeof M3_TONE_VALUES)[number];
  * トーンスケールの結果
  */
 export interface ToneScale {
+	/** ロール名 */
+	role?: string;
 	/** 各トーン値に対応するColor */
 	tones: Map<ToneValue, Color>;
 	/** ソースカラー */

@@ -202,22 +202,27 @@ export function exportWithAliases(
 
 	for (const [aliasPath, targetPath] of Object.entries(aliases)) {
 		const parts = aliasPath.split(".");
-		let current = semanticTokens;
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		let current: any = semanticTokens;
 
 		// ネストされたパスを作成
 		for (let i = 0; i < parts.length - 1; i++) {
 			const part = parts[i];
-			if (!current[part]) {
-				current[part] = {} as Record<string, DTCGAliasToken>;
+			if (part && !current[part]) {
+				current[part] = {};
 			}
-			current = current[part] as Record<string, Record<string, DTCGAliasToken>>;
+			if (part) {
+				current = current[part];
+			}
 		}
 
 		const lastPart = parts[parts.length - 1];
-		(current as Record<string, DTCGAliasToken>)[lastPart] = {
-			$value: `{color.${targetPath}}`,
-			$type: "color",
-		};
+		if (lastPart) {
+			current[lastPart] = {
+				$value: `{color.${targetPath}}`,
+				$type: "color",
+			};
+		}
 	}
 
 	return {

@@ -74,7 +74,7 @@ export class DADSOptimizer {
 	private optimizeScale(scale: ToneScale, options: DADSOptions): ToneScale {
 		const targetRatio = this.contrastRequirements[options.targetLevel];
 
-		const optimizedTones = new Map<ToneValue | number, Color>();
+		const optimizedTones = new Map<ToneValue, Color>();
 
 		// 元のトーン値をソート
 		const sortedTones = Array.from(scale.tones.entries()).sort(

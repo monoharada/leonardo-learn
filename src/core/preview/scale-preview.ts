@@ -108,7 +108,7 @@ export function generateScalePreview(scale: ToneScale): ScalePreviewData {
 	}
 
 	return {
-		role: scale.role,
+		role: scale.role ?? "unknown",
 		sourceColor: scale.sourceColor,
 		shades,
 		warnings,

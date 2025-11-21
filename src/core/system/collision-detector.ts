@@ -132,6 +132,9 @@ export class CollisionDetector {
 			for (let j = i + 1; j < roles.length; j++) {
 				const role1 = roles[i];
 				const role2 = roles[j];
+
+				if (!role1 || !role2) continue;
+
 				const color1 = colors.get(role1);
 				const color2 = colors.get(role2);
 
@@ -395,7 +398,7 @@ export class CollisionDetector {
 	private detectCVDCollisions(
 		colors: Map<RoleType, Color>,
 		cvdTypes: CVDType[],
-		options: Required<
+		_options: Required<
 			Omit<CollisionDetectionOptions, "pairThresholds" | "cvdTypes">
 		>,
 	): CollisionResult[] {
@@ -416,6 +419,9 @@ export class CollisionDetector {
 				for (let j = i + 1; j < roles.length; j++) {
 					const role1 = roles[i];
 					const role2 = roles[j];
+
+					if (!role1 || !role2) continue;
+
 					const sim1 = simulatedColors.get(role1);
 					const sim2 = simulatedColors.get(role2);
 
@@ -493,12 +499,14 @@ export class CollisionDetector {
 		const finalG = this.linearToSrgb(Math.max(0, Math.min(1, simG)));
 		const finalB = this.linearToSrgb(Math.max(0, Math.min(1, simB)));
 
-		return new Color({
-			mode: "rgb",
-			r: finalR,
-			g: finalG,
-			b: finalB,
-		});
+		// RGB → Hex → Color
+		const toHexComponent = (v: number) =>
+			Math.round(v * 255)
+				.toString(16)
+				.padStart(2, "0");
+		const hex = `#${toHexComponent(finalR)}${toHexComponent(finalG)}${toHexComponent(finalB)}`;
+
+		return new Color(hex);
 	}
 
 	/**
