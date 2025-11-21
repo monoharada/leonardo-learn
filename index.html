@@ -86,7 +86,7 @@
                         <button data-value="m3" style="padding: 0.3rem 0.6rem; border: 1px solid #ccc; border-radius: 4px; background: white; cursor: pointer; font-size: 0.75rem;">M3</button>
                     </div>
                     <!-- Hidden select for backward compatibility/state storage if needed, or just remove -->
-                    <input type="hidden" id="harmony" value="complementary"> 
+                    <input type="hidden" id="harmony" value="complementary">
                 </div>
             </div>
 
@@ -117,9 +117,12 @@
                     <button id="export-css"
                         style="width: 100%; margin-bottom: 0.5rem; padding: 0.5rem; background: white; border: 1px solid #ccc; border-radius: 4px; cursor: pointer;">
                     Export CSS</button>
+                    <button id="export-tailwind"
+                        style="width: 100%; margin-bottom: 0.5rem; padding: 0.5rem; background: white; border: 1px solid #ccc; border-radius: 4px; cursor: pointer;">
+                    Export Tailwind</button>
                     <button id="export-json"
                         style="width: 100%; padding: 0.5rem; background: white; border: 1px solid #ccc; border-radius: 4px; cursor: pointer;">
-                    Export JSON</button>
+                    Export DTCG JSON</button>
                 </div>
             </div>
         </div>
@@ -140,6 +143,23 @@
                         <button data-value="moderate" class="active" style="padding: 0.3rem 0.6rem; border: 2px solid #0052cc; border-radius: 4px; background: #e3f2fd; cursor: pointer; font-weight: bold; font-size: 0.75rem;">Moderate</button>
                         <button data-value="strong" style="padding: 0.3rem 0.6rem; border: 1px solid #ccc; border-radius: 4px; background: white; cursor: pointer; font-size: 0.75rem;">Strong</button>
                         <button data-value="vivid" style="padding: 0.3rem 0.6rem; border: 1px solid #ccc; border-radius: 4px; background: white; cursor: pointer; font-size: 0.75rem;">Vivid</button>
+                    </div>
+                </div>
+                <!-- CVD Simulation Controls -->
+                <div id="cvd-controls" style="display: flex; align-items: center; gap: 1rem; margin-left: 1rem;">
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <label style="font-weight:bold; font-size: 0.85rem; color: #666;">Vision:</label>
+                        <div id="cvdTypeButtons" style="display: flex; gap: 0.25rem;">
+                            <button data-cvd="normal" class="active" style="padding: 0.3rem 0.6rem; border: 2px solid #0052cc; border-radius: 4px; background: #e3f2fd; cursor: pointer; font-weight: bold; font-size: 0.75rem;">Normal</button>
+                            <button data-cvd="protanopia" style="padding: 0.3rem 0.6rem; border: 1px solid #ccc; border-radius: 4px; background: white; cursor: pointer; font-size: 0.75rem;">P型</button>
+                            <button data-cvd="deuteranopia" style="padding: 0.3rem 0.6rem; border: 1px solid #ccc; border-radius: 4px; background: white; cursor: pointer; font-size: 0.75rem;">D型</button>
+                            <button data-cvd="tritanopia" style="padding: 0.3rem 0.6rem; border: 1px solid #ccc; border-radius: 4px; background: white; cursor: pointer; font-size: 0.75rem;">T型</button>
+                            <button data-cvd="achromatopsia" style="padding: 0.3rem 0.6rem; border: 1px solid #ccc; border-radius: 4px; background: white; cursor: pointer; font-size: 0.75rem;">全色盲</button>
+                        </div>
+                    </div>
+                    <div id="cvd-score" style="display: flex; align-items: center; gap: 0.5rem;">
+                        <span id="cvd-score-value" style="font-weight: bold; font-size: 0.9rem; color: #333;">-</span>
+                        <span id="cvd-score-grade" style="padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.7rem; font-weight: bold;">-</span>
                     </div>
                 </div>
             </div>

@@ -1,6 +1,11 @@
 import { getAPCA } from "../accessibility/apca";
+import { type CVDType, simulateCVD } from "../accessibility/cvd-simulator";
+import { calculateCVDScore } from "../accessibility/distinguishability";
 import { verifyContrast } from "../accessibility/wcag2";
 import { Color } from "../core/color";
+import { exportToCSS } from "../core/export/css-exporter";
+import { exportToDTCG } from "../core/export/dtcg-exporter";
+import { exportToTailwind } from "../core/export/tailwind-exporter";
 import { generateSystemPalette, HarmonyType } from "../core/harmony";
 import { findColorForContrast } from "../core/solver";
 
@@ -23,6 +28,9 @@ type ContrastIntensity = "subtle" | "moderate" | "strong" | "vivid";
 type LightnessDistribution = "linear" | "easeIn" | "easeOut";
 type ViewMode = "palette" | "shades";
 
+// CVD Simulation Type (includes "normal" for no simulation)
+type CVDSimulationType = "normal" | CVDType;
+
 // Default State
 const state = {
 	palettes: [
@@ -39,6 +47,7 @@ const state = {
 	contrastIntensity: "moderate" as ContrastIntensity,
 	lightnessDistribution: "linear" as LightnessDistribution,
 	viewMode: "palette" as ViewMode,
+	cvdSimulation: "normal" as CVDSimulationType,
 };
 
 export const runDemo = () => {
@@ -130,8 +139,10 @@ export const runDemo = () => {
 
 		if (currentNameEl) currentNameEl.textContent = `${p.name} Settings`;
 
-		// Update Harmony Selector (Buttons)
-		const harmonyButtons = document.querySelectorAll("#harmony-buttons button");
+		// Update Harmony Selector (Buttons) - only buttons with data-value attribute
+		const harmonyButtons = document.querySelectorAll(
+			"#harmony-buttons button[data-value]",
+		);
 		const harmonyInput = document.getElementById("harmony") as HTMLInputElement;
 
 		if (harmonyButtons.length > 0 && harmonyInput) {
@@ -289,18 +300,128 @@ export const runDemo = () => {
 		};
 	}
 
+	// Helper: Generate colors from all palettes for export
+	const generateExportColors = (): Record<string, Color> => {
+		const colors: Record<string, Color> = {};
+		const bgColor = new Color("#ffffff");
+		const contrastRanges: Record<ContrastIntensity, number[]> = {
+			subtle: [
+				1.05, 1.1, 1.15, 1.2, 1.3, 1.5, 2.0, 3.0, 4.5, 6.0, 8.0, 10.0, 12.0,
+			],
+			moderate: [
+				1.05, 1.1, 1.2, 1.35, 1.7, 2.5, 3.5, 4.5, 6.0, 8.5, 11.0, 14.0, 17.0,
+			],
+			strong: [
+				1.1, 1.2, 1.3, 1.5, 2.0, 3.0, 4.5, 6.0, 8.0, 11.0, 14.0, 17.0, 21.0,
+			],
+			vivid: [
+				1.15, 1.25, 1.4, 1.7, 2.5, 3.5, 5.0, 7.0, 9.0, 12.0, 15.0, 18.0, 21.0,
+			],
+		};
+
+		const stepNames = [
+			50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950, 1000, 1050,
+		];
+
+		state.palettes.forEach((p) => {
+			const keyColorInput = p.keyColors[0];
+			if (!keyColorInput) return;
+			const { color: hex } = parseKeyColor(keyColorInput);
+			const keyColor = new Color(hex);
+
+			const baseRatios = [
+				...(contrastRanges[state.contrastIntensity] || contrastRanges.moderate),
+			];
+
+			const keyContrastRatio = keyColor.contrast(bgColor);
+			let keyColorIndex = -1;
+			let minDiff = Infinity;
+
+			for (let i = 0; i < baseRatios.length; i++) {
+				const diff = Math.abs((baseRatios[i] ?? 0) - keyContrastRatio);
+				if (diff < minDiff) {
+					minDiff = diff;
+					keyColorIndex = i;
+				}
+			}
+
+			if (keyColorIndex >= 0) {
+				baseRatios[keyColorIndex] = keyContrastRatio;
+			}
+
+			const scaleColors: Color[] = baseRatios.map((ratio, i) => {
+				if (i === keyColorIndex) return keyColor;
+				const solved = findColorForContrast(keyColor, bgColor, ratio);
+				return solved || keyColor;
+			});
+			scaleColors.reverse();
+
+			// Generate color name from palette name
+			const paletteName = p.name.toLowerCase().replace(/\s+/g, "-");
+
+			scaleColors.forEach((color, index) => {
+				const stepName = stepNames[index] ?? index * 100 + 50;
+				colors[`${paletteName}-${stepName}`] = color;
+			});
+		});
+
+		return colors;
+	};
+
+	// Helper: Download file
+	const downloadFile = (
+		content: string,
+		filename: string,
+		mimeType: string,
+	) => {
+		const blob = new Blob([content], { type: mimeType });
+		const url = URL.createObjectURL(blob);
+		const link = document.createElement("a");
+		link.href = url;
+		link.download = filename;
+		document.body.appendChild(link);
+		link.click();
+		document.body.removeChild(link);
+		URL.revokeObjectURL(url);
+	};
+
 	// Export Logic
 	const exportCssBtn = document.getElementById("export-css");
 	if (exportCssBtn) {
 		exportCssBtn.onclick = () => {
-			console.log("Exporting CSS...");
+			const colors = generateExportColors();
+			const result = exportToCSS(colors, {
+				prefix: "color",
+				includeWideGamutFallback: true,
+			});
+			downloadFile(result.css, "colors.css", "text/css");
+		};
+	}
+
+	const exportTailwindBtn = document.getElementById("export-tailwind");
+	if (exportTailwindBtn) {
+		exportTailwindBtn.onclick = () => {
+			const colors = generateExportColors();
+			const result = exportToTailwind(colors, {
+				colorSpace: "oklch",
+				esModule: false,
+			});
+			downloadFile(
+				result.config,
+				"tailwind.colors.js",
+				"application/javascript",
+			);
 		};
 	}
 
 	const exportJsonBtn = document.getElementById("export-json");
 	if (exportJsonBtn) {
 		exportJsonBtn.onclick = () => {
-			console.log("Exporting JSON...");
+			const colors = generateExportColors();
+			const result = exportToDTCG(colors, {
+				colorSpace: "oklch",
+			});
+			downloadFile(result.json, "colors.tokens.json", "application/json");
 		};
 	}
 
@@ -314,6 +435,20 @@ export const runDemo = () => {
 		} else {
 			renderShadesView(app);
 		}
+
+		// Update CVD score after render
+		updateCVDScoreDisplay();
+	};
+
+	// CVD score update function (will be defined later)
+	let updateCVDScoreDisplay = () => {};
+
+	// Helper: Apply CVD simulation to a color
+	const applySimulation = (color: Color): Color => {
+		if (state.cvdSimulation === "normal") {
+			return color;
+		}
+		return simulateCVD(color, state.cvdSimulation as CVDType);
 	};
 
 	const renderPaletteView = (container: HTMLElement) => {
@@ -552,7 +687,9 @@ export const runDemo = () => {
 
 			const swatch = document.createElement("div");
 			swatch.style.height = "120px";
-			swatch.style.backgroundColor = hex;
+			// Apply CVD simulation to display color
+			const displayColor = applySimulation(keyColor);
+			swatch.style.backgroundColor = displayColor.toCss();
 
 			const info = document.createElement("div");
 			info.style.padding = "1rem";
@@ -569,6 +706,17 @@ export const runDemo = () => {
 
 			info.appendChild(name);
 			info.appendChild(hexCode);
+
+			// Show simulated color if CVD mode is active
+			if (state.cvdSimulation !== "normal") {
+				const simInfo = document.createElement("div");
+				simInfo.textContent = `(${displayColor.toHex()})`;
+				simInfo.style.fontSize = "0.75rem";
+				simInfo.style.color = "#999";
+				simInfo.style.marginTop = "0.25rem";
+				info.appendChild(simInfo);
+			}
+
 			card.appendChild(swatch);
 			card.appendChild(info);
 			container.appendChild(card);
@@ -662,6 +810,9 @@ export const runDemo = () => {
 			scaleContainer.style.overflow = "visible";
 
 			colors.forEach((stepColor, index) => {
+				// Apply CVD simulation to display color
+				const displayColor = applySimulation(stepColor);
+
 				const swatch = document.createElement("div");
 				swatch.style.flex = "1";
 				swatch.style.aspectRatio = "1";
@@ -674,13 +825,13 @@ export const runDemo = () => {
 
 				const isKeyColor = index === reversedKeyColorIndex;
 
-				// Calculate contrast against both white and black
+				// Calculate contrast against both white and black using display color
 				const whiteContrast = verifyContrast(
-					stepColor,
+					displayColor,
 					new Color("#ffffff"),
 				).contrast;
 				const blackContrast = verifyContrast(
-					stepColor,
+					displayColor,
 					new Color("#000000"),
 				).contrast;
 
@@ -761,7 +912,7 @@ export const runDemo = () => {
 					circle.style.width = "100%";
 					circle.style.height = "100%";
 					circle.style.borderRadius = "50%";
-					circle.style.backgroundColor = stepColor.toCss();
+					circle.style.backgroundColor = displayColor.toCss();
 					circle.style.display = "flex";
 					circle.style.alignItems = "center";
 					circle.style.justifyContent = "center";
@@ -777,7 +928,7 @@ export const runDemo = () => {
 					swatch.appendChild(circle);
 					createBadge(swatch); // Bottom-center badge
 				} else {
-					swatch.style.backgroundColor = stepColor.toCss();
+					swatch.style.backgroundColor = displayColor.toCss();
 
 					const label = document.createElement("span");
 					label.textContent = `${ratio}`;
@@ -990,6 +1141,111 @@ export const runDemo = () => {
 			container.appendChild(section);
 		});
 	};
+
+	// CVD Simulation Controls
+	const cvdTypeButtons = document.querySelectorAll("#cvdTypeButtons button");
+	const cvdScoreValue = document.getElementById("cvd-score-value");
+	const cvdScoreGrade = document.getElementById("cvd-score-grade");
+
+	// Helper: Generate key colors only for CVD score calculation
+	const generateKeyColors = (): Record<string, Color> => {
+		const colors: Record<string, Color> = {};
+		state.palettes.forEach((p) => {
+			const keyColorInput = p.keyColors[0];
+			if (!keyColorInput) return;
+			const { color: hex } = parseKeyColor(keyColorInput);
+			const paletteName = p.name.toLowerCase().replace(/\s+/g, "-");
+			colors[paletteName] = new Color(hex);
+		});
+		return colors;
+	};
+
+	// Set up CVD score display function
+	updateCVDScoreDisplay = () => {
+		const colors = generateKeyColors();
+		const score = calculateCVDScore(colors);
+
+		// Show score for selected CVD type, or overall if "normal"
+		let displayScore: number;
+		let displayGrade: "A" | "B" | "C" | "D" | "F";
+
+		if (state.cvdSimulation === "normal") {
+			displayScore = score.overallScore;
+			displayGrade = score.grade;
+		} else {
+			// Show score for the selected CVD type
+			const typeScore =
+				score.scoresByType[
+					state.cvdSimulation as keyof typeof score.scoresByType
+				];
+			displayScore = typeScore;
+			// Calculate grade for this specific score
+			if (typeScore >= 90) displayGrade = "A";
+			else if (typeScore >= 75) displayGrade = "B";
+			else if (typeScore >= 60) displayGrade = "C";
+			else if (typeScore >= 40) displayGrade = "D";
+			else displayGrade = "F";
+		}
+
+		if (cvdScoreValue) {
+			cvdScoreValue.textContent = `${displayScore}`;
+		}
+
+		if (cvdScoreGrade) {
+			cvdScoreGrade.textContent = displayGrade;
+
+			// Set grade color
+			switch (displayGrade) {
+				case "A":
+					cvdScoreGrade.style.backgroundColor = "#e6f4ea";
+					cvdScoreGrade.style.color = "#137333";
+					break;
+				case "B":
+					cvdScoreGrade.style.backgroundColor = "#e3f2fd";
+					cvdScoreGrade.style.color = "#0052cc";
+					break;
+				case "C":
+					cvdScoreGrade.style.backgroundColor = "#fef7e0";
+					cvdScoreGrade.style.color = "#b06000";
+					break;
+				case "D":
+					cvdScoreGrade.style.backgroundColor = "#fce8e6";
+					cvdScoreGrade.style.color = "#c5221f";
+					break;
+				case "F":
+					cvdScoreGrade.style.backgroundColor = "#fce8e6";
+					cvdScoreGrade.style.color = "#c5221f";
+					break;
+			}
+		}
+	};
+
+	// CVD Type Button Handlers
+	cvdTypeButtons.forEach((btn) => {
+		(btn as HTMLElement).onclick = () => {
+			const cvdType = (btn as HTMLElement).dataset.cvd as CVDSimulationType;
+			state.cvdSimulation = cvdType;
+
+			// Update button styles
+			cvdTypeButtons.forEach((b) => {
+				const isActive = (b as HTMLElement).dataset.cvd === cvdType;
+				if (isActive) {
+					(b as HTMLElement).style.background = "#e3f2fd";
+					(b as HTMLElement).style.borderColor = "#0052cc";
+					(b as HTMLElement).style.borderWidth = "2px";
+					(b as HTMLElement).style.fontWeight = "bold";
+				} else {
+					(b as HTMLElement).style.background = "white";
+					(b as HTMLElement).style.borderColor = "#ccc";
+					(b as HTMLElement).style.borderWidth = "1px";
+					(b as HTMLElement).style.fontWeight = "normal";
+				}
+			});
+
+			// Re-render with simulation applied
+			renderMain();
+		};
+	});
 
 	// Initial Render
 	renderSidebar();
