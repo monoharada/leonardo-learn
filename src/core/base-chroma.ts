@@ -18,10 +18,16 @@ export interface BaseChromaDefinition {
 }
 
 /**
- * 12の基本クロマ定義
+ * 13の基本クロマ定義
  * Hue値はOKLCH色空間に基づく
+ * 青から色相順に並べる
  */
 export const BASE_CHROMAS: BaseChromaDefinition[] = [
+	{ name: "blue", hue: 250, displayName: "Blue" },
+	{ name: "indigo", hue: 275, displayName: "Indigo" },
+	{ name: "purple", hue: 300, displayName: "Purple" },
+	{ name: "magenta", hue: 330, displayName: "Magenta" },
+	{ name: "pink", hue: 350, displayName: "Pink" },
 	{ name: "red", hue: 25, displayName: "Red" },
 	{ name: "orange", hue: 55, displayName: "Orange" },
 	{ name: "amber", hue: 75, displayName: "Amber" },
@@ -30,10 +36,6 @@ export const BASE_CHROMAS: BaseChromaDefinition[] = [
 	{ name: "green", hue: 145, displayName: "Green" },
 	{ name: "teal", hue: 175, displayName: "Teal" },
 	{ name: "cyan", hue: 195, displayName: "Cyan" },
-	{ name: "blue", hue: 250, displayName: "Blue" },
-	{ name: "indigo", hue: 275, displayName: "Indigo" },
-	{ name: "purple", hue: 300, displayName: "Purple" },
-	{ name: "pink", hue: 350, displayName: "Pink" },
 ];
 
 /**

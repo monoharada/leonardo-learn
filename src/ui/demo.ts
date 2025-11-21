@@ -6,7 +6,11 @@ import { Color } from "../core/color";
 import { exportToCSS } from "../core/export/css-exporter";
 import { exportToDTCG } from "../core/export/dtcg-exporter";
 import { exportToTailwind } from "../core/export/tailwind-exporter";
-import { generateSystemPalette, HarmonyType } from "../core/harmony";
+import {
+	generateFullChromaPalette,
+	generateSystemPalette,
+	HarmonyType,
+} from "../core/harmony";
 import { findColorForContrast } from "../core/solver";
 
 // import { runColorSystemDemo } from "./color-system-demo";
@@ -43,6 +47,8 @@ const state = {
 			harmony: HarmonyType.NONE,
 		},
 	] as PaletteConfig[],
+	// Shadesビュー用の全13色パレット
+	shadesPalettes: [] as PaletteConfig[],
 	activeId: "color",
 	activeHarmonyIndex: 0, // 0 = Primary, 1+ = Derived
 	contrastIntensity: "moderate" as ContrastIntensity,
@@ -215,10 +221,11 @@ export const runDemo = () => {
 			? (harmonyInput.value as HarmonyType)
 			: HarmonyType.COMPLEMENTARY;
 
-		const systemColors = generateSystemPalette(primaryColor, harmonyType);
+		// Paletteビュー用: ハーモニーベースのパレット
+		const harmonyColors = generateSystemPalette(primaryColor, harmonyType);
 
 		// Convert to PaletteConfigs
-		state.palettes = systemColors.map((sc, index) => {
+		state.palettes = harmonyColors.map((sc, index) => {
 			// For the Primary palette (index 0), preserve the harmony type
 			// For others, set to NONE as they are derived
 			const paletteHarmony = index === 0 ? harmonyType : HarmonyType.NONE;
@@ -229,6 +236,20 @@ export const runDemo = () => {
 				keyColors: [`${sc.keyColor.toHex()}@600`], // Default to step 600
 				ratios: [21, 15, 10, 7, 4.5, 3, 1],
 				harmony: paletteHarmony,
+				baseChromaName: sc.baseChromaName,
+			};
+		});
+
+		// Shadesビュー用: 全13色パレット
+		const fullChromaColors = generateFullChromaPalette(primaryColor);
+
+		state.shadesPalettes = fullChromaColors.map((sc, index) => {
+			return {
+				id: `shades-${index}-${sc.baseChromaName?.toLowerCase().replace(/\s+/g, "-") || sc.name.toLowerCase().replace(/\s+/g, "-")}`,
+				name: sc.name,
+				keyColors: [`${sc.keyColor.toHex()}@600`],
+				ratios: [21, 15, 10, 7, 4.5, 3, 1],
+				harmony: HarmonyType.NONE,
 				baseChromaName: sc.baseChromaName,
 			};
 		});
@@ -325,7 +346,11 @@ export const runDemo = () => {
 			50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950, 1000, 1050,
 		];
 
-		state.palettes.forEach((p) => {
+		// エクスポートは全13色パレットを使用
+		const palettesToExport =
+			state.shadesPalettes.length > 0 ? state.shadesPalettes : state.palettes;
+
+		palettesToExport.forEach((p) => {
 			const keyColorInput = p.keyColors[0];
 			if (!keyColorInput) return;
 			const { color: hex } = parseKeyColor(keyColorInput);
@@ -730,13 +755,19 @@ export const runDemo = () => {
 		container.style.flexDirection = "column";
 		container.style.gap = "2rem";
 
-		state.palettes.forEach((p) => {
+		// Shadesビューでは全13色パレットを使用
+		const palettesToRender =
+			state.shadesPalettes.length > 0 ? state.shadesPalettes : state.palettes;
+
+		palettesToRender.forEach((p) => {
 			const section = document.createElement("section");
 
 			const header = document.createElement("h2");
-			// すべてのパレットで「基本クロマ名 | ロール名」形式で表示
-			if (p.baseChromaName) {
+			// 表示形式: baseChromaName | name (name が空の場合は baseChromaName のみ)
+			if (p.baseChromaName && p.name) {
 				header.textContent = `${p.baseChromaName} | ${p.name}`;
+			} else if (p.baseChromaName) {
+				header.textContent = p.baseChromaName;
 			} else {
 				header.textContent = p.name;
 			}
@@ -1157,11 +1188,18 @@ export const runDemo = () => {
 	// Helper: Generate key colors only for CVD score calculation
 	const generateKeyColors = (): Record<string, Color> => {
 		const colors: Record<string, Color> = {};
-		state.palettes.forEach((p) => {
+		// CVDスコアは全13色パレットで計算
+		const palettesForScore =
+			state.shadesPalettes.length > 0 ? state.shadesPalettes : state.palettes;
+
+		palettesForScore.forEach((p) => {
 			const keyColorInput = p.keyColors[0];
 			if (!keyColorInput) return;
 			const { color: hex } = parseKeyColor(keyColorInput);
-			const paletteName = p.name.toLowerCase().replace(/\s+/g, "-");
+			// baseChromaNameがあればそれを使い、なければnameを使用
+			const paletteName = (p.baseChromaName || p.name)
+				.toLowerCase()
+				.replace(/\s+/g, "-");
 			colors[paletteName] = new Color(hex);
 		});
 		return colors;
