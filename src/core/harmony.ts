@@ -189,6 +189,7 @@ export interface SystemPaletteColor {
 	keyColor: Color;
 	role: "primary" | "secondary" | "accent" | "neutral" | "semantic";
 	baseChromaName?: string; // 基本クロマ名（セマンティックの場合に使用）
+	step?: number; // DADS用: 指定されたステップ番号
 }
 
 /**
@@ -315,6 +316,7 @@ export function generateHarmonyPalette(
 					}),
 					role: dadsDef.category === "semantic" ? "semantic" : "accent",
 					baseChromaName: chromaDef.displayName,
+					step: dadsDef.step,
 				});
 			}
 			break;

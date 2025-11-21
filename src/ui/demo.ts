@@ -233,10 +233,13 @@ export const runDemo = () => {
 			// Primaryの場合は元の入力HEX値を使用（丸め誤差を防ぐ）
 			const hexValue = sc.role === "primary" ? inputHex : sc.keyColor.toHex();
 
+			// DADSの場合は指定されたステップを使用、それ以外は600
+			const step = sc.step ?? 600;
+
 			return {
 				id: `sys-${index}-${sc.name.toLowerCase().replace(/\s+/g, "-")}`,
 				name: sc.name,
-				keyColors: [`${hexValue}@600`], // Default to step 600
+				keyColors: [`${hexValue}@${step}`],
 				ratios: [21, 15, 10, 7, 4.5, 3, 1],
 				harmony: paletteHarmony,
 				baseChromaName: sc.baseChromaName,
@@ -561,6 +564,9 @@ export const runDemo = () => {
 			colors.reverse();
 			const reversedKeyColorIndex = colors.length - 1 - keyColorIndex;
 
+			// PaletteConfigから指定されたステップを取得
+			const { step: configStep } = parseKeyColor(keyColorInput);
+
 			card.onclick = () => {
 				const dialog = document.getElementById(
 					"color-detail-dialog",
@@ -581,7 +587,12 @@ export const runDemo = () => {
 					const stepNames = [
 						50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950, 1000, 1050,
 					];
-					const step = stepNames[selectedIndex] ?? 600;
+					// キーカラーが選択された場合は、PaletteConfigのステップを使用
+					const isKeyColorSelected = selectedIndex === reversedKeyColorIndex;
+					const step =
+						isKeyColorSelected && configStep
+							? configStep
+							: (stepNames[selectedIndex] ?? 600);
 					const chromaNameLower = (p.baseChromaName || p.name || "color")
 						.toLowerCase()
 						.replace(/\s+/g, "-");
