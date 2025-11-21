@@ -468,7 +468,6 @@ export const runDemo = () => {
 				const isKeyColor = index === reversedKeyColorIndex;
 
 				// Calculate contrast against both white and black
-				const l = stepColor.oklch.l as number;
 				const whiteContrast = verifyContrast(
 					stepColor,
 					new Color("#ffffff"),
@@ -590,79 +589,141 @@ export const runDemo = () => {
 					) as HTMLDialogElement;
 					if (!dialog) return;
 
-					// Populate Basic Info
-					const detailSwatch = document.getElementById("detail-swatch");
-					const detailStep = document.getElementById("detail-step");
-					const detailHex = document.getElementById("detail-hex");
+					// Helper to update detail panel with a specific color
+					const updateDetail = (color: Color, selectedIndex: number) => {
+						const colorL = color.oklch.l as number;
 
-					if (detailSwatch)
-						detailSwatch.style.backgroundColor = stepColor.toCss();
-					// We don't track exact step number in this view easily without passing it,
-					// but we can infer or just show the hex for now.
-					// Or we can calculate the closest step if we had the scale logic handy.
-					// For now, let's show the Hex and maybe the L value.
-					if (detailStep)
-						detailStep.textContent = `${Math.round(l * 100)}% Lightness`;
-					if (detailHex) detailHex.textContent = stepColor.toHex();
+						// Populate Basic Info
+						const detailSwatch = document.getElementById("detail-swatch");
+						const detailStep = document.getElementById("detail-step");
+						const detailHex = document.getElementById("detail-hex");
 
-					// Helper to update contrast card
-					const updateCard = (bgHex: string, prefix: string) => {
-						const bgColor = new Color(bgHex);
-						const wcag = verifyContrast(stepColor, bgColor);
-						const apca = getAPCA(stepColor, bgColor);
-						const ratio = Math.round(wcag.contrast * 100) / 100;
-						const lc = Math.round(apca);
+						if (detailSwatch)
+							detailSwatch.style.backgroundColor = color.toCss();
+						if (detailStep)
+							detailStep.textContent = `${Math.round(colorL * 100)}% Lightness`;
+						if (detailHex) detailHex.textContent = color.toHex();
 
-						const badge = document.getElementById(`detail-${prefix}-badge`);
-						const ratioEl = document.getElementById(`detail-${prefix}-ratio`);
-						const apcaEl = document.getElementById(`detail-${prefix}-apca`);
-						const preview = document.getElementById(`detail-${prefix}-preview`);
-						const previewLarge = document.getElementById(
-							`detail-${prefix}-preview-large`,
-						);
-						const failIcon = document.getElementById(
-							`detail-${prefix}-fail-icon`,
-						);
+						// Helper to update contrast card
+						const updateCard = (bgHex: string, prefix: string) => {
+							const bgColor = new Color(bgHex);
+							const wcag = verifyContrast(color, bgColor);
+							const apca = getAPCA(color, bgColor);
+							const ratioVal = Math.round(wcag.contrast * 100) / 100;
+							const lc = Math.round(apca);
 
-						if (ratioEl) ratioEl.textContent = `${ratio}`;
-						if (apcaEl) apcaEl.textContent = `${lc}`;
+							const badge = document.getElementById(`detail-${prefix}-badge`);
+							const ratioEl = document.getElementById(`detail-${prefix}-ratio`);
+							const apcaEl = document.getElementById(`detail-${prefix}-apca`);
+							const preview = document.getElementById(
+								`detail-${prefix}-preview`,
+							);
+							const previewLarge = document.getElementById(
+								`detail-${prefix}-preview-large`,
+							);
+							const failIcon = document.getElementById(
+								`detail-${prefix}-fail-icon`,
+							);
 
-						if (preview) {
-							preview.style.backgroundColor = stepColor.toCss();
-							preview.style.color = bgHex;
-						}
-						if (previewLarge) {
-							previewLarge.style.backgroundColor = stepColor.toCss();
-							previewLarge.style.color = bgHex;
-						}
+							if (ratioEl) ratioEl.textContent = `${ratioVal}`;
+							if (apcaEl) apcaEl.textContent = `${lc}`;
 
-						if (badge) {
-							if (ratio >= 7.0) {
-								badge.textContent = "AAA";
-								badge.style.backgroundColor = "#e6f4ea";
-								badge.style.color = "#137333";
-								if (failIcon) failIcon.style.display = "none";
-							} else if (ratio >= 4.5) {
-								badge.textContent = "AA";
-								badge.style.backgroundColor = "#e6f4ea";
-								badge.style.color = "#137333";
-								if (failIcon) failIcon.style.display = "none";
-							} else if (ratio >= 3.0) {
-								badge.textContent = "Large Text";
-								badge.style.backgroundColor = "#fef7e0";
-								badge.style.color = "#b06000";
-								if (failIcon) failIcon.style.display = "none";
-							} else {
-								badge.textContent = "Fail";
-								badge.style.backgroundColor = "#fce8e6";
-								badge.style.color = "#c5221f";
-								if (failIcon) failIcon.style.display = "block";
+							if (preview) {
+								preview.style.backgroundColor = color.toCss();
+								preview.style.color = bgHex;
+							}
+							if (previewLarge) {
+								previewLarge.style.backgroundColor = color.toCss();
+								previewLarge.style.color = bgHex;
+							}
+
+							if (badge) {
+								if (ratioVal >= 7.0) {
+									badge.textContent = "AAA";
+									badge.style.backgroundColor = "#e6f4ea";
+									badge.style.color = "#137333";
+									if (failIcon) failIcon.style.display = "none";
+								} else if (ratioVal >= 4.5) {
+									badge.textContent = "AA";
+									badge.style.backgroundColor = "#e6f4ea";
+									badge.style.color = "#137333";
+									if (failIcon) failIcon.style.display = "none";
+								} else if (ratioVal >= 3.0) {
+									badge.textContent = "Large Text";
+									badge.style.backgroundColor = "#fef7e0";
+									badge.style.color = "#b06000";
+									if (failIcon) failIcon.style.display = "none";
+								} else {
+									badge.textContent = "Fail";
+									badge.style.backgroundColor = "#fce8e6";
+									badge.style.color = "#c5221f";
+									if (failIcon) failIcon.style.display = "block";
+								}
+							}
+						};
+
+						updateCard("#ffffff", "white");
+						updateCard("#000000", "black");
+
+						// Update mini scale selection indicator
+						const miniScale = document.getElementById("detail-mini-scale");
+						if (miniScale) {
+							const miniSwatches = miniScale.children;
+							for (let i = 0; i < miniSwatches.length; i++) {
+								const ms = miniSwatches[i] as HTMLElement;
+								// Remove existing checkmark if any
+								const existingCheck = ms.querySelector(".mini-check");
+								if (existingCheck) existingCheck.remove();
+
+								if (i === selectedIndex) {
+									// Add checkmark
+									const check = document.createElement("div");
+									check.className = "mini-check";
+									check.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+									check.style.position = "absolute";
+									check.style.top = "50%";
+									check.style.left = "50%";
+									check.style.transform = "translate(-50%, -50%)";
+									check.style.color = color.oklch.l > 0.5 ? "black" : "white";
+									ms.appendChild(check);
+								}
 							}
 						}
 					};
 
-					updateCard("#ffffff", "white");
-					updateCard("#000000", "black");
+					// Build mini scale
+					const miniScale = document.getElementById("detail-mini-scale");
+					if (miniScale) {
+						miniScale.innerHTML = "";
+						colors.forEach((c, i) => {
+							const miniSwatch = document.createElement("button");
+							miniSwatch.type = "button";
+							miniSwatch.style.flex = "1";
+							miniSwatch.style.backgroundColor = c.toCss();
+							miniSwatch.style.cursor = "pointer";
+							miniSwatch.style.position = "relative";
+							miniSwatch.style.border = "none";
+							miniSwatch.style.padding = "0";
+							miniSwatch.style.outline = "none";
+							miniSwatch.setAttribute("aria-label", `Color ${c.toHex()}`);
+							miniSwatch.onclick = (e) => {
+								e.stopPropagation();
+								updateDetail(c, i);
+							};
+							// Focus style
+							miniSwatch.onfocus = () => {
+								miniSwatch.style.outline = "2px solid white";
+								miniSwatch.style.outlineOffset = "-2px";
+							};
+							miniSwatch.onblur = () => {
+								miniSwatch.style.outline = "none";
+							};
+							miniScale.appendChild(miniSwatch);
+						});
+					}
+
+					// Initial update with clicked color
+					updateDetail(stepColor, index);
 
 					dialog.showModal();
 				};
