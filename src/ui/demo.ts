@@ -467,50 +467,83 @@ export const runDemo = () => {
 
 				const isKeyColor = index === reversedKeyColorIndex;
 
-				// Calculate contrast based on lightness
+				// Calculate contrast against both white and black
 				const l = stepColor.oklch.l as number;
-				const isLightColor = l >= 0.5;
+				const whiteContrast = verifyContrast(
+					stepColor,
+					new Color("#ffffff"),
+				).contrast;
+				const blackContrast = verifyContrast(
+					stepColor,
+					new Color("#000000"),
+				).contrast;
 
-				// Light colors: contrast against black, Dark colors: contrast against white
-				const contrastColor = isLightColor
-					? new Color("#000000")
-					: new Color("#ffffff");
-				const contrastResult = verifyContrast(stepColor, contrastColor);
-				const ratio = Math.round(contrastResult.contrast * 100) / 100;
-				const textColor = isLightColor ? "black" : "white";
+				// Use the higher contrast (safer choice)
+				const useWhite = whiteContrast >= blackContrast;
+				const ratio =
+					Math.round((useWhite ? whiteContrast : blackContrast) * 100) / 100;
+				const textColor = useWhite ? "white" : "black";
 
-				// Create badge element
-				const createBadge = (parent: HTMLElement, centered: boolean) => {
-					if (ratio < 3.0) return;
+				// Check if both are usable (for showing dual indicators)
+				const whiteLevel =
+					whiteContrast >= 7
+						? "AAA"
+						: whiteContrast >= 4.5
+							? "AA"
+							: whiteContrast >= 3
+								? "L"
+								: "";
+				const blackLevel =
+					blackContrast >= 7
+						? "AAA"
+						: blackContrast >= 4.5
+							? "AA"
+							: blackContrast >= 3
+								? "L"
+								: "";
 
-					const badge = document.createElement("div");
-					badge.style.fontSize = "0.6rem";
-					badge.style.padding = "2px 4px";
-					badge.style.borderRadius = "3px";
-					badge.style.fontWeight = "bold";
-					badge.style.color = textColor;
-					badge.style.opacity = "0.7";
+				// Create badge element showing both white and black usability
+				const createBadge = (parent: HTMLElement) => {
+					if (!whiteLevel && !blackLevel) return;
 
-					if (ratio >= 7.0) {
-						badge.textContent = "AAA";
-						badge.style.border = "1px solid currentColor";
-					} else if (ratio >= 4.5) {
-						badge.textContent = "AA";
-						badge.style.border = "1px solid currentColor";
-					} else {
-						badge.textContent = "L";
-						badge.style.border = "1px dashed currentColor";
+					const badgeContainer = document.createElement("div");
+					badgeContainer.style.display = "flex";
+					badgeContainer.style.gap = "2px";
+					badgeContainer.style.fontSize = "0.55rem";
+					badgeContainer.style.position = "absolute";
+					badgeContainer.style.bottom = "4px";
+					badgeContainer.style.left = "50%";
+					badgeContainer.style.transform = "translateX(-50%)";
+
+					// Show white indicator if usable
+					if (whiteLevel) {
+						const whiteBadge = document.createElement("div");
+						whiteBadge.style.padding = "2px 4px";
+						whiteBadge.style.borderRadius = "4px";
+						whiteBadge.style.fontWeight = "bold";
+						whiteBadge.style.backgroundColor = "transparent";
+						whiteBadge.style.color = "white";
+						whiteBadge.style.border =
+							whiteLevel === "L" ? "1px dashed white" : "1px solid white";
+						whiteBadge.textContent = whiteLevel;
+						badgeContainer.appendChild(whiteBadge);
 					}
 
-					if (centered) {
-						badge.style.marginTop = "4px";
-					} else {
-						badge.style.position = "absolute";
-						badge.style.bottom = "4px";
-						badge.style.right = "4px";
+					// Show black indicator if usable
+					if (blackLevel) {
+						const blackBadge = document.createElement("div");
+						blackBadge.style.padding = "2px 4px";
+						blackBadge.style.borderRadius = "4px";
+						blackBadge.style.fontWeight = "bold";
+						blackBadge.style.backgroundColor = "transparent";
+						blackBadge.style.color = "black";
+						blackBadge.style.border =
+							blackLevel === "L" ? "1px dashed black" : "1px solid black";
+						blackBadge.textContent = blackLevel;
+						badgeContainer.appendChild(blackBadge);
 					}
 
-					parent.appendChild(badge);
+					parent.appendChild(badgeContainer);
 				};
 
 				if (isKeyColor) {
@@ -535,8 +568,8 @@ export const runDemo = () => {
 					label.style.fontSize = "0.75rem";
 
 					circle.appendChild(label);
-					createBadge(circle, true); // Centered badge
 					swatch.appendChild(circle);
+					createBadge(swatch); // Bottom-center badge
 				} else {
 					swatch.style.backgroundColor = stepColor.toCss();
 
@@ -546,7 +579,7 @@ export const runDemo = () => {
 					label.style.fontWeight = "bold";
 
 					swatch.appendChild(label);
-					createBadge(swatch, false); // Bottom-right badge
+					createBadge(swatch); // Bottom-center badge
 				}
 
 				// Click to open detail popover
