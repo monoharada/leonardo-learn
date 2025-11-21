@@ -567,17 +567,30 @@ export const runDemo = () => {
 					const detailSwatch = document.getElementById("detail-swatch");
 					const detailStep = document.getElementById("detail-step");
 					const detailHex = document.getElementById("detail-hex");
+					const detailChromaName =
+						document.getElementById("detail-chroma-name");
 
 					if (detailSwatch) detailSwatch.style.backgroundColor = color.toCss();
 					if (detailStep)
 						detailStep.textContent = `${Math.round(colorL * 100)}% Lightness`;
 					if (detailHex) detailHex.textContent = color.toHex();
 
+					// Update chroma name display
+					if (detailChromaName) {
+						if (p.baseChromaName && p.name) {
+							detailChromaName.textContent = `${p.baseChromaName} | ${p.name}`;
+						} else if (p.baseChromaName) {
+							detailChromaName.textContent = p.baseChromaName;
+						} else {
+							detailChromaName.textContent = p.name;
+						}
+					}
+
 					const setKeyColorBtn = document.getElementById(
 						"set-key-color-btn",
 					) as HTMLButtonElement;
 					if (setKeyColorBtn) {
-						setKeyColorBtn.textContent = `${color.toHex()} を ${p.name} のパレットの色に指定`;
+						setKeyColorBtn.textContent = `${color.toHex()} を ${p.name || p.baseChromaName} のパレットの色に指定`;
 						setKeyColorBtn.onclick = () => {
 							p.keyColors = [`${color.toHex()}@600`];
 							dialog.close();
@@ -1008,6 +1021,8 @@ export const runDemo = () => {
 						const detailSwatch = document.getElementById("detail-swatch");
 						const detailStep = document.getElementById("detail-step");
 						const detailHex = document.getElementById("detail-hex");
+						const detailChromaName =
+							document.getElementById("detail-chroma-name");
 
 						if (detailSwatch)
 							detailSwatch.style.backgroundColor = color.toCss();
@@ -1015,12 +1030,24 @@ export const runDemo = () => {
 							detailStep.textContent = `${Math.round(colorL * 100)}% Lightness`;
 						if (detailHex) detailHex.textContent = color.toHex();
 
+						// Update chroma name display
+						if (detailChromaName) {
+							if (p.baseChromaName && p.name) {
+								detailChromaName.textContent = `${p.baseChromaName} | ${p.name}`;
+							} else if (p.baseChromaName) {
+								detailChromaName.textContent = p.baseChromaName;
+							} else {
+								detailChromaName.textContent = p.name;
+							}
+						}
+
 						// Update "Set as key color" button
 						const setKeyColorBtn = document.getElementById(
 							"set-key-color-btn",
 						) as HTMLButtonElement;
 						if (setKeyColorBtn) {
-							setKeyColorBtn.textContent = `${color.toHex()} を ${p.name} のパレットの色に指定`;
+							const paletteName = p.name || p.baseChromaName || "";
+							setKeyColorBtn.textContent = `${color.toHex()} を ${paletteName} のパレットの色に指定`;
 							setKeyColorBtn.onclick = () => {
 								// Update the palette's key color
 								p.keyColors = [`${color.toHex()}@600`];
