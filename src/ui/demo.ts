@@ -243,10 +243,25 @@ export const runDemo = () => {
 		// Shadesビュー用: 全13色パレット
 		const fullChromaColors = generateFullChromaPalette(primaryColor);
 
+		// ハーモニーパレットの役割名をbaseChromaNameでマッピング
+		const harmonyRoleMap = new Map<string, string>();
+		harmonyColors.forEach((hc) => {
+			if (hc.baseChromaName && hc.name) {
+				harmonyRoleMap.set(hc.baseChromaName, hc.name);
+			}
+		});
+
 		state.shadesPalettes = fullChromaColors.map((sc, index) => {
+			// ハーモニーパレットで使われている場合はその役割名を使用
+			// それ以外はセマンティック名（Success, Warning等）またはデフォルト
+			let displayName = sc.name;
+			if (sc.baseChromaName && harmonyRoleMap.has(sc.baseChromaName)) {
+				displayName = harmonyRoleMap.get(sc.baseChromaName) || sc.name;
+			}
+
 			return {
-				id: `shades-${index}-${sc.baseChromaName?.toLowerCase().replace(/\s+/g, "-") || sc.name.toLowerCase().replace(/\s+/g, "-")}`,
-				name: sc.name,
+				id: `shades-${index}-${sc.baseChromaName?.toLowerCase().replace(/\s+/g, "-") || displayName.toLowerCase().replace(/\s+/g, "-")}`,
+				name: displayName,
 				keyColors: [`${sc.keyColor.toHex()}@600`],
 				ratios: [21, 15, 10, 7, 4.5, 3, 1],
 				harmony: HarmonyType.NONE,
