@@ -38,18 +38,10 @@ type CVDSimulationType = "normal" | CVDType;
 
 // Default State
 const state = {
-	palettes: [
-		{
-			id: "color",
-			name: "Primary",
-			keyColors: ["#0066CC"],
-			ratios: [21, 15, 10, 7, 4.5, 3, 1],
-			harmony: HarmonyType.NONE,
-		},
-	] as PaletteConfig[],
+	palettes: [] as PaletteConfig[],
 	// Shadesビュー用の全13色パレット
 	shadesPalettes: [] as PaletteConfig[],
-	activeId: "color",
+	activeId: "",
 	activeHarmonyIndex: 0, // 0 = Primary, 1+ = Derived
 	contrastIntensity: "moderate" as ContrastIntensity,
 	lightnessDistribution: "linear" as LightnessDistribution,
