@@ -762,10 +762,8 @@ export const runDemo = () => {
 				}
 
 				// Show key color by default
-				// Always use the calculated key color index to show the actual key color
-				const safeIndex = reversedKeyColorIndex;
-				const initialColor = colors[safeIndex] || keyColor;
-				updateDetail(initialColor, safeIndex);
+				// Use keyColor directly to ensure the clicked color is displayed
+				updateDetail(keyColor, reversedKeyColorIndex);
 				dialog.showModal();
 			};
 
