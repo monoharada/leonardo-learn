@@ -509,12 +509,17 @@ export const runDemo = () => {
 		container.style.gap = "1.5rem";
 
 		state.palettes.forEach((p) => {
-			const card = document.createElement("div");
+			const card = document.createElement("button");
+			card.type = "button";
 			card.style.background = "white";
 			card.style.borderRadius = "8px";
 			card.style.boxShadow = "0 2px 4px rgba(0,0,0,0.05)";
 			card.style.overflow = "hidden";
 			card.style.cursor = "pointer";
+			card.style.border = "none";
+			card.style.padding = "0";
+			card.style.textAlign = "left";
+			card.style.width = "100%";
 
 			const keyColorInput = p.keyColors[0];
 			if (!keyColorInput) return;
@@ -562,7 +567,13 @@ export const runDemo = () => {
 				return solved || keyColor;
 			});
 			colors.reverse();
-			const reversedKeyColorIndex = colors.length - 1 - keyColorIndex;
+
+			// Calculate index based on keyColor's lightness for accurate step display
+			// stepNames: [1200, 1100, ..., 50] maps to Lightness [0.1, ..., 0.95]
+			const keyLightness = keyColor.oklch.l as number;
+			// Map lightness 0.1-0.95 to index 0-12 (inverted: darker = lower index)
+			const lightnessBasedIndex = Math.round((1 - keyLightness) * 12);
+			const clampedIndex = Math.max(0, Math.min(12, lightnessBasedIndex));
 
 			card.onclick = () => {
 				const dialog = document.getElementById(
@@ -762,8 +773,8 @@ export const runDemo = () => {
 				}
 
 				// Show key color by default
-				// Use keyColor directly to ensure the clicked color is displayed
-				updateDetail(keyColor, reversedKeyColorIndex);
+				// Use keyColor directly with lightness-based index for accurate step name
+				updateDetail(keyColor, clampedIndex);
 				dialog.showModal();
 			};
 
