@@ -1,6 +1,14 @@
 import { getAPCA } from "../accessibility/apca";
-import { type CVDType, simulateCVD } from "../accessibility/cvd-simulator";
-import { calculateCVDScore } from "../accessibility/distinguishability";
+import {
+	type CVDType,
+	getAllCVDTypes,
+	getCVDTypeName,
+	simulateCVD,
+} from "../accessibility/cvd-simulator";
+import {
+	calculateCVDScore,
+	checkAdjacentShadesDistinguishability,
+} from "../accessibility/distinguishability";
 import { verifyContrast } from "../accessibility/wcag2";
 import { Color } from "../core/color";
 import { exportToCSS } from "../core/export/css-exporter";
@@ -31,7 +39,7 @@ interface PaletteConfig {
 
 type ContrastIntensity = "subtle" | "moderate" | "strong" | "vivid";
 type LightnessDistribution = "linear" | "easeIn" | "easeOut";
-type ViewMode = "palette" | "shades";
+type ViewMode = "palette" | "shades" | "accessibility";
 
 // CVD Simulation Type (includes "normal" for no simulation)
 type CVDSimulationType = "normal" | CVDType;
@@ -59,6 +67,7 @@ export const runDemo = () => {
 	const generateSystemBtn = document.getElementById("generate-system");
 	const viewPaletteBtn = document.getElementById("view-palette");
 	const viewShadesBtn = document.getElementById("view-shades");
+	const viewAccessibilityBtn = document.getElementById("view-accessibility");
 
 	if (!app || !paletteListEl) return;
 
@@ -284,40 +293,50 @@ export const runDemo = () => {
 	}
 
 	// View Switcher Logic
-	if (viewPaletteBtn && viewShadesBtn) {
+	if (viewPaletteBtn && viewShadesBtn && viewAccessibilityBtn) {
 		const contrastControls = document.getElementById(
 			"header-contrast-controls",
 		);
 
-		viewPaletteBtn.onclick = () => {
-			state.viewMode = "palette";
-			viewPaletteBtn.classList.add("active");
-			viewPaletteBtn.style.background = "white";
-			viewPaletteBtn.style.boxShadow = "0 1px 3px rgba(0,0,0,0.1)";
+		const updateViewButtons = (mode: ViewMode) => {
+			state.viewMode = mode;
 
-			viewShadesBtn.classList.remove("active");
-			viewShadesBtn.style.background = "transparent";
-			viewShadesBtn.style.boxShadow = "none";
+			// Reset all buttons
+			[viewPaletteBtn, viewShadesBtn, viewAccessibilityBtn].forEach((btn) => {
+				btn.classList.remove("active");
+				btn.style.background = "transparent";
+				btn.style.boxShadow = "none";
+			});
 
-			if (contrastControls) contrastControls.style.display = "none";
+			// Activate current button
+			const activeBtn =
+				mode === "palette"
+					? viewPaletteBtn
+					: mode === "shades"
+						? viewShadesBtn
+						: viewAccessibilityBtn;
+			activeBtn.classList.add("active");
+			activeBtn.style.background = "white";
+			activeBtn.style.boxShadow = "0 1px 3px rgba(0,0,0,0.1)";
+
+			// Toggle controls
+			if (contrastControls) {
+				contrastControls.style.display = mode === "shades" ? "flex" : "none";
+			}
+
+			// CVD controls are relevant for all views now, but maybe different for accessibility view
+			const cvdControls = document.getElementById("cvd-controls");
+			if (cvdControls) {
+				// Hide standard CVD controls in accessibility view as it shows all at once
+				cvdControls.style.display = mode === "accessibility" ? "none" : "flex";
+			}
 
 			renderMain();
 		};
 
-		viewShadesBtn.onclick = () => {
-			state.viewMode = "shades";
-			viewShadesBtn.classList.add("active");
-			viewShadesBtn.style.background = "white";
-			viewShadesBtn.style.boxShadow = "0 1px 3px rgba(0,0,0,0.1)";
-
-			viewPaletteBtn.classList.remove("active");
-			viewPaletteBtn.style.background = "transparent";
-			viewPaletteBtn.style.boxShadow = "none";
-
-			if (contrastControls) contrastControls.style.display = "flex";
-
-			renderMain();
-		};
+		viewPaletteBtn.onclick = () => updateViewButtons("palette");
+		viewShadesBtn.onclick = () => updateViewButtons("shades");
+		viewAccessibilityBtn.onclick = () => updateViewButtons("accessibility");
 	}
 
 	// Add Palette Button
@@ -475,8 +494,10 @@ export const runDemo = () => {
 
 		if (state.viewMode === "palette") {
 			renderPaletteView(app);
-		} else {
+		} else if (state.viewMode === "shades") {
 			renderShadesView(app);
+		} else {
+			renderAccessibilityView(app);
 		}
 
 		// Update CVD score after render
@@ -1459,10 +1480,348 @@ export const runDemo = () => {
 	});
 
 	// Initial Render
-	renderSidebar();
-	updateEditor();
-	renderMain();
 
 	// ColorSystem Demo has been integrated into Harmony buttons (M3 option)
 	// The separate demo panel is no longer needed
+	const renderAccessibilityView = (container: HTMLElement) => {
+		container.style.display = "flex";
+		container.style.flexDirection = "column";
+		container.style.gap = "3rem";
+
+		// 0. Explanation Section
+		const explanationSection = document.createElement("section");
+		explanationSection.style.marginBottom = "3rem";
+		explanationSection.style.padding = "1.5rem";
+		explanationSection.style.background = "#f8f9fa";
+		explanationSection.style.borderRadius = "8px";
+		explanationSection.style.border = "1px solid #e9ecef";
+
+		const explanationHeading = document.createElement("h2");
+		explanationHeading.textContent = "この機能について";
+		explanationHeading.style.marginTop = "0";
+		explanationHeading.style.marginBottom = "1rem";
+		explanationSection.appendChild(explanationHeading);
+
+		const explanationContent = document.createElement("div");
+		explanationContent.innerHTML = `
+			<p style="margin-bottom: 1rem; line-height: 1.6;">
+				この画面では、多様な色覚特性を持つユーザーが、あなたのカラーパレットをどのように知覚するかをシミュレーションし、
+				<strong>隣接する色が識別困難になっていないか</strong>を確認できます。
+			</p>
+			
+			<h3 style="font-size: 1rem; margin: 1.5rem 0 0.5rem;">確認すべきポイント</h3>
+			<ul style="margin: 0 0 1.5rem 1.5rem; line-height: 1.6;">
+				<li><strong>キーカラー間の識別性:</strong> 生成された各パレット（Primary, Secondaryなど）のキーカラー同士が、色覚特性によって混同されないか確認します。</li>
+				<li><strong>階調の識別性:</strong> 各パレット内の隣接するステップ（例: 500と600）が、十分なコントラストを持って区別できるか確認します。</li>
+			</ul>
+
+			<h3 style="font-size: 1rem; margin: 1.5rem 0 0.5rem;">判定ロジックと計算方法</h3>
+			<ul style="margin: 0 0 1rem 1.5rem; line-height: 1.6;">
+				<li><strong>シミュレーション手法:</strong> Brettel (1997) および Viénot (1999) のアルゴリズムを使用し、P型（1型）、D型（2型）、T型（3型）、全色盲の知覚を再現しています。</li>
+				<li><strong>色差計算 (DeltaE):</strong> OKLCH色空間におけるユークリッド距離を用いて、色の知覚的な差を計算しています。</li>
+				<li><strong>警告基準:</strong> シミュレーション後の色差（DeltaE）が <strong>3.0未満</strong> の場合、隣接する色が識別困難であると判断し、<span style="display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; background:#fff; border:1px solid #c5221f; border-radius:50%; color:#c5221f; font-weight:bold; font-size:10px; margin:0 4px;">!</span>アイコンで警告を表示します。</li>
+			</ul>
+		`;
+		explanationSection.appendChild(explanationContent);
+		container.appendChild(explanationSection);
+
+		// 1. Key Colors Check Section
+		const keyColorsSection = document.createElement("section");
+		const keyColorsHeading = document.createElement("h2");
+		keyColorsHeading.textContent =
+			"キーカラーの識別性確認 (Key Colors Harmony Check)";
+		keyColorsHeading.style.marginBottom = "1rem";
+		keyColorsSection.appendChild(keyColorsHeading);
+
+		const keyColorsDesc = document.createElement("p");
+		keyColorsDesc.textContent =
+			"生成された各パレットのキーカラー同士が、多様な色覚特性において区別できるかを確認します。";
+		keyColorsDesc.style.marginBottom = "1.5rem";
+		keyColorsDesc.style.color = "#666";
+		keyColorsSection.appendChild(keyColorsDesc);
+
+		// Gather key colors
+		const keyColorsMap: Record<string, Color> = {};
+		state.palettes.forEach((p) => {
+			const keyColorInput = p.keyColors[0];
+			if (keyColorInput) {
+				const { color: hex } = parseKeyColor(keyColorInput);
+				keyColorsMap[p.name] = new Color(hex);
+			}
+		});
+
+		// Render Key Colors Analysis
+		renderDistinguishabilityAnalysis(
+			keyColorsSection,
+			keyColorsMap,
+			"Key Colors",
+		);
+		container.appendChild(keyColorsSection);
+
+		// 2. Per-Palette Step Check Section
+		const palettesSection = document.createElement("section");
+		const palettesHeading = document.createElement("h2");
+		palettesHeading.textContent =
+			"パレット階調の識別性確認 (Palette Steps Check)";
+		palettesHeading.style.marginBottom = "1rem";
+		palettesSection.appendChild(palettesHeading);
+
+		const palettesDesc = document.createElement("p");
+		palettesDesc.textContent =
+			"各パレット内の隣接する階調（シェード）が、多様な色覚特性において区別できるかを確認します。";
+		palettesDesc.style.marginBottom = "1.5rem";
+		palettesDesc.style.color = "#666";
+		palettesSection.appendChild(palettesDesc);
+
+		state.palettes.forEach((p) => {
+			const pContainer = document.createElement("div");
+			pContainer.style.marginBottom = "3rem";
+			pContainer.style.padding = "1.5rem";
+			pContainer.style.background = "white";
+			pContainer.style.borderRadius = "8px";
+			pContainer.style.boxShadow = "0 1px 3px rgba(0,0,0,0.1)";
+
+			const pTitle = document.createElement("h3");
+			pTitle.textContent = p.name;
+			pTitle.style.marginTop = "0";
+			pTitle.style.marginBottom = "1rem";
+			pContainer.appendChild(pTitle);
+
+			// Generate scale
+			const keyColorInput = p.keyColors[0];
+			if (!keyColorInput) return;
+			const { color: hex } = parseKeyColor(keyColorInput);
+			const keyColor = new Color(hex);
+
+			const contrastRanges: Record<ContrastIntensity, number[]> = {
+				subtle: [
+					1.05, 1.1, 1.15, 1.2, 1.3, 1.5, 2.0, 3.0, 4.5, 6.0, 8.0, 10.0, 12.0,
+				],
+				moderate: [
+					1.05, 1.1, 1.2, 1.35, 1.7, 2.5, 3.5, 4.5, 6.0, 8.5, 11.0, 14.0, 17.0,
+				],
+				strong: [
+					1.1, 1.2, 1.3, 1.5, 2.0, 3.0, 4.5, 6.0, 8.0, 11.0, 14.0, 17.0, 21.0,
+				],
+				vivid: [
+					1.15, 1.25, 1.4, 1.7, 2.5, 3.5, 5.0, 7.0, 9.0, 12.0, 15.0, 18.0, 21.0,
+				],
+			};
+			const baseRatios = [
+				...(contrastRanges[state.contrastIntensity] || contrastRanges.moderate),
+			];
+			const bgColor = new Color("#ffffff");
+			const keyContrastRatio = keyColor.contrast(bgColor);
+
+			let keyColorIndex = -1;
+			let minDiff = Infinity;
+			for (let i = 0; i < baseRatios.length; i++) {
+				const diff = Math.abs((baseRatios[i] ?? 0) - keyContrastRatio);
+				if (diff < minDiff) {
+					minDiff = diff;
+					keyColorIndex = i;
+				}
+			}
+			if (keyColorIndex >= 0) {
+				baseRatios[keyColorIndex] = keyContrastRatio;
+			}
+
+			const colors: Color[] = baseRatios.map((ratio, i) => {
+				if (i === keyColorIndex) return keyColor;
+				const solved = findColorForContrast(keyColor, bgColor, ratio);
+				return solved || keyColor;
+			});
+			colors.reverse();
+
+			const shadesMap: Record<string, Color> = {};
+			const stepNames = [
+				1200, 1100, 1000, 900, 800, 700, 600, 500, 400, 300, 200, 100, 50,
+			];
+			colors.forEach((c, i) => {
+				shadesMap[`${stepNames[i]}`] = c;
+			});
+
+			// Render analysis for this palette
+			// We use a special mode for adjacent shades
+			renderAdjacentShadesAnalysis(pContainer, shadesMap);
+			palettesSection.appendChild(pContainer);
+		});
+
+		container.appendChild(palettesSection);
+	};
+
+	const renderDistinguishabilityAnalysis = (
+		container: HTMLElement,
+		colorsMap: Record<string, Color>,
+		title: string,
+	) => {
+		const cvdTypes = getAllCVDTypes();
+		const colorEntries = Object.entries(colorsMap);
+
+		// 1. Normal View
+		const normalRow = document.createElement("div");
+		normalRow.style.marginBottom = "2rem";
+
+		const normalLabel = document.createElement("div");
+		normalLabel.textContent = "一般色覚 (Normal Vision)";
+		normalLabel.style.fontWeight = "bold";
+		normalLabel.style.marginBottom = "0.5rem";
+		normalRow.appendChild(normalLabel);
+
+		const normalStrip = document.createElement("div");
+		normalStrip.style.display = "flex";
+		normalStrip.style.height = "60px";
+		normalStrip.style.borderRadius = "8px";
+		normalStrip.style.overflow = "hidden";
+
+		colorEntries.forEach(([name, color]) => {
+			const swatch = document.createElement("div");
+			swatch.style.flex = "1";
+			swatch.style.backgroundColor = color.toCss();
+			swatch.title = `${name} (${color.toHex()})`;
+			swatch.style.display = "flex";
+			swatch.style.alignItems = "center";
+			swatch.style.justifyContent = "center";
+			swatch.style.color =
+				color.contrast(new Color("white")) > 4.5 ? "white" : "black";
+			swatch.style.fontSize = "0.7rem";
+			swatch.textContent = name;
+			normalStrip.appendChild(swatch);
+		});
+		normalRow.appendChild(normalStrip);
+		container.appendChild(normalRow);
+
+		// 2. Simulations
+		const simContainer = document.createElement("div");
+		simContainer.style.display = "grid";
+		simContainer.style.gridTemplateColumns = "1fr";
+		simContainer.style.gap = "1.5rem";
+
+		cvdTypes.forEach((type: CVDType) => {
+			const row = document.createElement("div");
+
+			const label = document.createElement("div");
+			label.textContent = getCVDTypeName(type);
+			label.style.fontWeight = "bold";
+			label.style.marginBottom = "0.5rem";
+			label.style.fontSize = "0.9rem";
+			row.appendChild(label);
+
+			const stripContainer = document.createElement("div");
+			stripContainer.style.position = "relative";
+			stripContainer.style.height = "60px";
+
+			const strip = document.createElement("div");
+			strip.style.display = "flex";
+			strip.style.height = "100%";
+			strip.style.borderRadius = "8px";
+			strip.style.overflow = "hidden";
+
+			// Calculate conflicts first
+			const simulatedColors = colorEntries.map(([name, color]) => ({
+				name,
+				color: simulateCVD(color, type),
+			}));
+
+			// Check adjacent pairs in the list
+			const conflicts: number[] = []; // Indices of left side of conflict pair
+			for (let i = 0; i < simulatedColors.length - 1; i++) {
+				const c1 = simulatedColors[i]!.color;
+				const c2 = simulatedColors[i + 1]!.color;
+				// Use a stricter threshold for "warning" visualization
+				// DeltaE < 3.0 is usually considered hard to distinguish
+				// DeltaE < 5.0 might be a warning
+				const result = checkAdjacentShadesDistinguishability(
+					[
+						{ name: "1", color: c1 },
+						{ name: "2", color: c2 },
+					],
+					{ visionTypes: [type], threshold: 3.0 },
+				);
+				if (result.problematicPairs.length > 0) {
+					conflicts.push(i);
+				}
+			}
+
+			simulatedColors.forEach((item) => {
+				const swatch = document.createElement("div");
+				swatch.style.flex = "1";
+				swatch.style.backgroundColor = item.color.toCss();
+				swatch.title = `${item.name} (Simulated)`;
+				strip.appendChild(swatch);
+			});
+			stripContainer.appendChild(strip);
+
+			// Draw conflict lines
+			if (conflicts.length > 0) {
+				const overlay = document.createElement("div");
+				overlay.style.position = "absolute";
+				overlay.style.top = "0";
+				overlay.style.left = "0";
+				overlay.style.width = "100%";
+				overlay.style.height = "100%";
+				overlay.style.pointerEvents = "none";
+
+				const segmentWidth = 100 / simulatedColors.length;
+
+				conflicts.forEach((index) => {
+					const leftPos = (index + 1) * segmentWidth;
+
+					const line = document.createElement("div");
+					line.style.position = "absolute";
+					line.style.left = `calc(${leftPos}% - 1px)`;
+					line.style.top = "10%";
+					line.style.bottom = "10%";
+					line.style.width = "2px";
+					line.style.backgroundColor = "white";
+					line.style.borderLeft = "1px solid rgba(0,0,0,0.5)";
+					line.style.borderRight = "1px solid rgba(0,0,0,0.5)";
+					line.style.zIndex = "10";
+					overlay.appendChild(line);
+
+					const icon = document.createElement("div");
+					icon.innerHTML = "!";
+					icon.style.position = "absolute";
+					icon.style.left = `calc(${leftPos}% - 10px)`;
+					icon.style.top = "50%";
+					icon.style.transform = "translateY(-50%)";
+					icon.style.width = "20px";
+					icon.style.height = "20px";
+					icon.style.backgroundColor = "#fff";
+					icon.style.border = "2px solid #c5221f";
+					icon.style.borderRadius = "50%";
+					icon.style.color = "#c5221f";
+					icon.style.fontWeight = "bold";
+					icon.style.display = "flex";
+					icon.style.alignItems = "center";
+					icon.style.justifyContent = "center";
+					icon.style.fontSize = "12px";
+					icon.style.zIndex = "11";
+					icon.style.boxShadow = "0 2px 4px rgba(0,0,0,0.2)";
+					overlay.appendChild(icon);
+				});
+
+				stripContainer.appendChild(overlay);
+			}
+
+			row.appendChild(stripContainer);
+			simContainer.appendChild(row);
+		});
+		container.appendChild(simContainer);
+	};
+
+	const renderAdjacentShadesAnalysis = (
+		container: HTMLElement,
+		colorsMap: Record<string, Color>,
+	) => {
+		// Similar to above but optimized for shades (gradient)
+		// We want to show the gradient strip and mark where steps are too close
+		renderDistinguishabilityAnalysis(container, colorsMap, "Shades");
+	};
+
+	// Initial Render
+	renderSidebar();
+	updateEditor();
+	renderMain();
 };
+// End of runDemo
