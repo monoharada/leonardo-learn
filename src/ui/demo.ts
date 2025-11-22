@@ -503,316 +503,377 @@ export const runDemo = () => {
 	};
 
 	const renderPaletteView = (container: HTMLElement) => {
-		container.style.display = "grid";
-		container.style.gridTemplateColumns =
-			"repeat(auto-fill, minmax(200px, 1fr))";
-		container.style.gap = "1.5rem";
+		container.style.display = "flex";
+		container.style.flexDirection = "column";
+		container.style.gap = "2rem";
 
+		// Group palettes by semantic category
+		const getSemanticCategory = (name: string): string => {
+			if (name === "Primary" || name.startsWith("Primary")) return "Primary";
+			if (name.startsWith("Success")) return "Success";
+			if (name.startsWith("Error")) return "Error";
+			if (name.startsWith("Warning")) return "Warning";
+			if (name.startsWith("Link")) return "Link";
+			if (name.startsWith("Accent")) return "Accent";
+			if (name === "Gray" || name === "Slate") return "Neutral";
+			if (name === "Secondary") return "Secondary";
+			return name; // For other harmony types (Comp, Analog, etc.)
+		};
+
+		const groupedPalettes = new Map<string, typeof state.palettes>();
 		state.palettes.forEach((p) => {
-			const card = document.createElement("button");
-			card.type = "button";
-			card.style.background = "white";
-			card.style.borderRadius = "8px";
-			card.style.boxShadow = "0 2px 4px rgba(0,0,0,0.05)";
-			card.style.overflow = "hidden";
-			card.style.cursor = "pointer";
-			card.style.border = "none";
-			card.style.padding = "0";
-			card.style.textAlign = "left";
-			card.style.width = "100%";
+			const category = getSemanticCategory(p.name);
+			if (!groupedPalettes.has(category)) {
+				groupedPalettes.set(category, []);
+			}
+			groupedPalettes.get(category)?.push(p);
+		});
 
-			const keyColorInput = p.keyColors[0];
-			if (!keyColorInput) return;
-			const { color: hex } = parseKeyColor(keyColorInput);
-			const keyColor = new Color(hex);
+		// Render each group
+		groupedPalettes.forEach((palettes, category) => {
+			const section = document.createElement("section");
 
-			// Generate color scale for this palette
-			const contrastRanges: Record<ContrastIntensity, number[]> = {
-				subtle: [
-					1.05, 1.1, 1.15, 1.2, 1.3, 1.5, 2.0, 3.0, 4.5, 6.0, 8.0, 10.0, 12.0,
-				],
-				moderate: [
-					1.05, 1.1, 1.2, 1.35, 1.7, 2.5, 3.5, 4.5, 6.0, 8.5, 11.0, 14.0, 17.0,
-				],
-				strong: [
-					1.1, 1.2, 1.3, 1.5, 2.0, 3.0, 4.5, 6.0, 8.0, 11.0, 14.0, 17.0, 21.0,
-				],
-				vivid: [
-					1.15, 1.25, 1.4, 1.7, 2.5, 3.5, 5.0, 7.0, 9.0, 12.0, 15.0, 18.0, 21.0,
-				],
-			};
+			// Section heading
+			const heading = document.createElement("h2");
+			heading.textContent = category;
+			heading.style.fontSize = "1.1rem";
+			heading.style.marginBottom = "1rem";
+			heading.style.color = "#333";
+			heading.style.fontWeight = "600";
+			section.appendChild(heading);
 
-			const baseRatios = [
-				...(contrastRanges[state.contrastIntensity] || contrastRanges.moderate),
-			];
-			const bgColor = new Color("#ffffff");
-			const keyContrastRatio = keyColor.contrast(bgColor);
+			// Cards container
+			const cardsContainer = document.createElement("div");
+			cardsContainer.style.display = "grid";
+			cardsContainer.style.gridTemplateColumns =
+				"repeat(auto-fill, minmax(200px, 1fr))";
+			cardsContainer.style.gap = "1rem";
 
-			let keyColorIndex = -1;
-			let minDiff = Infinity;
-			for (let i = 0; i < baseRatios.length; i++) {
-				const diff = Math.abs((baseRatios[i] ?? 0) - keyContrastRatio);
-				if (diff < minDiff) {
-					minDiff = diff;
-					keyColorIndex = i;
+			palettes.forEach((p) => {
+				const card = document.createElement("button");
+				card.type = "button";
+				card.style.background = "white";
+				card.style.borderRadius = "8px";
+				card.style.boxShadow = "0 2px 4px rgba(0,0,0,0.05)";
+				card.style.overflow = "hidden";
+				card.style.cursor = "pointer";
+				card.style.border = "none";
+				card.style.padding = "0";
+				card.style.textAlign = "left";
+				card.style.width = "100%";
+
+				const keyColorInput = p.keyColors[0];
+				if (!keyColorInput) return;
+				const { color: hex } = parseKeyColor(keyColorInput);
+				const keyColor = new Color(hex);
+
+				// Generate color scale for this palette
+				const contrastRanges: Record<ContrastIntensity, number[]> = {
+					subtle: [
+						1.05, 1.1, 1.15, 1.2, 1.3, 1.5, 2.0, 3.0, 4.5, 6.0, 8.0, 10.0, 12.0,
+					],
+					moderate: [
+						1.05, 1.1, 1.2, 1.35, 1.7, 2.5, 3.5, 4.5, 6.0, 8.5, 11.0, 14.0,
+						17.0,
+					],
+					strong: [
+						1.1, 1.2, 1.3, 1.5, 2.0, 3.0, 4.5, 6.0, 8.0, 11.0, 14.0, 17.0, 21.0,
+					],
+					vivid: [
+						1.15, 1.25, 1.4, 1.7, 2.5, 3.5, 5.0, 7.0, 9.0, 12.0, 15.0, 18.0,
+						21.0,
+					],
+				};
+
+				const baseRatios = [
+					...(contrastRanges[state.contrastIntensity] ||
+						contrastRanges.moderate),
+				];
+				const bgColor = new Color("#ffffff");
+				const keyContrastRatio = keyColor.contrast(bgColor);
+
+				let keyColorIndex = -1;
+				let minDiff = Infinity;
+				for (let i = 0; i < baseRatios.length; i++) {
+					const diff = Math.abs((baseRatios[i] ?? 0) - keyContrastRatio);
+					if (diff < minDiff) {
+						minDiff = diff;
+						keyColorIndex = i;
+					}
 				}
-			}
-			if (keyColorIndex >= 0) {
-				baseRatios[keyColorIndex] = keyContrastRatio;
-			}
+				if (keyColorIndex >= 0) {
+					baseRatios[keyColorIndex] = keyContrastRatio;
+				}
 
-			const colors: Color[] = baseRatios.map((ratio, i) => {
-				if (i === keyColorIndex) return keyColor;
-				const solved = findColorForContrast(keyColor, bgColor, ratio);
-				return solved || keyColor;
-			});
-			colors.reverse();
+				const colors: Color[] = baseRatios.map((ratio, i) => {
+					if (i === keyColorIndex) return keyColor;
+					const solved = findColorForContrast(keyColor, bgColor, ratio);
+					return solved || keyColor;
+				});
+				colors.reverse();
 
-			// Calculate index based on keyColor's lightness for accurate step display
-			// stepNames: [1200, 1100, ..., 50] maps to Lightness [0.1, ..., 0.95]
-			const keyLightness = keyColor.oklch.l as number;
-			// Map lightness 0.1-0.95 to index 0-12 (inverted: darker = lower index)
-			const lightnessBasedIndex = Math.round((1 - keyLightness) * 12);
-			const clampedIndex = Math.max(0, Math.min(12, lightnessBasedIndex));
+				// Calculate index based on keyColor's lightness for accurate step display
+				// stepNames: [1200, 1100, ..., 50] maps to Lightness [0.1, ..., 0.95]
+				const keyLightness = keyColor.oklch.l as number;
+				// Map lightness 0.1-0.95 to index 0-12 (inverted: darker = lower index)
+				const lightnessBasedIndex = Math.round((1 - keyLightness) * 12);
+				const clampedIndex = Math.max(0, Math.min(12, lightnessBasedIndex));
 
-			card.onclick = () => {
-				const dialog = document.getElementById(
-					"color-detail-dialog",
-				) as HTMLDialogElement;
-				if (!dialog) return;
+				card.onclick = () => {
+					const dialog = document.getElementById(
+						"color-detail-dialog",
+					) as HTMLDialogElement;
+					if (!dialog) return;
 
-				// Helper to update detail panel
-				const updateDetail = (color: Color, selectedIndex: number) => {
-					const colorL = color.oklch.l as number;
-					const detailSwatch = document.getElementById("detail-swatch");
-					const detailTokenName = document.getElementById("detail-token-name");
-					const detailHex = document.getElementById("detail-hex");
-					const detailLightness = document.getElementById("detail-lightness");
-					const detailChromaName =
-						document.getElementById("detail-chroma-name");
+					// Helper to update detail panel
+					const updateDetail = (color: Color, selectedIndex: number) => {
+						const colorL = color.oklch.l as number;
+						const detailSwatch = document.getElementById("detail-swatch");
+						const detailTokenName =
+							document.getElementById("detail-token-name");
+						const detailHex = document.getElementById("detail-hex");
+						const detailLightness = document.getElementById("detail-lightness");
+						const detailChromaName =
+							document.getElementById("detail-chroma-name");
 
-					// Step names for token generation (dark to light)
-					const stepNames = [
-						1200, 1100, 1000, 900, 800, 700, 600, 500, 400, 300, 200, 100, 50,
-					];
-					// ステップ番号を取得
-					const step = stepNames[selectedIndex] ?? 600;
-					const chromaNameLower = (p.baseChromaName || p.name || "color")
-						.toLowerCase()
-						.replace(/\s+/g, "-");
+						// Step names for token generation (dark to light)
+						const stepNames = [
+							1200, 1100, 1000, 900, 800, 700, 600, 500, 400, 300, 200, 100, 50,
+						];
+						// ステップ番号を取得
+						const step = stepNames[selectedIndex] ?? 600;
+						const chromaNameLower = (p.baseChromaName || p.name || "color")
+							.toLowerCase()
+							.replace(/\s+/g, "-");
 
-					if (detailSwatch) detailSwatch.style.backgroundColor = color.toCss();
-					if (detailTokenName)
-						detailTokenName.textContent = `${chromaNameLower}-${step}`;
-					if (detailHex) detailHex.textContent = color.toHex();
-					if (detailLightness)
-						detailLightness.textContent = `${Math.round(colorL * 100)}% L`;
+						if (detailSwatch)
+							detailSwatch.style.backgroundColor = color.toCss();
+						if (detailTokenName)
+							detailTokenName.textContent = `${chromaNameLower}-${step}`;
+						if (detailHex) detailHex.textContent = color.toHex();
+						if (detailLightness)
+							detailLightness.textContent = `${Math.round(colorL * 100)}% L`;
 
-					// Update chroma name display
-					if (detailChromaName) {
-						if (p.baseChromaName && p.name) {
-							detailChromaName.textContent = `${p.baseChromaName} | ${p.name}`;
-						} else if (p.baseChromaName) {
-							detailChromaName.textContent = p.baseChromaName;
-						} else {
-							detailChromaName.textContent = p.name;
-						}
-					}
-
-					const setKeyColorBtn = document.getElementById(
-						"set-key-color-btn",
-					) as HTMLButtonElement;
-					if (setKeyColorBtn) {
-						setKeyColorBtn.textContent = `${color.toHex()} を ${p.name || p.baseChromaName} のパレットの色に指定`;
-						setKeyColorBtn.onclick = () => {
-							p.keyColors = [color.toHex()];
-							dialog.close();
-							renderMain();
-						};
-					}
-
-					const updateCard = (bgHex: string, prefix: string) => {
-						const bg = new Color(bgHex);
-						const wcag = verifyContrast(color, bg);
-						const apca = getAPCA(color, bg);
-						const ratioVal = Math.round(wcag.contrast * 100) / 100;
-						const lc = Math.round(apca);
-
-						const badge = document.getElementById(`detail-${prefix}-badge`);
-						const ratioEl = document.getElementById(`detail-${prefix}-ratio`);
-						const apcaEl = document.getElementById(`detail-${prefix}-apca`);
-						const preview = document.getElementById(`detail-${prefix}-preview`);
-						const previewLarge = document.getElementById(
-							`detail-${prefix}-preview-large`,
-						);
-						const failIcon = document.getElementById(
-							`detail-${prefix}-fail-icon`,
-						);
-
-						if (ratioEl) ratioEl.textContent = `${ratioVal}`;
-						if (apcaEl) apcaEl.textContent = `${lc}`;
-						if (preview) {
-							preview.style.backgroundColor = color.toCss();
-							preview.style.color = bgHex;
-						}
-						if (previewLarge) {
-							previewLarge.style.backgroundColor = color.toCss();
-							previewLarge.style.color = bgHex;
-						}
-						if (badge) {
-							if (ratioVal >= 7.0) {
-								badge.textContent = "AAA";
-								badge.style.backgroundColor = "#e6f4ea";
-								badge.style.color = "#137333";
-								if (failIcon) failIcon.style.display = "none";
-							} else if (ratioVal >= 4.5) {
-								badge.textContent = "AA";
-								badge.style.backgroundColor = "#e6f4ea";
-								badge.style.color = "#137333";
-								if (failIcon) failIcon.style.display = "none";
-							} else if (ratioVal >= 3.0) {
-								badge.textContent = "Large Text";
-								badge.style.backgroundColor = "#fef7e0";
-								badge.style.color = "#b06000";
-								if (failIcon) failIcon.style.display = "none";
+						// Update chroma name display
+						if (detailChromaName) {
+							if (p.baseChromaName && p.name) {
+								detailChromaName.textContent = `${p.baseChromaName} | ${p.name}`;
+							} else if (p.baseChromaName) {
+								detailChromaName.textContent = p.baseChromaName;
 							} else {
-								badge.textContent = "Fail";
-								badge.style.backgroundColor = "#fce8e6";
-								badge.style.color = "#c5221f";
-								if (failIcon) failIcon.style.display = "block";
+								detailChromaName.textContent = p.name;
+							}
+						}
+
+						const setKeyColorBtn = document.getElementById(
+							"set-key-color-btn",
+						) as HTMLButtonElement;
+						if (setKeyColorBtn) {
+							setKeyColorBtn.textContent = `${color.toHex()} を ${p.name || p.baseChromaName} のパレットの色に指定`;
+							setKeyColorBtn.onclick = () => {
+								p.keyColors = [color.toHex()];
+								dialog.close();
+								renderMain();
+							};
+						}
+
+						const updateCard = (bgHex: string, prefix: string) => {
+							const bg = new Color(bgHex);
+							const wcag = verifyContrast(color, bg);
+							const apca = getAPCA(color, bg);
+							const ratioVal = Math.round(wcag.contrast * 100) / 100;
+							const lc = Math.round(apca);
+
+							const badge = document.getElementById(`detail-${prefix}-badge`);
+							const ratioEl = document.getElementById(`detail-${prefix}-ratio`);
+							const apcaEl = document.getElementById(`detail-${prefix}-apca`);
+							const preview = document.getElementById(
+								`detail-${prefix}-preview`,
+							);
+							const previewLarge = document.getElementById(
+								`detail-${prefix}-preview-large`,
+							);
+							const failIcon = document.getElementById(
+								`detail-${prefix}-fail-icon`,
+							);
+
+							if (ratioEl) ratioEl.textContent = `${ratioVal}`;
+							if (apcaEl) apcaEl.textContent = `${lc}`;
+							if (preview) {
+								preview.style.backgroundColor = color.toCss();
+								preview.style.color = bgHex;
+							}
+							if (previewLarge) {
+								previewLarge.style.backgroundColor = color.toCss();
+								previewLarge.style.color = bgHex;
+							}
+							if (badge) {
+								if (ratioVal >= 7.0) {
+									badge.textContent = "AAA";
+									badge.style.backgroundColor = "#e6f4ea";
+									badge.style.color = "#137333";
+									if (failIcon) failIcon.style.display = "none";
+								} else if (ratioVal >= 4.5) {
+									badge.textContent = "AA";
+									badge.style.backgroundColor = "#e6f4ea";
+									badge.style.color = "#137333";
+									if (failIcon) failIcon.style.display = "none";
+								} else if (ratioVal >= 3.0) {
+									badge.textContent = "Large Text";
+									badge.style.backgroundColor = "#fef7e0";
+									badge.style.color = "#b06000";
+									if (failIcon) failIcon.style.display = "none";
+								} else {
+									badge.textContent = "Fail";
+									badge.style.backgroundColor = "#fce8e6";
+									badge.style.color = "#c5221f";
+									if (failIcon) failIcon.style.display = "block";
+								}
+							}
+						};
+
+						const whiteContrastVal = verifyContrast(
+							color,
+							new Color("#ffffff"),
+						).contrast;
+						const blackContrastVal = verifyContrast(
+							color,
+							new Color("#000000"),
+						).contrast;
+						updateCard("#ffffff", "white");
+						updateCard("#000000", "black");
+
+						const whiteCard = document.querySelector(
+							".contrast-card:first-child",
+						) as HTMLElement;
+						const blackCard = document.querySelector(
+							".contrast-card:last-child",
+						) as HTMLElement;
+						if (whiteCard && blackCard) {
+							if (whiteContrastVal >= blackContrastVal) {
+								whiteCard.style.borderColor = "#ccc";
+								whiteCard.style.borderWidth = "2px";
+								blackCard.style.borderColor = "#eee";
+								blackCard.style.borderWidth = "1px";
+							} else {
+								blackCard.style.borderColor = "#ccc";
+								blackCard.style.borderWidth = "2px";
+								whiteCard.style.borderColor = "#eee";
+								whiteCard.style.borderWidth = "1px";
+							}
+						}
+
+						// Update mini scale checkmark
+						const miniScale = document.getElementById("detail-mini-scale");
+						if (miniScale) {
+							const miniSwatches = miniScale.children;
+							for (let i = 0; i < miniSwatches.length; i++) {
+								const ms = miniSwatches[i] as HTMLElement;
+								const existingCheck = ms.querySelector(".mini-check");
+								if (existingCheck) existingCheck.remove();
+								if (i === selectedIndex) {
+									const check = document.createElement("div");
+									check.className = "mini-check";
+									check.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+									check.style.position = "absolute";
+									check.style.top = "50%";
+									check.style.left = "50%";
+									check.style.transform = "translate(-50%, -50%)";
+									// Use actual contrast ratio to determine checkmark color
+									const contrastToWhite = color.contrast(new Color("white"));
+									const contrastToBlack = color.contrast(new Color("black"));
+									check.style.color =
+										contrastToWhite > contrastToBlack ? "white" : "black";
+									ms.appendChild(check);
+								}
 							}
 						}
 					};
 
-					const whiteContrastVal = verifyContrast(
-						color,
-						new Color("#ffffff"),
-					).contrast;
-					const blackContrastVal = verifyContrast(
-						color,
-						new Color("#000000"),
-					).contrast;
-					updateCard("#ffffff", "white");
-					updateCard("#000000", "black");
-
-					const whiteCard = document.querySelector(
-						".contrast-card:first-child",
-					) as HTMLElement;
-					const blackCard = document.querySelector(
-						".contrast-card:last-child",
-					) as HTMLElement;
-					if (whiteCard && blackCard) {
-						if (whiteContrastVal >= blackContrastVal) {
-							whiteCard.style.borderColor = "#ccc";
-							whiteCard.style.borderWidth = "2px";
-							blackCard.style.borderColor = "#eee";
-							blackCard.style.borderWidth = "1px";
-						} else {
-							blackCard.style.borderColor = "#ccc";
-							blackCard.style.borderWidth = "2px";
-							whiteCard.style.borderColor = "#eee";
-							whiteCard.style.borderWidth = "1px";
-						}
-					}
-
-					// Update mini scale checkmark
+					// Build mini scale
 					const miniScale = document.getElementById("detail-mini-scale");
 					if (miniScale) {
-						const miniSwatches = miniScale.children;
-						for (let i = 0; i < miniSwatches.length; i++) {
-							const ms = miniSwatches[i] as HTMLElement;
-							const existingCheck = ms.querySelector(".mini-check");
-							if (existingCheck) existingCheck.remove();
-							if (i === selectedIndex) {
-								const check = document.createElement("div");
-								check.className = "mini-check";
-								check.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
-								check.style.position = "absolute";
-								check.style.top = "50%";
-								check.style.left = "50%";
-								check.style.transform = "translate(-50%, -50%)";
-								// Use actual contrast ratio to determine checkmark color
-								const contrastToWhite = color.contrast(new Color("white"));
-								const contrastToBlack = color.contrast(new Color("black"));
-								check.style.color =
-									contrastToWhite > contrastToBlack ? "white" : "black";
-								ms.appendChild(check);
-							}
-						}
+						miniScale.innerHTML = "";
+						colors.forEach((c, i) => {
+							const miniSwatch = document.createElement("button");
+							miniSwatch.type = "button";
+							miniSwatch.style.flex = "1";
+							miniSwatch.style.backgroundColor = c.toCss();
+							miniSwatch.style.cursor = "pointer";
+							miniSwatch.style.position = "relative";
+							miniSwatch.style.border = "none";
+							miniSwatch.style.padding = "0";
+							miniSwatch.style.outline = "none";
+							miniSwatch.setAttribute("aria-label", `Color ${c.toHex()}`);
+							miniSwatch.onclick = (e) => {
+								e.stopPropagation();
+								updateDetail(c, i);
+							};
+							miniSwatch.onfocus = () => {
+								miniSwatch.style.outline = "2px solid white";
+								miniSwatch.style.outlineOffset = "-2px";
+							};
+							miniSwatch.onblur = () => {
+								miniSwatch.style.outline = "none";
+							};
+							miniScale.appendChild(miniSwatch);
+						});
 					}
+
+					// Show key color by default
+					// Use keyColor directly with lightness-based index for accurate step name
+					updateDetail(keyColor, clampedIndex);
+					dialog.showModal();
 				};
 
-				// Build mini scale
-				const miniScale = document.getElementById("detail-mini-scale");
-				if (miniScale) {
-					miniScale.innerHTML = "";
-					colors.forEach((c, i) => {
-						const miniSwatch = document.createElement("button");
-						miniSwatch.type = "button";
-						miniSwatch.style.flex = "1";
-						miniSwatch.style.backgroundColor = c.toCss();
-						miniSwatch.style.cursor = "pointer";
-						miniSwatch.style.position = "relative";
-						miniSwatch.style.border = "none";
-						miniSwatch.style.padding = "0";
-						miniSwatch.style.outline = "none";
-						miniSwatch.setAttribute("aria-label", `Color ${c.toHex()}`);
-						miniSwatch.onclick = (e) => {
-							e.stopPropagation();
-							updateDetail(c, i);
-						};
-						miniSwatch.onfocus = () => {
-							miniSwatch.style.outline = "2px solid white";
-							miniSwatch.style.outlineOffset = "-2px";
-						};
-						miniSwatch.onblur = () => {
-							miniSwatch.style.outline = "none";
-						};
-						miniScale.appendChild(miniSwatch);
-					});
+				const swatch = document.createElement("div");
+				swatch.style.height = "120px";
+				// Apply CVD simulation to display color
+				const displayColor = applySimulation(keyColor);
+				swatch.style.backgroundColor = displayColor.toCss();
+
+				const info = document.createElement("div");
+				info.style.padding = "1rem";
+
+				// Token name (e.g., "blue-800")
+				const stepNames = [
+					1200, 1100, 1000, 900, 800, 700, 600, 500, 400, 300, 200, 100, 50,
+				];
+				const step = stepNames[clampedIndex] ?? 600;
+				const chromaNameLower = (p.baseChromaName || p.name || "color")
+					.toLowerCase()
+					.replace(/\s+/g, "-");
+
+				const tokenName = document.createElement("h3");
+				tokenName.textContent = `${chromaNameLower}-${step}`;
+				tokenName.style.margin = "0 0 0.5rem 0";
+				tokenName.style.fontSize = "1rem";
+
+				const hexCode = document.createElement("code");
+				hexCode.textContent = hex;
+				hexCode.style.color = "#666";
+				hexCode.style.fontSize = "0.85rem";
+
+				info.appendChild(tokenName);
+				info.appendChild(hexCode);
+
+				// Show simulated color if CVD mode is active
+				if (state.cvdSimulation !== "normal") {
+					const simInfo = document.createElement("div");
+					simInfo.textContent = `(${displayColor.toHex()})`;
+					simInfo.style.fontSize = "0.75rem";
+					simInfo.style.color = "#999";
+					simInfo.style.marginTop = "0.25rem";
+					info.appendChild(simInfo);
 				}
 
-				// Show key color by default
-				// Use keyColor directly with lightness-based index for accurate step name
-				updateDetail(keyColor, clampedIndex);
-				dialog.showModal();
-			};
+				card.appendChild(swatch);
+				card.appendChild(info);
+				cardsContainer.appendChild(card);
+			});
 
-			const swatch = document.createElement("div");
-			swatch.style.height = "120px";
-			// Apply CVD simulation to display color
-			const displayColor = applySimulation(keyColor);
-			swatch.style.backgroundColor = displayColor.toCss();
-
-			const info = document.createElement("div");
-			info.style.padding = "1rem";
-
-			const name = document.createElement("h3");
-			name.textContent = p.name;
-			name.style.margin = "0 0 0.5rem 0";
-			name.style.fontSize = "1rem";
-
-			const hexCode = document.createElement("code");
-			hexCode.textContent = hex;
-			hexCode.style.color = "#666";
-			hexCode.style.fontSize = "0.85rem";
-
-			info.appendChild(name);
-			info.appendChild(hexCode);
-
-			// Show simulated color if CVD mode is active
-			if (state.cvdSimulation !== "normal") {
-				const simInfo = document.createElement("div");
-				simInfo.textContent = `(${displayColor.toHex()})`;
-				simInfo.style.fontSize = "0.75rem";
-				simInfo.style.color = "#999";
-				simInfo.style.marginTop = "0.25rem";
-				info.appendChild(simInfo);
-			}
-
-			card.appendChild(swatch);
-			card.appendChild(info);
-			container.appendChild(card);
+			section.appendChild(cardsContainer);
+			container.appendChild(section);
 		});
 	};
 
