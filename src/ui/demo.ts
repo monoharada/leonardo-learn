@@ -42,7 +42,7 @@ const state = {
 		{
 			id: "color",
 			name: "Primary",
-			keyColors: ["#0066CC@600"],
+			keyColors: ["#0066CC"],
 			ratios: [21, 15, 10, 7, 4.5, 3, 1],
 			harmony: HarmonyType.NONE,
 		},
@@ -271,7 +271,7 @@ export const runDemo = () => {
 			return {
 				id: `shades-${index}-${sc.baseChromaName?.toLowerCase().replace(/\s+/g, "-") || displayName.toLowerCase().replace(/\s+/g, "-")}`,
 				name: displayName,
-				keyColors: [`${hexValue}@600`],
+				keyColors: [hexValue],
 				ratios: [21, 15, 10, 7, 4.5, 3, 1],
 				harmony: HarmonyType.NONE,
 				baseChromaName: sc.baseChromaName,
@@ -564,9 +564,6 @@ export const runDemo = () => {
 			colors.reverse();
 			const reversedKeyColorIndex = colors.length - 1 - keyColorIndex;
 
-			// PaletteConfigから指定されたステップを取得
-			const { step: configStep } = parseKeyColor(keyColorInput);
-
 			card.onclick = () => {
 				const dialog = document.getElementById(
 					"color-detail-dialog",
@@ -617,7 +614,7 @@ export const runDemo = () => {
 					if (setKeyColorBtn) {
 						setKeyColorBtn.textContent = `${color.toHex()} を ${p.name || p.baseChromaName} のパレットの色に指定`;
 						setKeyColorBtn.onclick = () => {
-							p.keyColors = [`${color.toHex()}@600`];
+							p.keyColors = [color.toHex()];
 							dialog.close();
 							renderMain();
 						};
@@ -765,19 +762,9 @@ export const runDemo = () => {
 				}
 
 				// Show key color by default
-				// configStepがある場合はそのステップに対応するインデックスを使用
-				const stepNames = [
-					1200, 1100, 1000, 900, 800, 700, 600, 500, 400, 300, 200, 100, 50,
-				];
-				const initialIndex = configStep
-					? stepNames.indexOf(configStep)
-					: reversedKeyColorIndex;
-				const safeIndex =
-					initialIndex >= 0 ? initialIndex : reversedKeyColorIndex;
-				// configStepがある場合はその色を、ない場合はkeyColorを表示
-				const initialColor = configStep
-					? colors[safeIndex] || keyColor
-					: keyColor;
+				// Always use the calculated key color index to show the actual key color
+				const safeIndex = reversedKeyColorIndex;
+				const initialColor = colors[safeIndex] || keyColor;
 				updateDetail(initialColor, safeIndex);
 				dialog.showModal();
 			};
@@ -1105,7 +1092,7 @@ export const runDemo = () => {
 							setKeyColorBtn.textContent = `${color.toHex()} を ${paletteName} のパレットの色に指定`;
 							setKeyColorBtn.onclick = () => {
 								// Update the palette's key color
-								p.keyColors = [`${color.toHex()}@600`];
+								p.keyColors = [color.toHex()];
 
 								// Close dialog and re-render
 								dialog.close();
