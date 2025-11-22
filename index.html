@@ -134,7 +134,7 @@
             <!-- Header / View Switcher -->
             <div style="background: white; border-bottom: 1px solid #eee; padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between;">
                 <div style="display: flex; background: #f0f0f0; padding: 4px; border-radius: 8px;">
-                    <button id="view-palette" class="view-btn active" style="padding: 0.5rem 1.5rem; border: none; border-radius: 6px; background: white; font-weight: bold; shadow: 0 1px 3px rgba(0,0,0,0.1); cursor: pointer;">パレット</button>
+                    <button id="view-palette" class="view-btn active" style="padding: 0.5rem 1.5rem; border: none; border-radius: 6px; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.1); font-weight: bold; cursor: pointer;">パレット</button>
                     <button id="view-shades" class="view-btn" style="padding: 0.5rem 1.5rem; border: none; border-radius: 6px; background: transparent; color: #666; cursor: pointer;">シェード</button>
                     <button id="view-accessibility" class="view-btn" style="padding: 0.5rem 1.5rem; border: none; border-radius: 6px; background: transparent; color: #666; cursor: pointer;">アクセシビリティ</button>
                 </div>
@@ -189,21 +189,21 @@
     <!-- Color Detail Drawer -->
     <!-- Color Detail Drawer -->
     <dialog id="color-detail-dialog" style="
-        padding: 0; 
+        position: fixed; 
+        bottom: 0;
+        left: 0;
+        top: auto;
+        transform: translateY(0);
+        width: 100%;
+        max-width: 100%;
+        height: 85vh;
+        max-height: 85vh;
         border: none; 
         border-radius: 20px 20px 0 0; 
-        box-shadow: 0 -4px 20px rgba(0,0,0,0.15); 
-        width: 100%; 
-        max-width: none;
-        margin: 0; 
-        margin-bottom: 0; 
-        position: fixed; 
-        bottom: 0; 
-        left: 0; 
-        right: 0; 
-        top: auto; /* Ensure it doesn't stick to top */
-        max-height: 80vh; /* Prevent it from taking full height */
-        overflow-y: auto; /* Allow scrolling if content is tall */
+        box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
+        padding: 0; 
+        margin: 0;
+        overflow: hidden;
     ">
         <style>
             dialog::backdrop {
@@ -215,88 +215,155 @@
                 padding: 1.5rem; 
                 border-radius: 8px; 
                 border: 1px solid #eee;
-                /* position: relative; Removed as icon is no longer absolute */
             }
             .fail-icon {
-                /* position: absolute; Removed */
-                /* top: 1rem; Removed */
-                /* right: 1rem; Removed */
                 color: #c5221f;
-                display: none; /* Hidden by default */
-                margin-right: 0.5rem; /* Add spacing */
+                display: none;
+                margin-right: 0.5rem;
+            }
+            .palette-assign-btn {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                width: 100%;
+                padding: 0.75rem 1rem;
+                background: white;
+                border: 1px solid #eee;
+                border-radius: 8px;
+                cursor: pointer;
+                transition: all 0.2s;
+                text-align: left;
+            }
+            .palette-assign-btn:hover {
+                background: #f0f9ff;
+                border-color: #0052cc;
+            }
+            .palette-assign-btn .current-key {
+                width: 24px;
+                height: 24px;
+                border-radius: 50%;
+                border: 1px solid rgba(0,0,0,0.1);
             }
         </style>
-        <!-- Mini Scale for quick switching -->
-        <div id="detail-mini-scale" style="display: flex; height: 40px; border-radius: 20px 20px 0 0; overflow: hidden;">
-            <!-- Mini swatches will be populated here -->
-        </div>
-        <div style="padding: 2rem; background: #f9f9f9; border-bottom: 1px solid #eee;">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+        
+        <div style="display: flex; flex-direction: column; height: 100%;">
+            <!-- Mini Scale (Fixed at top edge) -->
+            <div id="detail-mini-scale" style="display: flex; height: 32px; min-height: 32px; background: #f0f0f0; border-bottom: 1px solid #eee; flex-shrink: 0;">
+                <!-- Mini swatches will be populated here -->
+            </div>
+
+            <!-- Header Info (Fixed below scale) -->
+            <div style="padding: 1rem 1.5rem; border-bottom: 1px solid #eee; background: #fff; flex-shrink: 0;">
                 <div style="display: flex; align-items: center; gap: 1.5rem;">
-                    <div id="detail-swatch" style="width: 80px; height: 80px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></div>
+                    <div id="detail-swatch" style="width: 56px; height: 56px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></div>
                     <div>
-                        <h2 id="detail-chroma-name" style="margin: 0 0 0.25rem 0; font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em;"></h2>
-                        <div id="detail-token-name" style="font-size: 1rem; color: #666; font-weight: 600; margin-bottom: 0.25rem;">blue-600</div>
-                        <div style="display: flex; align-items: center; gap: 0.75rem;">
-                            <code id="detail-hex" style="font-size: 0.9rem; color: #666;">#008bf2</code>
-                            <span id="detail-lightness" style="font-size: 0.8rem; color: #999;">52% L</span>
+                        <h2 id="detail-chroma-name" style="margin: 0 0 0.1rem 0; font-size: 1.1rem; font-weight: 800;"></h2>
+                        <div id="detail-token-name" style="font-size: 0.9rem; color: #666; font-weight: 600;"></div>
+                        <div style="display: flex; align-items: center; gap: 0.75rem; margin-top: 0.25rem;">
+                            <code id="detail-hex" style="font-size: 0.9rem; color: #666;"></code>
+                            <span id="detail-lightness" style="font-size: 0.8rem; color: #999;"></span>
                         </div>
                     </div>
-                </div>
-                <button onclick="document.getElementById('color-detail-dialog').close()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #999;">&times;</button>
-            </div>
-            <button id="set-key-color-btn" style="padding: 0.5rem 1rem; background: transparent; color: #666; border: 1px solid #ccc; border-radius: 6px; font-size: 0.75rem; cursor: pointer;">
-                この色をキーカラーに設定
-            </button>
-        </div>
-        <div style="padding: 2rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
-            <!-- White Contrast -->
-            <div class="contrast-card">
-                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
-                    <div id="detail-white-fail-icon" class="fail-icon">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                    <div style="margin-left: auto;">
+                         <form method="dialog">
+                            <button style="background: none; border: none; cursor: pointer; padding: 0.5rem; border-radius: 50%; color: #666;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            </button>
+                        </form>
                     </div>
-                    <h4 style="margin: 0; font-size: 0.9rem; color: #333;">白に対するコントラスト</h4>
-                    <span id="detail-white-badge" style="font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; font-weight: bold;">-</span>
-                </div>
-                <div style="margin-bottom: 1.5rem;">
-                    <div style="font-size: 0.75rem; color: #666; margin-bottom: 0.25rem;">WCAG コントラスト</div>
-                    <div id="detail-white-ratio" style="font-size: 2.5rem; font-weight: 800; letter-spacing: -0.02em;">-</div>
-                </div>
-                <div style="margin-bottom: 1.5rem;">
-                    <div style="font-size: 0.75rem; color: #666; margin-bottom: 0.25rem;">APCA (Lc)</div>
-                    <div id="detail-white-apca" style="font-size: 1.5rem; font-weight: 700;">-</div>
-                </div>
-                <div id="detail-white-preview" style="padding: 1rem; border-radius: 6px; font-size: 0.9rem; font-weight: 500; text-align: center; margin-bottom: 0.5rem;">
-                    視認性の確認用テキストです。読みやすさを確認してください。
-                </div>
-                <div id="detail-white-preview-large" style="padding: 1rem; border-radius: 6px; font-size: 22px; font-weight: 700; text-align: center;">
-                    大きな文字での視認性確認
                 </div>
             </div>
 
-            <!-- Black Contrast -->
-            <div class="contrast-card">
-                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
-                    <div id="detail-black-fail-icon" class="fail-icon">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+
+
+            <!-- Main Content (Scrollable) -->
+            <div style="flex: 1; overflow-y: auto; padding: 1.5rem;">
+                <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 2rem; height: 100%;">
+                    
+                    <!-- Col 1: Color Tuner & Actions -->
+                    <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                         <h3 style="margin: 0; font-size: 1rem; font-weight: 700;">カラーチューナー</h3>
+                         <p style="margin: 0; font-size: 0.8rem; color: #666;">
+                            ドラッグ: ↔ 色相 (Hue)<br>
+                            Shift + ドラッグ: 精密操作
+                         </p>
+                         <!-- Infinite Scrubber -->
+                        <div style="position: relative; width: 100%; max-width: 320px; height: 60px; background: #f5f5f5; border-radius: 8px; overflow: hidden; cursor: ew-resize; box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);">
+                             <canvas id="tuner-scrubber" style="width: 100%; height: 100%; display: block;"></canvas>
+                             
+                             <!-- Center Indicator -->
+                             <div style="
+                                position: absolute; 
+                                left: 50%; 
+                                top: 0; 
+                                bottom: 0; 
+                                width: 2px; 
+                                background: white; 
+                                box-shadow: 0 0 4px rgba(0,0,0,0.5);
+                                transform: translateX(-50%);
+                                pointer-events: none;
+                             "></div>
+                        </div>
+
+                         <!-- Actions -->
+                         <div style="margin-top: 1rem; display: flex; gap: 1rem; justify-content: flex-start;">
+                            <button id="detail-reset-btn" style="padding: 0.5rem 1rem; border: 1px solid #ddd; background: white; border-radius: 6px; cursor: pointer; font-weight: 600; color: #666; font-size: 0.85rem;">
+                                リセット
+                            </button>
+                            <button id="detail-save-btn" style="padding: 0.5rem 1.5rem; border: none; background: #1a73e8; color: white; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85rem; box-shadow: 0 2px 4px rgba(26,115,232,0.3);">
+                                保存
+                            </button>
+                         </div>
                     </div>
-                    <h4 style="margin: 0; font-size: 0.9rem; color: #333;">黒に対するコントラスト</h4>
-                    <span id="detail-black-badge" style="font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; font-weight: bold;">-</span>
-                </div>
-                <div style="margin-bottom: 1.5rem;">
-                    <div style="font-size: 0.75rem; color: #666; margin-bottom: 0.25rem;">WCAG コントラスト</div>
-                    <div id="detail-black-ratio" style="font-size: 2.5rem; font-weight: 800; letter-spacing: -0.02em;">-</div>
-                </div>
-                <div style="margin-bottom: 1.5rem;">
-                    <div style="font-size: 0.75rem; color: #666; margin-bottom: 0.25rem;">APCA (Lc)</div>
-                    <div id="detail-black-apca" style="font-size: 1.5rem; font-weight: 700;">-</div>
-                </div>
-                <div id="detail-black-preview" style="padding: 1rem; border-radius: 6px; font-size: 0.9rem; font-weight: 500; text-align: center; margin-bottom: 0.5rem;">
-                    視認性の確認用テキストです。読みやすさを確認してください。
-                </div>
-                <div id="detail-black-preview-large" style="padding: 1rem; border-radius: 6px; font-size: 22px; font-weight: 700; text-align: center;">
-                    大きな文字での視認性確認
+
+                    <!-- Col 2: Contrast -->
+                    <div style="display: flex; flex-direction: column; gap: 1rem;">
+                        <h3 style="margin: 0; font-size: 1rem; font-weight: 700;">コントラスト</h3>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                            <!-- White Card -->
+                            <div id="detail-white-card" style="background: white; border: 1px solid #eee; border-radius: 8px; padding: 0.75rem; display: flex; flex-direction: column; gap: 0.25rem;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span style="font-size: 0.85rem; color: #666;">白背景</span>
+                                    <span id="detail-white-badge" style="font-size: 0.75rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; background: #eee; color: #666;">-</span>
+                                </div>
+                                <div style="display: flex; align-items: baseline; gap: 0.5rem;">
+                                    <span id="detail-white-ratio" style="font-size: 1.5rem; font-weight: 700; color: #333;">-</span>
+                                    <span style="font-size: 0.8rem; color: #999;">:1</span>
+                                </div>
+                                <div id="detail-white-preview" style="margin-top: 0.5rem; padding: 0.5rem; border-radius: 4px; font-size: 0.9rem; text-align: center;">
+                                    テキスト
+                                </div>
+                                <div id="detail-white-preview-large" style="padding: 0.5rem; border-radius: 4px; font-size: 1.2rem; font-weight: 700; text-align: center;">
+                                    大きな文字
+                                </div>
+                                <div id="detail-white-fail-icon" style="display: none; color: #c5221f; font-size: 0.8rem; margin-top: 0.25rem;">
+                                    ⚠️ コントラスト不足
+                                </div>
+                            </div>
+
+                            <!-- Black Card -->
+                            <div id="detail-black-card" style="background: black; border: 1px solid #333; border-radius: 8px; padding: 0.75rem; display: flex; flex-direction: column; gap: 0.25rem;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span style="font-size: 0.85rem; color: #999;">黒背景</span>
+                                    <span id="detail-black-badge" style="font-size: 0.75rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; background: #333; color: #ccc;">-</span>
+                                </div>
+                                <div style="display: flex; align-items: baseline; gap: 0.5rem;">
+                                    <span id="detail-black-ratio" style="font-size: 1.5rem; font-weight: 700; color: white;">-</span>
+                                    <span style="font-size: 0.8rem; color: #666;">:1</span>
+                                </div>
+                                <div id="detail-black-preview" style="margin-top: 0.5rem; padding: 0.5rem; border-radius: 4px; font-size: 0.9rem; text-align: center;">
+                                    テキスト
+                                </div>
+                                <div id="detail-black-preview-large" style="padding: 0.5rem; border-radius: 4px; font-size: 1.2rem; font-weight: 700; text-align: center;">
+                                    大きな文字
+                                </div>
+                                <div id="detail-black-fail-icon" style="display: none; color: #ff8a80; font-size: 0.8rem; margin-top: 0.25rem;">
+                                    ⚠️ コントラスト不足
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
             </div>
         </div>
