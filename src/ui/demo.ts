@@ -917,7 +917,8 @@ export const runDemo = () => {
 				// Apply CVD simulation to display color
 				const displayColor = applySimulation(stepColor);
 
-				const swatch = document.createElement("div");
+				const swatch = document.createElement("button");
+				swatch.type = "button";
 				swatch.style.flex = "1";
 				swatch.style.aspectRatio = "1";
 				swatch.style.display = "flex";
@@ -926,6 +927,10 @@ export const runDemo = () => {
 				swatch.style.flexDirection = "column";
 				swatch.style.fontSize = "0.75rem";
 				swatch.style.position = "relative"; // For badges
+				swatch.style.border = "none";
+				swatch.style.padding = "0";
+				swatch.style.margin = "0";
+				swatch.style.outline = "none";
 
 				const isKeyColor = index === reversedKeyColorIndex;
 
@@ -1042,6 +1047,18 @@ export const runDemo = () => {
 					swatch.appendChild(label);
 					createBadge(swatch); // Bottom-center badge
 				}
+
+				// Accessibility and focus styles
+				swatch.setAttribute("aria-label", `Color ${stepColor.toHex()}`);
+				swatch.onfocus = () => {
+					swatch.style.outline = "2px solid white";
+					swatch.style.outlineOffset = "-2px";
+					swatch.style.zIndex = "1";
+				};
+				swatch.onblur = () => {
+					swatch.style.outline = "none";
+					swatch.style.zIndex = "";
+				};
 
 				// Click to open detail popover
 				swatch.style.cursor = "pointer";
