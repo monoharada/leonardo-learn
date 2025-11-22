@@ -604,12 +604,11 @@ export const runDemo = () => {
 				});
 				colors.reverse();
 
-				// Calculate index based on keyColor's lightness for accurate step display
-				// stepNames: [1200, 1100, ..., 50] maps to Lightness [0.1, ..., 0.95]
-				const keyLightness = keyColor.oklch.l as number;
-				// Map lightness 0.1-0.95 to index 0-12 (inverted: darker = lower index)
-				const lightnessBasedIndex = Math.round((1 - keyLightness) * 12);
-				const clampedIndex = Math.max(0, Math.min(12, lightnessBasedIndex));
+				// Calculate index based on contrast ratio for accurate step display
+				// After colors.reverse(), the key color's position changes
+				// Original keyColorIndex is in baseRatios order (low to high contrast)
+				// After reverse, it becomes (colors.length - 1 - keyColorIndex)
+				const reversedKeyColorIndex = colors.length - 1 - keyColorIndex;
 
 				card.onclick = () => {
 					const dialog = document.getElementById(
@@ -813,8 +812,8 @@ export const runDemo = () => {
 					}
 
 					// Show key color by default
-					// Use keyColor directly with lightness-based index for accurate step name
-					updateDetail(keyColor, clampedIndex);
+					// Use keyColor directly with contrast-based index for accurate step name
+					updateDetail(keyColor, reversedKeyColorIndex);
 					dialog.showModal();
 				};
 
@@ -831,7 +830,7 @@ export const runDemo = () => {
 				const stepNames = [
 					1200, 1100, 1000, 900, 800, 700, 600, 500, 400, 300, 200, 100, 50,
 				];
-				const step = stepNames[clampedIndex] ?? 600;
+				const step = stepNames[reversedKeyColorIndex] ?? 600;
 				const chromaNameLower = (p.baseChromaName || p.name || "color")
 					.toLowerCase()
 					.replace(/\s+/g, "-");
