@@ -1,0 +1,45 @@
+{
+	"$schema": "https://opencode.ai/config.json",
+	"provider": {
+		"ollama": {
+			"npm": "@ai-sdk/openai-compatible",
+			"name": "Ollama (local)",
+			"options": {
+				"baseURL": "http://localhost:11434/v1"
+			},
+			"models": {
+				"hhao/qwen2.5-coder-tools:14b": {
+					"name": "Qwen2.5 Coder Tools 14B (local)",
+					"tools": true
+				},
+				"gpt-oss:20b": {
+					"name": "gpt-oss 20B (local)"
+				},
+				"hhao/qwen2.5-coder-tools:7b": {
+					"name": "Qwen2.5 Coder Tools 7B (local)"
+				}
+			}
+		}
+	},
+	"model": "ollama/hhao/qwen2.5-coder-tools:14b",
+	"agent": {
+		"build": {
+			"description": "Default coding mode with only OpenCode tools.",
+			"tools": {
+				"read": true,
+				"write": true,
+				"edit": true,
+				"bash": true,
+				"grep": true,
+				"glob": true,
+				"list": true,
+				"webfetch": true,
+				"patch": true,
+				"todoread": true,
+				"todowrite": true
+			},
+			"prompt": "{file:./AGENTS.md}"
+		}
+	},
+	"instructions": ["AGENTS.md"]
+}
