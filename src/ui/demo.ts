@@ -639,9 +639,18 @@ export const runDemo = () => {
 
 					// --- Elements ---
 					// --- Elements ---
-					const scrubberCanvas = document.getElementById(
+					let scrubberCanvas = document.getElementById(
 						"tuner-scrubber",
 					) as HTMLCanvasElement;
+
+					// Clone canvas to remove old event listeners
+					if (scrubberCanvas) {
+						const newCanvas = scrubberCanvas.cloneNode(
+							true,
+						) as HTMLCanvasElement;
+						scrubberCanvas.parentNode?.replaceChild(newCanvas, scrubberCanvas);
+						scrubberCanvas = newCanvas;
+					}
 
 					let currentColor = keyColor;
 					let isDraggingScrubber = false;
@@ -1887,17 +1896,17 @@ export const runDemo = () => {
 			});
 			colors.reverse();
 
-			const shadesMap: Record<string, Color> = {};
+			const shadesList: { name: string; color: Color }[] = [];
 			const stepNames = [
 				1200, 1100, 1000, 900, 800, 700, 600, 500, 400, 300, 200, 100, 50,
 			];
 			colors.forEach((c, i) => {
-				shadesMap[`${stepNames[i]}`] = c;
+				shadesList.push({ name: `${stepNames[i]}`, color: c });
 			});
 
 			// Render analysis for this palette
 			// We use a special mode for adjacent shades
-			renderAdjacentShadesAnalysis(pContainer, shadesMap);
+			renderAdjacentShadesAnalysis(pContainer, shadesList);
 			palettesSection.appendChild(pContainer);
 		});
 
@@ -1906,10 +1915,16 @@ export const runDemo = () => {
 
 	const renderDistinguishabilityAnalysis = (
 		container: HTMLElement,
-		colorsMap: Record<string, Color>,
+		colorsInput: Record<string, Color> | { name: string; color: Color }[],
 	) => {
 		const cvdTypes = getAllCVDTypes();
-		const colorEntries = Object.entries(colorsMap);
+
+		let colorEntries: [string, Color][];
+		if (Array.isArray(colorsInput)) {
+			colorEntries = colorsInput.map((item) => [item.name, item.color]);
+		} else {
+			colorEntries = Object.entries(colorsInput);
+		}
 
 		// 1. Normal View
 		const normalRow = document.createElement("div");
@@ -2065,11 +2080,11 @@ export const runDemo = () => {
 
 	const renderAdjacentShadesAnalysis = (
 		container: HTMLElement,
-		colorsMap: Record<string, Color>,
+		colorsInput: Record<string, Color> | { name: string; color: Color }[],
 	) => {
 		// Similar to above but optimized for shades (gradient)
 		// We want to show the gradient strip and mark where steps are too close
-		renderDistinguishabilityAnalysis(container, colorsMap);
+		renderDistinguishabilityAnalysis(container, colorsInput);
 	};
 
 	// Initial Render
