@@ -861,23 +861,19 @@ export const runDemo = () => {
 							if (badge) {
 								if (ratioVal >= 7.0) {
 									badge.textContent = "AAA";
-									badge.style.backgroundColor = "#e6f4ea";
-									badge.style.color = "#137333";
+									badge.dataset.level = "success";
 									if (failIcon) failIcon.style.display = "none";
 								} else if (ratioVal >= 4.5) {
 									badge.textContent = "AA";
-									badge.style.backgroundColor = "#e6f4ea";
-									badge.style.color = "#137333";
+									badge.dataset.level = "success";
 									if (failIcon) failIcon.style.display = "none";
 								} else if (ratioVal >= 3.0) {
 									badge.textContent = "Large Text";
-									badge.style.backgroundColor = "#fef7e0";
-									badge.style.color = "#b06000";
+									badge.dataset.level = "warning";
 									if (failIcon) failIcon.style.display = "none";
 								} else {
 									badge.textContent = "Fail";
-									badge.style.backgroundColor = "#fce8e6";
-									badge.style.color = "#c5221f";
+									badge.dataset.level = "error";
 									if (failIcon) failIcon.style.display = "block";
 								}
 							}
@@ -897,10 +893,11 @@ export const runDemo = () => {
 								generateScale(color);
 
 							scaleColors.forEach((c, i) => {
-								const div = document.createElement("div");
-								div.style.flex = "1";
+								const div = document.createElement("button");
+								div.type = "button";
+								div.className = "dads-mini-scale__item";
 								div.style.backgroundColor = c.toCss();
-								div.style.position = "relative";
+								div.setAttribute("aria-label", `Color ${c.toHex()}`);
 
 								// Add click handler
 								div.onclick = () => {
@@ -910,15 +907,10 @@ export const runDemo = () => {
 								// Highlight current color
 								if (i === currentKeyIndex) {
 									const check = document.createElement("div");
+									check.className = "dads-mini-scale__check";
 									check.textContent = "✓";
-									check.style.position = "absolute";
-									check.style.top = "50%";
-									check.style.left = "50%";
-									check.style.transform = "translate(-50%, -50%)";
 									check.style.color =
 										c.contrast(new Color("#fff")) > 4.5 ? "white" : "black";
-									check.style.fontSize = "12px";
-									check.style.fontWeight = "bold";
 									div.appendChild(check);
 								}
 
@@ -1016,10 +1008,8 @@ export const runDemo = () => {
 				// Show simulated color if CVD mode is active
 				if (state.cvdSimulation !== "normal") {
 					const simInfo = document.createElement("div");
+					simInfo.className = "dads-card__sim-info";
 					simInfo.textContent = `(${displayColor.toHex()})`;
-					simInfo.style.fontSize = "0.75rem";
-					simInfo.style.color = "#999";
-					simInfo.style.marginTop = "0.25rem";
 					info.appendChild(simInfo);
 				}
 
@@ -1323,23 +1313,19 @@ export const runDemo = () => {
 							if (badge) {
 								if (ratioVal >= 7.0) {
 									badge.textContent = "AAA";
-									badge.style.backgroundColor = "#e6f4ea";
-									badge.style.color = "#137333";
+									badge.dataset.level = "success";
 									if (failIcon) failIcon.style.display = "none";
 								} else if (ratioVal >= 4.5) {
 									badge.textContent = "AA";
-									badge.style.backgroundColor = "#e6f4ea";
-									badge.style.color = "#137333";
+									badge.dataset.level = "success";
 									if (failIcon) failIcon.style.display = "none";
 								} else if (ratioVal >= 3.0) {
 									badge.textContent = "Large Text";
-									badge.style.backgroundColor = "#fef7e0";
-									badge.style.color = "#b06000";
+									badge.dataset.level = "warning";
 									if (failIcon) failIcon.style.display = "none";
 								} else {
 									badge.textContent = "Fail";
-									badge.style.backgroundColor = "#fce8e6";
-									badge.style.color = "#c5221f";
+									badge.dataset.level = "error";
 									if (failIcon) failIcon.style.display = "block";
 								}
 							}
@@ -1358,25 +1344,21 @@ export const runDemo = () => {
 						updateCard("#ffffff", "white");
 						updateCard("#000000", "black");
 
-						// Highlight the better contrast card with slightly stronger border
-						const whiteCard = document.querySelector(
-							".contrast-card:first-child",
+						// Highlight the better contrast card with data-preferred attribute
+						const whiteCard = document.getElementById(
+							"detail-white-card",
 						) as HTMLElement;
-						const blackCard = document.querySelector(
-							".contrast-card:last-child",
+						const blackCard = document.getElementById(
+							"detail-black-card",
 						) as HTMLElement;
 
 						if (whiteCard && blackCard) {
 							if (whiteContrastVal >= blackContrastVal) {
-								whiteCard.style.borderColor = "#ccc";
-								whiteCard.style.borderWidth = "2px";
-								blackCard.style.borderColor = "#eee";
-								blackCard.style.borderWidth = "1px";
+								whiteCard.dataset.preferred = "true";
+								delete blackCard.dataset.preferred;
 							} else {
-								blackCard.style.borderColor = "#ccc";
-								blackCard.style.borderWidth = "2px";
-								whiteCard.style.borderColor = "#eee";
-								whiteCard.style.borderWidth = "1px";
+								blackCard.dataset.preferred = "true";
+								delete whiteCard.dataset.preferred;
 							}
 						}
 
@@ -1500,30 +1482,8 @@ export const runDemo = () => {
 
 		if (cvdScoreGrade) {
 			cvdScoreGrade.textContent = displayGrade;
-
-			// Set grade color
-			switch (displayGrade) {
-				case "A":
-					cvdScoreGrade.style.backgroundColor = "#e6f4ea";
-					cvdScoreGrade.style.color = "#137333";
-					break;
-				case "B":
-					cvdScoreGrade.style.backgroundColor = "#e3f2fd";
-					cvdScoreGrade.style.color = "#0052cc";
-					break;
-				case "C":
-					cvdScoreGrade.style.backgroundColor = "#fef7e0";
-					cvdScoreGrade.style.color = "#b06000";
-					break;
-				case "D":
-					cvdScoreGrade.style.backgroundColor = "#fce8e6";
-					cvdScoreGrade.style.color = "#c5221f";
-					break;
-				case "F":
-					cvdScoreGrade.style.backgroundColor = "#fce8e6";
-					cvdScoreGrade.style.color = "#c5221f";
-					break;
-			}
+			// Set grade via data attribute for CSS styling
+			cvdScoreGrade.dataset.grade = displayGrade;
 		}
 	};
 

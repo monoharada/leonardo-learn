@@ -1129,3 +1129,43 @@ h1 {
 .dads-contrast-card[data-bg="black"] .dads-contrast-card__unit {
   color: var(--dads-text-secondary);
 }
+
+.dads-contrast-card[data-preferred="true"] {
+  border-color: var(--dads-border-strong);
+  border-width: 2px;
+}
+
+/* ============================================
+ * Card Simulation Info
+ * ============================================ */
+
+.dads-card__sim-info {
+  font-size: var(--dads-font-size-xs);
+  color: var(--dads-text-tertiary);
+  margin-top: var(--dads-spacing-xs);
+}
+
+/* ============================================
+ * CVD Score Grade (data-grade attribute)
+ * ============================================ */
+
+.dads-cvd-score__grade[data-grade="A"] {
+  background-color: var(--dads-badge-success-bg);
+  color: var(--dads-badge-success-text);
+}
+
+.dads-cvd-score__grade[data-grade="B"] {
+  background-color: var(--dads-primitive-info-100);
+  color: var(--dads-primitive-info-600);
+}
+
+.dads-cvd-score__grade[data-grade="C"] {
+  background-color: var(--dads-badge-warning-bg);
+  color: var(--dads-badge-warning-text);
+}
+
+.dads-cvd-score__grade[data-grade="D"],
+.dads-cvd-score__grade[data-grade="F"] {
+  background-color: var(--dads-badge-error-bg);
+  color: var(--dads-badge-error-text);
+}
