@@ -1182,8 +1182,8 @@ export const runDemo = () => {
 				};
 
 				if (isKeyColor) {
-					// No background for key color swatch - circle only
-					swatch.style.backgroundColor = "transparent";
+					// キーカラーのスウォッチにも背景色を設定（隙間をなくすため）
+					swatch.style.backgroundColor = displayColor.toCss();
 
 					// Show circle that fills the swatch
 					const circle = document.createElement("div");
