@@ -4,269 +4,158 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Leonardo Learn Demo</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            padding: 0;
-            margin: 0;
-            background-color: #f5f5f5;
-            height: 100vh;
-            overflow: hidden;
-        }
-
-        h1 {
-            margin-bottom: 1.5rem;
-        }
-
-        .palette {
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-            margin-bottom: 2rem;
-        }
-
-        .swatch {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 1rem;
-            border-radius: 8px;
-            font-family: monospace;
-            font-size: 0.9rem;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-
-        .swatch-info {
-            display: flex;
-            gap: 1rem;
-        }
-
-        .contrast-badge {
-            background: rgba(255, 255, 255, 0.2);
-            padding: 0.2rem 0.5rem;
-            border-radius: 4px;
-            font-weight: bold;
-        }
-    </style>
+    <title>Color token Generator</title>
+    <link rel="stylesheet" href="./src/ui/styles/tokens.css">
+    <link rel="stylesheet" href="./src/ui/styles/components.css">
 </head>
 
 <body>
-    <div style="display: flex; height: 100vh; overflow: hidden;">
+    <div class="dads-layout">
         <!-- Sidebar -->
-        <div
-            style="width: 340px; background: white; border-right: 1px solid #eee; display: flex; flex-direction: column; height: 100vh;">
-            <div style="padding: 1.5rem; border-bottom: 1px solid #eee;">
-                <h1 style="font-size: 1.2rem; margin-bottom: 1.5rem; font-weight: 800;">Leonardo Learn</h1>
-                
+        <div class="dads-sidebar">
+            <div class="dads-sidebar__header">
+                <h1>Color token Generator</h1>
+
                 <!-- Global Key Color Input -->
-                <div style="margin-bottom: 1rem;">
-                    <label for="keyColors" style="display:block; font-weight:bold; font-size: 0.85rem; margin-bottom:0.25rem;">Brand Color</label>
-                    <div style="display: flex; gap: 0.5rem;">
-                        <input type="text" id="keyColors"
-                            style="flex: 1; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; font-size: 0.9rem;"
-                            placeholder="#0066CC" value="">
-                        <button id="generate-system" style="padding: 0.5rem 1rem; background: #0052cc; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.9rem;">
+                <div class="dads-form-field">
+                    <label for="keyColors" class="dads-label">Brand Color</label>
+                    <div class="dads-form-row">
+                        <input type="text" id="keyColors" class="dads-input" placeholder="#0066CC" value="">
+                        <button id="generate-system" class="dads-button" data-variant="primary">
                             Generate
                         </button>
                     </div>
                 </div>
 
-                <!-- Harmony Selection (Moved here) -->
-                <div style="margin-bottom: 1rem;">
-                    <label style="display:block; font-weight:bold; font-size: 0.85rem; margin-bottom:0.25rem;">Harmony</label>
-                    <div id="harmony-buttons" style="display: flex; flex-wrap: wrap; gap: 0.25rem;">
-                        <button data-value="none" style="padding: 0.3rem 0.6rem; border: 1px solid #ccc; border-radius: 4px; background: white; cursor: pointer; font-size: 0.75rem;">None</button>
-                        <button data-value="complementary" class="active" style="padding: 0.3rem 0.6rem; border: 2px solid #0052cc; border-radius: 4px; background: #e3f2fd; cursor: pointer; font-weight: bold; font-size: 0.75rem;">Comp</button>
-                        <button data-value="analogous" style="padding: 0.3rem 0.6rem; border: 1px solid #ccc; border-radius: 4px; background: white; cursor: pointer; font-size: 0.75rem;">Analog</button>
-                        <button data-value="triadic" style="padding: 0.3rem 0.6rem; border: 1px solid #ccc; border-radius: 4px; background: white; cursor: pointer; font-size: 0.75rem;">Triad</button>
-                        <button data-value="split-complementary" style="padding: 0.3rem 0.6rem; border: 1px solid #ccc; border-radius: 4px; background: white; cursor: pointer; font-size: 0.75rem;">Split</button>
-                        <button data-value="tetradic" style="padding: 0.3rem 0.6rem; border: 1px solid #ccc; border-radius: 4px; background: white; cursor: pointer; font-size: 0.75rem;">Tetrad</button>
-                        <button data-value="square" style="padding: 0.3rem 0.6rem; border: 1px solid #ccc; border-radius: 4px; background: white; cursor: pointer; font-size: 0.75rem;">Square</button>
-                        <button data-value="m3" style="padding: 0.3rem 0.6rem; border: 1px solid #ccc; border-radius: 4px; background: white; cursor: pointer; font-size: 0.75rem;">M3</button>
-                        <button data-value="dads" style="padding: 0.3rem 0.6rem; border: 1px solid #ccc; border-radius: 4px; background: white; cursor: pointer; font-size: 0.75rem;">DADS</button>
+                <!-- Harmony Selection -->
+                <div class="dads-form-field">
+                    <label class="dads-label">Harmony</label>
+                    <div id="harmony-buttons" class="dads-button-group">
+                        <button data-value="none" class="dads-button" data-size="sm">None</button>
+                        <button data-value="complementary" class="dads-button" data-size="sm" data-active="true">Comp</button>
+                        <button data-value="analogous" class="dads-button" data-size="sm">Analog</button>
+                        <button data-value="triadic" class="dads-button" data-size="sm">Triad</button>
+                        <button data-value="split-complementary" class="dads-button" data-size="sm">Split</button>
+                        <button data-value="tetradic" class="dads-button" data-size="sm">Tetrad</button>
+                        <button data-value="square" class="dads-button" data-size="sm">Square</button>
+                        <button data-value="m3" class="dads-button" data-size="sm">M3</button>
+                        <button data-value="dads" class="dads-button" data-size="sm">DADS</button>
                     </div>
-                    <!-- Hidden select for backward compatibility/state storage if needed, or just remove -->
+                    <!-- Hidden select for backward compatibility/state storage if needed -->
                     <input type="hidden" id="harmony" value="complementary">
                 </div>
             </div>
 
             <!-- Palette List -->
-            <div style="flex: 1; overflow-y: auto; padding: 1rem;">
-                <h3 style="font-size: 0.85rem; text-transform: uppercase; color: #666; margin-bottom: 0.5rem; padding-left: 0.5rem;">Palettes</h3>
+            <div class="dads-sidebar__content">
+                <h3>Palettes</h3>
                 <div id="palette-list">
                     <!-- List of palettes will go here -->
                 </div>
-                
-                <button id="add-palette"
-                    style="width: 100%; padding: 0.5rem; border: 1px dashed #ccc; background: none; cursor: pointer; border-radius: 4px; margin-top: 1rem; color: #666;">
+
+                <button id="add-palette" class="dads-button dads-button--dashed">
                     + Add Custom Palette
                 </button>
             </div>
 
-            <!-- Selected Palette Controls (Moved from Editor) -->
-            <div id="sidebar-controls" style="padding: 1.5rem; border-top: 1px solid #eee; background: #f9f9f9; max-height: 40vh; overflow-y: auto;">
-                <h3 id="current-palette-name" style="margin-top: 0; font-size: 1rem; margin-bottom: 1rem;">Palette Settings</h3>
-                
+            <!-- Selected Palette Controls -->
+            <div id="sidebar-controls" class="dads-sidebar__footer">
+                <h3 id="current-palette-name">Palette Settings</h3>
 
-
-
-
-
-                
-                 <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #ddd;">
-                    <button id="export-css"
-                        style="width: 100%; margin-bottom: 0.5rem; padding: 0.5rem; background: white; border: 1px solid #ccc; border-radius: 4px; cursor: pointer;">
-                    Export CSS</button>
-                    <button id="export-tailwind"
-                        style="width: 100%; margin-bottom: 0.5rem; padding: 0.5rem; background: white; border: 1px solid #ccc; border-radius: 4px; cursor: pointer;">
-                    Export Tailwind</button>
-                    <button id="export-json"
-                        style="width: 100%; padding: 0.5rem; background: white; border: 1px solid #ccc; border-radius: 4px; cursor: pointer;">
-                    Export DTCG JSON</button>
+                <div class="dads-export-section">
+                    <button id="export-css" class="dads-button dads-button--block">
+                        Export CSS
+                    </button>
+                    <button id="export-tailwind" class="dads-button dads-button--block">
+                        Export Tailwind
+                    </button>
+                    <button id="export-json" class="dads-button dads-button--block">
+                        Export DTCG JSON
+                    </button>
                 </div>
             </div>
         </div>
 
         <!-- Main Content (Right) -->
-        <div style="flex: 1; display: flex; flex-direction: column; height: 100vh; overflow: hidden; background: #f5f5f5;">
-            
+        <div class="dads-main">
+
             <!-- Header / View Switcher -->
-            <div style="background: white; border-bottom: 1px solid #eee; padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between;">
-                <div style="display: flex; background: #f0f0f0; padding: 4px; border-radius: 8px;">
-                    <button id="view-palette" class="view-btn active" style="padding: 0.5rem 1.5rem; border: none; border-radius: 6px; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.1); font-weight: bold; cursor: pointer;">パレット</button>
-                    <button id="view-shades" class="view-btn" style="padding: 0.5rem 1.5rem; border: none; border-radius: 6px; background: transparent; color: #666; cursor: pointer;">シェード</button>
-                    <button id="view-accessibility" class="view-btn" style="padding: 0.5rem 1.5rem; border: none; border-radius: 6px; background: transparent; color: #666; cursor: pointer;">アクセシビリティ</button>
+            <div class="dads-main__header">
+                <div class="dads-view-switcher">
+                    <button id="view-palette" class="dads-view-switcher__button view-btn" data-active="true">パレット</button>
+                    <button id="view-shades" class="dads-view-switcher__button view-btn">シェード</button>
+                    <button id="view-accessibility" class="dads-view-switcher__button view-btn">アクセシビリティ</button>
                 </div>
-                <div id="header-contrast-controls" style="display: none; align-items: center; gap: 0.5rem;">
-                    <label style="font-weight:bold; font-size: 0.85rem; color: #666;">Contrast:</label>
-                    <div id="contrastIntensityButtons" style="display: flex; gap: 0.25rem;">
-                        <button data-value="subtle" style="padding: 0.3rem 0.6rem; border: 1px solid #ccc; border-radius: 4px; background: white; cursor: pointer; font-size: 0.75rem;">Subtle</button>
-                        <button data-value="moderate" class="active" style="padding: 0.3rem 0.6rem; border: 2px solid #0052cc; border-radius: 4px; background: #e3f2fd; cursor: pointer; font-weight: bold; font-size: 0.75rem;">Moderate</button>
-                        <button data-value="strong" style="padding: 0.3rem 0.6rem; border: 1px solid #ccc; border-radius: 4px; background: white; cursor: pointer; font-size: 0.75rem;">Strong</button>
-                        <button data-value="vivid" style="padding: 0.3rem 0.6rem; border: 1px solid #ccc; border-radius: 4px; background: white; cursor: pointer; font-size: 0.75rem;">Vivid</button>
+                <div id="header-contrast-controls" class="dads-header-controls" style="display: none;">
+                    <label class="dads-header-controls__label">Contrast:</label>
+                    <div id="contrastIntensityButtons" class="dads-button-group">
+                        <button data-value="subtle" class="dads-button" data-size="sm">Subtle</button>
+                        <button data-value="moderate" class="dads-button" data-size="sm" data-active="true">Moderate</button>
+                        <button data-value="strong" class="dads-button" data-size="sm">Strong</button>
+                        <button data-value="vivid" class="dads-button" data-size="sm">Vivid</button>
                     </div>
                 </div>
                 <!-- CVD Simulation Controls -->
-                <div id="cvd-controls" style="display: flex; align-items: center; gap: 1rem; margin-left: 1rem;">
-                    <div style="display: flex; align-items: center; gap: 0.5rem;">
-                        <label style="font-weight:bold; font-size: 0.85rem; color: #666;">Vision:</label>
-                        <div id="cvdTypeButtons" style="display: flex; gap: 0.25rem;">
-                            <button data-cvd="normal" class="active" style="padding: 0.3rem 0.6rem; border: 2px solid #0052cc; border-radius: 4px; background: #e3f2fd; cursor: pointer; font-weight: bold; font-size: 0.75rem;">Normal</button>
-                            <button data-cvd="protanopia" style="padding: 0.3rem 0.6rem; border: 1px solid #ccc; border-radius: 4px; background: white; cursor: pointer; font-size: 0.75rem;">P型</button>
-                            <button data-cvd="deuteranopia" style="padding: 0.3rem 0.6rem; border: 1px solid #ccc; border-radius: 4px; background: white; cursor: pointer; font-size: 0.75rem;">D型</button>
-                            <button data-cvd="tritanopia" style="padding: 0.3rem 0.6rem; border: 1px solid #ccc; border-radius: 4px; background: white; cursor: pointer; font-size: 0.75rem;">T型</button>
-                            <button data-cvd="achromatopsia" style="padding: 0.3rem 0.6rem; border: 1px solid #ccc; border-radius: 4px; background: white; cursor: pointer; font-size: 0.75rem;">全色盲</button>
+                <div id="cvd-controls" class="dads-cvd-controls">
+                    <div class="dads-header-controls">
+                        <label class="dads-header-controls__label">Vision:</label>
+                        <div id="cvdTypeButtons" class="dads-button-group">
+                            <button data-cvd="normal" class="dads-button" data-size="sm" data-active="true">Normal</button>
+                            <button data-cvd="protanopia" class="dads-button" data-size="sm">P型</button>
+                            <button data-cvd="deuteranopia" class="dads-button" data-size="sm">D型</button>
+                            <button data-cvd="tritanopia" class="dads-button" data-size="sm">T型</button>
+                            <button data-cvd="achromatopsia" class="dads-button" data-size="sm">全色盲</button>
                         </div>
                     </div>
-                    <div id="cvd-score" style="display: flex; align-items: center; gap: 0.5rem;">
-                        <span id="cvd-score-value" style="font-weight: bold; font-size: 0.9rem; color: #333;">-</span>
-                        <span id="cvd-score-grade" style="padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.7rem; font-weight: bold;">-</span>
+                    <div id="cvd-score" class="dads-cvd-score">
+                        <span id="cvd-score-value" class="dads-cvd-score__value">-</span>
+                        <span id="cvd-score-grade" class="dads-cvd-score__grade">-</span>
                     </div>
                 </div>
             </div>
 
             <!-- Content Area -->
-            <div id="main-content" style="flex: 1; overflow-y: auto; padding: 2rem;">
-                <div id="app" class="palette" style="max-width: 1600px; margin: 0 auto;">
+            <div id="main-content" class="dads-main__content">
+                <div id="app" class="palette">
                     <!-- Palettes will be rendered here -->
                 </div>
             </div>
         </div>
+    </div>
 
     <!-- Export Modal -->
-    <dialog id="export-dialog"
-        style="padding: 2rem; border-radius: 8px; border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.2); max-width: 500px; width: 100%;">
+    <dialog id="export-dialog" class="dads-dialog">
         <h3 style="margin-top: 0;">Export</h3>
-        <textarea id="export-area"
-            style="width: 100%; height: 200px; margin-bottom: 1rem; font-family: monospace;"></textarea>
+        <textarea id="export-area" class="dads-input" style="width: 100%; height: 200px; margin-bottom: 1rem; font-family: var(--dads-font-mono);"></textarea>
         <div style="text-align: right;">
-            <button onclick="document.getElementById('export-dialog').close()"
-                style="padding: 0.5rem 1rem;">Close</button>
+            <button onclick="document.getElementById('export-dialog').close()" class="dads-button">Close</button>
         </div>
     </dialog>
 
     <!-- Color Detail Drawer -->
-    <!-- Color Detail Drawer -->
-    <dialog id="color-detail-dialog" style="
-        position: fixed; 
-        bottom: 0;
-        left: 0;
-        top: auto;
-        transform: translateY(0);
-        width: 100%;
-        max-width: 100%;
-        height: auto;
-        max-height: 85vh;
-        border: none; 
-        border-radius: 20px 20px 0 0; 
-        box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
-        padding: 0; 
-        margin: 0;
-        overflow: hidden;
-    ">
-        <style>
-            dialog::backdrop {
-                background: rgba(0, 0, 0, 0.4);
-                backdrop-filter: blur(2px);
-            }
-            .contrast-card {
-                background: white; 
-                padding: 1.5rem; 
-                border-radius: 8px; 
-                border: 1px solid #eee;
-            }
-            .fail-icon {
-                color: #c5221f;
-                display: none;
-                margin-right: 0.5rem;
-            }
-            .palette-assign-btn {
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                width: 100%;
-                padding: 0.75rem 1rem;
-                background: white;
-                border: 1px solid #eee;
-                border-radius: 8px;
-                cursor: pointer;
-                transition: all 0.2s;
-                text-align: left;
-            }
-            .palette-assign-btn:hover {
-                background: #f0f9ff;
-                border-color: #0052cc;
-            }
-            .palette-assign-btn .current-key {
-                width: 24px;
-                height: 24px;
-                border-radius: 50%;
-                border: 1px solid rgba(0,0,0,0.1);
-            }
-        </style>
-        
+    <dialog id="color-detail-dialog" class="dads-dialog dads-dialog--drawer">
+
         <div style="display: flex; flex-direction: column; height: 100%;">
             <!-- Mini Scale (Fixed at top edge) -->
-            <div id="detail-mini-scale" style="display: flex; height: 32px; min-height: 32px; background: #f0f0f0; border-bottom: 1px solid #eee; flex-shrink: 0;">
+            <div id="detail-mini-scale" class="dads-mini-scale">
                 <!-- Mini swatches will be populated here -->
             </div>
 
             <!-- Header Info (Fixed below scale) -->
-            <div style="padding: 1rem 1.5rem; border-bottom: 1px solid #eee; background: #fff; flex-shrink: 0;">
+            <div class="dads-dialog__header">
                 <div style="display: flex; align-items: center; gap: 1.5rem; max-width: 1400px; margin: 0 auto; width: 100%;">
                     <div id="detail-swatch" style="width: 56px; height: 56px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></div>
                     <div>
                         <h2 id="detail-chroma-name" style="margin: 0 0 0.1rem 0; font-size: 1.1rem; font-weight: 800;"></h2>
-                        <div id="detail-token-name" style="font-size: 0.9rem; color: #666; font-weight: 600;"></div>
+                        <div id="detail-token-name" style="font-size: 0.9rem; color: var(--dads-text-secondary); font-weight: 600;"></div>
                         <div style="display: flex; align-items: center; gap: 0.75rem; margin-top: 0.25rem;">
-                            <code id="detail-hex" style="font-size: 0.9rem; color: #666;"></code>
-                            <span id="detail-lightness" style="font-size: 0.8rem; color: #999;"></span>
+                            <code id="detail-hex" class="dads-text-mono"></code>
+                            <span id="detail-lightness" style="font-size: 0.8rem; color: var(--dads-text-tertiary);"></span>
                         </div>
                     </div>
                     <div style="margin-left: auto;">
                          <form method="dialog">
-                            <button style="background: none; border: none; cursor: pointer; padding: 0.5rem; border-radius: 50%; color: #666;">
+                            <button class="dads-button" style="background: none; border: none; padding: 0.5rem; border-radius: 50%; color: var(--dads-text-secondary);">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                             </button>
                         </form>
@@ -274,91 +163,78 @@
                 </div>
             </div>
 
-
-
             <!-- Main Content (Scrollable) -->
-            <div style="flex: 1; overflow-y: auto; padding: 1.5rem;">
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; max-width: 1400px; margin: 0 auto; width: 100%;">
-                    
-                    <!-- Col 1: Contrast (Moved to Left) -->
-                    <div style="display: flex; flex-direction: column; gap: 1rem;">
+            <div class="dads-dialog__body">
+                <div style="display: grid; grid-template-columns: 0.6fr 0.4fr; gap: 4rem; max-width: 1400px; margin: 0 auto; width: 100%;">
+
+                    <!-- Col 1: Contrast -->
+                    <div style="display: flex; flex-direction: column; gap: 1rem; flex: 3;">
                         <h3 style="margin: 0; font-size: 1rem; font-weight: 700;">コントラスト</h3>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div class="dads-grid" data-columns="2">
                             <!-- White Card -->
-                            <div id="detail-white-card" style="background: white; border: 1px solid #eee; border-radius: 8px; padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem;">
+                            <div id="detail-white-card" class="dads-contrast-card" data-bg="white">
                                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <span style="font-size: 0.85rem; color: #666;">白に対するコントラスト</span>
-                                    <span id="detail-white-badge" style="font-size: 0.75rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; background: #eee; color: #666;">-</span>
+                                    <span class="dads-contrast-card__label">白に対するコントラスト</span>
+                                    <span id="detail-white-badge" class="dads-badge">-</span>
                                 </div>
                                 <div style="display: flex; align-items: baseline; gap: 0.5rem;">
-                                    <span id="detail-white-ratio" style="font-size: 1.5rem; font-weight: 700; color: #333;">-</span>
-                                    <span style="font-size: 0.8rem; color: #999;">:1</span>
+                                    <span id="detail-white-ratio" class="dads-contrast-card__ratio">-</span>
+                                    <span style="font-size: 0.8rem; color: var(--dads-text-tertiary);">:1</span>
                                 </div>
-                                <div id="detail-white-preview" style="margin-top: 0.5rem; padding: 1rem; border-radius: 4px; font-size: 0.9rem; line-height: 1.5;">
+                                <div id="detail-white-preview" class="dads-contrast-card__preview">
                                     吾輩は猫である。名前はまだ無い。どこで生れたかとんと見当がつかぬ。
                                 </div>
-                                <div id="detail-white-preview-large" style="padding: 1rem; border-radius: 4px; font-size: 1.2rem; font-weight: 700; line-height: 1.4;">
+                                <div id="detail-white-preview-large" class="dads-contrast-card__preview--large">
                                     大きな文字での見え方を確認します
                                 </div>
-                                <div id="detail-white-fail-icon" style="display: none; color: #c5221f; font-size: 0.8rem; margin-top: 0.25rem;">
+                                <div id="detail-white-fail-icon" class="dads-contrast-card__fail">
                                     ⚠️ コントラスト不足
                                 </div>
                             </div>
 
                             <!-- Black Card -->
-                            <div id="detail-black-card" style="background: black; border: 1px solid #333; border-radius: 8px; padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem;">
+                            <div id="detail-black-card" class="dads-contrast-card" data-bg="black">
                                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <span style="font-size: 0.85rem; color: #999;">黒に対するコントラスト</span>
-                                    <span id="detail-black-badge" style="font-size: 0.75rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; background: #333; color: #ccc;">-</span>
+                                    <span class="dads-contrast-card__label">黒に対するコントラスト</span>
+                                    <span id="detail-black-badge" class="dads-badge">-</span>
                                 </div>
                                 <div style="display: flex; align-items: baseline; gap: 0.5rem;">
-                                    <span id="detail-black-ratio" style="font-size: 1.5rem; font-weight: 700; color: white;">-</span>
-                                    <span style="font-size: 0.8rem; color: #666;">:1</span>
+                                    <span id="detail-black-ratio" class="dads-contrast-card__ratio">-</span>
+                                    <span style="font-size: 0.8rem; color: var(--dads-text-secondary);">:1</span>
                                 </div>
-                                <div id="detail-black-preview" style="margin-top: 0.5rem; padding: 1rem; border-radius: 4px; font-size: 0.9rem; line-height: 1.5;">
+                                <div id="detail-black-preview" class="dads-contrast-card__preview">
                                     吾輩は猫である。名前はまだ無い。どこで生れたかとんと見当がつかぬ。
                                 </div>
-                                <div id="detail-black-preview-large" style="padding: 1rem; border-radius: 4px; font-size: 1.2rem; font-weight: 700; line-height: 1.4;">
+                                <div id="detail-black-preview-large" class="dads-contrast-card__preview--large">
                                     大きな文字での見え方を確認します
                                 </div>
-                                <div id="detail-black-fail-icon" style="display: none; color: #ff8a80; font-size: 0.8rem; margin-top: 0.25rem;">
+                                <div id="detail-black-fail-icon" class="dads-contrast-card__fail">
                                     ⚠️ コントラスト不足
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Col 2: Color Tuner & Actions (Moved to Right) -->
-                    <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                    <!-- Col 2: Color Tuner & Actions -->
+                    <div style="display: flex; flex-direction: column; gap: 1.5rem; width: 100%; flex: 1;">
                          <h3 style="margin: 0; font-size: 1rem; font-weight: 700;">カラーチューナー</h3>
-                         <p style="margin: 0; font-size: 0.8rem; color: #666;">
+                         <p style="margin: 0; font-size: 0.8rem; color: var(--dads-text-secondary);">
                             ドラッグ: ↔ 色相 (Hue)<br>
                             Shift + ドラッグ: 精密操作
                          </p>
                          <!-- Infinite Scrubber -->
-                        <div style="position: relative; width: 100%; max-width: 100%; height: 80px; background: #f5f5f5; border-radius: 8px; overflow: hidden; cursor: ew-resize; box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);">
-                             <canvas id="tuner-scrubber" style="width: 100%; height: 100%; display: block;"></canvas>
-                             
+                        <div class="dads-scrubber">
+                             <canvas id="tuner-scrubber"></canvas>
                              <!-- Center Indicator -->
-                             <div style="
-                                position: absolute; 
-                                left: 50%; 
-                                top: 0; 
-                                bottom: 0; 
-                                width: 2px; 
-                                background: white; 
-                                box-shadow: 0 0 4px rgba(0,0,0,0.5);
-                                transform: translateX(-50%);
-                                pointer-events: none;
-                             "></div>
+                             <div class="dads-scrubber__indicator"></div>
                         </div>
 
                          <!-- Actions -->
-                         <div style="margin-top: 1rem; display: flex; gap: 1rem; justify-content: flex-start;">
-                            <button id="detail-reset-btn" style="padding: 0.5rem 1rem; border: 1px solid #ddd; background: white; border-radius: 6px; cursor: pointer; font-weight: 600; color: #666; font-size: 0.85rem;">
+                         <div class="dads-dialog__actions">
+                            <button id="detail-reset-btn" class="dads-button">
                                 リセット
                             </button>
-                            <button id="detail-save-btn" style="padding: 0.5rem 1.5rem; border: none; background: #1a73e8; color: white; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85rem; box-shadow: 0 2px 4px rgba(26,115,232,0.3);">
+                            <button id="detail-save-btn" class="dads-button" data-variant="primary">
                                 保存
                             </button>
                          </div>
@@ -370,13 +246,6 @@
     </dialog>
 
     <script type="module" src="./dist/index.js"></script>
-    <script type="module">
-        // The bundle should expose a global object or we can import if it's an ES module
-        // For this demo, we'll rely on the bundle executing the demo logic if we add it to index.ts
-        // OR we can import from the bundle if it exports the classes.
-        
-        // Let's assume we modify src/index.ts to run the demo if #app exists.
-    </script>
 </body>
 
 </html>

@@ -1,0 +1,124 @@
+:root {
+  /* ============================================
+   * DADS準拠 プリミティブトークン（静的）
+   * - UI固定色（ニュートラル、セマンティック）
+   * ============================================ */
+
+  /* ニュートラル（グレースケール） */
+  --dads-primitive-neutral-900: #1a1a1a;
+  --dads-primitive-neutral-800: #333333;
+  --dads-primitive-neutral-700: #4d4d4d;
+  --dads-primitive-neutral-600: #666666;
+  --dads-primitive-neutral-500: #808080;
+  --dads-primitive-neutral-400: #999999;
+  --dads-primitive-neutral-300: #b3b3b3;
+  --dads-primitive-neutral-200: #cccccc;
+  --dads-primitive-neutral-100: #e6e6e6;
+  --dads-primitive-neutral-50: #f5f5f5;
+  --dads-primitive-white: #ffffff;
+  --dads-primitive-black: #000000;
+
+  /* セマンティック固定色（アクセシビリティ結果表示用） */
+  --dads-primitive-success-600: #137333;
+  --dads-primitive-success-100: #e6f4ea;
+  --dads-primitive-warning-600: #b06000;
+  --dads-primitive-warning-100: #fef7e0;
+  --dads-primitive-error-600: #c5221f;
+  --dads-primitive-error-100: #fce8e6;
+  --dads-primitive-info-600: #0052cc;
+  --dads-primitive-info-100: #e3f2fd;
+
+  /* ============================================
+   * DADS準拠 セマンティックトークン
+   * - surface: 背景色
+   * - border: 境界線
+   * - text: テキスト色
+   * - focus: フォーカスリング
+   * ============================================ */
+
+  /* Surface（背景） */
+  --dads-surface-primary: var(--dads-primitive-white);
+  --dads-surface-secondary: var(--dads-primitive-neutral-50);
+  --dads-surface-tertiary: var(--dads-primitive-neutral-100);
+  --dads-surface-inverse: var(--dads-primitive-neutral-900);
+
+  /* Border（境界線） */
+  --dads-border-default: var(--dads-primitive-neutral-200);
+  --dads-border-strong: var(--dads-primitive-neutral-400);
+  --dads-border-subtle: var(--dads-primitive-neutral-100);
+  --dads-border-active: var(--dads-primitive-info-600);
+
+  /* Text（テキスト） */
+  --dads-text-primary: var(--dads-primitive-neutral-900);
+  --dads-text-secondary: var(--dads-primitive-neutral-600);
+  --dads-text-tertiary: var(--dads-primitive-neutral-400);
+  --dads-text-inverse: var(--dads-primitive-white);
+  --dads-text-link: var(--dads-primitive-info-600);
+
+  /* Focus Ring */
+  --dads-focus-ring-color: var(--dads-primitive-info-600);
+  --dads-focus-ring-offset: 2px;
+  --dads-focus-ring-width: 2px;
+
+  /* ============================================
+   * コンポーネントトークン
+   * - ボタン、バッジ、カード等の具体的なスタイル
+   * ============================================ */
+
+  /* Button */
+  --dads-button-bg: var(--dads-surface-primary);
+  --dads-button-bg-hover: var(--dads-surface-secondary);
+  --dads-button-bg-active: var(--dads-primitive-info-100);
+  --dads-button-border: var(--dads-border-default);
+  --dads-button-border-active: var(--dads-border-active);
+  --dads-button-text: var(--dads-text-primary);
+
+  /* Badge */
+  --dads-badge-success-bg: var(--dads-primitive-success-100);
+  --dads-badge-success-text: var(--dads-primitive-success-600);
+  --dads-badge-warning-bg: var(--dads-primitive-warning-100);
+  --dads-badge-warning-text: var(--dads-primitive-warning-600);
+  --dads-badge-error-bg: var(--dads-primitive-error-100);
+  --dads-badge-error-text: var(--dads-primitive-error-600);
+
+  /* Card */
+  --dads-card-bg: var(--dads-surface-primary);
+  --dads-card-border: var(--dads-border-subtle);
+
+  /* ============================================
+   * スペーシング・タイポグラフィ
+   * ============================================ */
+
+  /* Spacing */
+  --dads-spacing-xs: 0.25rem;
+  --dads-spacing-sm: 0.5rem;
+  --dads-spacing-md: 1rem;
+  --dads-spacing-lg: 1.5rem;
+  --dads-spacing-xl: 2rem;
+  --dads-spacing-2xl: 3rem;
+
+  /* Border Radius */
+  --dads-radius-sm: 4px;
+  --dads-radius-md: 8px;
+  --dads-radius-lg: 12px;
+  --dads-radius-xl: 20px;
+  --dads-radius-full: 9999px;
+
+  /* Shadow */
+  --dads-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --dads-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --dads-shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+
+  /* Typography */
+  --dads-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --dads-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --dads-font-size-xs: 0.75rem;
+  --dads-font-size-sm: 0.875rem;
+  --dads-font-size-md: 1rem;
+  --dads-font-size-lg: 1.125rem;
+  --dads-font-size-xl: 1.25rem;
+  --dads-font-weight-normal: 400;
+  --dads-font-weight-medium: 500;
+  --dads-font-weight-semibold: 600;
+  --dads-font-weight-bold: 700;
+}

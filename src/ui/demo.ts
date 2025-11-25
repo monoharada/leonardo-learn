@@ -20,8 +20,12 @@ import {
 	HarmonyType,
 } from "../core/harmony";
 import { findColorForContrast } from "../core/solver";
-
-// import { runColorSystemDemo } from "./color-system-demo";
+import {
+	type ContrastIntensity,
+	getContrastRatios,
+	STEP_NAMES,
+	setButtonActive,
+} from "./style-constants";
 
 interface KeyColorWithStep {
 	color: string;
@@ -37,7 +41,6 @@ interface PaletteConfig {
 	baseChromaName?: string; // 基本クロマ名（セマンティックカラー用）
 }
 
-type ContrastIntensity = "subtle" | "moderate" | "strong" | "vivid";
 type LightnessDistribution = "linear" | "easeIn" | "easeOut";
 type ViewMode = "palette" | "shades" | "accessibility";
 
@@ -90,27 +93,16 @@ export const runDemo = () => {
 		paletteListEl.innerHTML = "";
 		state.palettes.forEach((p) => {
 			const container = document.createElement("div");
-			container.style.marginBottom = "4px";
+			container.className = "dads-palette-item";
 
 			// Main Palette Entry (Primary)
 			const btn = document.createElement("div");
 			btn.textContent = p.name;
-			btn.style.padding = "0.5rem 1rem";
-			btn.style.cursor = "pointer";
-			btn.style.borderRadius = "4px";
-			btn.style.fontWeight = "500";
-			btn.style.fontSize = "0.9rem";
-			btn.style.display = "flex";
-			btn.style.alignItems = "center";
-			btn.style.justifyContent = "space-between";
+			btn.className = "dads-palette-item__button";
 
 			// Show color dot
 			const dot = document.createElement("span");
-			dot.style.width = "12px";
-			dot.style.height = "12px";
-			dot.style.borderRadius = "50%";
-			dot.style.display = "inline-block";
-			dot.style.marginRight = "8px";
+			dot.className = "dads-palette-item__dot";
 
 			// Parse first key color for dot
 			const keyColorInput = p.keyColors[0];
@@ -120,14 +112,8 @@ export const runDemo = () => {
 			}
 			btn.prepend(dot);
 
-			if (p.id === state.activeId) {
-				btn.style.background = "#e3f2fd";
-				btn.style.color = "#0052cc";
-				btn.style.fontWeight = "bold";
-			} else {
-				btn.style.background = "transparent";
-				btn.style.color = "#333";
-			}
+			// Set active state via data attribute
+			setButtonActive(btn, p.id === state.activeId);
 
 			btn.onclick = () => {
 				state.activeId = p.id;
@@ -158,15 +144,11 @@ export const runDemo = () => {
 			harmonyInput.value = p.harmony;
 			harmonyButtons.forEach((btn) => {
 				const val = (btn as HTMLElement).dataset.value;
-				if (val === p.harmony) {
-					(btn as HTMLElement).style.background = "#e3f2fd";
-					(btn as HTMLElement).style.borderColor = "#0052cc";
-					(btn as HTMLElement).style.fontWeight = "bold";
+				const isActive = val === p.harmony;
+				setButtonActive(btn as HTMLElement, isActive);
+				if (isActive) {
 					(btn as HTMLElement).classList.add("active");
 				} else {
-					(btn as HTMLElement).style.background = "white";
-					(btn as HTMLElement).style.borderColor = "#ccc";
-					(btn as HTMLElement).style.fontWeight = "normal";
 					(btn as HTMLElement).classList.remove("active");
 				}
 
@@ -188,15 +170,7 @@ export const runDemo = () => {
 		);
 		contrastBtns.forEach((btn) => {
 			const val = (btn as HTMLElement).dataset.value as ContrastIntensity;
-			if (val === state.contrastIntensity) {
-				(btn as HTMLElement).style.background = "#e3f2fd";
-				(btn as HTMLElement).style.borderColor = "#0052cc";
-				(btn as HTMLElement).style.fontWeight = "bold";
-			} else {
-				(btn as HTMLElement).style.background = "white";
-				(btn as HTMLElement).style.borderColor = "#ccc";
-				(btn as HTMLElement).style.fontWeight = "normal";
-			}
+			setButtonActive(btn as HTMLElement, val === state.contrastIntensity);
 			(btn as HTMLElement).onclick = () => {
 				state.contrastIntensity = val;
 				updateEditor();
@@ -301,11 +275,10 @@ export const runDemo = () => {
 		const updateViewButtons = (mode: ViewMode) => {
 			state.viewMode = mode;
 
-			// Reset all buttons
+			// Reset all buttons via data-active attribute
 			[viewPaletteBtn, viewShadesBtn, viewAccessibilityBtn].forEach((btn) => {
 				btn.classList.remove("active");
-				btn.style.background = "transparent";
-				btn.style.boxShadow = "none";
+				setButtonActive(btn, false);
 			});
 
 			// Activate current button
@@ -316,8 +289,7 @@ export const runDemo = () => {
 						? viewShadesBtn
 						: viewAccessibilityBtn;
 			activeBtn.classList.add("active");
-			activeBtn.style.background = "white";
-			activeBtn.style.boxShadow = "0 1px 3px rgba(0,0,0,0.1)";
+			setButtonActive(activeBtn, true);
 
 			// Toggle controls
 			if (contrastControls) {
@@ -362,24 +334,6 @@ export const runDemo = () => {
 	const generateExportColors = (): Record<string, Color> => {
 		const colors: Record<string, Color> = {};
 		const bgColor = new Color("#ffffff");
-		const contrastRanges: Record<ContrastIntensity, number[]> = {
-			subtle: [
-				1.05, 1.1, 1.15, 1.2, 1.3, 1.5, 2.0, 3.0, 4.5, 6.0, 8.0, 10.0, 12.0,
-			],
-			moderate: [
-				1.05, 1.1, 1.2, 1.35, 1.7, 2.5, 3.5, 4.5, 6.0, 8.5, 11.0, 14.0, 17.0,
-			],
-			strong: [
-				1.1, 1.2, 1.3, 1.5, 2.0, 3.0, 4.5, 6.0, 8.0, 11.0, 14.0, 17.0, 21.0,
-			],
-			vivid: [
-				1.15, 1.25, 1.4, 1.7, 2.5, 3.5, 5.0, 7.0, 9.0, 12.0, 15.0, 18.0, 21.0,
-			],
-		};
-
-		const stepNames = [
-			1200, 1100, 1000, 900, 800, 700, 600, 500, 400, 300, 200, 100, 50,
-		];
 
 		// エクスポートは全13色パレットを使用
 		const palettesToExport =
@@ -391,9 +345,7 @@ export const runDemo = () => {
 			const { color: hex } = parseKeyColor(keyColorInput);
 			const keyColor = new Color(hex);
 
-			const baseRatios = [
-				...(contrastRanges[state.contrastIntensity] || contrastRanges.moderate),
-			];
+			const baseRatios = getContrastRatios(state.contrastIntensity);
 
 			const keyContrastRatio = keyColor.contrast(bgColor);
 			let keyColorIndex = -1;
@@ -422,7 +374,7 @@ export const runDemo = () => {
 			const paletteName = p.name.toLowerCase().replace(/\s+/g, "-");
 
 			scaleColors.forEach((color, index) => {
-				const stepName = stepNames[index] ?? index * 100 + 50;
+				const stepName = STEP_NAMES[index] ?? index * 100 + 50;
 				colors[`${paletteName}-${stepName}`] = color;
 			});
 		});
@@ -516,9 +468,7 @@ export const runDemo = () => {
 	};
 
 	const renderPaletteView = (container: HTMLElement) => {
-		container.style.display = "flex";
-		container.style.flexDirection = "column";
-		container.style.gap = "2rem";
+		container.className = "dads-section";
 
 		// Group palettes by semantic category
 		const getSemanticCategory = (name: string): string => {
@@ -549,31 +499,19 @@ export const runDemo = () => {
 			// Section heading
 			const heading = document.createElement("h2");
 			heading.textContent = category;
-			heading.style.fontSize = "1.1rem";
-			heading.style.marginBottom = "1rem";
-			heading.style.color = "#333";
-			heading.style.fontWeight = "600";
+			heading.className = "dads-section__heading";
 			section.appendChild(heading);
 
 			// Cards container
 			const cardsContainer = document.createElement("div");
-			cardsContainer.style.display = "grid";
-			cardsContainer.style.gridTemplateColumns =
-				"repeat(auto-fill, minmax(200px, 1fr))";
-			cardsContainer.style.gap = "1rem";
+			cardsContainer.className = "dads-grid";
+			cardsContainer.dataset.columns = "auto-fill";
 
 			palettes.forEach((p) => {
 				const card = document.createElement("button");
 				card.type = "button";
-				card.style.background = "white";
-				card.style.borderRadius = "8px";
-				card.style.boxShadow = "0 2px 4px rgba(0,0,0,0.05)";
-				card.style.overflow = "hidden";
-				card.style.cursor = "pointer";
-				card.style.border = "none";
-				card.style.padding = "0";
-				card.style.textAlign = "left";
-				card.style.width = "100%";
+				card.className = "dads-card";
+				card.dataset.interactive = "true";
 
 				const keyColorInput = p.keyColors[0];
 				if (!keyColorInput) return;
@@ -581,27 +519,7 @@ export const runDemo = () => {
 				const keyColor = new Color(hex);
 
 				// Generate color scale for this palette
-				const contrastRanges: Record<ContrastIntensity, number[]> = {
-					subtle: [
-						1.05, 1.1, 1.15, 1.2, 1.3, 1.5, 2.0, 3.0, 4.5, 6.0, 8.0, 10.0, 12.0,
-					],
-					moderate: [
-						1.05, 1.1, 1.2, 1.35, 1.7, 2.5, 3.5, 4.5, 6.0, 8.5, 11.0, 14.0,
-						17.0,
-					],
-					strong: [
-						1.1, 1.2, 1.3, 1.5, 2.0, 3.0, 4.5, 6.0, 8.0, 11.0, 14.0, 17.0, 21.0,
-					],
-					vivid: [
-						1.15, 1.25, 1.4, 1.7, 2.5, 3.5, 5.0, 7.0, 9.0, 12.0, 15.0, 18.0,
-						21.0,
-					],
-				};
-
-				const baseRatios = [
-					...(contrastRanges[state.contrastIntensity] ||
-						contrastRanges.moderate),
-				];
+				const baseRatios = getContrastRatios(state.contrastIntensity);
 				const bgColor = new Color("#ffffff");
 				const keyContrastRatio = keyColor.contrast(bgColor);
 
@@ -659,28 +577,7 @@ export const runDemo = () => {
 					const generateScale = (
 						baseColor: Color,
 					): { colors: Color[]; keyIndex: number } => {
-						const contrastRanges: Record<ContrastIntensity, number[]> = {
-							subtle: [
-								1.05, 1.1, 1.15, 1.2, 1.3, 1.5, 2.0, 3.0, 4.5, 6.0, 8.0, 10.0,
-								12.0,
-							],
-							moderate: [
-								1.05, 1.1, 1.2, 1.35, 1.7, 2.5, 3.5, 4.5, 6.0, 8.5, 11.0, 14.0,
-								17.0,
-							],
-							strong: [
-								1.1, 1.2, 1.3, 1.5, 2.0, 3.0, 4.5, 6.0, 8.0, 11.0, 14.0, 17.0,
-								21.0,
-							],
-							vivid: [
-								1.15, 1.25, 1.4, 1.7, 2.5, 3.5, 5.0, 7.0, 9.0, 12.0, 15.0, 18.0,
-								21.0,
-							],
-						};
-						const baseRatios = [
-							...(contrastRanges[state.contrastIntensity] ||
-								contrastRanges.moderate),
-						];
+						const baseRatios = getContrastRatios(state.contrastIntensity);
 						const bgColor = new Color("#ffffff");
 						const keyContrastRatio = baseColor.contrast(bgColor);
 
@@ -917,15 +814,7 @@ export const runDemo = () => {
 						const { keyIndex } = generateScale(color);
 						// Standard mapping for 13 steps (0-12)
 						// 0 is Darkest (1200), 12 is Lightest (50) because generateScale reverses the array (Light->Dark becomes Dark->Light)
-						// Wait, let's verify generateScale logic.
-						// baseRatios: [1.05 ... 21] (Light -> Dark)
-						// newColors: [Light ... Dark]
-						// newColors.reverse(): [Dark ... Light]
-						// So index 0 is Dark (1200), index 12 is Light (50).
-						const steps = [
-							1200, 1100, 1000, 900, 800, 700, 600, 500, 400, 300, 200, 100, 50,
-						];
-						const tokenNum = steps[keyIndex] ?? 500;
+						const tokenNum = STEP_NAMES[keyIndex] ?? 500;
 
 						// Use baseChromaName (e.g. "Blue") if available, else name
 						const hueName = p.baseChromaName || p.name;
@@ -1099,32 +988,27 @@ export const runDemo = () => {
 				};
 
 				const swatch = document.createElement("div");
-				swatch.style.height = "120px";
+				swatch.className = "dads-card__swatch";
 				// Apply CVD simulation to display color
 				const displayColor = applySimulation(keyColor);
 				swatch.style.backgroundColor = displayColor.toCss();
 
 				const info = document.createElement("div");
-				info.style.padding = "1rem";
+				info.className = "dads-card__body";
 
 				// Token name (e.g., "blue-800")
-				const stepNames = [
-					1200, 1100, 1000, 900, 800, 700, 600, 500, 400, 300, 200, 100, 50,
-				];
-				const step = stepNames[reversedKeyColorIndex] ?? 600;
+				const step = STEP_NAMES[reversedKeyColorIndex] ?? 600;
 				const chromaNameLower = (p.baseChromaName || p.name || "color")
 					.toLowerCase()
 					.replace(/\s+/g, "-");
 
 				const tokenName = document.createElement("h3");
 				tokenName.textContent = `${chromaNameLower}-${step}`;
-				tokenName.style.margin = "0 0 0.5rem 0";
-				tokenName.style.fontSize = "1rem";
+				tokenName.className = "dads-card__title";
 
 				const hexCode = document.createElement("code");
 				hexCode.textContent = hex;
-				hexCode.style.color = "#666";
-				hexCode.style.fontSize = "0.85rem";
+				hexCode.className = "dads-text-mono";
 
 				info.appendChild(tokenName);
 				info.appendChild(hexCode);
@@ -1150,9 +1034,7 @@ export const runDemo = () => {
 	};
 
 	const renderShadesView = (container: HTMLElement) => {
-		container.style.display = "flex";
-		container.style.flexDirection = "column";
-		container.style.gap = "2rem";
+		container.className = "dads-section";
 
 		// Shadesビューでは全13色パレットを使用
 		const palettesToRender =
@@ -1162,6 +1044,7 @@ export const runDemo = () => {
 			const section = document.createElement("section");
 
 			const header = document.createElement("h2");
+			header.className = "dads-section__heading";
 			// 表示形式: baseChromaName | name (name が空の場合は baseChromaName のみ)
 			if (p.baseChromaName && p.name) {
 				header.textContent = `${p.baseChromaName} | ${p.name}`;
@@ -1170,9 +1053,6 @@ export const runDemo = () => {
 			} else {
 				header.textContent = p.name;
 			}
-			header.style.fontSize = "1.1rem";
-			header.style.marginBottom = "1rem";
-			header.style.color = "#333";
 			section.appendChild(header);
 
 			// Generate Scale using Theme
@@ -1182,24 +1062,7 @@ export const runDemo = () => {
 			const keyColor = new Color(keyHex);
 
 			// Define ratios for 13 steps based on intensity
-			const contrastRanges: Record<ContrastIntensity, number[]> = {
-				subtle: [
-					1.05, 1.1, 1.15, 1.2, 1.3, 1.5, 2.0, 3.0, 4.5, 6.0, 8.0, 10.0, 12.0,
-				],
-				moderate: [
-					1.05, 1.1, 1.2, 1.35, 1.7, 2.5, 3.5, 4.5, 6.0, 8.5, 11.0, 14.0, 17.0,
-				],
-				strong: [
-					1.1, 1.2, 1.3, 1.5, 2.0, 3.0, 4.5, 6.0, 8.0, 11.0, 14.0, 17.0, 21.0,
-				],
-				vivid: [
-					1.15, 1.25, 1.4, 1.7, 2.5, 3.5, 5.0, 7.0, 9.0, 12.0, 15.0, 18.0, 21.0,
-				],
-			};
-
-			const baseRatios = [
-				...(contrastRanges[state.contrastIntensity] || contrastRanges.moderate),
-			];
+			const baseRatios = getContrastRatios(state.contrastIntensity);
 
 			// Background color (White)
 			const bgColor = new Color("#ffffff");
@@ -1242,9 +1105,7 @@ export const runDemo = () => {
 			const reversedKeyColorIndex = colors.length - 1 - keyColorIndex;
 
 			const scaleContainer = document.createElement("div");
-			scaleContainer.style.display = "flex";
-			scaleContainer.style.borderRadius = "8px";
-			scaleContainer.style.overflow = "visible";
+			scaleContainer.className = "dads-scale";
 
 			colors.forEach((stepColor, index) => {
 				// Apply CVD simulation to display color
@@ -1252,18 +1113,7 @@ export const runDemo = () => {
 
 				const swatch = document.createElement("button");
 				swatch.type = "button";
-				swatch.style.flex = "1";
-				swatch.style.aspectRatio = "1";
-				swatch.style.display = "flex";
-				swatch.style.alignItems = "center";
-				swatch.style.justifyContent = "center";
-				swatch.style.flexDirection = "column";
-				swatch.style.fontSize = "0.75rem";
-				swatch.style.position = "relative"; // For badges
-				swatch.style.border = "none";
-				swatch.style.padding = "0";
-				swatch.style.margin = "0";
-				swatch.style.outline = "none";
+				swatch.className = "dads-swatch";
 
 				const isKeyColor = index === reversedKeyColorIndex;
 
@@ -1306,24 +1156,14 @@ export const runDemo = () => {
 					if (!whiteLevel && !blackLevel) return;
 
 					const badgeContainer = document.createElement("div");
-					badgeContainer.style.display = "flex";
-					badgeContainer.style.gap = "2px";
-					badgeContainer.style.fontSize = "0.55rem";
-					badgeContainer.style.position = "absolute";
-					badgeContainer.style.bottom = "4px";
-					badgeContainer.style.left = "50%";
-					badgeContainer.style.transform = "translateX(-50%)";
+					badgeContainer.className = "dads-swatch__badges";
 
 					// Show white indicator if usable
 					if (whiteLevel) {
 						const whiteBadge = document.createElement("div");
-						whiteBadge.style.padding = "2px 4px";
-						whiteBadge.style.borderRadius = "4px";
-						whiteBadge.style.fontWeight = "bold";
-						whiteBadge.style.backgroundColor = "transparent";
-						whiteBadge.style.color = "white";
-						whiteBadge.style.border =
-							whiteLevel === "L" ? "1px dashed white" : "1px solid white";
+						whiteBadge.className = "dads-contrast-indicator";
+						whiteBadge.dataset.color = "white";
+						if (whiteLevel === "L") whiteBadge.dataset.level = "L";
 						whiteBadge.textContent = whiteLevel;
 						badgeContainer.appendChild(whiteBadge);
 					}
@@ -1331,13 +1171,9 @@ export const runDemo = () => {
 					// Show black indicator if usable
 					if (blackLevel) {
 						const blackBadge = document.createElement("div");
-						blackBadge.style.padding = "2px 4px";
-						blackBadge.style.borderRadius = "4px";
-						blackBadge.style.fontWeight = "bold";
-						blackBadge.style.backgroundColor = "transparent";
-						blackBadge.style.color = "black";
-						blackBadge.style.border =
-							blackLevel === "L" ? "1px dashed black" : "1px solid black";
+						blackBadge.className = "dads-contrast-indicator";
+						blackBadge.dataset.color = "black";
+						if (blackLevel === "L") blackBadge.dataset.level = "L";
 						blackBadge.textContent = blackLevel;
 						badgeContainer.appendChild(blackBadge);
 					}
@@ -1351,14 +1187,8 @@ export const runDemo = () => {
 
 					// Show circle that fills the swatch
 					const circle = document.createElement("div");
-					circle.style.width = "100%";
-					circle.style.height = "100%";
-					circle.style.borderRadius = "50%";
+					circle.className = "dads-swatch__key-indicator";
 					circle.style.backgroundColor = displayColor.toCss();
-					circle.style.display = "flex";
-					circle.style.alignItems = "center";
-					circle.style.justifyContent = "center";
-					circle.style.flexDirection = "column";
 
 					const label = document.createElement("span");
 					label.textContent = `${ratio}`;
@@ -1415,10 +1245,7 @@ export const runDemo = () => {
 							document.getElementById("detail-chroma-name");
 
 						// Step names for token generation (dark to light order: 1200→50)
-						const stepNames = [
-							1200, 1100, 1000, 900, 800, 700, 600, 500, 400, 300, 200, 100, 50,
-						];
-						const step = stepNames[selectedIndex] ?? 600;
+						const step = STEP_NAMES[selectedIndex] ?? 600;
 						const chromaNameLower = (p.baseChromaName || p.name || "color")
 							.toLowerCase()
 							.replace(/\s+/g, "-");
@@ -1585,36 +1412,16 @@ export const runDemo = () => {
 					// Build mini scale
 					const miniScale = document.getElementById("detail-mini-scale");
 					if (miniScale) {
-						console.log(
-							"Mini scale found, populating with colors:",
-							colors.length,
-						);
 						miniScale.innerHTML = "";
 						colors.forEach((c, i) => {
 							const miniSwatch = document.createElement("button");
 							miniSwatch.type = "button";
-							miniSwatch.style.flex = "1";
-							miniSwatch.style.height = "100%";
-							miniSwatch.style.minWidth = "0"; // Prevent flex item from overflowing
+							miniSwatch.className = "dads-mini-scale__item";
 							miniSwatch.style.backgroundColor = c.toCss();
-							miniSwatch.style.cursor = "pointer";
-							miniSwatch.style.position = "relative";
-							miniSwatch.style.border = "none";
-							miniSwatch.style.padding = "0";
-							miniSwatch.style.display = "block"; // Ensure block display
-							miniSwatch.style.outline = "none";
 							miniSwatch.setAttribute("aria-label", `Color ${c.toHex()}`);
 							miniSwatch.onclick = (e) => {
 								e.stopPropagation();
 								updateDetail(c, i);
-							};
-							// Focus style
-							miniSwatch.onfocus = () => {
-								miniSwatch.style.outline = "2px solid white";
-								miniSwatch.style.outlineOffset = "-2px";
-							};
-							miniSwatch.onblur = () => {
-								miniSwatch.style.outline = "none";
 							};
 							miniScale.appendChild(miniSwatch);
 						});
@@ -1725,20 +1532,10 @@ export const runDemo = () => {
 			const cvdType = (btn as HTMLElement).dataset.cvd as CVDSimulationType;
 			state.cvdSimulation = cvdType;
 
-			// Update button styles
+			// Update button styles via data-active attribute
 			cvdTypeButtons.forEach((b) => {
 				const isActive = (b as HTMLElement).dataset.cvd === cvdType;
-				if (isActive) {
-					(b as HTMLElement).style.background = "#e3f2fd";
-					(b as HTMLElement).style.borderColor = "#0052cc";
-					(b as HTMLElement).style.borderWidth = "2px";
-					(b as HTMLElement).style.fontWeight = "bold";
-				} else {
-					(b as HTMLElement).style.background = "white";
-					(b as HTMLElement).style.borderColor = "#ccc";
-					(b as HTMLElement).style.borderWidth = "1px";
-					(b as HTMLElement).style.fontWeight = "normal";
-				}
+				setButtonActive(b as HTMLElement, isActive);
 			});
 
 			// Re-render with simulation applied
@@ -1751,42 +1548,36 @@ export const runDemo = () => {
 	// ColorSystem Demo has been integrated into Harmony buttons (M3 option)
 	// The separate demo panel is no longer needed
 	const renderAccessibilityView = (container: HTMLElement) => {
-		container.style.display = "flex";
-		container.style.flexDirection = "column";
-		container.style.gap = "3rem";
+		container.className = "dads-section";
 
 		// 0. Explanation Section
 		const explanationSection = document.createElement("section");
-		explanationSection.style.marginBottom = "3rem";
-		explanationSection.style.padding = "1.5rem";
-		explanationSection.style.background = "#f8f9fa";
-		explanationSection.style.borderRadius = "8px";
-		explanationSection.style.border = "1px solid #e9ecef";
+		explanationSection.className = "dads-a11y-explanation";
 
 		const explanationHeading = document.createElement("h2");
 		explanationHeading.textContent = "この機能について";
-		explanationHeading.style.marginTop = "0";
-		explanationHeading.style.marginBottom = "1rem";
+		explanationHeading.className = "dads-a11y-explanation__heading";
 		explanationSection.appendChild(explanationHeading);
 
 		const explanationContent = document.createElement("div");
+		explanationContent.className = "dads-a11y-explanation__content";
 		explanationContent.innerHTML = `
-			<p style="margin-bottom: 1rem; line-height: 1.6;">
+			<p>
 				この画面では、多様な色覚特性を持つユーザーが、あなたのカラーパレットをどのように知覚するかをシミュレーションし、
 				<strong>隣接する色が識別困難になっていないか</strong>を確認できます。
 			</p>
-			
-			<h3 style="font-size: 1rem; margin: 1.5rem 0 0.5rem;">確認すべきポイント</h3>
-			<ul style="margin: 0 0 1.5rem 1.5rem; line-height: 1.6;">
+
+			<h3>確認すべきポイント</h3>
+			<ul>
 				<li><strong>キーカラー間の識別性:</strong> 生成された各パレット（Primary, Secondaryなど）のキーカラー同士が、色覚特性によって混同されないか確認します。</li>
 				<li><strong>階調の識別性:</strong> 各パレット内の隣接するステップ（例: 500と600）が、十分なコントラストを持って区別できるか確認します。</li>
 			</ul>
 
-			<h3 style="font-size: 1rem; margin: 1.5rem 0 0.5rem;">判定ロジックと計算方法</h3>
-			<ul style="margin: 0 0 1rem 1.5rem; line-height: 1.6;">
+			<h3>判定ロジックと計算方法</h3>
+			<ul>
 				<li><strong>シミュレーション手法:</strong> Brettel (1997) および Viénot (1999) のアルゴリズムを使用し、P型（1型）、D型（2型）、T型（3型）、全色盲の知覚を再現しています。</li>
 				<li><strong>色差計算 (DeltaE):</strong> OKLCH色空間におけるユークリッド距離を用いて、色の知覚的な差を計算しています。</li>
-				<li><strong>警告基準:</strong> シミュレーション後の色差（DeltaE）が <strong>3.0未満</strong> の場合、隣接する色が識別困難であると判断し、<span style="display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; background:#fff; border:1px solid #c5221f; border-radius:50%; color:#c5221f; font-weight:bold; font-size:10px; margin:0 4px;">!</span>アイコンで警告を表示します。</li>
+				<li><strong>警告基準:</strong> シミュレーション後の色差（DeltaE）が <strong>3.0未満</strong> の場合、隣接する色が識別困難であると判断し、<span class="dads-cvd-conflict-icon" style="display:inline-flex; position:static; transform:none; width:16px; height:16px; font-size:10px; margin:0 4px;">!</span>アイコンで警告を表示します。</li>
 			</ul>
 		`;
 		explanationSection.appendChild(explanationContent);
@@ -1797,14 +1588,13 @@ export const runDemo = () => {
 		const keyColorsHeading = document.createElement("h2");
 		keyColorsHeading.textContent =
 			"キーカラーの識別性確認 (Key Colors Harmony Check)";
-		keyColorsHeading.style.marginBottom = "1rem";
+		keyColorsHeading.className = "dads-section__heading";
 		keyColorsSection.appendChild(keyColorsHeading);
 
 		const keyColorsDesc = document.createElement("p");
 		keyColorsDesc.textContent =
 			"生成された各パレットのキーカラー同士が、多様な色覚特性において区別できるかを確認します。";
-		keyColorsDesc.style.marginBottom = "1.5rem";
-		keyColorsDesc.style.color = "#666";
+		keyColorsDesc.className = "dads-section__description";
 		keyColorsSection.appendChild(keyColorsDesc);
 
 		// Gather key colors
@@ -1826,28 +1616,22 @@ export const runDemo = () => {
 		const palettesHeading = document.createElement("h2");
 		palettesHeading.textContent =
 			"パレット階調の識別性確認 (Palette Steps Check)";
-		palettesHeading.style.marginBottom = "1rem";
+		palettesHeading.className = "dads-section__heading";
 		palettesSection.appendChild(palettesHeading);
 
 		const palettesDesc = document.createElement("p");
 		palettesDesc.textContent =
 			"各パレット内の隣接する階調（シェード）が、多様な色覚特性において区別できるかを確認します。";
-		palettesDesc.style.marginBottom = "1.5rem";
-		palettesDesc.style.color = "#666";
+		palettesDesc.className = "dads-section__description";
 		palettesSection.appendChild(palettesDesc);
 
 		state.palettes.forEach((p) => {
 			const pContainer = document.createElement("div");
-			pContainer.style.marginBottom = "3rem";
-			pContainer.style.padding = "1.5rem";
-			pContainer.style.background = "white";
-			pContainer.style.borderRadius = "8px";
-			pContainer.style.boxShadow = "0 1px 3px rgba(0,0,0,0.1)";
+			pContainer.className = "dads-a11y-palette-card";
 
 			const pTitle = document.createElement("h3");
 			pTitle.textContent = p.name;
-			pTitle.style.marginTop = "0";
-			pTitle.style.marginBottom = "1rem";
+			pTitle.className = "dads-a11y-palette-card__title";
 			pContainer.appendChild(pTitle);
 
 			// Generate scale
@@ -1856,23 +1640,7 @@ export const runDemo = () => {
 			const { color: hex } = parseKeyColor(keyColorInput);
 			const keyColor = new Color(hex);
 
-			const contrastRanges: Record<ContrastIntensity, number[]> = {
-				subtle: [
-					1.05, 1.1, 1.15, 1.2, 1.3, 1.5, 2.0, 3.0, 4.5, 6.0, 8.0, 10.0, 12.0,
-				],
-				moderate: [
-					1.05, 1.1, 1.2, 1.35, 1.7, 2.5, 3.5, 4.5, 6.0, 8.5, 11.0, 14.0, 17.0,
-				],
-				strong: [
-					1.1, 1.2, 1.3, 1.5, 2.0, 3.0, 4.5, 6.0, 8.0, 11.0, 14.0, 17.0, 21.0,
-				],
-				vivid: [
-					1.15, 1.25, 1.4, 1.7, 2.5, 3.5, 5.0, 7.0, 9.0, 12.0, 15.0, 18.0, 21.0,
-				],
-			};
-			const baseRatios = [
-				...(contrastRanges[state.contrastIntensity] || contrastRanges.moderate),
-			];
+			const baseRatios = getContrastRatios(state.contrastIntensity);
 			const bgColor = new Color("#ffffff");
 			const keyContrastRatio = keyColor.contrast(bgColor);
 
@@ -1897,11 +1665,8 @@ export const runDemo = () => {
 			colors.reverse();
 
 			const shadesList: { name: string; color: Color }[] = [];
-			const stepNames = [
-				1200, 1100, 1000, 900, 800, 700, 600, 500, 400, 300, 200, 100, 50,
-			];
 			colors.forEach((c, i) => {
-				shadesList.push({ name: `${stepNames[i]}`, color: c });
+				shadesList.push({ name: `${STEP_NAMES[i]}`, color: c });
 			});
 
 			// Render analysis for this palette
@@ -1928,31 +1693,23 @@ export const runDemo = () => {
 
 		// 1. Normal View
 		const normalRow = document.createElement("div");
-		normalRow.style.marginBottom = "2rem";
+		normalRow.className = "dads-cvd-row";
 
 		const normalLabel = document.createElement("div");
 		normalLabel.textContent = "一般色覚 (Normal Vision)";
-		normalLabel.style.fontWeight = "bold";
-		normalLabel.style.marginBottom = "0.5rem";
+		normalLabel.className = "dads-cvd-row__label";
 		normalRow.appendChild(normalLabel);
 
 		const normalStrip = document.createElement("div");
-		normalStrip.style.display = "flex";
-		normalStrip.style.height = "60px";
-		normalStrip.style.borderRadius = "8px";
-		normalStrip.style.overflow = "hidden";
+		normalStrip.className = "dads-cvd-strip";
 
 		colorEntries.forEach(([name, color]) => {
 			const swatch = document.createElement("div");
-			swatch.style.flex = "1";
+			swatch.className = "dads-cvd-strip__swatch";
 			swatch.style.backgroundColor = color.toCss();
 			swatch.title = `${name} (${color.toHex()})`;
-			swatch.style.display = "flex";
-			swatch.style.alignItems = "center";
-			swatch.style.justifyContent = "center";
 			swatch.style.color =
 				color.contrast(new Color("white")) > 4.5 ? "white" : "black";
-			swatch.style.fontSize = "0.7rem";
 			swatch.textContent = name;
 			normalStrip.appendChild(swatch);
 		});
@@ -1961,29 +1718,21 @@ export const runDemo = () => {
 
 		// 2. Simulations
 		const simContainer = document.createElement("div");
-		simContainer.style.display = "grid";
-		simContainer.style.gridTemplateColumns = "1fr";
-		simContainer.style.gap = "1.5rem";
+		simContainer.className = "dads-cvd-simulations";
 
 		cvdTypes.forEach((type: CVDType) => {
 			const row = document.createElement("div");
 
 			const label = document.createElement("div");
 			label.textContent = getCVDTypeName(type);
-			label.style.fontWeight = "bold";
-			label.style.marginBottom = "0.5rem";
-			label.style.fontSize = "0.9rem";
+			label.className = "dads-cvd-row__label";
 			row.appendChild(label);
 
 			const stripContainer = document.createElement("div");
-			stripContainer.style.position = "relative";
-			stripContainer.style.height = "60px";
+			stripContainer.className = "dads-cvd-strip-container";
 
 			const strip = document.createElement("div");
-			strip.style.display = "flex";
-			strip.style.height = "100%";
-			strip.style.borderRadius = "8px";
-			strip.style.overflow = "hidden";
+			strip.className = "dads-cvd-strip";
 
 			// Calculate conflicts first
 			const simulatedColors = colorEntries.map(([name, color]) => ({
@@ -2023,12 +1772,7 @@ export const runDemo = () => {
 			// Draw conflict lines
 			if (conflicts.length > 0) {
 				const overlay = document.createElement("div");
-				overlay.style.position = "absolute";
-				overlay.style.top = "0";
-				overlay.style.left = "0";
-				overlay.style.width = "100%";
-				overlay.style.height = "100%";
-				overlay.style.pointerEvents = "none";
+				overlay.className = "dads-cvd-overlay";
 
 				const segmentWidth = 100 / simulatedColors.length;
 
@@ -2036,36 +1780,14 @@ export const runDemo = () => {
 					const leftPos = (index + 1) * segmentWidth;
 
 					const line = document.createElement("div");
-					line.style.position = "absolute";
+					line.className = "dads-cvd-conflict-line";
 					line.style.left = `calc(${leftPos}% - 1px)`;
-					line.style.top = "10%";
-					line.style.bottom = "10%";
-					line.style.width = "2px";
-					line.style.backgroundColor = "white";
-					line.style.borderLeft = "1px solid rgba(0,0,0,0.5)";
-					line.style.borderRight = "1px solid rgba(0,0,0,0.5)";
-					line.style.zIndex = "10";
 					overlay.appendChild(line);
 
 					const icon = document.createElement("div");
-					icon.innerHTML = "!";
-					icon.style.position = "absolute";
+					icon.className = "dads-cvd-conflict-icon";
+					icon.textContent = "!";
 					icon.style.left = `calc(${leftPos}% - 10px)`;
-					icon.style.top = "50%";
-					icon.style.transform = "translateY(-50%)";
-					icon.style.width = "20px";
-					icon.style.height = "20px";
-					icon.style.backgroundColor = "#fff";
-					icon.style.border = "2px solid #c5221f";
-					icon.style.borderRadius = "50%";
-					icon.style.color = "#c5221f";
-					icon.style.fontWeight = "bold";
-					icon.style.display = "flex";
-					icon.style.alignItems = "center";
-					icon.style.justifyContent = "center";
-					icon.style.fontSize = "12px";
-					icon.style.zIndex = "11";
-					icon.style.boxShadow = "0 2px 4px rgba(0,0,0,0.2)";
 					overlay.appendChild(icon);
 				});
 
