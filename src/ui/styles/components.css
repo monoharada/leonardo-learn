@@ -561,7 +561,7 @@ h1 {
 }
 
 .dads-swatch__key-indicator {
-  width: auto;
+  max-width: 80px;
   height: 100%;
   aspect-ratio: 1;
   border-radius: var(--dads-radius-full);
@@ -569,8 +569,6 @@ h1 {
   align-items: center;
   justify-content: center;
   flex-direction: column;
-  border: 3px solid rgba(255, 255, 255, 0.8);
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
 }
 
 .dads-swatch__badges {
