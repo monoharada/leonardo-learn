@@ -1763,7 +1763,7 @@ export const runDemo = () => {
 
 			simulatedColors.forEach((item) => {
 				const swatch = document.createElement("div");
-				swatch.style.flex = "1";
+				swatch.className = "dads-cvd-strip__swatch";
 				swatch.style.backgroundColor = item.color.toCss();
 				swatch.title = `${item.name} (Simulated)`;
 				strip.appendChild(swatch);

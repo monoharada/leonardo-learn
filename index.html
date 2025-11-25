@@ -125,17 +125,16 @@
 
     <!-- Export Modal -->
     <dialog id="export-dialog" class="dads-dialog">
-        <h3 style="margin-top: 0;">Export</h3>
-        <textarea id="export-area" class="dads-input" style="width: 100%; height: 200px; margin-bottom: 1rem; font-family: var(--dads-font-mono);"></textarea>
-        <div style="text-align: right;">
+        <h3 class="dads-dialog__title">Export</h3>
+        <textarea id="export-area" class="dads-input dads-dialog__textarea"></textarea>
+        <div class="dads-dialog__footer">
             <button onclick="document.getElementById('export-dialog').close()" class="dads-button">Close</button>
         </div>
     </dialog>
 
     <!-- Color Detail Drawer -->
     <dialog id="color-detail-dialog" class="dads-dialog dads-dialog--drawer">
-
-        <div style="display: flex; flex-direction: column; height: 100%;">
+        <div class="dads-drawer__layout">
             <!-- Mini Scale (Fixed at top edge) -->
             <div id="detail-mini-scale" class="dads-mini-scale">
                 <!-- Mini swatches will be populated here -->
@@ -143,19 +142,19 @@
 
             <!-- Header Info (Fixed below scale) -->
             <div class="dads-dialog__header">
-                <div style="display: flex; align-items: center; gap: 1.5rem; max-width: 1400px; margin: 0 auto; width: 100%;">
-                    <div id="detail-swatch" style="width: 56px; height: 56px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></div>
-                    <div>
-                        <h2 id="detail-chroma-name" style="margin: 0 0 0.1rem 0; font-size: 1.1rem; font-weight: 800;"></h2>
-                        <div id="detail-token-name" style="font-size: 0.9rem; color: var(--dads-text-secondary); font-weight: 600;"></div>
-                        <div style="display: flex; align-items: center; gap: 0.75rem; margin-top: 0.25rem;">
+                <div class="dads-drawer__header-content">
+                    <div id="detail-swatch" class="dads-drawer__swatch"></div>
+                    <div class="dads-drawer__info">
+                        <h2 id="detail-chroma-name" class="dads-drawer__chroma-name"></h2>
+                        <div id="detail-token-name" class="dads-drawer__token-name"></div>
+                        <div class="dads-drawer__meta">
                             <code id="detail-hex" class="dads-text-mono"></code>
-                            <span id="detail-lightness" style="font-size: 0.8rem; color: var(--dads-text-tertiary);"></span>
+                            <span id="detail-lightness" class="dads-drawer__lightness"></span>
                         </div>
                     </div>
-                    <div style="margin-left: auto;">
+                    <div class="dads-drawer__close">
                          <form method="dialog">
-                            <button class="dads-button" style="background: none; border: none; padding: 0.5rem; border-radius: 50%; color: var(--dads-text-secondary);">
+                            <button class="dads-drawer__close-btn">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                             </button>
                         </form>
@@ -165,21 +164,20 @@
 
             <!-- Main Content (Scrollable) -->
             <div class="dads-dialog__body">
-                <div style="display: grid; grid-template-columns: 0.6fr 0.4fr; gap: 4rem; max-width: 1400px; margin: 0 auto; width: 100%;">
-
+                <div class="dads-drawer__grid">
                     <!-- Col 1: Contrast -->
-                    <div style="display: flex; flex-direction: column; gap: 1rem; flex: 3;">
-                        <h3 style="margin: 0; font-size: 1rem; font-weight: 700;">コントラスト</h3>
+                    <div class="dads-drawer__contrast-col">
+                        <h3 class="dads-drawer__section-title">コントラスト</h3>
                         <div class="dads-grid" data-columns="2">
                             <!-- White Card -->
                             <div id="detail-white-card" class="dads-contrast-card" data-bg="white">
-                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div class="dads-contrast-card__header">
                                     <span class="dads-contrast-card__label">白に対するコントラスト</span>
                                     <span id="detail-white-badge" class="dads-badge">-</span>
                                 </div>
-                                <div style="display: flex; align-items: baseline; gap: 0.5rem;">
+                                <div class="dads-contrast-card__value">
                                     <span id="detail-white-ratio" class="dads-contrast-card__ratio">-</span>
-                                    <span style="font-size: 0.8rem; color: var(--dads-text-tertiary);">:1</span>
+                                    <span class="dads-contrast-card__unit">:1</span>
                                 </div>
                                 <div id="detail-white-preview" class="dads-contrast-card__preview">
                                     吾輩は猫である。名前はまだ無い。どこで生れたかとんと見当がつかぬ。
@@ -194,13 +192,13 @@
 
                             <!-- Black Card -->
                             <div id="detail-black-card" class="dads-contrast-card" data-bg="black">
-                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div class="dads-contrast-card__header">
                                     <span class="dads-contrast-card__label">黒に対するコントラスト</span>
                                     <span id="detail-black-badge" class="dads-badge">-</span>
                                 </div>
-                                <div style="display: flex; align-items: baseline; gap: 0.5rem;">
+                                <div class="dads-contrast-card__value">
                                     <span id="detail-black-ratio" class="dads-contrast-card__ratio">-</span>
-                                    <span style="font-size: 0.8rem; color: var(--dads-text-secondary);">:1</span>
+                                    <span class="dads-contrast-card__unit">:1</span>
                                 </div>
                                 <div id="detail-black-preview" class="dads-contrast-card__preview">
                                     吾輩は猫である。名前はまだ無い。どこで生れたかとんと見当がつかぬ。
@@ -216,9 +214,9 @@
                     </div>
 
                     <!-- Col 2: Color Tuner & Actions -->
-                    <div style="display: flex; flex-direction: column; gap: 1.5rem; width: 100%; flex: 1;">
-                         <h3 style="margin: 0; font-size: 1rem; font-weight: 700;">カラーチューナー</h3>
-                         <p style="margin: 0; font-size: 0.8rem; color: var(--dads-text-secondary);">
+                    <div class="dads-drawer__tuner-col">
+                         <h3 class="dads-drawer__section-title">カラーチューナー</h3>
+                         <p class="dads-drawer__tuner-help">
                             ドラッグ: ↔ 色相 (Hue)<br>
                             Shift + ドラッグ: 精密操作
                          </p>
@@ -239,7 +237,6 @@
                             </button>
                          </div>
                     </div>
-
                 </div>
             </div>
         </div>
