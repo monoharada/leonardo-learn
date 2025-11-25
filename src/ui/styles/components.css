@@ -569,6 +569,8 @@ h1 {
   align-items: center;
   justify-content: center;
   flex-direction: column;
+  filter: brightness(1.15);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .dads-swatch__badges {
