@@ -561,8 +561,9 @@ h1 {
 }
 
 .dads-swatch__key-indicator {
-  width: 100%;
+  width: auto;
   height: 100%;
+  aspect-ratio: 1;
   border-radius: var(--dads-radius-full);
   display: flex;
   align-items: center;
