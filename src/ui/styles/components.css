@@ -560,17 +560,18 @@ h1 {
   aspect-ratio: auto; /* スケール内では高さ固定なのでaspect-ratio無効化 */
 }
 
+.dads-scale .dads-swatch[data-key-color="true"] {
+  flex: 0 0 80px; /* キーカラーは正方形（高さと同じ幅） */
+}
+
 .dads-swatch__key-indicator {
-  max-width: 80px;
+  width: 100%;
   height: 100%;
-  aspect-ratio: 1;
   border-radius: var(--dads-radius-full);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-direction: column;
-  filter: brightness(1.15);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .dads-swatch__badges {

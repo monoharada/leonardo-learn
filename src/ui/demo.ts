@@ -1182,10 +1182,11 @@ export const runDemo = () => {
 				};
 
 				if (isKeyColor) {
-					// キーカラーのスウォッチにも背景色を設定（隙間をなくすため）
-					swatch.style.backgroundColor = displayColor.toCss();
+					// キーカラーは円形で表示
+					swatch.dataset.keyColor = "true";
+					swatch.style.backgroundColor = "transparent";
 
-					// Show circle that fills the swatch
+					// 真円のインジケーター
 					const circle = document.createElement("div");
 					circle.className = "dads-swatch__key-indicator";
 					circle.style.backgroundColor = displayColor.toCss();
