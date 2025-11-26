@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Color token Generator</title>
+    <title>Color Token Generator</title>
     <!-- Google Fonts: Noto Sans JP -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -18,82 +18,23 @@
 </head>
 
 <body>
-    <div class="dads-layout">
-        <!-- Sidebar -->
-        <div class="dads-sidebar">
-            <div class="dads-sidebar__header">
-                <h1>Color token Generator</h1>
-
-                <!-- Global Key Color Input -->
-                <div class="dads-form-field">
-                    <label for="keyColors" class="dads-label">Brand Color</label>
-                    <div class="dads-form-row">
-                        <input type="text" id="keyColors" class="dads-input" placeholder="#0066CC" value="">
-                        <button id="generate-system" class="dads-button" data-variant="primary">
-                            Generate
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Harmony Selection -->
-                <div class="dads-form-field">
-                    <label class="dads-label">Harmony</label>
-                    <div id="harmony-buttons" class="dads-button-group">
-                        <button data-value="none" class="dads-button" data-size="sm">None</button>
-                        <button data-value="complementary" class="dads-button" data-size="sm" data-active="true">Comp</button>
-                        <button data-value="analogous" class="dads-button" data-size="sm">Analog</button>
-                        <button data-value="triadic" class="dads-button" data-size="sm">Triad</button>
-                        <button data-value="split-complementary" class="dads-button" data-size="sm">Split</button>
-                        <button data-value="tetradic" class="dads-button" data-size="sm">Tetrad</button>
-                        <button data-value="square" class="dads-button" data-size="sm">Square</button>
-                        <button data-value="m3" class="dads-button" data-size="sm">M3</button>
-                        <button data-value="dads" class="dads-button" data-size="sm">DADS</button>
-                    </div>
-                    <!-- Hidden select for backward compatibility/state storage if needed -->
-                    <input type="hidden" id="harmony" value="complementary">
-                </div>
-            </div>
-
-            <!-- Palette List -->
-            <div class="dads-sidebar__content">
-                <h3>Palettes</h3>
-                <div id="palette-list">
-                    <!-- List of palettes will go here -->
-                </div>
-
-                <button id="add-palette" class="dads-button dads-button--dashed">
-                    + Add Custom Palette
-                </button>
-            </div>
-
-            <!-- Selected Palette Controls -->
-            <div id="sidebar-controls" class="dads-sidebar__footer">
-                <h3 id="current-palette-name">Palette Settings</h3>
-
-                <div class="dads-export-section">
-                    <button id="export-css" class="dads-button dads-button--block">
-                        Export CSS
-                    </button>
-                    <button id="export-tailwind" class="dads-button dads-button--block">
-                        Export Tailwind
-                    </button>
-                    <button id="export-json" class="dads-button dads-button--block">
-                        Export DTCG JSON
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Main Content (Right) -->
-        <div class="dads-main">
-
+    <div class="dads-layout dads-layout--full">
+        <!-- Main Content -->
+        <main class="dads-main">
             <!-- Header / View Switcher -->
-            <div class="dads-main__header">
-                <div class="dads-view-switcher">
-                    <button id="view-palette" class="dads-view-switcher__button view-btn" data-active="true">パレット</button>
-                    <button id="view-shades" class="dads-view-switcher__button view-btn">シェード</button>
-                    <button id="view-accessibility" class="dads-view-switcher__button view-btn">アクセシビリティ</button>
-                </div>
+            <header class="dads-main__header">
+                <!-- タイトル -->
+                <h1 class="dads-header__title">Color Token Generator</h1>
+
+                <!-- ナビゲーション -->
+                <nav class="dads-nav" aria-label="メインナビゲーション">
+                    <button id="view-harmony" class="dads-button" data-size="lg" data-type="text" data-active="true">ハーモニー</button>
+                    <button id="view-palette" class="dads-button" data-size="lg" data-type="text">パレット</button>
+                    <button id="view-shades" class="dads-button" data-size="lg" data-type="text">シェード</button>
+                    <button id="view-accessibility" class="dads-button" data-size="lg" data-type="text">アクセシビリティ</button>
+                </nav>
+
+                <!-- Contrast Controls (シェードビュー用) -->
                 <div id="header-contrast-controls" class="dads-header-controls" style="display: none;">
                     <label class="dads-header-controls__label">Contrast:</label>
                     <div id="contrastIntensityButtons" class="dads-button-group">
@@ -103,8 +44,9 @@
                         <button data-value="vivid" class="dads-button" data-size="sm">Vivid</button>
                     </div>
                 </div>
+
                 <!-- CVD Simulation Controls -->
-                <div id="cvd-controls" class="dads-cvd-controls">
+                <div id="cvd-controls" class="dads-cvd-controls" style="display: none;">
                     <div class="dads-header-controls">
                         <label class="dads-header-controls__label">Vision:</label>
                         <div id="cvdTypeButtons" class="dads-button-group">
@@ -120,22 +62,57 @@
                         <span id="cvd-score-grade" class="dads-cvd-score__grade">-</span>
                     </div>
                 </div>
-            </div>
+
+                <!-- Export Button -->
+                <div id="export-controls" class="dads-header-controls" style="display: none;">
+                    <button id="export-btn" class="dads-button" data-size="sm">
+                        Export
+                    </button>
+                </div>
+            </header>
 
             <!-- Content Area -->
             <div id="main-content" class="dads-main__content">
-                <div id="app" class="palette">
+                <!-- ハーモニー選択ビュー（起点） -->
+                <div id="harmony-view" class="dads-section">
+                    <!-- ハーモニーカードがここにレンダリングされる -->
+                </div>
+
+                <!-- パレット/シェード/アクセシビリティビュー -->
+                <div id="app" class="palette" hidden>
                     <!-- Palettes will be rendered here -->
                 </div>
             </div>
-        </div>
+
+            <!-- 状態通知用ライブリージョン -->
+            <div id="live-region" class="dads-u-visually-hidden" aria-live="polite" aria-atomic="true"></div>
+        </main>
     </div>
+
+    <!-- Hidden state storage -->
+    <input type="hidden" id="harmony" value="complementary">
+    <input type="hidden" id="keyColors" value="#3366cc">
+
+    <!-- ダミー要素（demo.ts互換用） -->
+    <div id="palette-list" hidden></div>
 
     <!-- Export Modal -->
     <dialog id="export-dialog" class="dads-dialog">
         <h3 class="dads-dialog__title">Export</h3>
-        <textarea id="export-area" class="dads-input dads-dialog__textarea"></textarea>
+        <div class="dads-dialog__body">
+            <div class="dads-form-field">
+                <label class="dads-label">Format</label>
+                <div id="export-format-buttons" class="dads-button-group">
+                    <button data-format="css" class="dads-button" data-size="sm" data-active="true">CSS</button>
+                    <button data-format="tailwind" class="dads-button" data-size="sm">Tailwind</button>
+                    <button data-format="json" class="dads-button" data-size="sm">JSON</button>
+                </div>
+            </div>
+            <textarea id="export-area" class="dads-input dads-dialog__textarea" readonly></textarea>
+        </div>
         <div class="dads-dialog__footer">
+            <button id="export-copy-btn" class="dads-button" data-variant="primary">Copy</button>
+            <button id="export-download-btn" class="dads-button">Download</button>
             <button onclick="document.getElementById('export-dialog').close()" class="dads-button">Close</button>
         </div>
     </dialog>

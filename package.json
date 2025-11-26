@@ -38,6 +38,7 @@
 		"culori": "^4.0.1"
 	},
 	"devDependencies": {
+		"@biomejs/biome": "^2.3.7",
 		"@types/bun": "latest",
 		"@types/culori": "^4.0.1",
 		"typescript": "^5.3.3"

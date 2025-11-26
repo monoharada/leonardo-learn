@@ -9,6 +9,8 @@ export * from "./accessibility/cvd-simulator";
 export * from "./accessibility/distinguishability";
 export * from "./accessibility/wcag2";
 export * from "./core";
+// UI Components
+export { runColorSystemDemo } from "./ui/color-system-demo";
 export * from "./utils";
 
 // バージョン情報

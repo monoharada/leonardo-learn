@@ -139,7 +139,7 @@ describe("RoleAssigner", () => {
 		});
 
 		it("10種類のロールカテゴリを提供する", () => {
-			const expectedRoles: UsageRole[] = [
+			const _expectedRoles: UsageRole[] = [
 				"background",
 				"surface",
 				"container",
