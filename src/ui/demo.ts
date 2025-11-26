@@ -42,7 +42,84 @@ interface PaletteConfig {
 }
 
 type LightnessDistribution = "linear" | "easeIn" | "easeOut";
-type ViewMode = "palette" | "shades" | "accessibility";
+type ViewMode = "harmony" | "palette" | "shades" | "accessibility";
+
+/** ハーモニータイプの定義（カード表示用） */
+interface HarmonyTypeConfig {
+	id: string;
+	name: string;
+	description: string;
+	harmonyType: HarmonyType;
+	detail: string;
+}
+
+/** 利用可能なハーモニータイプ */
+const HARMONY_TYPES: HarmonyTypeConfig[] = [
+	{
+		id: "complementary",
+		name: "Complementary",
+		description: "補色",
+		harmonyType: HarmonyType.COMPLEMENTARY,
+		detail:
+			"色相環で正反対に位置する色の組み合わせ。高いコントラストでインパクトのある配色を作れます。",
+	},
+	{
+		id: "analogous",
+		name: "Analogous",
+		description: "類似色",
+		harmonyType: HarmonyType.ANALOGOUS,
+		detail:
+			"色相環で隣り合う色の組み合わせ。自然で調和のとれた落ち着いた印象を与えます。",
+	},
+	{
+		id: "triadic",
+		name: "Triadic",
+		description: "三角配色",
+		harmonyType: HarmonyType.TRIADIC,
+		detail:
+			"色相環で等間隔に配置された3色の組み合わせ。バランスが良くバリエーション豊かな配色。",
+	},
+	{
+		id: "split",
+		name: "Split Comp.",
+		description: "分裂補色",
+		harmonyType: HarmonyType.SPLIT_COMPLEMENTARY,
+		detail:
+			"補色の両隣の色を使う配色。補色よりも柔らかいコントラストで使いやすい組み合わせ。",
+	},
+	{
+		id: "tetradic",
+		name: "Tetradic",
+		description: "四角形",
+		harmonyType: HarmonyType.TETRADIC,
+		detail:
+			"色相環で長方形を形成する4色の組み合わせ。2組の補色ペアで豊かな色彩表現が可能。",
+	},
+	{
+		id: "square",
+		name: "Square",
+		description: "正方形",
+		harmonyType: HarmonyType.SQUARE,
+		detail:
+			"色相環で正方形を形成する4色の組み合わせ。均等に配置された色でバランスの取れた配色。",
+	},
+	{
+		id: "m3",
+		name: "Material 3",
+		description: "Material Design",
+		harmonyType: HarmonyType.M3,
+		detail:
+			"Googleのデザインシステムに基づいたトーナルパレット。Primary、Secondary、Tertiaryの役割別カラー。",
+	},
+	{
+		id: "dads",
+		name: "DADS",
+		description: "12色相",
+		harmonyType: HarmonyType.DADS,
+		detail:
+			"12色相をベースにしたセマンティックカラーシステム。Success、Error、Warningなど用途別の色を自動生成。",
+	},
+];
 
 // CVD Simulation Type (includes "normal" for no simulation)
 type CVDSimulationType = "normal" | CVDType;
@@ -56,8 +133,9 @@ const state = {
 	activeHarmonyIndex: 0, // 0 = Primary, 1+ = Derived
 	contrastIntensity: "moderate" as ContrastIntensity,
 	lightnessDistribution: "linear" as LightnessDistribution,
-	viewMode: "palette" as ViewMode,
+	viewMode: "harmony" as ViewMode, // 起点はハーモニー選択
 	cvdSimulation: "normal" as CVDSimulationType,
+	selectedHarmonyConfig: null as HarmonyTypeConfig | null, // 選択されたハーモニー設定
 };
 
 export const runDemo = () => {
@@ -68,9 +146,12 @@ export const runDemo = () => {
 	) as HTMLInputElement;
 	const currentNameEl = document.getElementById("current-palette-name");
 	const generateSystemBtn = document.getElementById("generate-system");
+	const viewHarmonyBtn = document.getElementById("view-harmony");
 	const viewPaletteBtn = document.getElementById("view-palette");
 	const viewShadesBtn = document.getElementById("view-shades");
 	const viewAccessibilityBtn = document.getElementById("view-accessibility");
+	const harmonyViewEl = document.getElementById("harmony-view");
+	const liveRegionEl = document.getElementById("live-region");
 
 	if (!app || !paletteListEl) return;
 
@@ -267,47 +348,95 @@ export const runDemo = () => {
 	}
 
 	// View Switcher Logic
-	if (viewPaletteBtn && viewShadesBtn && viewAccessibilityBtn) {
-		const contrastControls = document.getElementById(
-			"header-contrast-controls",
-		);
+	const contrastControls = document.getElementById("header-contrast-controls");
+	const cvdControls = document.getElementById("cvd-controls");
+	const navButtons = [
+		viewHarmonyBtn,
+		viewPaletteBtn,
+		viewShadesBtn,
+		viewAccessibilityBtn,
+	].filter(Boolean) as HTMLElement[];
 
-		const updateViewButtons = (mode: ViewMode) => {
-			state.viewMode = mode;
+	/**
+	 * スクリーンリーダーにビュー変更を通知
+	 */
+	const announceViewChange = (viewName: string) => {
+		if (liveRegionEl) {
+			liveRegionEl.textContent = `${viewName}ビューに切り替えました`;
+		}
+	};
 
-			// Reset all buttons via data-active attribute
-			[viewPaletteBtn, viewShadesBtn, viewAccessibilityBtn].forEach((btn) => {
-				btn.classList.remove("active");
-				setButtonActive(btn, false);
-			});
+	/**
+	 * ビューを切り替える
+	 */
+	const updateViewButtons = (mode: ViewMode) => {
+		state.viewMode = mode;
 
-			// Activate current button
-			const activeBtn =
-				mode === "palette"
+		// ハーモニービューと詳細ビューの表示切替
+		if (harmonyViewEl) {
+			harmonyViewEl.hidden = mode !== "harmony";
+		}
+		if (app) {
+			app.hidden = mode === "harmony";
+		}
+
+		// すべてのナビゲーションボタンの状態更新
+		navButtons.forEach((btn) => {
+			setButtonActive(btn, false);
+		});
+
+		// アクティブなボタンを設定
+		const activeBtn =
+			mode === "harmony"
+				? viewHarmonyBtn
+				: mode === "palette"
 					? viewPaletteBtn
 					: mode === "shades"
 						? viewShadesBtn
 						: viewAccessibilityBtn;
-			activeBtn.classList.add("active");
+		if (activeBtn) {
 			setButtonActive(activeBtn, true);
+		}
 
-			// Toggle controls
-			if (contrastControls) {
-				contrastControls.style.display = mode === "shades" ? "flex" : "none";
-			}
+		// コントロールの表示切替
+		if (contrastControls) {
+			contrastControls.style.display = mode === "shades" ? "flex" : "none";
+		}
+		if (cvdControls) {
+			cvdControls.style.display =
+				mode === "accessibility" || mode === "harmony" ? "none" : "flex";
+		}
 
-			// CVD controls are relevant for all views now, but maybe different for accessibility view
-			const cvdControls = document.getElementById("cvd-controls");
-			if (cvdControls) {
-				// Hide standard CVD controls in accessibility view as it shows all at once
-				cvdControls.style.display = mode === "accessibility" ? "none" : "flex";
-			}
+		// エクスポートボタンの表示切替（パレット生成済みなら常に表示）
+		const exportControls = document.getElementById("export-controls");
+		if (exportControls) {
+			const hasGenerated = state.palettes.length > 0;
+			exportControls.style.display = hasGenerated ? "flex" : "none";
+		}
 
-			renderMain();
+		// ビュー名の通知
+		const viewNames: Record<ViewMode, string> = {
+			harmony: "ハーモニー",
+			palette: "パレット",
+			shades: "シェード",
+			accessibility: "アクセシビリティ",
 		};
+		announceViewChange(viewNames[mode]);
 
+		renderMain();
+	};
+
+	// ナビゲーションボタンのイベント
+	if (viewHarmonyBtn) {
+		viewHarmonyBtn.onclick = () => updateViewButtons("harmony");
+	}
+	if (viewPaletteBtn) {
 		viewPaletteBtn.onclick = () => updateViewButtons("palette");
+	}
+	if (viewShadesBtn) {
 		viewShadesBtn.onclick = () => updateViewButtons("shades");
+	}
+	if (viewAccessibilityBtn) {
 		viewAccessibilityBtn.onclick = () => updateViewButtons("accessibility");
 	}
 
@@ -439,8 +568,143 @@ export const runDemo = () => {
 		};
 	}
 
+	// New Export Button (Header) - Opens Modal
+	const exportBtn = document.getElementById("export-btn");
+	const exportDialog = document.getElementById(
+		"export-dialog",
+	) as HTMLDialogElement;
+	const exportArea = document.getElementById(
+		"export-area",
+	) as HTMLTextAreaElement;
+	const exportFormatButtons = document.querySelectorAll(
+		"#export-format-buttons button",
+	);
+	const exportCopyBtn = document.getElementById("export-copy-btn");
+	const exportDownloadBtn = document.getElementById("export-download-btn");
+
+	let currentExportFormat: "css" | "tailwind" | "json" = "css";
+
+	const updateExportPreview = () => {
+		const colors = generateExportColors();
+		let content = "";
+
+		switch (currentExportFormat) {
+			case "css": {
+				const result = exportToCSS(colors, {
+					includeWideGamutFallback: true,
+				});
+				content = result.css;
+				break;
+			}
+			case "tailwind": {
+				const result = exportToTailwind(colors, {
+					esModule: false,
+				});
+				content = result.config;
+				break;
+			}
+			case "json": {
+				const result = exportToDTCG(colors);
+				content = result.json;
+				break;
+			}
+		}
+
+		if (exportArea) {
+			exportArea.value = content;
+		}
+	};
+
+	if (exportBtn && exportDialog) {
+		exportBtn.onclick = () => {
+			updateExportPreview();
+			exportDialog.showModal();
+		};
+	}
+
+	exportFormatButtons.forEach((btn) => {
+		btn.addEventListener("click", () => {
+			const format = (btn as HTMLElement).dataset.format as
+				| "css"
+				| "tailwind"
+				| "json";
+			if (!format) return;
+
+			currentExportFormat = format;
+
+			// Update button states
+			exportFormatButtons.forEach((b) => {
+				setButtonActive(b as HTMLElement, false);
+			});
+			setButtonActive(btn as HTMLElement, true);
+
+			updateExportPreview();
+		});
+	});
+
+	if (exportCopyBtn && exportArea) {
+		exportCopyBtn.onclick = () => {
+			navigator.clipboard.writeText(exportArea.value).then(() => {
+				const originalText = exportCopyBtn.textContent;
+				exportCopyBtn.textContent = "Copied!";
+				setTimeout(() => {
+					exportCopyBtn.textContent = originalText;
+				}, 2000);
+			});
+		};
+	}
+
+	if (exportDownloadBtn && exportArea) {
+		exportDownloadBtn.onclick = () => {
+			const extensions: Record<string, string> = {
+				css: "colors.css",
+				tailwind: "tailwind.colors.js",
+				json: "colors.tokens.json",
+			};
+			const mimeTypes: Record<string, string> = {
+				css: "text/css",
+				tailwind: "application/javascript",
+				json: "application/json",
+			};
+			downloadFile(
+				exportArea.value,
+				extensions[currentExportFormat] || "export.txt",
+				mimeTypes[currentExportFormat] || "text/plain",
+			);
+		};
+	}
+
 	// Render Main Content
 	const renderMain = () => {
+		// ハーモニービューと詳細ビューの表示切替
+		if (harmonyViewEl) {
+			if (state.viewMode === "harmony") {
+				harmonyViewEl.hidden = false;
+				harmonyViewEl.style.display = "";
+			} else {
+				harmonyViewEl.hidden = true;
+				harmonyViewEl.style.display = "none";
+			}
+		}
+		if (app) {
+			if (state.viewMode === "harmony") {
+				app.hidden = true;
+				app.style.display = "none";
+			} else {
+				app.hidden = false;
+				app.style.display = "";
+			}
+		}
+
+		// ハーモニービューのレンダリング
+		if (state.viewMode === "harmony") {
+			if (harmonyViewEl) {
+				renderHarmonyView(harmonyViewEl);
+			}
+			return;
+		}
+
+		// 詳細ビューのレンダリング
 		if (!app) return;
 		app.innerHTML = "";
 
@@ -456,6 +720,224 @@ export const runDemo = () => {
 		updateCVDScoreDisplay();
 	};
 
+	/**
+	 * ハーモニー選択ビューのレンダリング
+	 */
+	const renderHarmonyView = (container: HTMLElement) => {
+		// 入力カラーを取得
+		const inputHex = keyColorsInput?.value.trim() || "#3366cc";
+		const primaryColor = /^#[0-9A-Fa-f]{6}$/.test(inputHex)
+			? new Color(inputHex)
+			: new Color("#3366cc");
+
+		// ヘッダーセクション（Brand Color入力）
+		const header = document.createElement("div");
+		header.className = "dads-harmony-header";
+
+		// Brand Color入力
+		const colorInput = document.createElement("div");
+		colorInput.className = "dads-harmony-header__input";
+
+		const colorLabel = document.createElement("label");
+		colorLabel.className = "dads-label";
+		colorLabel.textContent = "Brand Color";
+		colorLabel.htmlFor = "harmony-color-input";
+
+		const inputRow = document.createElement("div");
+		inputRow.className = "dads-form-row";
+
+		// テキスト入力を左に
+		const colorText = document.createElement("input");
+		colorText.type = "text";
+		colorText.id = "harmony-color-input";
+		colorText.className = "dads-input";
+		colorText.value = inputHex;
+		colorText.placeholder = "#3366cc";
+		colorText.pattern = "^#[0-9A-Fa-f]{6}$";
+
+		// カラーピッカーを右に
+		const colorPicker = document.createElement("input");
+		colorPicker.type = "color";
+		colorPicker.id = "harmony-color-picker";
+		colorPicker.className = "dads-input dads-input--color";
+		colorPicker.value = inputHex;
+
+		// カラー入力の同期とカード更新
+		const updateColor = (hex: string, source: "picker" | "text") => {
+			if (!/^#[0-9A-Fa-f]{6}$/.test(hex)) return;
+
+			if (source === "picker") {
+				colorText.value = hex;
+			} else {
+				colorPicker.value = hex;
+			}
+
+			// hidden inputも更新
+			if (keyColorsInput) {
+				keyColorsInput.value = hex;
+			}
+
+			// ハーモニーカードを再レンダリング
+			renderHarmonyView(container);
+		};
+
+		// カラーピッカーのイベント
+		// inputイベントでテキスト同期（再レンダリングなし）
+		colorPicker.addEventListener("input", (e) => {
+			e.stopPropagation();
+			const hex = (e.target as HTMLInputElement).value;
+			colorText.value = hex;
+		});
+
+		// changeイベントで確定時にカード再レンダリング
+		colorPicker.addEventListener("change", (e) => {
+			e.stopPropagation();
+			updateColor((e.target as HTMLInputElement).value, "picker");
+		});
+
+		colorPicker.addEventListener("click", (e) => {
+			e.stopPropagation();
+		});
+
+		colorPicker.addEventListener("mousedown", (e) => {
+			e.stopPropagation();
+		});
+
+		colorText.addEventListener("input", (e) => {
+			const value = (e.target as HTMLInputElement).value;
+			if (/^#[0-9A-Fa-f]{6}$/.test(value)) {
+				updateColor(value, "text");
+			}
+		});
+
+		// テキスト入力を左、カラーピッカーを右に
+		inputRow.appendChild(colorText);
+		inputRow.appendChild(colorPicker);
+		colorInput.appendChild(colorLabel);
+		colorInput.appendChild(inputRow);
+		header.appendChild(colorInput);
+
+		// 説明文
+		const description = document.createElement("div");
+		description.className = "dads-section__description";
+		description.innerHTML = `<p>ハーモニースタイルを選択してください。見出しをクリックすると、そのスタイルでパレットを生成します。</p>`;
+
+		// ハーモニーリスト（各行が1つのハーモニー）
+		const harmonyList = document.createElement("div");
+		harmonyList.className = "dads-harmony-list";
+
+		HARMONY_TYPES.forEach((harmony) => {
+			// 実際のハーモニーパレットを生成して全色を取得
+			const palettes = generateSystemPalette(primaryColor, harmony.harmonyType);
+
+			// 現在選択されているハーモニーかどうか
+			const isSelected = state.selectedHarmonyConfig?.id === harmony.id;
+
+			// ハーモニーセクション（全体がクリック可能）
+			const section = document.createElement("button");
+			section.type = "button";
+			section.className = "dads-harmony-row";
+			if (isSelected) {
+				section.dataset.selected = "true";
+			}
+
+			// 見出し
+			const heading = document.createElement("div");
+			heading.className = "dads-harmony-row__heading";
+
+			const headingMain = document.createElement("div");
+			headingMain.className = "dads-harmony-row__heading-main";
+
+			const headingText = document.createElement("span");
+			headingText.className = "dads-harmony-row__name";
+			headingText.textContent = harmony.name;
+
+			const headingMeta = document.createElement("span");
+			headingMeta.className = "dads-harmony-row__meta";
+			headingMeta.textContent = `${harmony.description}（${palettes.length}色）`;
+
+			headingMain.appendChild(headingText);
+			headingMain.appendChild(headingMeta);
+
+			const headingDetail = document.createElement("p");
+			headingDetail.className = "dads-harmony-row__detail";
+			headingDetail.textContent = harmony.detail;
+
+			heading.appendChild(headingMain);
+			heading.appendChild(headingDetail);
+
+			// セクションクリックでパレット生成＆遷移
+			section.onclick = () => {
+				state.selectedHarmonyConfig = harmony;
+
+				const harmonyInput = document.getElementById(
+					"harmony",
+				) as HTMLInputElement;
+				if (harmonyInput) {
+					harmonyInput.value = harmony.harmonyType;
+				}
+
+				handleGenerate();
+				updateViewButtons("palette");
+			};
+
+			// 全パレットのスウォッチ（最大8色まで表示）
+			const swatches = document.createElement("div");
+			swatches.className = "dads-harmony-row__swatches";
+
+			// DADSの場合は主要なセマンティックカラーのみ表示
+			let displayPalettes: typeof palettes;
+			if (harmony.harmonyType === HarmonyType.DADS) {
+				const semanticNames = [
+					"primary",
+					"secondary",
+					"accent",
+					"success",
+					"error",
+					"warning",
+					"info",
+				];
+				displayPalettes = palettes
+					.filter((p) => {
+						const name = p.name.toLowerCase();
+						return semanticNames.some(
+							(s) => name === s || name.startsWith(`${s}-`),
+						);
+					})
+					.filter((p, i, arr) => {
+						// 各カテゴリから最初の1つだけ
+						const name = p.name.toLowerCase().split("-")[0];
+						return (
+							arr.findIndex(
+								(x) => x.name.toLowerCase().split("-")[0] === name,
+							) === i
+						);
+					});
+			} else {
+				const maxSwatches = 8;
+				displayPalettes = palettes.slice(0, maxSwatches);
+			}
+
+			displayPalettes.forEach((palette) => {
+				const swatch = document.createElement("span");
+				swatch.className = "dads-harmony-row__swatch";
+				swatch.style.background = palette.keyColor.toHex();
+				swatch.title = `${palette.name}: ${palette.keyColor.toHex()}`;
+				swatches.appendChild(swatch);
+			});
+
+			// カード構成：見出し → スウォッチ（下部）
+			section.appendChild(heading);
+			section.appendChild(swatches);
+			harmonyList.appendChild(section);
+		});
+
+		container.innerHTML = "";
+		container.appendChild(header);
+		container.appendChild(description);
+		container.appendChild(harmonyList);
+	};
+
 	// CVD score update function (will be defined later)
 	let updateCVDScoreDisplay = () => {};
 
@@ -467,8 +949,36 @@ export const runDemo = () => {
 		return simulateCVD(color, state.cvdSimulation as CVDType);
 	};
 
+	/**
+	 * 未生成時のメッセージを表示
+	 */
+	const renderEmptyState = (container: HTMLElement, viewName: string) => {
+		container.innerHTML = `
+			<div class="dads-empty-state">
+				<h2 class="dads-empty-state__title">${viewName}を表示するにはパレットを生成してください</h2>
+				<p class="dads-empty-state__description">
+					<a href="#" class="dads-link" id="empty-go-harmony">ハーモニー</a> でハーモニースタイルを選択すると、パレットが生成されます。
+				</p>
+			</div>
+		`;
+		// リンクのクリックイベント
+		const link = container.querySelector("#empty-go-harmony");
+		if (link) {
+			link.addEventListener("click", (e) => {
+				e.preventDefault();
+				updateViewButtons("harmony");
+			});
+		}
+	};
+
 	const renderPaletteView = (container: HTMLElement) => {
 		container.className = "dads-section";
+
+		// パレットが生成されていない場合
+		if (state.palettes.length === 0) {
+			renderEmptyState(container, "パレット");
+			return;
+		}
 
 		// Group palettes by semantic category
 		const getSemanticCategory = (name: string): string => {
@@ -1030,6 +1540,12 @@ export const runDemo = () => {
 		const palettesToRender =
 			state.shadesPalettes.length > 0 ? state.shadesPalettes : state.palettes;
 
+		// パレットが生成されていない場合
+		if (palettesToRender.length === 0) {
+			renderEmptyState(container, "シェード");
+			return;
+		}
+
 		palettesToRender.forEach((p) => {
 			const section = document.createElement("section");
 
@@ -1509,6 +2025,12 @@ export const runDemo = () => {
 	const renderAccessibilityView = (container: HTMLElement) => {
 		container.className = "dads-section";
 
+		// パレットが生成されていない場合
+		if (state.palettes.length === 0) {
+			renderEmptyState(container, "アクセシビリティ");
+			return;
+		}
+
 		// 0. Explanation Section
 		const explanationSection = document.createElement("section");
 		explanationSection.className = "dads-a11y-explanation";
@@ -1702,8 +2224,11 @@ export const runDemo = () => {
 			// Check adjacent pairs in the list
 			const conflicts: number[] = []; // Indices of left side of conflict pair
 			for (let i = 0; i < simulatedColors.length - 1; i++) {
-				const c1 = simulatedColors[i]!.color;
-				const c2 = simulatedColors[i + 1]!.color;
+				const item1 = simulatedColors[i];
+				const item2 = simulatedColors[i + 1];
+				if (!item1 || !item2) continue;
+				const c1 = item1.color;
+				const c2 = item2.color;
 				// Use a stricter threshold for "warning" visualization
 				// DeltaE < 3.0 is usually considered hard to distinguish
 				// DeltaE < 5.0 might be a warning
