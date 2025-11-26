@@ -682,6 +682,8 @@ export const runDemo = () => {
 			if (harmonyViewEl) {
 				renderHarmonyView(harmonyViewEl);
 			}
+			// ハーモニービューでもCVDスコアを更新
+			updateCVDScoreDisplay();
 			return;
 		}
 
@@ -1639,7 +1641,7 @@ export const runDemo = () => {
 			scaleContainer.className = "dads-scale";
 
 			colors.forEach((stepColor, index) => {
-				// Apply CVD simulation to display color
+				// Apply CVD simulation to display color only (not for contrast calculation)
 				const displayColor = applySimulation(stepColor);
 
 				const swatch = document.createElement("button");
@@ -1648,13 +1650,14 @@ export const runDemo = () => {
 
 				const isKeyColor = index === reversedKeyColorIndex;
 
-				// Calculate contrast against both white and black using display color
+				// Calculate contrast against both white and black using ORIGINAL color (stepColor)
+				// CVD simulation is for display only - WCAG metrics must reflect actual color values
 				const whiteContrast = verifyContrast(
-					displayColor,
+					stepColor,
 					new Color("#ffffff"),
 				).contrast;
 				const blackContrast = verifyContrast(
-					displayColor,
+					stepColor,
 					new Color("#000000"),
 				).contrast;
 
@@ -2024,8 +2027,21 @@ export const runDemo = () => {
 							const paletteName = p.name || p.baseChromaName || "";
 							setKeyColorBtn.textContent = `${color.toHex()} を ${paletteName} のパレットの色に指定`;
 							setKeyColorBtn.onclick = () => {
-								// Update the palette's key color
-								p.keyColors = [color.toHex()];
+								const newKeyColors = [color.toHex()];
+
+								// Sync both palettes and shadesPalettes
+								const syncPalette = (targetList: PaletteConfig[]) => {
+									const match = targetList.find(
+										(tp) =>
+											tp.name === p.name ||
+											tp.baseChromaName === p.baseChromaName,
+									);
+									if (match) {
+										match.keyColors = [...newKeyColors];
+									}
+								};
+								syncPalette(state.palettes);
+								syncPalette(state.shadesPalettes);
 
 								// Close dialog and re-render
 								dialog.close();
