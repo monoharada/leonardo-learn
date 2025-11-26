@@ -895,7 +895,12 @@ export const runDemo = () => {
 			displayPalettes.forEach((palette) => {
 				const swatch = document.createElement("span");
 				swatch.className = "dads-harmony-row__swatch";
-				swatch.style.background = palette.keyColor.toHex();
+				// CVDシミュレーションを適用
+				const displayColor =
+					state.cvdSimulation === "normal"
+						? palette.keyColor
+						: simulateCVD(palette.keyColor, state.cvdSimulation as CVDType);
+				swatch.style.background = displayColor.toHex();
 				swatch.title = `${palette.name}: ${palette.keyColor.toHex()}`;
 				swatches.appendChild(swatch);
 			});
