@@ -334,7 +334,6 @@ export const runDemo = () => {
 	}
 
 	// View Switcher Logic
-	const cvdControls = document.getElementById("cvd-controls");
 	const navButtons = [
 		viewHarmonyBtn,
 		viewPaletteBtn,
@@ -381,12 +380,6 @@ export const runDemo = () => {
 						: viewAccessibilityBtn;
 		if (activeBtn) {
 			setButtonActive(activeBtn, true);
-		}
-
-		// コントロールの表示切替
-		if (cvdControls) {
-			cvdControls.style.display =
-				mode === "accessibility" || mode === "harmony" ? "none" : "flex";
 		}
 
 		// エクスポートボタンの表示切替（パレット生成済みなら常に表示）

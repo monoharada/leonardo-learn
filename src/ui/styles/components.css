@@ -853,13 +853,18 @@
 	display: flex;
 	align-items: center;
 	gap: 1rem;
-	margin-left: 1rem;
+	margin-left: auto;
 }
 
 .dads-cvd-score {
 	display: flex;
 	align-items: center;
 	gap: 0.5rem;
+}
+
+.dads-cvd-score__label {
+	font-size: var(--font-size-12);
+	color: var(--color-neutral-solid-gray-600);
 }
 
 .dads-cvd-score__value {

@@ -35,11 +35,11 @@
                 </nav>
 
                 <!-- CVD Simulation Controls -->
-                <div id="cvd-controls" class="dads-cvd-controls" style="display: none;">
+                <div id="cvd-controls" class="dads-cvd-controls">
                     <div class="dads-header-controls">
-                        <label class="dads-header-controls__label">Vision:</label>
+                        <label class="dads-header-controls__label">色覚:</label>
                         <div id="cvdTypeButtons" class="dads-button-group">
-                            <button data-cvd="normal" class="dads-button" data-size="sm" data-active="true">Normal</button>
+                            <button data-cvd="normal" class="dads-button" data-size="sm" data-active="true">通常</button>
                             <button data-cvd="protanopia" class="dads-button" data-size="sm">P型</button>
                             <button data-cvd="deuteranopia" class="dads-button" data-size="sm">D型</button>
                             <button data-cvd="tritanopia" class="dads-button" data-size="sm">T型</button>
@@ -47,6 +47,7 @@
                         </div>
                     </div>
                     <div id="cvd-score" class="dads-cvd-score">
+                        <span class="dads-cvd-score__label">識別性スコア:</span>
                         <span id="cvd-score-value" class="dads-cvd-score__value">-</span>
                         <span id="cvd-score-grade" class="dads-cvd-score__grade">-</span>
                     </div>
