@@ -839,6 +839,10 @@
 	gap: 0.5rem;
 }
 
+#export-controls {
+	margin-left: auto;
+}
+
 .dads-header-controls__label {
 	font-weight: var(--font-weight-700);
 	font-size: 0.85rem;
