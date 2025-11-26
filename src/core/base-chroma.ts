@@ -71,7 +71,11 @@ function hueDistance(hue1: number, hue2: number): number {
  * @returns 最も近い基本クロマ定義
  */
 export function findNearestChroma(hue: number): BaseChromaDefinition {
-	let nearest = BASE_CHROMAS[0]!;
+	const first = BASE_CHROMAS[0];
+	if (!first) {
+		throw new Error("BASE_CHROMAS is empty");
+	}
+	let nearest = first;
 	let minDistance = hueDistance(hue, nearest.hue);
 
 	for (const chroma of BASE_CHROMAS) {

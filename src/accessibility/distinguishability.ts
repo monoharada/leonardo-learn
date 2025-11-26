@@ -208,8 +208,11 @@ export function checkPaletteDistinguishability(
 	// 全色ペアを検証
 	for (let i = 0; i < colorEntries.length; i++) {
 		for (let j = i + 1; j < colorEntries.length; j++) {
-			const [name1, color1] = colorEntries[i]!;
-			const [name2, color2] = colorEntries[j]!;
+			const entry1 = colorEntries[i];
+			const entry2 = colorEntries[j];
+			if (!entry1 || !entry2) continue;
+			const [name1, color1] = entry1;
+			const [name2, color2] = entry2;
 
 			// 各色覚タイプで検証
 			for (const visionType of visionTypes) {
@@ -269,8 +272,9 @@ export function checkAdjacentShadesDistinguishability(
 
 	// 隣接シェードのみを検証
 	for (let i = 0; i < shades.length - 1; i++) {
-		const shade1 = shades[i]!;
-		const shade2 = shades[i + 1]!;
+		const shade1 = shades[i];
+		const shade2 = shades[i + 1];
+		if (!shade1 || !shade2) continue;
 
 		for (const visionType of visionTypes) {
 			const result = checkDistinguishability(
@@ -1039,7 +1043,8 @@ export function generateImprovementReport(
 		} else {
 			lines.push("  Suggestions:");
 			for (let i = 0; i < improvement.suggestions.length; i++) {
-				const suggestion = improvement.suggestions[i]!;
+				const suggestion = improvement.suggestions[i];
+				if (!suggestion) continue;
 				const priority = i + 1;
 				lines.push(
 					`    ${priority}. [${suggestion.type.toUpperCase()}] Adjust "${suggestion.targetColor}" ${suggestion.direction}`,

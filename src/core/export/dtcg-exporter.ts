@@ -202,8 +202,7 @@ export function exportWithAliases(
 
 	for (const [aliasPath, targetPath] of Object.entries(aliases)) {
 		const parts = aliasPath.split(".");
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		let current: any = semanticTokens;
+		let current: Record<string, unknown> = semanticTokens;
 
 		// ネストされたパスを作成
 		for (let i = 0; i < parts.length - 1; i++) {
@@ -212,7 +211,7 @@ export function exportWithAliases(
 				current[part] = {};
 			}
 			if (part) {
-				current = current[part];
+				current = current[part] as Record<string, unknown>;
 			}
 		}
 

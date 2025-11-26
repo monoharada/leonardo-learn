@@ -713,11 +713,13 @@ describe("Distinguishability", () => {
 
 				if (improvement.suggestions.length > 1) {
 					for (let i = 1; i < improvement.suggestions.length; i++) {
-						const prev = improvement.suggestions[i - 1]!;
-						const curr = improvement.suggestions[i]!;
-						expect(prev.expectedImprovement).toBeGreaterThanOrEqual(
-							curr.expectedImprovement,
-						);
+						const prev = improvement.suggestions[i - 1];
+						const curr = improvement.suggestions[i];
+						if (prev && curr) {
+							expect(prev.expectedImprovement).toBeGreaterThanOrEqual(
+								curr.expectedImprovement,
+							);
+						}
 					}
 				}
 			});
@@ -892,10 +894,12 @@ describe("Distinguishability", () => {
 					expect(improvement.suggestions.length).toBeGreaterThan(0);
 
 					// 最も効果的な提案を確認
-					const bestSuggestion = improvement.suggestions[0]!;
-					expect(bestSuggestion.newDeltaE).toBeGreaterThan(
-						improvement.originalDeltaE,
-					);
+					const bestSuggestion = improvement.suggestions[0];
+					if (bestSuggestion) {
+						expect(bestSuggestion.newDeltaE).toBeGreaterThan(
+							improvement.originalDeltaE,
+						);
+					}
 				}
 			});
 
