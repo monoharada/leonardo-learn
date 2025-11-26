@@ -1738,8 +1738,220 @@ export const runDemo = () => {
 					) as HTMLDialogElement;
 					if (!dialog) return;
 
+					// --- Elements ---
+					let scrubberCanvas = document.getElementById(
+						"tuner-scrubber",
+					) as HTMLCanvasElement;
+
+					// Clone canvas to remove old event listeners
+					if (scrubberCanvas) {
+						const newCanvas = scrubberCanvas.cloneNode(
+							true,
+						) as HTMLCanvasElement;
+						scrubberCanvas.parentNode?.replaceChild(newCanvas, scrubberCanvas);
+						scrubberCanvas = newCanvas;
+					}
+
+					let currentColor = stepColor;
+					let isDraggingScrubber = false;
+
+					// Helper to generate scale for real-time updates
+					const generateScale = (
+						baseColor: Color,
+					): { colors: Color[]; keyIndex: number } => {
+						const baseRatios = getContrastRatios(state.contrastIntensity);
+						const bgColor = new Color("#ffffff");
+						const keyContrastRatio = baseColor.contrast(bgColor);
+
+						let keyColorIndex = -1;
+						let minDiff = Infinity;
+						for (let i = 0; i < baseRatios.length; i++) {
+							const diff = Math.abs((baseRatios[i] ?? 0) - keyContrastRatio);
+							if (diff < minDiff) {
+								minDiff = diff;
+								keyColorIndex = i;
+							}
+						}
+						if (keyColorIndex >= 0) {
+							baseRatios[keyColorIndex] = keyContrastRatio;
+						}
+
+						const newColors: Color[] = baseRatios.map((ratio, i) => {
+							if (i === keyColorIndex) return baseColor;
+							const solved = findColorForContrast(baseColor, bgColor, ratio);
+							return solved || baseColor;
+						});
+						newColors.reverse();
+
+						// Calculate reversed key index
+						const reversedKeyIndex = newColors.length - 1 - keyColorIndex;
+
+						return { colors: newColors, keyIndex: reversedKeyIndex };
+					};
+
+					// --- Infinite Hue Scrubber Logic ---
+					const drawScrubber = () => {
+						if (!scrubberCanvas) return;
+						const ctx = scrubberCanvas.getContext("2d");
+						if (!ctx) return;
+
+						const width = scrubberCanvas.width;
+						const height = scrubberCanvas.height;
+
+						// Use initial hue as the center of the static background
+						const centerHue = keyColor.oklch?.h ?? 0;
+						const currentH = currentColor.oklch?.h ?? 0;
+
+						ctx.clearRect(0, 0, width, height);
+
+						// 1. Draw Static Background (Gradient)
+						// Range: +/- 15 degrees around centerHue (Total 30)
+						const visibleRange = 30;
+						const pixelsPerDegree = width / visibleRange;
+
+						for (let x = 0; x < width; x++) {
+							const offsetPixels = x - width / 2;
+							const offsetDegrees = offsetPixels / pixelsPerDegree;
+							let hue = centerHue + offsetDegrees;
+
+							// Normalize hue
+							hue = hue % 360;
+							if (hue < 0) hue += 360;
+
+							// Fixed vibrant L/C
+							const displayL = 0.65;
+							const displayC = 0.3;
+
+							const color = new Color(`oklch(${displayL} ${displayC} ${hue})`);
+							ctx.fillStyle = color.toCss();
+							ctx.fillRect(x, 0, 1, height);
+						}
+
+						// 2. Draw Moving Handle
+						// Calculate position based on currentHue relative to centerHue
+						let diff = currentH - centerHue;
+						// Handle wrap-around (e.g. 359 -> 1)
+						if (diff > 180) diff -= 360;
+						if (diff < -180) diff += 360;
+
+						const handleX = width / 2 + diff * pixelsPerDegree;
+
+						if (handleX >= 0 && handleX <= width) {
+							// Draw Handle Line
+							ctx.beginPath();
+							ctx.moveTo(handleX, 0);
+							ctx.lineTo(handleX, height);
+							ctx.strokeStyle = "rgba(255, 255, 255, 0.9)";
+							ctx.lineWidth = 2;
+							ctx.stroke();
+
+							// Draw Handle Knob (Premium Feel)
+							const knobY = height / 2;
+
+							// Outer Glow/Shadow
+							ctx.shadowColor = "rgba(0, 0, 0, 0.3)";
+							ctx.shadowBlur = 4;
+							ctx.shadowOffsetY = 2;
+
+							// Knob Body
+							ctx.beginPath();
+							ctx.roundRect(handleX - 6, 4, 12, height - 8, 6);
+							ctx.fillStyle = "white";
+							ctx.fill();
+
+							// Reset Shadow
+							ctx.shadowColor = "transparent";
+							ctx.shadowBlur = 0;
+							ctx.shadowOffsetY = 0;
+
+							// Inner Detail (Grip lines)
+							ctx.fillStyle = "#ccc";
+							ctx.fillRect(handleX - 1, knobY - 4, 2, 8);
+						}
+					};
+
+					// Handle Scrubber Interaction
+					const handleScrubberStart = (e: MouseEvent | TouchEvent) => {
+						isDraggingScrubber = true;
+						handleScrubberMove(e);
+
+						// Prevent scrolling on touch
+						if (e.type === "touchstart") {
+							e.preventDefault();
+						}
+					};
+
+					const handleScrubberMove = (e: MouseEvent | TouchEvent) => {
+						if (!isDraggingScrubber) return;
+
+						const touch =
+							"touches" in e &&
+							(e as TouchEvent).touches &&
+							(e as TouchEvent).touches.length > 0
+								? (e as TouchEvent).touches[0]
+								: null;
+						const clientX = touch ? touch.clientX : (e as MouseEvent).clientX;
+
+						// Calculate Hue based on X position
+						const rect = scrubberCanvas.getBoundingClientRect();
+						const x = clientX - rect.left;
+						const width = rect.width;
+
+						const visibleRange = 30;
+						const pixelsPerDegree = width / visibleRange;
+						const centerHue = keyColor.oklch?.h ?? 0;
+
+						const offsetPixels = x - width / 2;
+						const offsetDegrees = offsetPixels / pixelsPerDegree;
+
+						let newHue = centerHue + offsetDegrees;
+						newHue = newHue % 360;
+						if (newHue < 0) newHue += 360;
+
+						// Update Color (Keep L and C, only change H)
+						const currentL = currentColor.oklch?.l ?? 0;
+						const currentC = currentColor.oklch?.c ?? 0;
+						const newColor = new Color(
+							`oklch(${currentL} ${currentC} ${newHue})`,
+						);
+
+						updateDetail(newColor, -1); // -1 to indicate manual tuning
+						drawScrubber();
+					};
+
+					const handleScrubberEnd = () => {
+						isDraggingScrubber = false;
+					};
+
+					const resizeScrubber = () => {
+						if (!scrubberCanvas) return;
+						const rect = scrubberCanvas.parentElement?.getBoundingClientRect();
+						if (rect && rect.width > 0) {
+							scrubberCanvas.width = rect.width;
+							scrubberCanvas.height = rect.height;
+							drawScrubber();
+						}
+					};
+
+					if (scrubberCanvas) {
+						scrubberCanvas.addEventListener("mousedown", handleScrubberStart);
+						window.addEventListener("mousemove", handleScrubberMove);
+						window.addEventListener("mouseup", handleScrubberEnd);
+
+						scrubberCanvas.addEventListener("touchstart", handleScrubberStart, {
+							passive: false,
+						});
+						window.addEventListener("touchmove", handleScrubberMove, {
+							passive: false,
+						});
+						window.addEventListener("touchend", handleScrubberEnd);
+
+						window.addEventListener("resize", resizeScrubber);
+					}
+
 					// Helper to update detail panel with a specific color
 					const updateDetail = (color: Color, selectedIndex: number) => {
+						currentColor = color;
 						const colorL = color.oklch.l as number;
 
 						// Populate Basic Info
@@ -1751,8 +1963,11 @@ export const runDemo = () => {
 						const detailChromaName =
 							document.getElementById("detail-chroma-name");
 
-						// Step names for token generation (dark to light order: 1200→50)
-						const step = STEP_NAMES[selectedIndex] ?? 600;
+						// Calculate token name based on scale position
+						const { keyIndex } = generateScale(color);
+						// Use selectedIndex if valid, otherwise use keyIndex
+						const tokenIndex = selectedIndex >= 0 ? selectedIndex : keyIndex;
+						const step = STEP_NAMES[tokenIndex] ?? 600;
 						const chromaNameLower = (p.baseChromaName || p.name || "color")
 							.toLowerCase()
 							.replace(/\s+/g, "-");
@@ -1878,56 +2093,94 @@ export const runDemo = () => {
 							}
 						}
 
+						// Redraw scrubber
+						drawScrubber();
+
 						// Update mini scale selection indicator
 						const miniScale = document.getElementById("detail-mini-scale");
 						if (miniScale) {
-							const miniSwatches = miniScale.children;
-							for (let i = 0; i < miniSwatches.length; i++) {
-								const ms = miniSwatches[i] as HTMLElement;
-								// Remove existing checkmark if any
-								const existingCheck = ms.querySelector(
-									".dads-mini-scale__check",
-								);
-								if (existingCheck) existingCheck.remove();
+							miniScale.innerHTML = "";
+							const { colors: scaleColors, keyIndex: currentKeyIndex } =
+								generateScale(color);
 
-								if (i === selectedIndex) {
-									// Add checkmark
+							scaleColors.forEach((c, i) => {
+								const div = document.createElement("button");
+								div.type = "button";
+								div.className = "dads-mini-scale__item";
+								div.style.backgroundColor = c.toCss();
+								div.setAttribute("aria-label", `Color ${c.toHex()}`);
+
+								// Add click handler
+								div.onclick = () => {
+									updateDetail(c, i);
+								};
+
+								// Highlight current color
+								if (i === currentKeyIndex) {
 									const check = document.createElement("div");
 									check.className = "dads-mini-scale__check";
-									check.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
-									// Use actual contrast ratio to determine checkmark color
-									const contrastToWhite = color.contrast(new Color("white"));
-									const contrastToBlack = color.contrast(new Color("black"));
+									check.textContent = "✓";
 									check.style.color =
-										contrastToWhite > contrastToBlack ? "white" : "black";
-									ms.appendChild(check);
+										c.contrast(new Color("#fff")) > 4.5 ? "white" : "black";
+									div.appendChild(check);
 								}
-							}
+
+								miniScale.appendChild(div);
+							});
 						}
 					};
 
-					// Build mini scale
-					const miniScale = document.getElementById("detail-mini-scale");
-					if (miniScale) {
-						miniScale.innerHTML = "";
-						colors.forEach((c, i) => {
-							const miniSwatch = document.createElement("button");
-							miniSwatch.type = "button";
-							miniSwatch.className = "dads-mini-scale__item";
-							miniSwatch.style.backgroundColor = c.toCss();
-							miniSwatch.setAttribute("aria-label", `Color ${c.toHex()}`);
-							miniSwatch.onclick = (e) => {
-								e.stopPropagation();
-								updateDetail(c, i);
+					// --- Reset & Save Logic ---
+					const resetBtn = document.getElementById("detail-reset-btn");
+					const saveBtn = document.getElementById("detail-save-btn");
+
+					if (resetBtn) {
+						resetBtn.onclick = () => {
+							currentColor = keyColor;
+							updateDetail(currentColor, reversedKeyColorIndex);
+							drawScrubber();
+						};
+					}
+
+					if (saveBtn) {
+						saveBtn.onclick = () => {
+							// Update Key Color
+							p.keyColors = [currentColor.toHex()];
+
+							// SYNC Logic: Update the corresponding palette in the other list
+							const syncPalette = (targetList: PaletteConfig[]) => {
+								const match = targetList.find((other) => {
+									// Match by baseChromaName if available (most reliable for system colors)
+									if (p.baseChromaName && other.baseChromaName) {
+										return p.baseChromaName === other.baseChromaName;
+									}
+									// Fallback to name match
+									return p.name === other.name;
+								});
+
+								if (match) {
+									match.keyColors = [currentColor.toHex()];
+								}
 							};
-							miniScale.appendChild(miniSwatch);
-						});
+
+							// Try syncing both ways to be safe (though p belongs to one)
+							syncPalette(state.palettes);
+							syncPalette(state.shadesPalettes);
+
+							dialog.close();
+							renderMain();
+						};
 					}
 
 					// Initial update with clicked color
 					updateDetail(stepColor, index);
 
 					dialog.showModal();
+
+					// Resize scrubber after modal is visible
+					requestAnimationFrame(() => {
+						resizeScrubber();
+					});
 				};
 
 				scaleContainer.appendChild(swatch);
