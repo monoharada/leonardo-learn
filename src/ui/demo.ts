@@ -1541,10 +1541,10 @@ export const runDemo = () => {
 		buttonGroup.className = "dads-button-group";
 
 		const contrastOptions: { value: ContrastIntensity; label: string }[] = [
-			{ value: "subtle", label: "Subtle" },
-			{ value: "moderate", label: "Moderate" },
-			{ value: "strong", label: "Strong" },
-			{ value: "vivid", label: "Vivid" },
+			{ value: "subtle", label: "控えめ" },
+			{ value: "moderate", label: "標準" },
+			{ value: "strong", label: "強め" },
+			{ value: "vivid", label: "鮮やか" },
 		];
 
 		contrastOptions.forEach((option) => {
