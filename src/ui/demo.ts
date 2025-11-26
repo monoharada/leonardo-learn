@@ -382,6 +382,12 @@ export const runDemo = () => {
 			setButtonActive(activeBtn, true);
 		}
 
+		// アクセシビリティ画面ではCVDコントロールを非表示（画面内で色覚シミュレーションを行うため）
+		const cvdControls = document.getElementById("cvd-controls");
+		if (cvdControls) {
+			cvdControls.style.display = mode === "accessibility" ? "none" : "flex";
+		}
+
 		// ビュー名の通知
 		const viewNames: Record<ViewMode, string> = {
 			harmony: "ハーモニー",
