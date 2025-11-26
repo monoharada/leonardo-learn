@@ -34,23 +34,12 @@
                     <button id="view-accessibility" class="dads-button" data-size="lg" data-type="text">アクセシビリティ</button>
                 </nav>
 
-                <!-- Contrast Controls (シェードビュー用) -->
-                <div id="header-contrast-controls" class="dads-header-controls" style="display: none;">
-                    <label class="dads-header-controls__label">Contrast:</label>
-                    <div id="contrastIntensityButtons" class="dads-button-group">
-                        <button data-value="subtle" class="dads-button" data-size="sm">Subtle</button>
-                        <button data-value="moderate" class="dads-button" data-size="sm" data-active="true">Moderate</button>
-                        <button data-value="strong" class="dads-button" data-size="sm">Strong</button>
-                        <button data-value="vivid" class="dads-button" data-size="sm">Vivid</button>
-                    </div>
-                </div>
-
                 <!-- CVD Simulation Controls -->
-                <div id="cvd-controls" class="dads-cvd-controls" style="display: none;">
+                <div id="cvd-controls" class="dads-cvd-controls">
                     <div class="dads-header-controls">
-                        <label class="dads-header-controls__label">Vision:</label>
+                        <label class="dads-header-controls__label">色覚:</label>
                         <div id="cvdTypeButtons" class="dads-button-group">
-                            <button data-cvd="normal" class="dads-button" data-size="sm" data-active="true">Normal</button>
+                            <button data-cvd="normal" class="dads-button" data-size="sm" data-active="true">通常</button>
                             <button data-cvd="protanopia" class="dads-button" data-size="sm">P型</button>
                             <button data-cvd="deuteranopia" class="dads-button" data-size="sm">D型</button>
                             <button data-cvd="tritanopia" class="dads-button" data-size="sm">T型</button>
@@ -58,15 +47,16 @@
                         </div>
                     </div>
                     <div id="cvd-score" class="dads-cvd-score">
+                        <span class="dads-cvd-score__label">識別性スコア:</span>
                         <span id="cvd-score-value" class="dads-cvd-score__value">-</span>
                         <span id="cvd-score-grade" class="dads-cvd-score__grade">-</span>
                     </div>
                 </div>
 
                 <!-- Export Button -->
-                <div id="export-controls" class="dads-header-controls" style="display: none;">
+                <div id="export-controls" class="dads-header-controls">
                     <button id="export-btn" class="dads-button" data-size="sm">
-                        Export
+                        エクスポート
                     </button>
                 </div>
             </header>
