@@ -49,3 +49,8 @@ Thumbs.db
 # Temporary files
 tmp
 temp
+*.pencode.json
+
+# Local working documents
+DEVELOPMENT_STATUS.md
+assistant.md

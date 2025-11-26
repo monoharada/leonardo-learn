@@ -1,8 +1,31 @@
 import { getAPCA } from "../accessibility/apca";
+import {
+	type CVDType,
+	getAllCVDTypes,
+	getCVDTypeName,
+	simulateCVD,
+} from "../accessibility/cvd-simulator";
+import {
+	calculateCVDScore,
+	checkAdjacentShadesDistinguishability,
+} from "../accessibility/distinguishability";
 import { verifyContrast } from "../accessibility/wcag2";
-import { BackgroundColor } from "../core/background";
 import { Color } from "../core/color";
-import { Theme } from "../core/theme";
+import { exportToCSS } from "../core/export/css-exporter";
+import { exportToDTCG } from "../core/export/dtcg-exporter";
+import { exportToTailwind } from "../core/export/tailwind-exporter";
+import {
+	generateFullChromaPalette,
+	generateSystemPalette,
+	HarmonyType,
+} from "../core/harmony";
+import { findColorForContrast } from "../core/solver";
+import {
+	type ContrastIntensity,
+	getContrastRatios,
+	STEP_NAMES,
+	setButtonActive,
+} from "./style-constants";
 
 interface KeyColorWithStep {
 	color: string;
@@ -14,48 +37,105 @@ interface PaletteConfig {
 	name: string;
 	keyColors: string[]; // Format: "#hex" or "#hex@step" (e.g., "#b3e5fc@300")
 	ratios: number[];
+	harmony: HarmonyType;
+	baseChromaName?: string; // 基本クロマ名（セマンティックカラー用）
 }
 
-type ContrastIntensity = "subtle" | "moderate" | "strong" | "vivid";
 type LightnessDistribution = "linear" | "easeIn" | "easeOut";
+type ViewMode = "harmony" | "palette" | "shades" | "accessibility";
 
-// ... (rest of file)
+/** ハーモニータイプの定義（カード表示用） */
+interface HarmonyTypeConfig {
+	id: string;
+	name: string;
+	description: string;
+	harmonyType: HarmonyType;
+	detail: string;
+}
 
-// Contrast ranges for different intensity levels
-const contrastRanges: Record<ContrastIntensity, { min: number; max: number }> =
+/** 利用可能なハーモニータイプ */
+const HARMONY_TYPES: HarmonyTypeConfig[] = [
 	{
-		subtle: { min: 0.35, max: 0.85 }, // Narrow range for subtle contrast
-		moderate: { min: 0.25, max: 0.92 }, // Balanced range (default)
-		strong: { min: 0.2, max: 0.95 }, // Wide range for strong contrast
-		vivid: { min: 0.15, max: 0.98 }, // Maximum range for vivid colors
-	};
+		id: "complementary",
+		name: "Complementary",
+		description: "補色",
+		harmonyType: HarmonyType.COMPLEMENTARY,
+		detail:
+			"色相環で正反対に位置する色の組み合わせ。高いコントラストでインパクトのある配色を作れます。",
+	},
+	{
+		id: "analogous",
+		name: "Analogous",
+		description: "類似色",
+		harmonyType: HarmonyType.ANALOGOUS,
+		detail:
+			"色相環で隣り合う色の組み合わせ。自然で調和のとれた落ち着いた印象を与えます。",
+	},
+	{
+		id: "triadic",
+		name: "Triadic",
+		description: "三角配色",
+		harmonyType: HarmonyType.TRIADIC,
+		detail:
+			"色相環で等間隔に配置された3色の組み合わせ。バランスが良くバリエーション豊かな配色。",
+	},
+	{
+		id: "split",
+		name: "Split Comp.",
+		description: "分裂補色",
+		harmonyType: HarmonyType.SPLIT_COMPLEMENTARY,
+		detail:
+			"補色の両隣の色を使う配色。補色よりも柔らかいコントラストで使いやすい組み合わせ。",
+	},
+	{
+		id: "tetradic",
+		name: "Tetradic",
+		description: "四角形",
+		harmonyType: HarmonyType.TETRADIC,
+		detail:
+			"色相環で長方形を形成する4色の組み合わせ。2組の補色ペアで豊かな色彩表現が可能。",
+	},
+	{
+		id: "square",
+		name: "Square",
+		description: "正方形",
+		harmonyType: HarmonyType.SQUARE,
+		detail:
+			"色相環で正方形を形成する4色の組み合わせ。均等に配置された色でバランスの取れた配色。",
+	},
+	{
+		id: "m3",
+		name: "Material 3",
+		description: "Material Design",
+		harmonyType: HarmonyType.M3,
+		detail:
+			"Googleのデザインシステムに基づいたトーナルパレット。Primary、Secondary、Tertiaryの役割別カラー。",
+	},
+	{
+		id: "dads",
+		name: "DADS",
+		description: "12色相",
+		harmonyType: HarmonyType.DADS,
+		detail:
+			"12色相をベースにしたセマンティックカラーシステム。Success、Error、Warningなど用途別の色を自動生成。",
+	},
+];
 
-// Easing functions for lightness distribution
-const easingFunctions: Record<LightnessDistribution, (t: number) => number> = {
-	linear: (t: number) => t,
-	easeIn: (t: number) => t * t, // Slower at start, faster at end (more steps in dark colors)
-	easeOut: (t: number) => 1 - (1 - t) ** 2, // Faster at start, slower at end (more steps in light colors)
-};
+// CVD Simulation Type (includes "normal" for no simulation)
+type CVDSimulationType = "normal" | CVDType;
 
 // Default State
 const state = {
-	palettes: [
-		{
-			id: "color",
-			name: "Color",
-			keyColors: ["#008BF2@600"], // Blue at step 600 (default)
-			ratios: [21, 15, 10, 7, 4.5, 3, 1],
-		},
-		{
-			id: "neutral",
-			name: "Neutral",
-			keyColors: ["#1a1a1a@800"], // Dark gray at step 800
-			ratios: [21, 15, 10, 7, 4.5, 3, 1],
-		},
-	] as PaletteConfig[],
-	activeId: "color",
+	palettes: [] as PaletteConfig[],
+	// Shadesビュー用の全13色パレット
+	shadesPalettes: [] as PaletteConfig[],
+	activeId: "",
+	activeHarmonyIndex: 0, // 0 = Primary, 1+ = Derived
 	contrastIntensity: "moderate" as ContrastIntensity,
 	lightnessDistribution: "linear" as LightnessDistribution,
+	viewMode: "harmony" as ViewMode, // 起点はハーモニー選択
+	cvdSimulation: "normal" as CVDSimulationType,
+	selectedHarmonyConfig: null as HarmonyTypeConfig | null, // 選択されたハーモニー設定
 };
 
 export const runDemo = () => {
@@ -65,6 +145,13 @@ export const runDemo = () => {
 		"keyColors",
 	) as HTMLInputElement;
 	const currentNameEl = document.getElementById("current-palette-name");
+	const generateSystemBtn = document.getElementById("generate-system");
+	const viewHarmonyBtn = document.getElementById("view-harmony");
+	const viewPaletteBtn = document.getElementById("view-palette");
+	const viewShadesBtn = document.getElementById("view-shades");
+	const viewAccessibilityBtn = document.getElementById("view-accessibility");
+	const harmonyViewEl = document.getElementById("harmony-view");
+	const liveRegionEl = document.getElementById("live-region");
 
 	if (!app || !paletteListEl) return;
 
@@ -74,1197 +161,2141 @@ export const runDemo = () => {
 		return found || state.palettes[0];
 	};
 
-	// Helper: Generate Token Name (e.g., primary-900)
-	// Standard Scale: 50, 100, 200 ... 1200 (13 steps)
-	// If we have extra steps (due to key color injection), we need to handle that.
-	// For now, let's just map linearly or use closest standard step.
-	// Simple approach: Map index to standard steps if length matches, else fallback.
-	// Standard Scale: 50, 100, 200 ... 1200 (13 steps)
-	// Light (50) -> Dark (1200)
-	const standardSteps = [
-		50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200,
-	];
-
-	const getTokenName = (name: string, index: number, total: number) => {
-		// If we have exactly 13 items, map directly.
-		if (total === standardSteps.length) {
-			return `${name.toLowerCase()}-${standardSteps[index]}`;
-		}
-
-		// If mismatch (e.g. duplicates removed), try to map proportionally or just use standard steps if within range.
-		// We align with the visual order (Light -> Dark) which matches standardSteps (50 -> 1200).
-		if (index < standardSteps.length) {
-			return `${name.toLowerCase()}-${standardSteps[index]}`;
-		}
-
-		// Fallback for overflow
-		return `${name.toLowerCase()}-${(total - index) * 10}`;
+	// Helper: Parse Key Color Input
+	const parseKeyColor = (input: string): KeyColorWithStep => {
+		const parts = input.split("@");
+		const color = parts[0] ?? "#000000";
+		const stepStr = parts[1];
+		const step = stepStr ? parseInt(stepStr, 10) : undefined;
+		return { color, step };
 	};
 
 	const renderSidebar = () => {
 		paletteListEl.innerHTML = "";
 		state.palettes.forEach((p) => {
+			const container = document.createElement("div");
+			container.className = "dads-palette-item";
+
+			// Main Palette Entry (Primary)
 			const btn = document.createElement("div");
 			btn.textContent = p.name;
-			btn.style.padding = "0.5rem 1rem";
-			btn.style.cursor = "pointer";
-			btn.style.borderRadius = "4px";
-			btn.style.marginBottom = "4px";
+			btn.className = "dads-palette-item__button";
 
-			if (p.id === state.activeId) {
-				btn.style.background = "#e3f2fd";
-				btn.style.color = "#0052cc";
-				btn.style.fontWeight = "bold";
-			} else {
-				btn.style.background = "transparent";
+			// Show color dot
+			const dot = document.createElement("span");
+			dot.className = "dads-palette-item__dot";
+
+			// Parse first key color for dot
+			const keyColorInput = p.keyColors[0];
+			if (keyColorInput) {
+				const { color: hex } = parseKeyColor(keyColorInput);
+				dot.style.backgroundColor = hex;
 			}
+			btn.prepend(dot);
+
+			// Set active state via data attribute
+			setButtonActive(btn, p.id === state.activeId);
 
 			btn.onclick = () => {
 				state.activeId = p.id;
+				state.activeHarmonyIndex = 0;
 				updateEditor();
 				renderSidebar();
 				renderMain();
 			};
-			paletteListEl.appendChild(btn);
+			container.appendChild(btn);
+			paletteListEl.appendChild(container);
 		});
 	};
 
 	const updateEditor = () => {
 		const p = getActivePalette();
 		if (!p) return;
-		currentNameEl!.textContent = p.name;
-		// Display only hex colors, remove @step for clean UI
-		keyColorsInput.value = p.keyColors
-			.map((kc) => kc.split("@")[0]?.trim() ?? kc)
-			.join(", ");
-	};
 
-	// Helper: Parse key color with optional step specification
-	const parseKeyColor = (input: string): KeyColorWithStep => {
-		const trimmed = input.trim();
-		const parts = trimmed.split("@");
-		const color = parts[0]?.trim() ?? trimmed;
+		if (currentNameEl) currentNameEl.textContent = `${p.name} Settings`;
 
-		// Parse step if present (e.g., "#008BF2@600")
-		let step: number | undefined;
-		if (parts.length > 1) {
-			const stepStr = parts[1]?.trim();
-			const parsedStep = parseInt(stepStr ?? "", 10);
-			if (!isNaN(parsedStep)) {
-				step = parsedStep;
-			}
+		// Update Harmony Selector (Buttons) - only buttons with data-value attribute
+		const harmonyButtons = document.querySelectorAll(
+			"#harmony-buttons button[data-value]",
+		);
+		const harmonyInput = document.getElementById("harmony") as HTMLInputElement;
+
+		if (harmonyButtons.length > 0 && harmonyInput) {
+			// Set initial active state based on palette
+			harmonyInput.value = p.harmony;
+			harmonyButtons.forEach((btn) => {
+				const val = (btn as HTMLElement).dataset.value;
+				const isActive = val === p.harmony;
+				setButtonActive(btn as HTMLElement, isActive);
+				if (isActive) {
+					(btn as HTMLElement).classList.add("active");
+				} else {
+					(btn as HTMLElement).classList.remove("active");
+				}
+
+				(btn as HTMLElement).onclick = () => {
+					const newVal = (btn as HTMLElement).dataset.value as HarmonyType;
+					p.harmony = newVal;
+					harmonyInput.value = newVal;
+					state.activeHarmonyIndex = 0;
+
+					// Trigger generation immediately
+					handleGenerate();
+				};
+			});
 		}
 
-		return { color, step };
+		// Contrast Intensity
+		const contrastBtns = document.querySelectorAll(
+			"#contrastIntensityButtons button",
+		);
+		contrastBtns.forEach((btn) => {
+			const val = (btn as HTMLElement).dataset.value as ContrastIntensity;
+			setButtonActive(btn as HTMLElement, val === state.contrastIntensity);
+			(btn as HTMLElement).onclick = () => {
+				state.contrastIntensity = val;
+				updateEditor();
+				renderMain();
+			};
+		});
 	};
 
-	const renderMain = () => {
-		const p = getActivePalette();
-		if (!p) return;
-
-		// Standard 13-step scale (50-1200)
-		// 50 is lightest, 1200 is darkest
-		// Standard 13-step scale (50-1200)
-		// Uses the shared standardSteps definition
-		const standardRatios = [
-			1.05, // 50
-			1.1, // 100
-			1.2, // 200
-			1.35, // 300
-			1.7, // 400
-			2.5, // 500
-			3.5, // 600
-			4.5, // 700 (AA)
-			6.0, // 800
-			8.5, // 900
-			11.0, // 1000
-			14.0, // 1100
-			17.0, // 1200
-		];
-
-		// Override ratios with standard scale for this phase
-		// In a real app, this might be toggleable
-		const targetRatios = standardRatios;
-
-		// Parse inputs with optional step specification
-		let keyColorsWithSteps: KeyColorWithStep[];
-		let keyColors: Color[];
-		try {
-			keyColorsWithSteps = p.keyColors.map(parseKeyColor);
-			// Use skipClamp: true to preserve exact input colors for key colors
-			keyColors = keyColorsWithSteps.map(
-				(kc) => new Color(kc.color, { skipClamp: true }),
-			);
-		} catch (e) {
+	// Generate System Palette Logic
+	const handleGenerate = () => {
+		if (!keyColorsInput) return;
+		const inputHex = keyColorsInput.value.trim();
+		if (!/^#[0-9A-Fa-f]{6}$/.test(inputHex)) {
+			alert("Please enter a valid hex color (e.g., #0066CC)");
 			return;
 		}
 
-		const bg = BackgroundColor.White;
+		const primaryColor = new Color(inputHex);
 
-		// Store original key colors for badge logic and ratio injection
-		const originalKeyColors = [...keyColors];
+		// Get current harmony selection from hidden input
+		const harmonyInput = document.getElementById("harmony") as HTMLInputElement;
+		const harmonyType = harmonyInput
+			? (harmonyInput.value as HarmonyType)
+			: HarmonyType.COMPLEMENTARY;
 
-		// Store original hex values (before clampChroma) for exact override
-		const originalHexValues = keyColorsWithSteps.map((kc) => kc.color);
+		// Paletteビュー用: ハーモニーベースのパレット
+		const harmonyColors = generateSystemPalette(primaryColor, harmonyType);
 
-		// Check if any key color has an explicit step
-		const hasExplicitStep = keyColorsWithSteps.some(
-			(kc) => kc.step !== undefined,
-		);
+		// Convert to PaletteConfigs
+		state.palettes = harmonyColors.map((sc, index) => {
+			// For the Primary palette (index 0), preserve the harmony type
+			// For others, set to NONE as they are derived
+			const paletteHarmony = index === 0 ? harmonyType : HarmonyType.NONE;
 
-		// SMART RANGE EXTENSION
-		// Only apply automatic anchor generation if no explicit steps are specified
-		if (!hasExplicitStep) {
-			// Check if we need to add a dark or light anchor
-			// 1. Find the most colorful key color to use as a base for anchors
-			const primaryKey = keyColors.reduce((prev, curr) => {
-				if (!prev) return curr;
-				return prev.oklch.c > curr.oklch.c ? prev : curr;
-			}, keyColors[0]);
+			// Primaryの場合は元の入力HEX値を使用（丸め誤差を防ぐ）
+			const hexValue = sc.role === "primary" ? inputHex : sc.keyColor.toHex();
 
-			if (!primaryKey) return; // Should not happen if keyColors is not empty
+			// DADSの場合は指定されたステップを使用、それ以外は600
+			const step = sc.step ?? 600;
 
-			// 2. Check contrast range
-			const contrasts = keyColors.map((k) => k.contrast(bg));
-			const maxContrast = Math.max(...contrasts);
-			const minContrast = Math.min(...contrasts);
+			return {
+				id: `sys-${index}-${sc.name.toLowerCase().replace(/\s+/g, "-")}`,
+				name: sc.name,
+				keyColors: [`${hexValue}@${step}`],
+				ratios: [21, 15, 10, 7, 4.5, 3, 1],
+				harmony: paletteHarmony,
+				baseChromaName: sc.baseChromaName,
+			};
+		});
 
-			// 3. Inject Dark Anchor if max contrast is too low (e.g. < 4.5)
-			// Meaning we only have light colors
-			if (maxContrast < 4.5) {
-				// Create a dark version of the primary key
-				// OKLCH Strategy: Preserve chroma (vividness) while adjusting hue to avoid greenish tint
-				let adjustedHue = primaryKey.oklch.h ?? 0;
-				let chromaMultiplier = 0.8; // Keep high chroma for vivid dark colors
-				const lightnessTarget = 0.25; // Reasonably dark but not too dark
+		// Shadesビュー用: 全13色パレット
+		const fullChromaColors = generateFullChromaPalette(primaryColor);
 
-				if (adjustedHue >= 180 && adjustedHue <= 270) {
-					// For cyan/blue hues, shift towards purple (260-280°) to avoid green
-					// Target the "deep blue-purple" range which stays vivid when dark
-					const targetHue = 265; // Deep purple-blue (vivid when dark, no green tint)
-					const currentDistance = Math.abs(adjustedHue - targetHue);
+		// ハーモニーパレットの役割名をbaseChromaNameでマッピング
+		const harmonyRoleMap = new Map<string, string>();
+		harmonyColors.forEach((hc) => {
+			if (hc.baseChromaName && hc.name) {
+				harmonyRoleMap.set(hc.baseChromaName, hc.name);
+			}
+		});
 
-					// Shift towards target hue, but preserve some of the original character
-					if (adjustedHue < targetHue) {
-						adjustedHue = adjustedHue + currentDistance * 0.6; // 60% shift towards target
-					} else {
-						adjustedHue = adjustedHue - currentDistance * 0.4; // 40% shift towards target
-					}
-
-					// Keep chroma high for vivid colors
-					chromaMultiplier = 0.7;
-				}
-
-				const darkAnchor = new Color({
-					mode: "oklch",
-					l: lightnessTarget,
-					c: primaryKey.oklch.c * chromaMultiplier, // Preserve chroma for vividness
-					h: adjustedHue,
-				});
-				keyColors.push(darkAnchor);
+		state.shadesPalettes = fullChromaColors.map((sc, index) => {
+			// ハーモニーパレットで使われている場合はその役割名を使用
+			// それ以外はセマンティック名（Success, Warning等）またはデフォルト
+			let displayName = sc.name;
+			if (sc.baseChromaName && harmonyRoleMap.has(sc.baseChromaName)) {
+				displayName = harmonyRoleMap.get(sc.baseChromaName) || sc.name;
 			}
 
-			// 4. Inject Light Anchor if min contrast is too high (e.g. > 3.0)
-			// Meaning we only have dark colors
-			if (minContrast > 3.0) {
-				// Create a light version (or just use white if very light)
-				// For now, let's just ensure White is there if not present
-				// Actually, usually we want a tinted light color.
-				const lightAnchor = new Color({
-					mode: "oklch",
-					l: 0.98, // Very light
-					c: primaryKey.oklch.c * 0.2, // Very low chroma
-					h: primaryKey.oklch.h,
-				});
-				keyColors.unshift(lightAnchor);
-			}
-		} else {
-			// When explicit step is specified, add multiple anchors for richer gradation
-			// This creates a more distinct color scale with better perceptual differences
-			const primaryKey = keyColors[0];
-			if (!primaryKey) return;
+			// Primaryの場合は元の入力HEX値を使用（丸め誤差を防ぐ）
+			const hexValue = sc.role === "primary" ? inputHex : sc.keyColor.toHex();
 
-			const baseHue = primaryKey.oklch.h;
-			const baseChroma = primaryKey.oklch.c;
+			return {
+				id: `shades-${index}-${sc.baseChromaName?.toLowerCase().replace(/\s+/g, "-") || displayName.toLowerCase().replace(/\s+/g, "-")}`,
+				name: displayName,
+				keyColors: [hexValue],
+				ratios: [21, 15, 10, 7, 4.5, 3, 1],
+				harmony: HarmonyType.NONE,
+				baseChromaName: sc.baseChromaName,
+			};
+		});
 
-			// Add multiple dark anchors for richer dark scale
-			const darkAnchor1 = new Color({
-				mode: "oklch",
-				l: 0.25, // Mid-dark
-				c: baseChroma * 0.95,
-				h: baseHue,
-			});
-
-			const darkAnchor2 = new Color({
-				mode: "oklch",
-				l: 0.15, // Very dark
-				c: baseChroma * 0.85,
-				h: baseHue,
-			});
-
-			keyColors.push(darkAnchor1, darkAnchor2);
-
-			// Add multiple light anchors for richer light scale
-			const lightAnchor1 = new Color({
-				mode: "oklch",
-				l: 0.85, // Mid-light
-				c: baseChroma * 0.6,
-				h: baseHue,
-			});
-
-			const lightAnchor2 = new Color({
-				mode: "oklch",
-				l: 0.95, // Very light
-				c: baseChroma * 0.3,
-				h: baseHue,
-			});
-
-			keyColors.unshift(lightAnchor2, lightAnchor1);
+		if (state.palettes.length > 0 && state.palettes[0]) {
+			state.activeId = state.palettes[0].id;
 		}
-
-		// INJECTION: Add Key Color Ratios
-		// Strategy: If step is explicitly specified, use that step's index.
-		// Otherwise, replace the nearest standard ratio with the key color ratio.
-		// IMPORTANT: Only inject ratios for ORIGINAL user key colors.
-
-		let finalRatios = [...targetRatios];
-
-		// Process each original key color (before anchors were added)
-		keyColorsWithSteps.forEach((keyColorSpec, idx) => {
-			if (idx >= originalKeyColors.length) return; // Skip if index out of bounds
-
-			const keyColor = originalKeyColors[idx];
-			if (!keyColor) return;
-
-			const keyRatio = keyColor.contrast(bg);
-
-			if (keyColorSpec.step !== undefined) {
-				// Explicit step specified (e.g., "#b3e5fc@300")
-				const stepIndex = standardSteps.indexOf(keyColorSpec.step);
-				if (stepIndex !== -1) {
-					// Valid step, inject at that position
-					finalRatios[stepIndex] = keyRatio;
-				}
-			} else {
-				// No step specified, find closest standard ratio (auto mode)
-				let closestIndex = -1;
-				let minDiff = Number.MAX_VALUE;
-
-				finalRatios.forEach((r, i) => {
-					const diff = Math.abs(r - keyRatio);
-					if (diff < minDiff) {
-						minDiff = diff;
-						closestIndex = i;
-					}
-				});
-
-				// Replace if found (and valid)
-				if (closestIndex !== -1) {
-					finalRatios[closestIndex] = keyRatio;
-				}
-			}
-		});
-
-		// Sort Descending (Darker -> Lighter)
-		// Note: standardRatios was defined Low->High (1.05 -> 17.0) in code?
-		// Let's check the definition in previous file content.
-		// standardRatios = [1.05, 1.1, ... 17.0] (Light -> Dark in terms of contrast value, but 1.05 is White-on-White? No.)
-		// Contrast 1.05 is very light (near white). Contrast 21 is Black.
-		// So [1.05 ... 17.0] is Light -> Dark.
-		// But we want 1200 (Dark) -> 50 (Light) for the list?
-		// The previous code sorted `b - a` (Descending), so 17.0 first.
-
-		finalRatios.sort((a, b) => b - a);
-
-		// Remove duplicates (with epsilon)
-		finalRatios = finalRatios.filter((r, i, arr) => {
-			if (i === 0) return true;
-			return Math.abs(r - (arr[i - 1] ?? 0)) > 0.01;
-		});
-
-		let colors: Color[];
-
-		// If explicit step is specified, generate colors directly without interpolation
-		if (hasExplicitStep && originalKeyColors.length > 0) {
-			const keyColor = originalKeyColors[0]!;
-			const baseL = keyColor.oklch.l;
-			const baseC = keyColor.oklch.c;
-			const baseH = keyColor.oklch.h ?? 0; // Ensure hue is defined
-			const keyStep = keyColorsWithSteps[0]?.step ?? 600;
-
-			// Detect achromatic (neutral/gray) colors
-			// Force achromatic for Neutral palette
-			const p = getActivePalette();
-			const isNeutralPalette = p?.id === "neutral";
-			const isAchromatic = isNeutralPalette || baseC < 0.01;
-
-			// Calculate the index of the key color in the 13-step array
-			// standardSteps: [50, 100, 200, ..., 1200]
-			// Array order: [1200, 1100, ..., 50] (reversed for display)
-			const keyStepIndex = standardSteps.indexOf(keyStep);
-			const keyArrayIndex = 12 - keyStepIndex; // Reverse index (0 = darkest, 12 = lightest)
-
-			// Generate lightness scale centered on the key color's lightness
-			// The key color should be at keyArrayIndex with lightness baseL
-			// Distribute other steps evenly, maintaining perceptual uniformity
-			const lightnessScale: number[] = [];
-			const totalSteps = 13;
-
-			// Get contrast intensity and lightness distribution from state
-			const contrastRange = contrastRanges[state.contrastIntensity];
-			const easingFunction = easingFunctions[state.lightnessDistribution];
-
-			// Calculate lightness range based on contrast intensity
-			// Adjust minL based on hue for natural-looking darks
-			const hue = keyColor.oklch.h ?? 0;
-			let minL = contrastRange.min;
-
-			// Lime (100-130): Adjust minimum lightness to avoid muddy black
-			if (hue >= 100 && hue < 130) {
-				minL = Math.max(minL, 0.27);
-			}
-
-			const maxL = contrastRange.max;
-			const lightnessRange = maxL - minL;
-
-			// Calculate step size based on key color position with easing
-			// Apply easing function to distribute steps according to selected distribution
-			for (let i = 0; i < totalSteps; i++) {
-				if (i === keyArrayIndex) {
-					lightnessScale.push(baseL); // Use exact key color lightness
-				} else {
-					// Apply easing function to progress
-					const rawProgress = i / (totalSteps - 1); // 0 to 1
-					const easedProgress = easingFunction(rawProgress);
-					const targetL = minL + lightnessRange * easedProgress;
-
-					// Adjust to anchor at key color position
-					const keyProgress = keyArrayIndex / (totalSteps - 1);
-					const easedKeyProgress = easingFunction(keyProgress);
-					const offset = baseL - (minL + lightnessRange * easedKeyProgress);
-
-					// For the lightest color (index 12), allow higher lightness for differentiation
-					const effectiveMaxL =
-						i === totalSteps - 1 ? Math.min(maxL + 0.03, 0.98) : maxL;
-					const adjustedL = Math.max(
-						minL,
-						Math.min(effectiveMaxL, targetL + offset),
-					);
-
-					lightnessScale.push(adjustedL);
-				}
-			}
-
-			// Generate absolute chroma values based on lightness
-			// NOT relative to key color's chroma (which may be very low or very high)
-			// Instead, use perceptually optimal chroma for each lightness level
-			const chromaValues: number[] = [];
-
-			// Reference: Maximum safe chroma for each lightness in OKLCH->sRGB
-			// These values ensure hue preservation while maintaining vibrancy
-			for (let i = 0; i < totalSteps; i++) {
-				const l = lightnessScale[i]!;
-
-				// If key color is achromatic (gray), keep entire palette achromatic
-				if (isAchromatic) {
-					chromaValues.push(0);
-					continue;
-				}
-
-				// Absolute chroma values - aim high, let clampChroma() find maximum
-				// Strategy: Request high chroma, clampChroma() will find the actual maximum
-				// for this specific lightness and hue in sRGB gamut
-				let absoluteChroma: number;
-
-				// Special handling for magenta/pink hues (280-350°)
-				// These hues require higher chroma to maintain vibrancy across lightness range
-				const isMagentaPink = baseH >= 280 && baseH <= 350;
-
-				if (isMagentaPink) {
-					// Magenta/pink: use higher chroma values for better vibrancy
-					if (l < 0.15) {
-						absoluteChroma = 0.2;
-					} else if (l < 0.25) {
-						absoluteChroma = 0.28;
-					} else if (l < 0.4) {
-						absoluteChroma = 0.35; // Higher for dark magenta
-					} else if (l < 0.55) {
-						absoluteChroma = 0.37; // Peak chroma for mid-range
-					} else if (l < 0.7) {
-						absoluteChroma = 0.35; // Maintain high chroma
-					} else if (l < 0.85) {
-						absoluteChroma = 0.28; // Gradual decrease
-					} else if (l < 0.93) {
-						absoluteChroma = 0.2;
-					} else {
-						absoluteChroma = 0.15;
-					}
-				} else {
-					// Default handling for other hues
-					if (l < 0.15) {
-						absoluteChroma = 0.15; // Let clampChroma() find max for dark colors
-					} else if (l < 0.25) {
-						absoluteChroma = 0.2;
-					} else if (l < 0.4) {
-						absoluteChroma = 0.25;
-					} else if (l < 0.55) {
-						absoluteChroma = 0.3; // Request peak vibrancy
-					} else if (l < 0.7) {
-						absoluteChroma = 0.25;
-					} else if (l < 0.85) {
-						absoluteChroma = 0.2;
-					} else if (l < 0.93) {
-						absoluteChroma = 0.15;
-					} else {
-						absoluteChroma = 0.1; // Even light colors can be vibrant
-					}
-				}
-
-				chromaValues.push(absoluteChroma);
-			}
-
-			// Override key color position with its actual chroma
-			chromaValues[keyArrayIndex] = baseC;
-
-			colors = lightnessScale.map((l, i) => {
-				const targetC = chromaValues[i]!;
-				const generatedColor = new Color({
-					mode: "oklch",
-					l: l,
-					c: targetC,
-					h: baseH, // Preserve hue completely
-				});
-
-				return generatedColor;
-			});
-
-			// Override the key color position with the exact original color
-			// IMPORTANT: Use original hex value to preserve user's exact input
-			// Skip clampChroma to preserve the exact color specified by the user
-			if (
-				keyArrayIndex >= 0 &&
-				keyArrayIndex < colors.length &&
-				originalHexValues[0]
-			) {
-				// Create Color object with skipClamp option to preserve exact input
-				const exactColor = new Color(originalHexValues[0], { skipClamp: true });
-				colors[keyArrayIndex] = exactColor;
-			}
-		} else {
-			// Use interpolation for auto-positioned colors
-			const theme = new Theme(keyColors, bg, finalRatios);
-			colors = theme.colors;
-		}
-
-		// Render Swatches - Horizontal Layout
-		// Reverse colors to go from Light (50) to Dark (1200)
-		colors.reverse();
-
-		// Render Swatches - Horizontal Layout
-		app.innerHTML = "";
-
-		// Container for horizontal palette
-		const paletteContainer = document.createElement("div");
-		paletteContainer.style.cssText = `
-			display: flex;
-			flex-direction: column;
-			gap: 1rem;
-			margin-top: 2rem;
-			padding-bottom: 2rem;
-			width: 100%;
-			overflow-x: hidden; /* Prevent scroll */
-		`;
-
-		// Swatches row
-		const swatchesRow = document.createElement("div");
-		swatchesRow.style.cssText = `
-			display: flex;
-			justify-content: space-between;
-			gap: 8px;
-			padding: 16px; /* Space for shadows */
-			width: 100%;
-			box-sizing: border-box;
-		`;
-
-		colors.forEach((color, index) => {
-			const hex = color.toHex();
-			// Contrast Checks
-			// We want to check legibility of White/Black text ON this color (Background)
-			const white = new Color("#ffffff");
-			const black = new Color("#000000");
-
-			// WCAG: Contrast(Text, Bg) - Symmetric
-			const wcagWhite = verifyContrast(white, color);
-			const wcagBlack = verifyContrast(black, color);
-
-			// APCA: getAPCA(Text, Bg) - Asymmetric
-			const apcaWhite = getAPCA(white, color);
-			const apcaBlack = getAPCA(black, color);
-
-			const tokenName = getTokenName(p.name, index, colors.length);
-
-			// Extract step number from token name (e.g., "color-600" -> "600")
-			const stepMatch = tokenName.match(/(\d+)$/);
-			const stepNumber = stepMatch ? (stepMatch[1] ?? "") : "";
-
-			// Check if this color corresponds to a key color
-			let isKeyColor = false;
-
-			keyColorsWithSteps.forEach((keyColorSpec, idx) => {
-				if (idx >= originalKeyColors.length) return;
-
-				if (keyColorSpec.step !== undefined) {
-					const expectedName = `${p.name.toLowerCase()}-${keyColorSpec.step}`;
-					if (tokenName === expectedName) {
-						isKeyColor = true;
-					}
-				} else {
-					const keyColor = originalKeyColors[idx];
-					if (keyColor) {
-						const keyRatio = keyColor.contrast(bg);
-						if (Math.abs(keyRatio - wcagWhite.contrast) < 0.01) {
-							isKeyColor = true;
-						}
-					}
-				}
-			});
-
-			// Create swatch element
-			const swatchWrapper = document.createElement("div");
-			swatchWrapper.style.cssText = `
-				position: relative;
-				display: flex;
-				flex-direction: column;
-				align-items: center;
-				gap: 8px;
-				flex: 1;
-				min-width: 0;
-			`;
-
-			const swatch = document.createElement("div");
-			swatch.className = "color-swatch";
-			swatch.style.cssText = `
-				width: 100%;
-				height: auto;
-				aspect-ratio: 1 / 1;
-				background-color: ${hex};
-				border-radius: ${isKeyColor ? "50%" : "12px"};
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-				cursor: pointer;
-				transition: transform 0.15s ease, box-shadow 0.15s ease;
-				position: relative;
-				z-index: 1;
-			`;
-
-			// Add hover effect
-			swatch.onmouseenter = () => {
-				if (swatch.dataset.selected === "true") return;
-				swatch.style.transform = "scale(1.05) translateY(-2px)";
-				swatch.style.boxShadow = "0 8px 16px rgba(0,0,0,0.15)";
-				swatch.style.zIndex = "10";
-			};
-
-			swatch.onmouseleave = () => {
-				if (swatch.dataset.selected === "true") return;
-				swatch.style.transform = "scale(1)";
-				swatch.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)";
-				swatch.style.zIndex = "1";
-			};
-
-			// Contrast Checks for Indicators
-			const isWhitePass = wcagWhite.contrast >= 4.5;
-			const isBlackPass = wcagBlack.contrast >= 4.5;
-
-			// Container for indicators
-			const indicators = document.createElement("div");
-			indicators.style.cssText = `
-				position: absolute;
-				top: 50%;
-				left: 50%;
-				transform: translate(-50%, -50%);
-				display: flex;
-				gap: 8px;
-				pointer-events: none;
-				align-items: center;
-				justify-content: center;
-			`;
-
-			// White Indicator
-			if (isWhitePass) {
-				const icon = document.createElement("div");
-				icon.style.cssText = `
-					display: flex;
-					align-items: center;
-					justify-content: center;
-				`;
-				icon.innerHTML = `
-					<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-						<polyline points="20 6 9 17 4 12"></polyline>
-					</svg>
-				`;
-				indicators.appendChild(icon);
-			}
-
-			// Black Indicator
-			if (isBlackPass) {
-				const icon = document.createElement("div");
-				icon.style.cssText = `
-					display: flex;
-					align-items: center;
-					justify-content: center;
-				`;
-				icon.innerHTML = `
-					<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-						<polyline points="20 6 9 17 4 12"></polyline>
-					</svg>
-				`;
-				indicators.appendChild(icon);
-			}
-
-			swatch.appendChild(indicators);
-
-			// Add Key Color Indicator (Outer Ring)
-			if (isKeyColor) {
-				const ring = document.createElement("div");
-				ring.style.cssText = `
-					position: absolute;
-					top: -6px;
-					left: -6px;
-					right: -6px;
-					bottom: -6px;
-					border: 3px solid #0052cc;
-					border-radius: 50%;
-					pointer-events: none;
-					z-index: 10;
-				`;
-				swatch.appendChild(ring);
-				// Also make the swatch circular
-				swatch.style.borderRadius = "50%";
-			}
-			swatchWrapper.appendChild(swatch);
-
-			// Add click handler for Detail View
-			swatchWrapper.onclick = () => {
-				renderDetailPanel(
-					stepNumber,
-					hex,
-					wcagWhite,
-					wcagBlack,
-					apcaWhite,
-					apcaBlack,
-				);
-
-				// Update selection visual
-				document.querySelectorAll(".color-swatch").forEach((s) => {
-					const el = s as HTMLElement;
-					el.dataset.selected = "false";
-					el.style.transform = "scale(1)";
-					el.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)"; // Reset to default
-					el.style.zIndex = "1";
-				});
-
-				// Apply new selection style to the clicked swatch
-				swatch.dataset.selected = "true";
-				swatch.style.transform = "scale(1.1)";
-				swatch.style.boxShadow = "0 0 0 4px #fff, 0 0 0 7px #0052cc";
-				swatch.style.zIndex = "10";
-			};
-
-			swatchWrapper.classList.add("swatch-wrapper");
-			swatchWrapper.style.cursor = "pointer";
-
-			// Auto-select key color or middle color on initial render
-			if (isKeyColor) {
-				setTimeout(() => swatchWrapper.click(), 0);
-			}
-
-			swatchesRow.appendChild(swatchWrapper);
-
-			// Info below swatch (Compact)
-			const info = document.createElement("div");
-			info.style.cssText = `
-				text-align: center;
-				display: flex;
-				flex-direction: column;
-				gap: 2px;
-				margin-top: 12px;
-				width: 100%;
-			`;
-
-			const stepLabel = document.createElement("div");
-			stepLabel.style.cssText = `
-				font-size: 1rem;
-				font-weight: ${isKeyColor ? "bold" : "500"};
-				color: #333;
-			`;
-			stepLabel.textContent = stepNumber;
-
-			const hexLabel = document.createElement("div");
-			hexLabel.style.cssText = `
-				font-size: 0.8rem;
-				color: #666;
-				font-family: monospace;
-			`;
-			hexLabel.textContent = hex;
-
-			info.appendChild(stepLabel);
-			info.appendChild(hexLabel);
-
-			swatchWrapper.appendChild(info);
-		});
-
-		paletteContainer.appendChild(swatchesRow);
-		app.appendChild(paletteContainer);
+		state.activeHarmonyIndex = 0;
+		renderSidebar();
+		renderMain();
+		updateEditor();
 	};
 
-	// Render Detail Panel Function
-	const renderDetailPanel = (
-		step: string,
-		hex: string,
-		wcagWhite: any,
-		wcagBlack: any,
-		apcaWhite: number,
-		apcaBlack: number,
-	) => {
-		const panel = document.getElementById("detail-panel");
-		if (!panel) return;
+	if (generateSystemBtn) {
+		generateSystemBtn.onclick = handleGenerate;
+	}
 
-		const isWhitePass = wcagWhite.contrast >= 4.5;
-		const isBlackPass = wcagBlack.contrast >= 4.5;
+	// View Switcher Logic
+	const contrastControls = document.getElementById("header-contrast-controls");
+	const cvdControls = document.getElementById("cvd-controls");
+	const navButtons = [
+		viewHarmonyBtn,
+		viewPaletteBtn,
+		viewShadesBtn,
+		viewAccessibilityBtn,
+	].filter(Boolean) as HTMLElement[];
 
-		panel.innerHTML = "";
-		panel.style.display = "block";
+	/**
+	 * スクリーンリーダーにビュー変更を通知
+	 */
+	const announceViewChange = (viewName: string) => {
+		if (liveRegionEl) {
+			liveRegionEl.textContent = `${viewName}ビューに切り替えました`;
+		}
+	};
 
-		// Container
-		const container = document.createElement("div");
-		container.style.cssText = `
-			display: flex;
-			flex-direction: column;
-			gap: 2rem;
-			height: 100%;
-		`;
+	/**
+	 * ビューを切り替える
+	 */
+	const updateViewButtons = (mode: ViewMode) => {
+		state.viewMode = mode;
 
-		// Header: Large Swatch + Title
-		const header = document.createElement("div");
-		header.style.cssText = `
-			display: flex;
-			align-items: center;
-			gap: 2rem;
-		`;
+		// ハーモニービューと詳細ビューの表示切替
+		if (harmonyViewEl) {
+			harmonyViewEl.hidden = mode !== "harmony";
+		}
+		if (app) {
+			app.hidden = mode === "harmony";
+		}
 
-		const largeSwatch = document.createElement("div");
-		largeSwatch.style.cssText = `
-			width: 120px;
-			height: 120px;
-			background-color: ${hex};
-			border-radius: 16px;
-			box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-			flex-shrink: 0;
-		`;
+		// すべてのナビゲーションボタンの状態更新
+		navButtons.forEach((btn) => {
+			setButtonActive(btn, false);
+		});
 
-		const titleArea = document.createElement("div");
-		titleArea.innerHTML = `
-			<div style="font-size: 2rem; font-weight: bold; margin-bottom: 0.5rem;">${step}</div>
-			<div style="font-size: 1.2rem; font-family: monospace; color: #666;">${hex}</div>
-		`;
+		// アクティブなボタンを設定
+		const activeBtn =
+			mode === "harmony"
+				? viewHarmonyBtn
+				: mode === "palette"
+					? viewPaletteBtn
+					: mode === "shades"
+						? viewShadesBtn
+						: viewAccessibilityBtn;
+		if (activeBtn) {
+			setButtonActive(activeBtn, true);
+		}
 
-		header.appendChild(largeSwatch);
-		header.appendChild(titleArea);
-		container.appendChild(header);
+		// コントロールの表示切替
+		if (contrastControls) {
+			contrastControls.style.display = mode === "shades" ? "flex" : "none";
+		}
+		if (cvdControls) {
+			cvdControls.style.display =
+				mode === "accessibility" || mode === "harmony" ? "none" : "flex";
+		}
 
-		// Dashboard Grid
-		const grid = document.createElement("div");
-		grid.style.cssText = `
-			display: grid;
-			grid-template-columns: 1fr 1fr;
-			gap: 1.5rem;
-		`;
+		// エクスポートボタンの表示切替（パレット生成済みなら常に表示）
+		const exportControls = document.getElementById("export-controls");
+		if (exportControls) {
+			const hasGenerated = state.palettes.length > 0;
+			exportControls.style.display = hasGenerated ? "flex" : "none";
+		}
 
-		// Helper for Cards
-		const createCard = (
-			title: string,
-			textColor: string,
-			wcag: number,
-			apca: number,
-			isPass: boolean,
-		) => {
-			const card = document.createElement("div");
-			card.style.cssText = `
-				background: ${isPass ? "white" : "#f5f5f5"};
-				border-radius: 12px;
-				padding: 1.5rem;
-				box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-				border: 1px solid ${isPass ? "#eee" : "#ddd"};
-			`;
-
-			const passBadge = isPass
-				? '<span style="background: #e6f4ea; color: #137333; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: bold;">合格 (AA)</span>'
-				: '<span style="background: #fce8e6; color: #c5221f; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: bold;">不合格</span>';
-
-			card.innerHTML = `
-				<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
-					<div style="display: flex; align-items: center; gap: 0.5rem;">
-						<div style="width: 12px; height: 12px; border-radius: 50%; background-color: ${textColor}; border: 1px solid #ddd;"></div>
-						<div style="font-weight: bold; color: #333;">${title}</div>
-					</div>
-					${passBadge}
-				</div>
-
-				<div style="margin-bottom: 1.5rem;">
-					<div style="font-size: 0.8rem; color: #666; margin-bottom: 0.25rem;">WCAG コントラスト</div>
-					<div style="font-size: 2.5rem; font-weight: bold; color: #333;">${wcag.toFixed(2)}</div>
-				</div>
-
-				<div style="margin-bottom: 1.5rem;">
-					<div style="font-size: 0.8rem; color: #666; margin-bottom: 0.25rem;">APCA (Lc)</div>
-					<div style="font-size: 1.5rem; font-weight: bold; color: #333;">${Math.round(Math.abs(apca))}</div>
-				</div>
-
-				<div style="
-					background-color: ${hex};
-					color: ${textColor};
-					padding: 1rem;
-					border-radius: 8px;
-					font-size: 0.9rem;
-					line-height: 1.5;
-					text-align: center;
-				">
-					視認性の確認用テキストです。読みやすさを確認してください。
-				</div>
-			`;
-
-			return card;
+		// ビュー名の通知
+		const viewNames: Record<ViewMode, string> = {
+			harmony: "ハーモニー",
+			palette: "パレット",
+			shades: "シェード",
+			accessibility: "アクセシビリティ",
 		};
-
-		grid.appendChild(
-			createCard(
-				"白に対するコントラスト",
-				"#ffffff",
-				wcagWhite.contrast,
-				apcaWhite,
-				isWhitePass,
-			),
-		);
-		grid.appendChild(
-			createCard(
-				"黒に対するコントラスト",
-				"#000000",
-				wcagBlack.contrast,
-				apcaBlack,
-				isBlackPass,
-			),
-		);
-
-		container.appendChild(grid);
-		panel.appendChild(container);
-	};
-
-	const saveChanges = () => {
-		const p = getActivePalette();
-		if (!p) return;
-
-		// Get hex color from input field
-		const hexColor = keyColorsInput.value.trim().split("@")[0]?.trim() ?? "";
-
-		// Get currently selected step from slider
-		const sliderIndex = Number.parseInt(stepSlider.value, 10);
-		const selectedStep = getStepFromSliderIndex(sliderIndex);
-
-		// Save with @step if step is selected, otherwise just the color
-		if (hexColor && selectedStep) {
-			p.keyColors = [`${hexColor} @${selectedStep} `];
-		} else if (hexColor) {
-			p.keyColors = [hexColor];
-		}
+		announceViewChange(viewNames[mode]);
 
 		renderMain();
 	};
 
-	// Event Listeners
-	keyColorsInput.onchange = saveChanges;
+	// ナビゲーションボタンのイベント
+	if (viewHarmonyBtn) {
+		viewHarmonyBtn.onclick = () => updateViewButtons("harmony");
+	}
+	if (viewPaletteBtn) {
+		viewPaletteBtn.onclick = () => updateViewButtons("palette");
+	}
+	if (viewShadesBtn) {
+		viewShadesBtn.onclick = () => updateViewButtons("shades");
+	}
+	if (viewAccessibilityBtn) {
+		viewAccessibilityBtn.onclick = () => updateViewButtons("accessibility");
+	}
 
-	document.getElementById("add-palette")!.onclick = () => {
-		const name = prompt("Palette Name?");
-		if (name) {
-			const id = name.toLowerCase().replace(/\s+/g, "-");
+	// Add Palette Button
+	const addPaletteBtn = document.getElementById("add-palette");
+	if (addPaletteBtn) {
+		addPaletteBtn.onclick = () => {
+			const id = `custom-${Date.now()}`;
 			state.palettes.push({
 				id,
-				name,
+				name: `Custom Palette ${state.palettes.length + 1}`,
 				keyColors: ["#000", "#fff"],
 				ratios: [21, 15, 10, 7, 4.5, 3, 1],
+				harmony: HarmonyType.NONE,
 			});
 			state.activeId = id;
 			renderSidebar();
 			updateEditor();
 			renderMain();
-		}
-	};
+		};
+	}
 
-	document.getElementById("export-css")!.onclick = () => {
-		let css = ":root {\n";
-		state.palettes.forEach((p) => {
-			const theme = new Theme(
-				p.keyColors.map((s) => new Color((s.split("@")[0] ?? "").trim())),
-				BackgroundColor.White,
-				p.ratios,
-			);
-			theme.colors.forEach((c, i) => {
-				css += `  --color - ${getTokenName(p.name, i, theme.colors.length)}: ${c.toHex()}; \n`;
-			});
-			css += "\n";
-		});
-		css += "}";
+	// Helper: Generate colors from all palettes for export
+	const generateExportColors = (): Record<string, Color> => {
+		const colors: Record<string, Color> = {};
+		const bgColor = new Color("#ffffff");
 
-		const dialog = document.getElementById(
-			"export-dialog",
-		) as HTMLDialogElement;
-		const area = document.getElementById("export-area") as HTMLTextAreaElement;
-		area.value = css;
-		dialog.showModal();
-	};
+		// エクスポートは全13色パレットを使用
+		const palettesToExport =
+			state.shadesPalettes.length > 0 ? state.shadesPalettes : state.palettes;
 
-	document.getElementById("export-json")!.onclick = () => {
-		const json: any = {};
-		state.palettes.forEach((p) => {
-			const theme = new Theme(
-				p.keyColors.map((s) => new Color((s.split("@")[0] ?? "").trim())),
-				BackgroundColor.White,
-				p.ratios,
-			);
-			const colors: any = {};
-			theme.colors.forEach((c, i) => {
-				colors[(i + 1) * 100] = c.toHex();
-			});
-			json[p.id] = colors;
-		});
+		palettesToExport.forEach((p) => {
+			const keyColorInput = p.keyColors[0];
+			if (!keyColorInput) return;
+			const { color: hex } = parseKeyColor(keyColorInput);
+			const keyColor = new Color(hex);
 
-		const dialog = document.getElementById(
-			"export-dialog",
-		) as HTMLDialogElement;
-		const area = document.getElementById("export-area") as HTMLTextAreaElement;
-		area.value = JSON.stringify(json, null, 2);
-		dialog.showModal();
-	};
+			const baseRatios = getContrastRatios(state.contrastIntensity);
 
-	// Helper: Analyze color lightness and recommend optimal step
-	const recommendStep = (hexColor: string): number | null => {
-		try {
-			const color = new Color(hexColor);
-			const lightness = color.oklch.l;
+			const keyContrastRatio = keyColor.contrast(bgColor);
+			let keyColorIndex = -1;
+			let minDiff = Infinity;
 
-			const hue = color.oklch.h ?? 0;
-
-			// Recommend step based on lightness and hue
-			// Lime (100-130°) needs special handling
-			if (hue >= 100 && hue < 130) {
-				// #9DDD15 (L=0.823) should be 400
-				// #7EB40D (L=0.706) should be 700
-				if (lightness > 0.88) {
-					return 200;
-				} else if (lightness > 0.8) {
-					return 300;
-				} else if (lightness > 0.76) {
-					return 400;
-				} else if (lightness > 0.72) {
-					return 500;
-				} else if (lightness > 0.62) {
-					return 600;
-				} else if (lightness > 0.48) {
-					return 700;
-				} else {
-					return 900;
+			for (let i = 0; i < baseRatios.length; i++) {
+				const diff = Math.abs((baseRatios[i] ?? 0) - keyContrastRatio);
+				if (diff < minDiff) {
+					minDiff = diff;
+					keyColorIndex = i;
 				}
 			}
 
-			// Default thresholds for other colors
-			if (lightness > 0.85) {
-				return 200;
-			} else if (lightness > 0.7) {
-				return 400;
-			} else if (lightness > 0.5) {
-				return 600;
-			} else if (lightness > 0.3) {
-				return 800;
-			} else if (lightness > 0.15) {
-				return 1000;
-			} else if (lightness > 0.05) {
-				return 1100;
+			if (keyColorIndex >= 0) {
+				baseRatios[keyColorIndex] = keyContrastRatio;
+			}
+
+			const scaleColors: Color[] = baseRatios.map((ratio, i) => {
+				if (i === keyColorIndex) return keyColor;
+				const solved = findColorForContrast(keyColor, bgColor, ratio);
+				return solved || keyColor;
+			});
+			scaleColors.reverse();
+
+			// Generate color name from palette name
+			const paletteName = p.name.toLowerCase().replace(/\s+/g, "-");
+
+			scaleColors.forEach((color, index) => {
+				const stepName = STEP_NAMES[index] ?? index * 100 + 50;
+				colors[`${paletteName}-${stepName}`] = color;
+			});
+		});
+
+		return colors;
+	};
+
+	// Helper: Download file
+	const downloadFile = (
+		content: string,
+		filename: string,
+		mimeType: string,
+	) => {
+		const blob = new Blob([content], { type: mimeType });
+		const url = URL.createObjectURL(blob);
+		const link = document.createElement("a");
+		link.href = url;
+		link.download = filename;
+		document.body.appendChild(link);
+		link.click();
+		document.body.removeChild(link);
+		URL.revokeObjectURL(url);
+	};
+
+	// Export Logic
+	const exportCssBtn = document.getElementById("export-css");
+	if (exportCssBtn) {
+		exportCssBtn.onclick = () => {
+			const colors = generateExportColors();
+			const result = exportToCSS(colors, {
+				prefix: "color",
+				includeWideGamutFallback: true,
+			});
+			downloadFile(result.css, "colors.css", "text/css");
+		};
+	}
+
+	const exportTailwindBtn = document.getElementById("export-tailwind");
+	if (exportTailwindBtn) {
+		exportTailwindBtn.onclick = () => {
+			const colors = generateExportColors();
+			const result = exportToTailwind(colors, {
+				colorSpace: "oklch",
+				esModule: false,
+			});
+			downloadFile(
+				result.config,
+				"tailwind.colors.js",
+				"application/javascript",
+			);
+		};
+	}
+
+	const exportJsonBtn = document.getElementById("export-json");
+	if (exportJsonBtn) {
+		exportJsonBtn.onclick = () => {
+			const colors = generateExportColors();
+			const result = exportToDTCG(colors, {
+				colorSpace: "oklch",
+			});
+			downloadFile(result.json, "colors.tokens.json", "application/json");
+		};
+	}
+
+	// New Export Button (Header) - Opens Modal
+	const exportBtn = document.getElementById("export-btn");
+	const exportDialog = document.getElementById(
+		"export-dialog",
+	) as HTMLDialogElement;
+	const exportArea = document.getElementById(
+		"export-area",
+	) as HTMLTextAreaElement;
+	const exportFormatButtons = document.querySelectorAll(
+		"#export-format-buttons button",
+	);
+	const exportCopyBtn = document.getElementById("export-copy-btn");
+	const exportDownloadBtn = document.getElementById("export-download-btn");
+
+	let currentExportFormat: "css" | "tailwind" | "json" = "css";
+
+	const updateExportPreview = () => {
+		const colors = generateExportColors();
+		let content = "";
+
+		switch (currentExportFormat) {
+			case "css": {
+				const result = exportToCSS(colors, {
+					includeWideGamutFallback: true,
+				});
+				content = result.css;
+				break;
+			}
+			case "tailwind": {
+				const result = exportToTailwind(colors, {
+					esModule: false,
+				});
+				content = result.config;
+				break;
+			}
+			case "json": {
+				const result = exportToDTCG(colors);
+				content = result.json;
+				break;
+			}
+		}
+
+		if (exportArea) {
+			exportArea.value = content;
+		}
+	};
+
+	if (exportBtn && exportDialog) {
+		exportBtn.onclick = () => {
+			updateExportPreview();
+			exportDialog.showModal();
+		};
+	}
+
+	exportFormatButtons.forEach((btn) => {
+		btn.addEventListener("click", () => {
+			const format = (btn as HTMLElement).dataset.format as
+				| "css"
+				| "tailwind"
+				| "json";
+			if (!format) return;
+
+			currentExportFormat = format;
+
+			// Update button states
+			exportFormatButtons.forEach((b) => {
+				setButtonActive(b as HTMLElement, false);
+			});
+			setButtonActive(btn as HTMLElement, true);
+
+			updateExportPreview();
+		});
+	});
+
+	if (exportCopyBtn && exportArea) {
+		exportCopyBtn.onclick = () => {
+			navigator.clipboard.writeText(exportArea.value).then(() => {
+				const originalText = exportCopyBtn.textContent;
+				exportCopyBtn.textContent = "Copied!";
+				setTimeout(() => {
+					exportCopyBtn.textContent = originalText;
+				}, 2000);
+			});
+		};
+	}
+
+	if (exportDownloadBtn && exportArea) {
+		exportDownloadBtn.onclick = () => {
+			const extensions: Record<string, string> = {
+				css: "colors.css",
+				tailwind: "tailwind.colors.js",
+				json: "colors.tokens.json",
+			};
+			const mimeTypes: Record<string, string> = {
+				css: "text/css",
+				tailwind: "application/javascript",
+				json: "application/json",
+			};
+			downloadFile(
+				exportArea.value,
+				extensions[currentExportFormat] || "export.txt",
+				mimeTypes[currentExportFormat] || "text/plain",
+			);
+		};
+	}
+
+	// Render Main Content
+	const renderMain = () => {
+		// ハーモニービューと詳細ビューの表示切替
+		if (harmonyViewEl) {
+			if (state.viewMode === "harmony") {
+				harmonyViewEl.hidden = false;
+				harmonyViewEl.style.display = "";
 			} else {
-				return 1200; // Very dark/black colors
-			}
-		} catch (e) {
-			return null;
-		}
-	};
-
-	// UI: Step selection with range slider
-	const stepSlider = document.getElementById("stepSlider") as HTMLInputElement;
-	const stepHint = document.getElementById("stepHint") as HTMLElement;
-	const stepValues = [
-		50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200,
-	];
-
-	// Helper: Get step value from slider index
-	const getStepFromSliderIndex = (index: number): number => {
-		return stepValues[index] ?? 600;
-	};
-
-	// Helper: Get slider index from step value
-	const getSliderIndexFromStep = (step: number): number => {
-		const index = stepValues.indexOf(step);
-		return index !== -1 ? index : 6; // Default to 600 (index 6)
-	};
-
-	// Debounce timer for color code input
-	let colorInputDebounceTimer: number | null = null;
-
-	// Update palette when color code changes (debounced + Enter key)
-	const applyColorChange = (hexColor: string) => {
-		const recommended = recommendStep(hexColor);
-		if (recommended !== null) {
-			// Auto-select recommended step
-			const sliderIndex = getSliderIndexFromStep(recommended);
-			stepSlider.value = String(sliderIndex);
-
-			// Update hint message
-			stepHint.innerHTML = `<strong>${hexColor}</strong>の明度から<strong>${recommended}</strong>を最適なスケール配置としました`;
-
-			// Automatically generate palette with recommended step
-			const p = getActivePalette();
-			if (p) {
-				p.keyColors = [`${hexColor} @${recommended} `];
-				renderMain();
+				harmonyViewEl.hidden = true;
+				harmonyViewEl.style.display = "none";
 			}
 		}
-	};
+		if (app) {
+			if (state.viewMode === "harmony") {
+				app.hidden = true;
+				app.style.display = "none";
+			} else {
+				app.hidden = false;
+				app.style.display = "";
+			}
+		}
 
-	// Color code input with debounce (300ms)
-	keyColorsInput.addEventListener("input", () => {
-		const value = keyColorsInput.value.trim();
-		if (!value) {
-			stepHint.textContent =
-				"このカラーをスケール内のどの位置に配置するか選択してください";
+		// ハーモニービューのレンダリング
+		if (state.viewMode === "harmony") {
+			if (harmonyViewEl) {
+				renderHarmonyView(harmonyViewEl);
+			}
 			return;
 		}
 
-		// Parse color (ignore @step if present)
-		const hexColor = value.split("@")[0]?.trim() ?? "";
-		if (!hexColor) return;
+		// 詳細ビューのレンダリング
+		if (!app) return;
+		app.innerHTML = "";
 
-		// Only apply if valid hex color (#RRGGBB)
-		if (/^#[0-9A-Fa-f]{6}$/.test(hexColor)) {
-			if (colorInputDebounceTimer) clearTimeout(colorInputDebounceTimer);
-			colorInputDebounceTimer = window.setTimeout(() => {
-				applyColorChange(hexColor);
-			}, 300);
-		}
-	});
-
-	// Enter key to immediately apply color code
-	keyColorsInput.addEventListener("keydown", (e) => {
-		if (e.key === "Enter") {
-			const value = keyColorsInput.value.trim();
-			const colorOnly = value.split("@")[0]?.trim() ?? "";
-
-			if (/^#[0-9A-Fa-f]{6}$/.test(colorOnly)) {
-				if (colorInputDebounceTimer) clearTimeout(colorInputDebounceTimer);
-				applyColorChange(colorOnly);
-			}
-		}
-	});
-
-	// Update palette when slider changes (real-time)
-	stepSlider.addEventListener("input", () => {
-		// Cancel debounce timer to prevent overwriting manual changes
-		if (colorInputDebounceTimer) {
-			clearTimeout(colorInputDebounceTimer);
-			colorInputDebounceTimer = null;
+		if (state.viewMode === "palette") {
+			renderPaletteView(app);
+		} else if (state.viewMode === "shades") {
+			renderShadesView(app);
+		} else {
+			renderAccessibilityView(app);
 		}
 
-		const hexColor = keyColorsInput.value.trim().split("@")[0]?.trim() ?? "";
-		const sliderIndex = Number.parseInt(stepSlider.value, 10);
-		const selectedStep = getStepFromSliderIndex(sliderIndex);
+		// Update CVD score after render
+		updateCVDScoreDisplay();
+	};
 
-		if (hexColor && /^#[0-9A-Fa-f]{6}$/.test(hexColor)) {
-			const p = getActivePalette();
-			if (p) {
-				p.keyColors = [`${hexColor} @${selectedStep} `];
-				stepHint.innerHTML = `<strong>${hexColor}</strong>をスケール位置<strong>${selectedStep}</strong>に配置しました`;
-				renderMain();
-			}
-		}
-	});
+	/**
+	 * ハーモニー選択ビューのレンダリング
+	 */
+	const renderHarmonyView = (container: HTMLElement) => {
+		// 入力カラーを取得
+		const inputHex = keyColorsInput?.value.trim() || "#3366cc";
+		const primaryColor = /^#[0-9A-Fa-f]{6}$/.test(inputHex)
+			? new Color(inputHex)
+			: new Color("#3366cc");
 
-	// Button group helper: Update active state
-	const updateButtonGroupState = (
-		container: HTMLElement,
-		activeValue: string,
-	) => {
-		const buttons = container.querySelectorAll("button");
-		buttons.forEach((btn) => {
-			const value = btn.getAttribute("data-value");
-			if (value === activeValue) {
-				btn.style.border = "2px solid #0052cc";
-				btn.style.background = "#e3f2fd";
-				btn.style.fontWeight = "bold";
-				btn.classList.add("active");
+		// ヘッダーセクション（Brand Color入力）
+		const header = document.createElement("div");
+		header.className = "dads-harmony-header";
+
+		// Brand Color入力
+		const colorInput = document.createElement("div");
+		colorInput.className = "dads-harmony-header__input";
+
+		const colorLabel = document.createElement("label");
+		colorLabel.className = "dads-label";
+		colorLabel.textContent = "Brand Color";
+		colorLabel.htmlFor = "harmony-color-input";
+
+		const inputRow = document.createElement("div");
+		inputRow.className = "dads-form-row";
+
+		// テキスト入力を左に
+		const colorText = document.createElement("input");
+		colorText.type = "text";
+		colorText.id = "harmony-color-input";
+		colorText.className = "dads-input";
+		colorText.value = inputHex;
+		colorText.placeholder = "#3366cc";
+		colorText.pattern = "^#[0-9A-Fa-f]{6}$";
+
+		// カラーピッカーを右に
+		const colorPicker = document.createElement("input");
+		colorPicker.type = "color";
+		colorPicker.id = "harmony-color-picker";
+		colorPicker.className = "dads-input dads-input--color";
+		colorPicker.value = inputHex;
+
+		// カラー入力の同期とカード更新
+		const updateColor = (hex: string, source: "picker" | "text") => {
+			if (!/^#[0-9A-Fa-f]{6}$/.test(hex)) return;
+
+			if (source === "picker") {
+				colorText.value = hex;
 			} else {
-				btn.style.border = "1px solid #ccc";
-				btn.style.background = "white";
-				btn.style.fontWeight = "normal";
-				btn.classList.remove("active");
+				colorPicker.value = hex;
 			}
+
+			// hidden inputも更新
+			if (keyColorsInput) {
+				keyColorsInput.value = hex;
+			}
+
+			// ハーモニーカードを再レンダリング
+			renderHarmonyView(container);
+		};
+
+		// カラーピッカーのイベント
+		// inputイベントでテキスト同期（再レンダリングなし）
+		colorPicker.addEventListener("input", (e) => {
+			e.stopPropagation();
+			const hex = (e.target as HTMLInputElement).value;
+			colorText.value = hex;
+		});
+
+		// changeイベントで確定時にカード再レンダリング
+		colorPicker.addEventListener("change", (e) => {
+			e.stopPropagation();
+			updateColor((e.target as HTMLInputElement).value, "picker");
+		});
+
+		colorPicker.addEventListener("click", (e) => {
+			e.stopPropagation();
+		});
+
+		colorPicker.addEventListener("mousedown", (e) => {
+			e.stopPropagation();
+		});
+
+		colorText.addEventListener("input", (e) => {
+			const value = (e.target as HTMLInputElement).value;
+			if (/^#[0-9A-Fa-f]{6}$/.test(value)) {
+				updateColor(value, "text");
+			}
+		});
+
+		// テキスト入力を左、カラーピッカーを右に
+		inputRow.appendChild(colorText);
+		inputRow.appendChild(colorPicker);
+		colorInput.appendChild(colorLabel);
+		colorInput.appendChild(inputRow);
+		header.appendChild(colorInput);
+
+		// 説明文
+		const description = document.createElement("div");
+		description.className = "dads-section__description";
+		description.innerHTML = `<p>ハーモニースタイルを選択してください。見出しをクリックすると、そのスタイルでパレットを生成します。</p>`;
+
+		// ハーモニーリスト（各行が1つのハーモニー）
+		const harmonyList = document.createElement("div");
+		harmonyList.className = "dads-harmony-list";
+
+		HARMONY_TYPES.forEach((harmony) => {
+			// 実際のハーモニーパレットを生成して全色を取得
+			const palettes = generateSystemPalette(primaryColor, harmony.harmonyType);
+
+			// 現在選択されているハーモニーかどうか
+			const isSelected = state.selectedHarmonyConfig?.id === harmony.id;
+
+			// ハーモニーセクション（全体がクリック可能）
+			const section = document.createElement("button");
+			section.type = "button";
+			section.className = "dads-harmony-row";
+			if (isSelected) {
+				section.dataset.selected = "true";
+			}
+
+			// 見出し
+			const heading = document.createElement("div");
+			heading.className = "dads-harmony-row__heading";
+
+			const headingMain = document.createElement("div");
+			headingMain.className = "dads-harmony-row__heading-main";
+
+			const headingText = document.createElement("span");
+			headingText.className = "dads-harmony-row__name";
+			headingText.textContent = harmony.name;
+
+			const headingMeta = document.createElement("span");
+			headingMeta.className = "dads-harmony-row__meta";
+			headingMeta.textContent = `${harmony.description}（${palettes.length}色）`;
+
+			headingMain.appendChild(headingText);
+			headingMain.appendChild(headingMeta);
+
+			const headingDetail = document.createElement("p");
+			headingDetail.className = "dads-harmony-row__detail";
+			headingDetail.textContent = harmony.detail;
+
+			heading.appendChild(headingMain);
+			heading.appendChild(headingDetail);
+
+			// セクションクリックでパレット生成＆遷移
+			section.onclick = () => {
+				state.selectedHarmonyConfig = harmony;
+
+				const harmonyInput = document.getElementById(
+					"harmony",
+				) as HTMLInputElement;
+				if (harmonyInput) {
+					harmonyInput.value = harmony.harmonyType;
+				}
+
+				handleGenerate();
+				updateViewButtons("palette");
+			};
+
+			// 全パレットのスウォッチ（最大8色まで表示）
+			const swatches = document.createElement("div");
+			swatches.className = "dads-harmony-row__swatches";
+
+			// DADSの場合は主要なセマンティックカラーのみ表示
+			let displayPalettes: typeof palettes;
+			if (harmony.harmonyType === HarmonyType.DADS) {
+				const semanticNames = [
+					"primary",
+					"secondary",
+					"accent",
+					"success",
+					"error",
+					"warning",
+					"info",
+				];
+				displayPalettes = palettes
+					.filter((p) => {
+						const name = p.name.toLowerCase();
+						return semanticNames.some(
+							(s) => name === s || name.startsWith(`${s}-`),
+						);
+					})
+					.filter((p, i, arr) => {
+						// 各カテゴリから最初の1つだけ
+						const name = p.name.toLowerCase().split("-")[0];
+						return (
+							arr.findIndex(
+								(x) => x.name.toLowerCase().split("-")[0] === name,
+							) === i
+						);
+					});
+			} else {
+				const maxSwatches = 8;
+				displayPalettes = palettes.slice(0, maxSwatches);
+			}
+
+			displayPalettes.forEach((palette) => {
+				const swatch = document.createElement("span");
+				swatch.className = "dads-harmony-row__swatch";
+				swatch.style.background = palette.keyColor.toHex();
+				swatch.title = `${palette.name}: ${palette.keyColor.toHex()}`;
+				swatches.appendChild(swatch);
+			});
+
+			// カード構成：見出し → スウォッチ（下部）
+			section.appendChild(heading);
+			section.appendChild(swatches);
+			harmonyList.appendChild(section);
+		});
+
+		container.innerHTML = "";
+		container.appendChild(header);
+		container.appendChild(description);
+		container.appendChild(harmonyList);
+	};
+
+	// CVD score update function (will be defined later)
+	let updateCVDScoreDisplay = () => {};
+
+	// Helper: Apply CVD simulation to a color
+	const applySimulation = (color: Color): Color => {
+		if (state.cvdSimulation === "normal") {
+			return color;
+		}
+		return simulateCVD(color, state.cvdSimulation as CVDType);
+	};
+
+	/**
+	 * 未生成時のメッセージを表示
+	 */
+	const renderEmptyState = (container: HTMLElement, viewName: string) => {
+		container.innerHTML = `
+			<div class="dads-empty-state">
+				<h2 class="dads-empty-state__title">${viewName}を表示するにはパレットを生成してください</h2>
+				<p class="dads-empty-state__description">
+					<a href="#" class="dads-link" id="empty-go-harmony">ハーモニー</a> でハーモニースタイルを選択すると、パレットが生成されます。
+				</p>
+			</div>
+		`;
+		// リンクのクリックイベント
+		const link = container.querySelector("#empty-go-harmony");
+		if (link) {
+			link.addEventListener("click", (e) => {
+				e.preventDefault();
+				updateViewButtons("harmony");
+			});
+		}
+	};
+
+	const renderPaletteView = (container: HTMLElement) => {
+		container.className = "dads-section";
+
+		// パレットが生成されていない場合
+		if (state.palettes.length === 0) {
+			renderEmptyState(container, "パレット");
+			return;
+		}
+
+		// Group palettes by semantic category
+		const getSemanticCategory = (name: string): string => {
+			if (name === "Primary" || name.startsWith("Primary")) return "Primary";
+			if (name.startsWith("Success")) return "Success";
+			if (name.startsWith("Error")) return "Error";
+			if (name.startsWith("Warning")) return "Warning";
+			if (name.startsWith("Link")) return "Link";
+			if (name.startsWith("Accent")) return "Accent";
+			if (name === "Gray" || name === "Slate") return "Neutral";
+			if (name === "Secondary") return "Secondary";
+			return name; // For other harmony types (Comp, Analog, etc.)
+		};
+
+		const groupedPalettes = new Map<string, typeof state.palettes>();
+		state.palettes.forEach((p) => {
+			const category = getSemanticCategory(p.name);
+			if (!groupedPalettes.has(category)) {
+				groupedPalettes.set(category, []);
+			}
+			groupedPalettes.get(category)?.push(p);
+		});
+
+		// Render each group
+		groupedPalettes.forEach((palettes, category) => {
+			const section = document.createElement("section");
+
+			// Section heading
+			const heading = document.createElement("h2");
+			heading.textContent = category;
+			heading.className = "dads-section__heading";
+			section.appendChild(heading);
+
+			// Cards container
+			const cardsContainer = document.createElement("div");
+			cardsContainer.className = "dads-grid";
+			cardsContainer.dataset.columns = "auto-fill";
+
+			palettes.forEach((p) => {
+				const card = document.createElement("button");
+				card.type = "button";
+				card.className = "dads-card";
+				card.dataset.interactive = "true";
+
+				const keyColorInput = p.keyColors[0];
+				if (!keyColorInput) return;
+				const { color: hex } = parseKeyColor(keyColorInput);
+				const keyColor = new Color(hex);
+
+				// Generate color scale for this palette
+				const baseRatios = getContrastRatios(state.contrastIntensity);
+				const bgColor = new Color("#ffffff");
+				const keyContrastRatio = keyColor.contrast(bgColor);
+
+				let keyColorIndex = -1;
+				let minDiff = Infinity;
+				for (let i = 0; i < baseRatios.length; i++) {
+					const diff = Math.abs((baseRatios[i] ?? 0) - keyContrastRatio);
+					if (diff < minDiff) {
+						minDiff = diff;
+						keyColorIndex = i;
+					}
+				}
+				if (keyColorIndex >= 0) {
+					baseRatios[keyColorIndex] = keyContrastRatio;
+				}
+
+				const colors: Color[] = baseRatios.map((ratio, i) => {
+					if (i === keyColorIndex) return keyColor;
+					const solved = findColorForContrast(keyColor, bgColor, ratio);
+					return solved || keyColor;
+				});
+				colors.reverse();
+
+				// Calculate index based on contrast ratio for accurate step display
+				// After colors.reverse(), the key color's position changes
+				// Original keyColorIndex is in baseRatios order (low to high contrast)
+				// After reverse, it becomes (colors.length - 1 - keyColorIndex)
+				const reversedKeyColorIndex = colors.length - 1 - keyColorIndex;
+
+				card.onclick = () => {
+					const dialog = document.getElementById(
+						"color-detail-dialog",
+					) as HTMLDialogElement;
+					if (!dialog) return;
+
+					// --- Elements ---
+					// --- Elements ---
+					let scrubberCanvas = document.getElementById(
+						"tuner-scrubber",
+					) as HTMLCanvasElement;
+
+					// Clone canvas to remove old event listeners
+					if (scrubberCanvas) {
+						const newCanvas = scrubberCanvas.cloneNode(
+							true,
+						) as HTMLCanvasElement;
+						scrubberCanvas.parentNode?.replaceChild(newCanvas, scrubberCanvas);
+						scrubberCanvas = newCanvas;
+					}
+
+					let currentColor = keyColor;
+					let isDraggingScrubber = false;
+
+					// Helper to generate scale for real-time updates
+					const generateScale = (
+						baseColor: Color,
+					): { colors: Color[]; keyIndex: number } => {
+						const baseRatios = getContrastRatios(state.contrastIntensity);
+						const bgColor = new Color("#ffffff");
+						const keyContrastRatio = baseColor.contrast(bgColor);
+
+						let keyColorIndex = -1;
+						let minDiff = Infinity;
+						for (let i = 0; i < baseRatios.length; i++) {
+							const diff = Math.abs((baseRatios[i] ?? 0) - keyContrastRatio);
+							if (diff < minDiff) {
+								minDiff = diff;
+								keyColorIndex = i;
+							}
+						}
+						if (keyColorIndex >= 0) {
+							baseRatios[keyColorIndex] = keyContrastRatio;
+						}
+
+						const newColors: Color[] = baseRatios.map((ratio, i) => {
+							if (i === keyColorIndex) return baseColor;
+							const solved = findColorForContrast(baseColor, bgColor, ratio);
+							return solved || baseColor;
+						});
+						newColors.reverse();
+
+						// Calculate reversed key index
+						const reversedKeyIndex = newColors.length - 1 - keyColorIndex;
+
+						return { colors: newColors, keyIndex: reversedKeyIndex };
+					};
+
+					// --- Infinite Hue Scrubber Logic ---
+					const drawScrubber = () => {
+						if (!scrubberCanvas) return;
+						const ctx = scrubberCanvas.getContext("2d");
+						if (!ctx) return;
+
+						const width = scrubberCanvas.width;
+						const height = scrubberCanvas.height;
+
+						// Use initial hue as the center of the static background
+						// We need to store the initial hue when opening the modal
+						// Let's use `keyColor`'s hue for this reference point.
+						const centerHue = keyColor.oklch?.h ?? 0;
+						const currentH = currentColor.oklch?.h ?? 0;
+
+						ctx.clearRect(0, 0, width, height);
+
+						// 1. Draw Static Background (Gradient)
+						// Range: +/- 15 degrees around centerHue (Total 30)
+						const visibleRange = 30;
+						const pixelsPerDegree = width / visibleRange;
+
+						for (let x = 0; x < width; x++) {
+							const offsetPixels = x - width / 2;
+							const offsetDegrees = offsetPixels / pixelsPerDegree;
+							let hue = centerHue + offsetDegrees;
+
+							// Normalize hue
+							hue = hue % 360;
+							if (hue < 0) hue += 360;
+
+							// Fixed vibrant L/C
+							const displayL = 0.65;
+							const displayC = 0.3;
+
+							const color = new Color(`oklch(${displayL} ${displayC} ${hue})`);
+							ctx.fillStyle = color.toCss();
+							ctx.fillRect(x, 0, 1, height);
+						}
+
+						// 2. Draw Moving Handle
+						// Calculate position based on currentHue relative to centerHue
+						let diff = currentH - centerHue;
+						// Handle wrap-around (e.g. 359 -> 1)
+						if (diff > 180) diff -= 360;
+						if (diff < -180) diff += 360;
+
+						const handleX = width / 2 + diff * pixelsPerDegree;
+
+						// Clamp handle to canvas bounds (optional, but good for UI)
+						// Actually, if it goes off screen, it means we are out of range.
+						// But user said "Infinite", so maybe we should scroll the background?
+						// "Mental model: moving vertical line" usually implies fixed background.
+						// If the background is fixed +/- 60deg, then we can only select within that range.
+						// The user said "diverse Blue is sufficient", implying a limited range is fine.
+						// So we will clamp the handle or just let it go off screen (but then you can't see it).
+						// Let's clamp the handle visually, but maybe the value is already clamped by interaction?
+						// We should probably clamp the interaction to the visible range if the background is static.
+
+						if (handleX >= 0 && handleX <= width) {
+							// Draw Handle Line
+							ctx.beginPath();
+							ctx.moveTo(handleX, 0);
+							ctx.lineTo(handleX, height);
+							ctx.strokeStyle = "rgba(255, 255, 255, 0.9)";
+							ctx.lineWidth = 2;
+							ctx.stroke();
+
+							// Draw Handle Knob (Premium Feel)
+							const knobY = height / 2;
+
+							// Outer Glow/Shadow
+							ctx.shadowColor = "rgba(0, 0, 0, 0.3)";
+							ctx.shadowBlur = 4;
+							ctx.shadowOffsetY = 2;
+
+							// Knob Body
+							ctx.beginPath();
+							// Rounded rectangle or capsule
+							ctx.roundRect(handleX - 6, 4, 12, height - 8, 6);
+							ctx.fillStyle = "white";
+							ctx.fill();
+
+							// Reset Shadow
+							ctx.shadowColor = "transparent";
+							ctx.shadowBlur = 0;
+							ctx.shadowOffsetY = 0;
+
+							// Inner Detail (Grip lines)
+							ctx.fillStyle = "#ccc";
+							ctx.fillRect(handleX - 1, knobY - 4, 2, 8);
+						}
+					};
+
+					// Handle Scrubber Interaction
+					const handleScrubberStart = (e: MouseEvent | TouchEvent) => {
+						isDraggingScrubber = true;
+						// We don't need startX/startHue logic anymore if we map position directly to hue
+						// But for smooth dragging, relative motion is often better.
+						// However, for a slider, absolute position is standard.
+						// Let's use absolute position mapping.
+						handleScrubberMove(e);
+
+						// Prevent scrolling on touch
+						if (e.type === "touchstart") {
+							e.preventDefault();
+						}
+					};
+
+					const handleScrubberMove = (e: MouseEvent | TouchEvent) => {
+						if (!isDraggingScrubber) return;
+
+						const touch =
+							"touches" in e &&
+							(e as TouchEvent).touches &&
+							(e as TouchEvent).touches.length > 0
+								? (e as TouchEvent).touches[0]
+								: null;
+						const clientX = touch ? touch.clientX : (e as MouseEvent).clientX;
+
+						// Calculate Hue based on X position
+						const rect = scrubberCanvas.getBoundingClientRect();
+						const x = clientX - rect.left;
+						const width = rect.width;
+
+						const visibleRange = 30;
+						const pixelsPerDegree = width / visibleRange;
+						const centerHue = keyColor.oklch?.h ?? 0;
+
+						const offsetPixels = x - width / 2;
+						const offsetDegrees = offsetPixels / pixelsPerDegree;
+
+						let newHue = centerHue + offsetDegrees;
+						newHue = newHue % 360;
+						if (newHue < 0) newHue += 360;
+
+						// Update Color (Keep L and C, only change H)
+						const currentL = currentColor.oklch?.l ?? 0;
+						const currentC = currentColor.oklch?.c ?? 0;
+						const newColor = new Color(
+							`oklch(${currentL} ${currentC} ${newHue})`,
+						);
+
+						updateDetail(newColor); // -1 to indicate manual tuning
+						drawScrubber();
+					};
+
+					const handleScrubberEnd = () => {
+						isDraggingScrubber = false;
+					};
+
+					const resizeScrubber = () => {
+						if (!scrubberCanvas) return;
+						const rect = scrubberCanvas.parentElement?.getBoundingClientRect();
+						if (rect && rect.width > 0) {
+							scrubberCanvas.width = rect.width;
+							scrubberCanvas.height = rect.height;
+							drawScrubber();
+						}
+					};
+
+					if (scrubberCanvas) {
+						// Initial size will be set after showModal
+
+						scrubberCanvas.addEventListener("mousedown", handleScrubberStart);
+						window.addEventListener("mousemove", handleScrubberMove);
+						window.addEventListener("mouseup", handleScrubberEnd);
+
+						scrubberCanvas.addEventListener("touchstart", handleScrubberStart, {
+							passive: false,
+						});
+						window.addEventListener("touchmove", handleScrubberMove, {
+							passive: false,
+						});
+						window.addEventListener("touchend", handleScrubberEnd);
+
+						// Initial draw will happen after resize
+						// drawScrubber();
+
+						window.addEventListener("resize", resizeScrubber);
+					}
+
+					// --- Color Tuner Helpers ---
+
+					// --- Update Detail ---
+					const updateDetail = (color: Color) => {
+						currentColor = color;
+						const l = color.oklch.l ?? 0;
+						// const c = color.oklch.c ?? 0; // Unused
+						// const h = color.oklch.h ?? 0; // Unused
+
+						// Update Header
+						const detailSwatch = document.getElementById("detail-swatch");
+						const detailTokenName =
+							document.getElementById("detail-token-name");
+						const detailHex = document.getElementById("detail-hex");
+						const detailLightness = document.getElementById("detail-lightness");
+						const detailChromaName =
+							document.getElementById("detail-chroma-name");
+
+						if (detailSwatch)
+							detailSwatch.style.backgroundColor = color.toCss();
+
+						// Calculate token name based on scale position
+						const { keyIndex } = generateScale(color);
+						// Standard mapping for 13 steps (0-12)
+						// 0 is Darkest (1200), 12 is Lightest (50) because generateScale reverses the array (Light->Dark becomes Dark->Light)
+						const tokenNum = STEP_NAMES[keyIndex] ?? 500;
+
+						// Use baseChromaName (e.g. "Blue") if available, else name
+						const hueName = p.baseChromaName || p.name;
+
+						if (detailTokenName)
+							detailTokenName.textContent = `${hueName}-${tokenNum}`;
+						if (detailHex) detailHex.textContent = color.toHex();
+						if (detailLightness)
+							detailLightness.textContent = `${Math.round(l * 100)}% L`;
+						if (detailChromaName)
+							detailChromaName.textContent = p.baseChromaName || p.name;
+
+						// Update Contrast Cards
+						const updateCard = (bgHex: string, prefix: string) => {
+							const bg = new Color(bgHex);
+							const wcag = verifyContrast(color, bg);
+							const apca = getAPCA(color, bg);
+							const ratioVal = Math.round(wcag.contrast * 100) / 100;
+							const lcVal = Math.round(apca);
+
+							const badge = document.getElementById(`detail-${prefix}-badge`);
+							const ratioEl = document.getElementById(`detail-${prefix}-ratio`);
+							const apcaEl = document.getElementById(`detail-${prefix}-apca`);
+							const preview = document.getElementById(
+								`detail-${prefix}-preview`,
+							);
+							const previewLarge = document.getElementById(
+								`detail-${prefix}-preview-large`,
+							);
+							const failIcon = document.getElementById(
+								`detail-${prefix}-fail-icon`,
+							);
+
+							if (ratioEl) ratioEl.textContent = `${ratioVal}`;
+							if (apcaEl) apcaEl.textContent = `${lcVal}`;
+							if (preview) {
+								preview.style.backgroundColor = color.toCss();
+								preview.style.color = bgHex;
+							}
+							if (previewLarge) {
+								previewLarge.style.backgroundColor = color.toCss();
+								previewLarge.style.color = bgHex;
+							}
+							if (badge) {
+								if (ratioVal >= 7.0) {
+									badge.textContent = "AAA";
+									badge.dataset.level = "success";
+									if (failIcon) failIcon.style.display = "none";
+								} else if (ratioVal >= 4.5) {
+									badge.textContent = "AA";
+									badge.dataset.level = "success";
+									if (failIcon) failIcon.style.display = "none";
+								} else if (ratioVal >= 3.0) {
+									badge.textContent = "Large Text";
+									badge.dataset.level = "warning";
+									if (failIcon) failIcon.style.display = "none";
+								} else {
+									badge.textContent = "Fail";
+									badge.dataset.level = "error";
+									if (failIcon) failIcon.style.display = "block";
+								}
+							}
+						};
+						updateCard("#ffffff", "white");
+						updateCard("#000000", "black");
+
+						// Redraw scrubber
+						drawScrubber();
+
+						// Update Mini Scale
+						const miniScaleContainer =
+							document.getElementById("detail-mini-scale");
+						if (miniScaleContainer) {
+							miniScaleContainer.innerHTML = "";
+							const { colors: scaleColors, keyIndex: currentKeyIndex } =
+								generateScale(color);
+
+							scaleColors.forEach((c, i) => {
+								const div = document.createElement("button");
+								div.type = "button";
+								div.className = "dads-mini-scale__item";
+								div.style.backgroundColor = c.toCss();
+								div.setAttribute("aria-label", `Color ${c.toHex()}`);
+
+								// Add click handler
+								div.onclick = () => {
+									updateDetail(c);
+								};
+
+								// Highlight current color
+								if (i === currentKeyIndex) {
+									const check = document.createElement("div");
+									check.className = "dads-mini-scale__check";
+									check.textContent = "✓";
+									check.style.color =
+										c.contrast(new Color("#fff")) > 4.5 ? "white" : "black";
+									div.appendChild(check);
+								}
+
+								miniScaleContainer.appendChild(div);
+							});
+						}
+					};
+
+					// --- Interaction Logic ---
+
+					// --- Initialization ---
+
+					// --- Reset & Save Logic ---
+					const resetBtn = document.getElementById("detail-reset-btn");
+					const saveBtn = document.getElementById("detail-save-btn");
+
+					if (resetBtn) {
+						resetBtn.onclick = () => {
+							currentColor = keyColor;
+							updateDetail(currentColor);
+							drawScrubber();
+						};
+					}
+
+					if (saveBtn) {
+						saveBtn.onclick = () => {
+							// Update Key Color
+							p.keyColors = [currentColor.toHex()];
+
+							// SYNC Logic: Update the corresponding palette in the other list
+							// If p is in state.palettes, find match in state.shadesPalettes
+							// If p is in state.shadesPalettes, find match in state.palettes
+
+							const syncPalette = (targetList: PaletteConfig[]) => {
+								const match = targetList.find((other) => {
+									// Match by baseChromaName if available (most reliable for system colors)
+									if (p.baseChromaName && other.baseChromaName) {
+										return p.baseChromaName === other.baseChromaName;
+									}
+									// Fallback to name match
+									return p.name === other.name;
+								});
+
+								if (match) {
+									match.keyColors = [currentColor.toHex()];
+								}
+							};
+
+							// Try syncing both ways to be safe (though p belongs to one)
+							syncPalette(state.palettes);
+							syncPalette(state.shadesPalettes);
+
+							dialog.close();
+							renderMain();
+						};
+					}
+
+					// --- Initialization ---
+					// Initial update
+					updateDetail(keyColor);
+					dialog.showModal();
+
+					// Resize scrubber after modal is visible
+					requestAnimationFrame(() => {
+						resizeScrubber();
+					});
+				};
+
+				const swatch = document.createElement("div");
+				swatch.className = "dads-card__swatch";
+				// Apply CVD simulation to display color
+				const displayColor = applySimulation(keyColor);
+				swatch.style.backgroundColor = displayColor.toCss();
+
+				const info = document.createElement("div");
+				info.className = "dads-card__body";
+
+				// Token name (e.g., "blue-800")
+				const step = STEP_NAMES[reversedKeyColorIndex] ?? 600;
+				const chromaNameLower = (p.baseChromaName || p.name || "color")
+					.toLowerCase()
+					.replace(/\s+/g, "-");
+
+				const tokenName = document.createElement("h3");
+				tokenName.textContent = `${chromaNameLower}-${step}`;
+				tokenName.className = "dads-card__title";
+
+				const hexCode = document.createElement("code");
+				hexCode.textContent = hex;
+				hexCode.className = "dads-text-mono";
+
+				info.appendChild(tokenName);
+				info.appendChild(hexCode);
+
+				// Show simulated color if CVD mode is active
+				if (state.cvdSimulation !== "normal") {
+					const simInfo = document.createElement("div");
+					simInfo.className = "dads-card__sim-info";
+					simInfo.textContent = `(${displayColor.toHex()})`;
+					info.appendChild(simInfo);
+				}
+
+				card.appendChild(swatch);
+				card.appendChild(info);
+				cardsContainer.appendChild(card);
+			});
+
+			section.appendChild(cardsContainer);
+			container.appendChild(section);
 		});
 	};
 
-	// Contrast intensity button group
-	const contrastIntensityButtons = document.getElementById(
-		"contrastIntensityButtons",
-	);
-	if (contrastIntensityButtons) {
-		contrastIntensityButtons.addEventListener("click", (e) => {
-			const target = e.target as HTMLElement;
-			if (target.tagName === "BUTTON") {
-				const value = target.getAttribute("data-value") as ContrastIntensity;
-				if (value) {
-					state.contrastIntensity = value;
-					updateButtonGroupState(contrastIntensityButtons, value);
-					renderMain();
+	const renderShadesView = (container: HTMLElement) => {
+		container.className = "dads-section";
+
+		// Shadesビューでは全13色パレットを使用
+		const palettesToRender =
+			state.shadesPalettes.length > 0 ? state.shadesPalettes : state.palettes;
+
+		// パレットが生成されていない場合
+		if (palettesToRender.length === 0) {
+			renderEmptyState(container, "シェード");
+			return;
+		}
+
+		palettesToRender.forEach((p) => {
+			const section = document.createElement("section");
+
+			const header = document.createElement("h2");
+			header.className = "dads-section__heading";
+			// 表示形式: baseChromaName | name (name が空の場合は baseChromaName のみ)
+			if (p.baseChromaName && p.name) {
+				header.textContent = `${p.baseChromaName} | ${p.name}`;
+			} else if (p.baseChromaName) {
+				header.textContent = p.baseChromaName;
+			} else {
+				header.textContent = p.name;
+			}
+			section.appendChild(header);
+
+			// Generate Scale using Theme
+			const keyColorInput = p.keyColors[0];
+			if (!keyColorInput) return;
+			const { color: keyHex } = parseKeyColor(keyColorInput);
+			const keyColor = new Color(keyHex);
+
+			// Define ratios for 13 steps based on intensity
+			const baseRatios = getContrastRatios(state.contrastIntensity);
+
+			// Background color (White)
+			const bgColor = new Color("#ffffff");
+
+			// Calculate key color's contrast ratio and insert into ratios
+			const keyContrastRatio = keyColor.contrast(bgColor);
+
+			// Find the best position to insert/replace
+			let keyColorIndex = -1;
+			let minDiff = Infinity;
+
+			for (let i = 0; i < baseRatios.length; i++) {
+				const diff = Math.abs((baseRatios[i] ?? 0) - keyContrastRatio);
+				if (diff < minDiff) {
+					minDiff = diff;
+					keyColorIndex = i;
 				}
 			}
-		});
-	}
 
-	// Lightness distribution button group
-	const lightnessDistributionButtons = document.getElementById(
-		"lightnessDistributionButtons",
-	);
-	if (lightnessDistributionButtons) {
-		lightnessDistributionButtons.addEventListener("click", (e) => {
-			const target = e.target as HTMLElement;
-			if (target.tagName === "BUTTON") {
-				const value = target.getAttribute(
-					"data-value",
-				) as LightnessDistribution;
-				if (value) {
-					state.lightnessDistribution = value;
-					updateButtonGroupState(lightnessDistributionButtons, value);
-					renderMain();
+			// Replace the closest ratio with the key color's exact contrast
+			if (keyColorIndex >= 0) {
+				baseRatios[keyColorIndex] = keyContrastRatio;
+			}
+
+			// Generate colors by adjusting Lightness only, keeping Hue/Chroma fixed
+			const colors: Color[] = baseRatios.map((ratio, i) => {
+				if (i === keyColorIndex) {
+					// Use the exact key color for this step
+					return keyColor;
 				}
+				// Find color with target contrast, preserving Hue/Chroma
+				const solved = findColorForContrast(keyColor, bgColor, ratio);
+				return solved || keyColor;
+			});
+
+			// Reverse for display (light to dark)
+			colors.reverse();
+
+			// Adjust keyColorIndex for reversed array
+			const reversedKeyColorIndex = colors.length - 1 - keyColorIndex;
+
+			const scaleContainer = document.createElement("div");
+			scaleContainer.className = "dads-scale";
+
+			colors.forEach((stepColor, index) => {
+				// Apply CVD simulation to display color
+				const displayColor = applySimulation(stepColor);
+
+				const swatch = document.createElement("button");
+				swatch.type = "button";
+				swatch.className = "dads-swatch";
+
+				const isKeyColor = index === reversedKeyColorIndex;
+
+				// Calculate contrast against both white and black using display color
+				const whiteContrast = verifyContrast(
+					displayColor,
+					new Color("#ffffff"),
+				).contrast;
+				const blackContrast = verifyContrast(
+					displayColor,
+					new Color("#000000"),
+				).contrast;
+
+				// Use the higher contrast (safer choice)
+				const useWhite = whiteContrast >= blackContrast;
+				const ratio =
+					Math.round((useWhite ? whiteContrast : blackContrast) * 100) / 100;
+				const textColor = useWhite ? "white" : "black";
+
+				// Check if both are usable (for showing dual indicators)
+				const whiteLevel =
+					whiteContrast >= 7
+						? "AAA"
+						: whiteContrast >= 4.5
+							? "AA"
+							: whiteContrast >= 3
+								? "L"
+								: "";
+				const blackLevel =
+					blackContrast >= 7
+						? "AAA"
+						: blackContrast >= 4.5
+							? "AA"
+							: blackContrast >= 3
+								? "L"
+								: "";
+
+				// Create badge element showing both white and black usability
+				const createBadge = (parent: HTMLElement) => {
+					if (!whiteLevel && !blackLevel) return;
+
+					const badgeContainer = document.createElement("div");
+					badgeContainer.className = "dads-swatch__badges";
+
+					// Show white indicator if usable
+					if (whiteLevel) {
+						const whiteBadge = document.createElement("div");
+						whiteBadge.className = "dads-contrast-indicator";
+						whiteBadge.dataset.color = "white";
+						if (whiteLevel === "L") whiteBadge.dataset.level = "L";
+						whiteBadge.textContent = whiteLevel;
+						badgeContainer.appendChild(whiteBadge);
+					}
+
+					// Show black indicator if usable
+					if (blackLevel) {
+						const blackBadge = document.createElement("div");
+						blackBadge.className = "dads-contrast-indicator";
+						blackBadge.dataset.color = "black";
+						if (blackLevel === "L") blackBadge.dataset.level = "L";
+						blackBadge.textContent = blackLevel;
+						badgeContainer.appendChild(blackBadge);
+					}
+
+					parent.appendChild(badgeContainer);
+				};
+
+				if (isKeyColor) {
+					// キーカラーは円形で表示
+					swatch.dataset.keyColor = "true";
+					swatch.style.backgroundColor = "transparent";
+
+					// 真円のインジケーター
+					const circle = document.createElement("div");
+					circle.className = "dads-swatch__key-indicator";
+					circle.style.backgroundColor = displayColor.toCss();
+
+					const label = document.createElement("span");
+					label.textContent = `${ratio}`;
+					label.style.color = textColor;
+					label.style.fontWeight = "bold";
+					label.style.fontSize = "0.75rem";
+
+					circle.appendChild(label);
+					swatch.appendChild(circle);
+					createBadge(swatch); // Bottom-center badge
+				} else {
+					swatch.style.backgroundColor = displayColor.toCss();
+
+					const label = document.createElement("span");
+					label.textContent = `${ratio}`;
+					label.style.color = textColor;
+					label.style.fontWeight = "bold";
+
+					swatch.appendChild(label);
+					createBadge(swatch); // Bottom-center badge
+				}
+
+				// Accessibility and focus styles
+				swatch.setAttribute("aria-label", `Color ${stepColor.toHex()}`);
+				swatch.onfocus = () => {
+					swatch.style.outline = "2px solid white";
+					swatch.style.outlineOffset = "-2px";
+					swatch.style.zIndex = "1";
+				};
+				swatch.onblur = () => {
+					swatch.style.outline = "none";
+					swatch.style.zIndex = "";
+				};
+
+				// Click to open detail popover
+				swatch.style.cursor = "pointer";
+				swatch.onclick = () => {
+					const dialog = document.getElementById(
+						"color-detail-dialog",
+					) as HTMLDialogElement;
+					if (!dialog) return;
+
+					// Helper to update detail panel with a specific color
+					const updateDetail = (color: Color, selectedIndex: number) => {
+						const colorL = color.oklch.l as number;
+
+						// Populate Basic Info
+						const detailSwatch = document.getElementById("detail-swatch");
+						const detailTokenName =
+							document.getElementById("detail-token-name");
+						const detailHex = document.getElementById("detail-hex");
+						const detailLightness = document.getElementById("detail-lightness");
+						const detailChromaName =
+							document.getElementById("detail-chroma-name");
+
+						// Step names for token generation (dark to light order: 1200→50)
+						const step = STEP_NAMES[selectedIndex] ?? 600;
+						const chromaNameLower = (p.baseChromaName || p.name || "color")
+							.toLowerCase()
+							.replace(/\s+/g, "-");
+
+						if (detailSwatch)
+							detailSwatch.style.backgroundColor = color.toCss();
+						if (detailTokenName)
+							detailTokenName.textContent = `${chromaNameLower}-${step}`;
+						if (detailHex) detailHex.textContent = color.toHex();
+						if (detailLightness)
+							detailLightness.textContent = `${Math.round(colorL * 100)}% L`;
+
+						// Update chroma name display
+						if (detailChromaName) {
+							if (p.baseChromaName && p.name) {
+								detailChromaName.textContent = `${p.baseChromaName} | ${p.name}`;
+							} else if (p.baseChromaName) {
+								detailChromaName.textContent = p.baseChromaName;
+							} else {
+								detailChromaName.textContent = p.name;
+							}
+						}
+
+						// Update "Set as key color" button
+						const setKeyColorBtn = document.getElementById(
+							"set-key-color-btn",
+						) as HTMLButtonElement;
+						if (setKeyColorBtn) {
+							const paletteName = p.name || p.baseChromaName || "";
+							setKeyColorBtn.textContent = `${color.toHex()} を ${paletteName} のパレットの色に指定`;
+							setKeyColorBtn.onclick = () => {
+								// Update the palette's key color
+								p.keyColors = [color.toHex()];
+
+								// Close dialog and re-render
+								dialog.close();
+								renderMain();
+							};
+						}
+
+						// Helper to update contrast card
+						const updateCard = (bgHex: string, prefix: string) => {
+							const bgColor = new Color(bgHex);
+							const wcag = verifyContrast(color, bgColor);
+							const apca = getAPCA(color, bgColor);
+							const ratioVal = Math.round(wcag.contrast * 100) / 100;
+							const lc = Math.round(apca);
+
+							const badge = document.getElementById(`detail-${prefix}-badge`);
+							const ratioEl = document.getElementById(`detail-${prefix}-ratio`);
+							const apcaEl = document.getElementById(`detail-${prefix}-apca`);
+							const preview = document.getElementById(
+								`detail-${prefix}-preview`,
+							);
+							const previewLarge = document.getElementById(
+								`detail-${prefix}-preview-large`,
+							);
+							const failIcon = document.getElementById(
+								`detail-${prefix}-fail-icon`,
+							);
+
+							if (ratioEl) ratioEl.textContent = `${ratioVal}`;
+							if (apcaEl) apcaEl.textContent = `${lc}`;
+
+							if (preview) {
+								preview.style.backgroundColor = color.toCss();
+								preview.style.color = bgHex;
+							}
+							if (previewLarge) {
+								previewLarge.style.backgroundColor = color.toCss();
+								previewLarge.style.color = bgHex;
+							}
+
+							if (badge) {
+								if (ratioVal >= 7.0) {
+									badge.textContent = "AAA";
+									badge.dataset.level = "success";
+									if (failIcon) failIcon.style.display = "none";
+								} else if (ratioVal >= 4.5) {
+									badge.textContent = "AA";
+									badge.dataset.level = "success";
+									if (failIcon) failIcon.style.display = "none";
+								} else if (ratioVal >= 3.0) {
+									badge.textContent = "Large Text";
+									badge.dataset.level = "warning";
+									if (failIcon) failIcon.style.display = "none";
+								} else {
+									badge.textContent = "Fail";
+									badge.dataset.level = "error";
+									if (failIcon) failIcon.style.display = "block";
+								}
+							}
+						};
+
+						// Calculate both contrasts for comparison
+						const whiteContrastVal = verifyContrast(
+							color,
+							new Color("#ffffff"),
+						).contrast;
+						const blackContrastVal = verifyContrast(
+							color,
+							new Color("#000000"),
+						).contrast;
+
+						updateCard("#ffffff", "white");
+						updateCard("#000000", "black");
+
+						// Highlight the better contrast card with data-preferred attribute
+						const whiteCard = document.getElementById(
+							"detail-white-card",
+						) as HTMLElement;
+						const blackCard = document.getElementById(
+							"detail-black-card",
+						) as HTMLElement;
+
+						if (whiteCard && blackCard) {
+							if (whiteContrastVal >= blackContrastVal) {
+								whiteCard.dataset.preferred = "true";
+								delete blackCard.dataset.preferred;
+							} else {
+								blackCard.dataset.preferred = "true";
+								delete whiteCard.dataset.preferred;
+							}
+						}
+
+						// Update mini scale selection indicator
+						const miniScale = document.getElementById("detail-mini-scale");
+						if (miniScale) {
+							const miniSwatches = miniScale.children;
+							for (let i = 0; i < miniSwatches.length; i++) {
+								const ms = miniSwatches[i] as HTMLElement;
+								// Remove existing checkmark if any
+								const existingCheck = ms.querySelector(
+									".dads-mini-scale__check",
+								);
+								if (existingCheck) existingCheck.remove();
+
+								if (i === selectedIndex) {
+									// Add checkmark
+									const check = document.createElement("div");
+									check.className = "dads-mini-scale__check";
+									check.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+									// Use actual contrast ratio to determine checkmark color
+									const contrastToWhite = color.contrast(new Color("white"));
+									const contrastToBlack = color.contrast(new Color("black"));
+									check.style.color =
+										contrastToWhite > contrastToBlack ? "white" : "black";
+									ms.appendChild(check);
+								}
+							}
+						}
+					};
+
+					// Build mini scale
+					const miniScale = document.getElementById("detail-mini-scale");
+					if (miniScale) {
+						miniScale.innerHTML = "";
+						colors.forEach((c, i) => {
+							const miniSwatch = document.createElement("button");
+							miniSwatch.type = "button";
+							miniSwatch.className = "dads-mini-scale__item";
+							miniSwatch.style.backgroundColor = c.toCss();
+							miniSwatch.setAttribute("aria-label", `Color ${c.toHex()}`);
+							miniSwatch.onclick = (e) => {
+								e.stopPropagation();
+								updateDetail(c, i);
+							};
+							miniScale.appendChild(miniSwatch);
+						});
+					}
+
+					// Initial update with clicked color
+					updateDetail(stepColor, index);
+
+					dialog.showModal();
+				};
+
+				scaleContainer.appendChild(swatch);
+			});
+
+			section.appendChild(scaleContainer);
+			container.appendChild(section);
+		});
+	};
+
+	// CVD Simulation Controls
+	const cvdTypeButtons = document.querySelectorAll("#cvdTypeButtons button");
+	const cvdScoreValue = document.getElementById("cvd-score-value");
+	const cvdScoreGrade = document.getElementById("cvd-score-grade");
+
+	// Helper: Generate key colors only for CVD score calculation
+	const generateKeyColors = (): Record<string, Color> => {
+		const colors: Record<string, Color> = {};
+		// CVDスコアは全13色パレットで計算
+		const palettesForScore =
+			state.shadesPalettes.length > 0 ? state.shadesPalettes : state.palettes;
+
+		palettesForScore.forEach((p) => {
+			const keyColorInput = p.keyColors[0];
+			if (!keyColorInput) return;
+			const { color: hex } = parseKeyColor(keyColorInput);
+			// baseChromaNameがあればそれを使い、なければnameを使用
+			const paletteName = (p.baseChromaName || p.name)
+				.toLowerCase()
+				.replace(/\s+/g, "-");
+			colors[paletteName] = new Color(hex);
+		});
+		return colors;
+	};
+
+	// Set up CVD score display function
+	updateCVDScoreDisplay = () => {
+		const colors = generateKeyColors();
+		const score = calculateCVDScore(colors);
+
+		// Show score for selected CVD type, or overall if "normal"
+		let displayScore: number;
+		let displayGrade: "A" | "B" | "C" | "D" | "F";
+
+		if (state.cvdSimulation === "normal") {
+			displayScore = score.overallScore;
+			displayGrade = score.grade;
+		} else {
+			// Show score for the selected CVD type
+			const typeScore =
+				score.scoresByType[
+					state.cvdSimulation as keyof typeof score.scoresByType
+				];
+			displayScore = typeScore;
+			// Calculate grade for this specific score
+			if (typeScore >= 90) displayGrade = "A";
+			else if (typeScore >= 75) displayGrade = "B";
+			else if (typeScore >= 60) displayGrade = "C";
+			else if (typeScore >= 40) displayGrade = "D";
+			else displayGrade = "F";
+		}
+
+		if (cvdScoreValue) {
+			cvdScoreValue.textContent = `${displayScore}`;
+		}
+
+		if (cvdScoreGrade) {
+			cvdScoreGrade.textContent = displayGrade;
+			// Set grade via data attribute for CSS styling
+			cvdScoreGrade.dataset.grade = displayGrade;
+		}
+	};
+
+	// CVD Type Button Handlers
+	cvdTypeButtons.forEach((btn) => {
+		(btn as HTMLElement).onclick = () => {
+			const cvdType = (btn as HTMLElement).dataset.cvd as CVDSimulationType;
+			state.cvdSimulation = cvdType;
+
+			// Update button styles via data-active attribute
+			cvdTypeButtons.forEach((b) => {
+				const isActive = (b as HTMLElement).dataset.cvd === cvdType;
+				setButtonActive(b as HTMLElement, isActive);
+			});
+
+			// Re-render with simulation applied
+			renderMain();
+		};
+	});
+
+	// Initial Render
+
+	// ColorSystem Demo has been integrated into Harmony buttons (M3 option)
+	// The separate demo panel is no longer needed
+	const renderAccessibilityView = (container: HTMLElement) => {
+		container.className = "dads-section";
+
+		// パレットが生成されていない場合
+		if (state.palettes.length === 0) {
+			renderEmptyState(container, "アクセシビリティ");
+			return;
+		}
+
+		// 0. Explanation Section
+		const explanationSection = document.createElement("section");
+		explanationSection.className = "dads-a11y-explanation";
+
+		const explanationHeading = document.createElement("h2");
+		explanationHeading.textContent = "この機能について";
+		explanationHeading.className = "dads-a11y-explanation__heading";
+		explanationSection.appendChild(explanationHeading);
+
+		const explanationContent = document.createElement("div");
+		explanationContent.className = "dads-a11y-explanation__content";
+		explanationContent.innerHTML = `
+			<p>
+				この画面では、多様な色覚特性を持つユーザーが、あなたのカラーパレットをどのように知覚するかをシミュレーションし、
+				<strong>隣接する色が識別困難になっていないか</strong>を確認できます。
+			</p>
+
+			<h3>確認すべきポイント</h3>
+			<ul>
+				<li><strong>キーカラー間の識別性:</strong> 生成された各パレット（Primary, Secondaryなど）のキーカラー同士が、色覚特性によって混同されないか確認します。</li>
+				<li><strong>階調の識別性:</strong> 各パレット内の隣接するステップ（例: 500と600）が、十分なコントラストを持って区別できるか確認します。</li>
+			</ul>
+
+			<h3>判定ロジックと計算方法</h3>
+			<ul>
+				<li><strong>シミュレーション手法:</strong> Brettel (1997) および Viénot (1999) のアルゴリズムを使用し、P型（1型）、D型（2型）、T型（3型）、全色盲の知覚を再現しています。</li>
+				<li><strong>色差計算 (DeltaE):</strong> OKLCH色空間におけるユークリッド距離を用いて、色の知覚的な差を計算しています。</li>
+				<li><strong>警告基準:</strong> シミュレーション後の色差（DeltaE）が <strong>3.0未満</strong> の場合、隣接する色が識別困難であると判断し、<span class="dads-cvd-conflict-icon" style="display:inline-flex; position:static; transform:none; width:16px; height:16px; font-size:10px; margin:0 4px;">!</span>アイコンで警告を表示します。</li>
+			</ul>
+		`;
+		explanationSection.appendChild(explanationContent);
+		container.appendChild(explanationSection);
+
+		// 1. Key Colors Check Section
+		const keyColorsSection = document.createElement("section");
+		const keyColorsHeading = document.createElement("h2");
+		keyColorsHeading.textContent =
+			"キーカラーの識別性確認 (Key Colors Harmony Check)";
+		keyColorsHeading.className = "dads-section__heading";
+		keyColorsSection.appendChild(keyColorsHeading);
+
+		const keyColorsDesc = document.createElement("p");
+		keyColorsDesc.textContent =
+			"生成された各パレットのキーカラー同士が、多様な色覚特性において区別できるかを確認します。";
+		keyColorsDesc.className = "dads-section__description";
+		keyColorsSection.appendChild(keyColorsDesc);
+
+		// Gather key colors
+		const keyColorsMap: Record<string, Color> = {};
+		state.palettes.forEach((p) => {
+			const keyColorInput = p.keyColors[0];
+			if (keyColorInput) {
+				const { color: hex } = parseKeyColor(keyColorInput);
+				keyColorsMap[p.name] = new Color(hex);
 			}
 		});
-	}
 
-	// Init
+		// Render Key Colors Analysis
+		renderDistinguishabilityAnalysis(keyColorsSection, keyColorsMap);
+		container.appendChild(keyColorsSection);
+
+		// 2. Per-Palette Step Check Section
+		const palettesSection = document.createElement("section");
+		const palettesHeading = document.createElement("h2");
+		palettesHeading.textContent =
+			"パレット階調の識別性確認 (Palette Steps Check)";
+		palettesHeading.className = "dads-section__heading";
+		palettesSection.appendChild(palettesHeading);
+
+		const palettesDesc = document.createElement("p");
+		palettesDesc.textContent =
+			"各パレット内の隣接する階調（シェード）が、多様な色覚特性において区別できるかを確認します。";
+		palettesDesc.className = "dads-section__description";
+		palettesSection.appendChild(palettesDesc);
+
+		state.palettes.forEach((p) => {
+			const pContainer = document.createElement("div");
+			pContainer.className = "dads-a11y-palette-card";
+
+			const pTitle = document.createElement("h3");
+			pTitle.textContent = p.name;
+			pTitle.className = "dads-a11y-palette-card__title";
+			pContainer.appendChild(pTitle);
+
+			// Generate scale
+			const keyColorInput = p.keyColors[0];
+			if (!keyColorInput) return;
+			const { color: hex } = parseKeyColor(keyColorInput);
+			const keyColor = new Color(hex);
+
+			const baseRatios = getContrastRatios(state.contrastIntensity);
+			const bgColor = new Color("#ffffff");
+			const keyContrastRatio = keyColor.contrast(bgColor);
+
+			let keyColorIndex = -1;
+			let minDiff = Infinity;
+			for (let i = 0; i < baseRatios.length; i++) {
+				const diff = Math.abs((baseRatios[i] ?? 0) - keyContrastRatio);
+				if (diff < minDiff) {
+					minDiff = diff;
+					keyColorIndex = i;
+				}
+			}
+			if (keyColorIndex >= 0) {
+				baseRatios[keyColorIndex] = keyContrastRatio;
+			}
+
+			const colors: Color[] = baseRatios.map((ratio, i) => {
+				if (i === keyColorIndex) return keyColor;
+				const solved = findColorForContrast(keyColor, bgColor, ratio);
+				return solved || keyColor;
+			});
+			colors.reverse();
+
+			const shadesList: { name: string; color: Color }[] = [];
+			colors.forEach((c, i) => {
+				shadesList.push({ name: `${STEP_NAMES[i]}`, color: c });
+			});
+
+			// Render analysis for this palette
+			// We use a special mode for adjacent shades
+			renderAdjacentShadesAnalysis(pContainer, shadesList);
+			palettesSection.appendChild(pContainer);
+		});
+
+		container.appendChild(palettesSection);
+	};
+
+	const renderDistinguishabilityAnalysis = (
+		container: HTMLElement,
+		colorsInput: Record<string, Color> | { name: string; color: Color }[],
+	) => {
+		const cvdTypes = getAllCVDTypes();
+
+		let colorEntries: [string, Color][];
+		if (Array.isArray(colorsInput)) {
+			colorEntries = colorsInput.map((item) => [item.name, item.color]);
+		} else {
+			colorEntries = Object.entries(colorsInput);
+		}
+
+		// 1. Normal View
+		const normalRow = document.createElement("div");
+		normalRow.className = "dads-cvd-row";
+
+		const normalLabel = document.createElement("div");
+		normalLabel.textContent = "一般色覚 (Normal Vision)";
+		normalLabel.className = "dads-cvd-row__label";
+		normalRow.appendChild(normalLabel);
+
+		const normalStrip = document.createElement("div");
+		normalStrip.className = "dads-cvd-strip";
+
+		colorEntries.forEach(([name, color]) => {
+			const swatch = document.createElement("div");
+			swatch.className = "dads-cvd-strip__swatch";
+			swatch.style.backgroundColor = color.toCss();
+			swatch.title = `${name} (${color.toHex()})`;
+			swatch.style.color =
+				color.contrast(new Color("white")) > 4.5 ? "white" : "black";
+			swatch.textContent = name;
+			normalStrip.appendChild(swatch);
+		});
+		normalRow.appendChild(normalStrip);
+		container.appendChild(normalRow);
+
+		// 2. Simulations
+		const simContainer = document.createElement("div");
+		simContainer.className = "dads-cvd-simulations";
+
+		cvdTypes.forEach((type: CVDType) => {
+			const row = document.createElement("div");
+
+			const label = document.createElement("div");
+			label.textContent = getCVDTypeName(type);
+			label.className = "dads-cvd-row__label";
+			row.appendChild(label);
+
+			const stripContainer = document.createElement("div");
+			stripContainer.className = "dads-cvd-strip-container";
+
+			const strip = document.createElement("div");
+			strip.className = "dads-cvd-strip";
+
+			// Calculate conflicts first
+			const simulatedColors = colorEntries.map(([name, color]) => ({
+				name,
+				color: simulateCVD(color, type),
+			}));
+
+			// Check adjacent pairs in the list
+			const conflicts: number[] = []; // Indices of left side of conflict pair
+			for (let i = 0; i < simulatedColors.length - 1; i++) {
+				const item1 = simulatedColors[i];
+				const item2 = simulatedColors[i + 1];
+				if (!item1 || !item2) continue;
+				const c1 = item1.color;
+				const c2 = item2.color;
+				// Use a stricter threshold for "warning" visualization
+				// DeltaE < 3.0 is usually considered hard to distinguish
+				// DeltaE < 5.0 might be a warning
+				const result = checkAdjacentShadesDistinguishability(
+					[
+						{ name: "1", color: c1 },
+						{ name: "2", color: c2 },
+					],
+					{ visionTypes: [type], threshold: 3.0 },
+				);
+				if (result.problematicPairs.length > 0) {
+					conflicts.push(i);
+				}
+			}
+
+			simulatedColors.forEach((item) => {
+				const swatch = document.createElement("div");
+				swatch.className = "dads-cvd-strip__swatch";
+				swatch.style.backgroundColor = item.color.toCss();
+				swatch.title = `${item.name} (Simulated)`;
+				strip.appendChild(swatch);
+			});
+			stripContainer.appendChild(strip);
+
+			// Draw conflict lines
+			if (conflicts.length > 0) {
+				const overlay = document.createElement("div");
+				overlay.className = "dads-cvd-overlay";
+
+				const segmentWidth = 100 / simulatedColors.length;
+
+				conflicts.forEach((index) => {
+					const leftPos = (index + 1) * segmentWidth;
+
+					const line = document.createElement("div");
+					line.className = "dads-cvd-conflict-line";
+					line.style.left = `calc(${leftPos}% - 1px)`;
+					overlay.appendChild(line);
+
+					const icon = document.createElement("div");
+					icon.className = "dads-cvd-conflict-icon";
+					icon.textContent = "!";
+					icon.style.left = `calc(${leftPos}% - 10px)`;
+					overlay.appendChild(icon);
+				});
+
+				stripContainer.appendChild(overlay);
+			}
+
+			row.appendChild(stripContainer);
+			simContainer.appendChild(row);
+		});
+		container.appendChild(simContainer);
+	};
+
+	const renderAdjacentShadesAnalysis = (
+		container: HTMLElement,
+		colorsInput: Record<string, Color> | { name: string; color: Color }[],
+	) => {
+		// Similar to above but optimized for shades (gradient)
+		// We want to show the gradient strip and mark where steps are too close
+		renderDistinguishabilityAnalysis(container, colorsInput);
+	};
+
+	// Initial Render
 	renderSidebar();
 	updateEditor();
 	renderMain();
-
-	// Trigger initial recommendation if there's a default value
-	if (keyColorsInput.value) {
-		keyColorsInput.dispatchEvent(new Event("input"));
-	}
 };
+// End of runDemo

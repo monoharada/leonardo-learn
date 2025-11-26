@@ -1,0 +1,18 @@
+/* ============================================
+ * アプリ固有コンポーネント
+ *
+ * DADS公式に相当するコンポーネントがないもの
+ * Phase 5で components.css から分離予定
+ * ============================================ */
+
+/*
+ * 将来的に以下のコンポーネントをここに移動:
+ * - .app-layout (旧 .dads-layout)
+ * - .app-sidebar (旧 .dads-sidebar)
+ * - .app-color-scale (旧 .dads-scale)
+ * - .app-swatch (旧 .dads-swatch)
+ * - .app-mini-scale (旧 .dads-mini-scale)
+ * - .app-scrubber (旧 .dads-scrubber)
+ * - .app-cvd-* (旧 .dads-cvd-*)
+ * - .app-contrast-card (旧 .dads-contrast-card)
+ */

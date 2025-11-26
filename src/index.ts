@@ -4,10 +4,14 @@
  * @packageDocumentation
  */
 
-export * from "./core";
-export * from "./utils";
-export * from "./accessibility/wcag2";
 export * from "./accessibility/apca";
+export * from "./accessibility/cvd-simulator";
+export * from "./accessibility/distinguishability";
+export * from "./accessibility/wcag2";
+export * from "./core";
+// UI Components
+export { runColorSystemDemo } from "./ui/color-system-demo";
+export * from "./utils";
 
 // バージョン情報
 export const VERSION = "0.1.0";
@@ -15,8 +19,8 @@ export const VERSION = "0.1.0";
 console.log(`leonardo-learn v${VERSION} - OKLCH Color Palette Generator`);
 
 // Run demo if in browser environment
-if (typeof document !== 'undefined') {
-    import('./ui/demo').then(({ runDemo }) => {
-        runDemo();
-    });
+if (typeof document !== "undefined") {
+	import("./ui/demo").then(({ runDemo }) => {
+		runDemo();
+	});
 }
