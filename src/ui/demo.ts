@@ -398,6 +398,13 @@ export const runDemo = () => {
 		announceViewChange(viewNames[mode]);
 
 		renderMain();
+
+		// ページトップにスクロール
+		const mainContent = document.getElementById("main-content");
+		if (mainContent) {
+			mainContent.scrollTop = 0;
+		}
+		window.scrollTo({ top: 0, behavior: "instant" });
 	};
 
 	// ナビゲーションボタンのイベント
