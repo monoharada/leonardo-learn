@@ -139,7 +139,7 @@ describe("ContrastMaintainer", () => {
 			const adjusted = maintainer.adjust(scale, { requirements });
 
 			// 調整後のスケールを再検証
-			const results = maintainer.verify(adjusted, { requirements });
+			const _results = maintainer.verify(adjusted, { requirements });
 
 			// 違反が解消されているか、警告として記録されている
 			expect(adjusted.tones.size).toBe(scale.tones.size);

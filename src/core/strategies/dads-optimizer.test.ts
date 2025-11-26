@@ -5,11 +5,7 @@
 import { describe, expect, it } from "bun:test";
 import { Color } from "../color";
 import type { RoleType } from "../system/role-config";
-import {
-	DADSOptimizer,
-	type DADSOptions,
-	type InteractiveStateColors,
-} from "./dads-optimizer";
+import { DADSOptimizer, type DADSOptions } from "./dads-optimizer";
 import type { ToneScale, ToneValue } from "./m3-generator";
 
 // テスト用のToneScaleを作成するヘルパー
@@ -185,7 +181,7 @@ describe("DADSOptimizer", () => {
 			const primaryScale = optimized.get("primary");
 
 			if (primaryScale) {
-				for (const [tone, color] of primaryScale.tones) {
+				for (const [_tone, color] of primaryScale.tones) {
 					// Hueは維持
 					expect(color.oklch.h).toBe(hue);
 					// Chromaは同じか、クランプによる調整のみ

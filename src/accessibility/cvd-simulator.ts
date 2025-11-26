@@ -116,12 +116,15 @@ const TRITANOPIA_MATRIX = [
  * 行列をLinear RGBに適用
  */
 function applyMatrix(rgb: LinearRGB, matrix: number[][]): LinearRGB {
+	const row0 = matrix[0] ?? [0, 0, 0];
+	const row1 = matrix[1] ?? [0, 0, 0];
+	const row2 = matrix[2] ?? [0, 0, 0];
 	const r =
-		matrix[0]![0]! * rgb.r + matrix[0]![1]! * rgb.g + matrix[0]![2]! * rgb.b;
+		(row0[0] ?? 0) * rgb.r + (row0[1] ?? 0) * rgb.g + (row0[2] ?? 0) * rgb.b;
 	const g =
-		matrix[1]![0]! * rgb.r + matrix[1]![1]! * rgb.g + matrix[1]![2]! * rgb.b;
+		(row1[0] ?? 0) * rgb.r + (row1[1] ?? 0) * rgb.g + (row1[2] ?? 0) * rgb.b;
 	const b =
-		matrix[2]![0]! * rgb.r + matrix[2]![1]! * rgb.g + matrix[2]![2]! * rgb.b;
+		(row2[0] ?? 0) * rgb.r + (row2[1] ?? 0) * rgb.g + (row2[2] ?? 0) * rgb.b;
 	return { r, g, b };
 }
 
@@ -223,7 +226,7 @@ function hexToRgb(hex: string): RGB {
 function rgbToHex(rgb: RGB): string {
 	const toHex = (n: number) => {
 		const hex = Math.max(0, Math.min(255, Math.round(n))).toString(16);
-		return hex.length === 1 ? "0" + hex : hex;
+		return hex.length === 1 ? `0${hex}` : hex;
 	};
 	return `#${toHex(rgb.r)}${toHex(rgb.g)}${toHex(rgb.b)}`;
 }

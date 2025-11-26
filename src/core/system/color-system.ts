@@ -6,17 +6,16 @@
  */
 
 import { Color } from "../color";
+import { exportToCSS } from "../export/css-exporter";
+import { exportToDTCG } from "../export/dtcg-exporter";
 import { exportToJSON } from "../export/json-exporter";
+import { exportToTailwind } from "../export/tailwind-exporter";
 import {
 	generateM3ToneScale,
 	type ToneValue,
 } from "../strategies/m3-generator";
 import { generateNeutralScale } from "./neutral-scale";
-import {
-	DEFAULT_ROLE_CONFIGS,
-	type RoleConfig,
-	type RoleType,
-} from "./role-config";
+import { DEFAULT_ROLE_CONFIGS, type RoleType } from "./role-config";
 
 /**
  * 生成モード
@@ -31,8 +30,6 @@ export interface GenerationOptions {
 	mode?: GenerationMode;
 	/** 生成するロール */
 	roles?: RoleType[];
-	/** カスタムロール設定 */
-	customRoleConfigs?: Partial<Record<RoleType, Partial<RoleConfig>>>;
 }
 
 /**
@@ -90,7 +87,8 @@ export class ColorSystem {
 	private getCacheKey(sourceColor: string, options: GenerationOptions): string {
 		const mode = options.mode ?? "default";
 		const roles = options.roles ?? ["primary", "neutral"];
-		return `${sourceColor}-${mode}-${roles.sort().join(",")}`;
+		// Clone before sorting to avoid mutating the original array
+		return `${sourceColor}-${mode}-${[...roles].sort().join(",")}`;
 	}
 
 	/**
@@ -304,11 +302,18 @@ export class ColorSystem {
 				const exported = exportToJSON(colors);
 				return JSON.stringify(exported, null, 2);
 			}
-			case "css":
-			case "dtcg":
-			case "tailwind":
-				// TODO: 他のフォーマットは後続タスクで実装
-				throw new Error(`Export format '${format}' not yet implemented`);
+			case "css": {
+				const exported = exportToCSS(colors);
+				return exported.css;
+			}
+			case "dtcg": {
+				const exported = exportToDTCG(colors);
+				return exported.json;
+			}
+			case "tailwind": {
+				const exported = exportToTailwind(colors);
+				return exported.config;
+			}
 			default:
 				throw new Error(`Unknown export format: ${format}`);
 		}

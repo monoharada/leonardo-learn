@@ -258,7 +258,7 @@ describe("CollisionDetector", () => {
 			const results = detector.detect(colors, options);
 
 			// CVD検証が実行されることを確認
-			const cvdCollision = results.find((r) => r.type === "cvd");
+			const _cvdCollision = results.find((r) => r.type === "cvd");
 			// CVDシミュレーション結果によっては検出される可能性がある
 			expect(results).toBeDefined();
 		});

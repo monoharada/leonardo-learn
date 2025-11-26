@@ -864,7 +864,7 @@ describe("Distinguishability", () => {
 
 				if (
 					improvements.length > 0 &&
-					improvements[0]!.suggestions.length > 0
+					improvements[0]?.suggestions.length > 0
 				) {
 					expect(report).toContain("Suggestions:");
 					expect(report).toContain("Expected ΔE:");
