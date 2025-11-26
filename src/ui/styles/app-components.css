@@ -16,3 +16,23 @@
  * - .app-cvd-* (旧 .dads-cvd-*)
  * - .app-contrast-card (旧 .dads-contrast-card)
  */
+
+/* ============================================
+ * Content Controls
+ * コンテンツエリア上部のコントロール
+ * ============================================ */
+
+.dads-content-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md, 1rem);
+  padding: var(--space-md, 1rem) 0;
+  margin-bottom: var(--space-md, 1rem);
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
+}
+
+.dads-content-controls__label {
+  font-size: var(--font-size-sm, 0.875rem);
+  font-weight: var(--font-weight-medium, 500);
+  color: var(--color-text-secondary, #6b7280);
+}

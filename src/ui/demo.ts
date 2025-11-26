@@ -244,20 +244,6 @@ export const runDemo = () => {
 				};
 			});
 		}
-
-		// Contrast Intensity
-		const contrastBtns = document.querySelectorAll(
-			"#contrastIntensityButtons button",
-		);
-		contrastBtns.forEach((btn) => {
-			const val = (btn as HTMLElement).dataset.value as ContrastIntensity;
-			setButtonActive(btn as HTMLElement, val === state.contrastIntensity);
-			(btn as HTMLElement).onclick = () => {
-				state.contrastIntensity = val;
-				updateEditor();
-				renderMain();
-			};
-		});
 	};
 
 	// Generate System Palette Logic
@@ -348,7 +334,6 @@ export const runDemo = () => {
 	}
 
 	// View Switcher Logic
-	const contrastControls = document.getElementById("header-contrast-controls");
 	const cvdControls = document.getElementById("cvd-controls");
 	const navButtons = [
 		viewHarmonyBtn,
@@ -399,9 +384,6 @@ export const runDemo = () => {
 		}
 
 		// コントロールの表示切替
-		if (contrastControls) {
-			contrastControls.style.display = mode === "shades" ? "flex" : "none";
-		}
 		if (cvdControls) {
 			cvdControls.style.display =
 				mode === "accessibility" || mode === "harmony" ? "none" : "flex";
@@ -1545,6 +1527,45 @@ export const runDemo = () => {
 			renderEmptyState(container, "シェード");
 			return;
 		}
+
+		// コントラストコントロールをコンテンツ上部に配置
+		const contrastControlsSection = document.createElement("div");
+		contrastControlsSection.className = "dads-content-controls";
+
+		const contrastLabel = document.createElement("label");
+		contrastLabel.className = "dads-content-controls__label";
+		contrastLabel.textContent = "コントラスト:";
+		contrastControlsSection.appendChild(contrastLabel);
+
+		const buttonGroup = document.createElement("div");
+		buttonGroup.className = "dads-button-group";
+
+		const contrastOptions: { value: ContrastIntensity; label: string }[] = [
+			{ value: "subtle", label: "Subtle" },
+			{ value: "moderate", label: "Moderate" },
+			{ value: "strong", label: "Strong" },
+			{ value: "vivid", label: "Vivid" },
+		];
+
+		contrastOptions.forEach((option) => {
+			const btn = document.createElement("button");
+			btn.type = "button";
+			btn.className = "dads-button";
+			btn.dataset.size = "sm";
+			btn.dataset.value = option.value;
+			btn.textContent = option.label;
+			setButtonActive(btn, option.value === state.contrastIntensity);
+
+			btn.onclick = () => {
+				state.contrastIntensity = option.value;
+				renderMain();
+			};
+
+			buttonGroup.appendChild(btn);
+		});
+
+		contrastControlsSection.appendChild(buttonGroup);
+		container.appendChild(contrastControlsSection);
 
 		palettesToRender.forEach((p) => {
 			const section = document.createElement("section");
