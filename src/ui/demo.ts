@@ -382,13 +382,6 @@ export const runDemo = () => {
 			setButtonActive(activeBtn, true);
 		}
 
-		// エクスポートボタンの表示切替（パレット生成済みなら常に表示）
-		const exportControls = document.getElementById("export-controls");
-		if (exportControls) {
-			const hasGenerated = state.palettes.length > 0;
-			exportControls.style.display = hasGenerated ? "flex" : "none";
-		}
-
 		// ビュー名の通知
 		const viewNames: Record<ViewMode, string> = {
 			harmony: "ハーモニー",
