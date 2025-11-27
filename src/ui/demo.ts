@@ -19,7 +19,7 @@ import {
 	generateSystemPalette,
 	HarmonyType,
 } from "../core/harmony";
-import { findColorForContrast } from "../core/solver";
+import { findColorForContrast, isWarmYellowHue } from "../core/solver";
 import {
 	type ContrastIntensity,
 	getContrastRatios,
@@ -473,8 +473,14 @@ export const runDemo = () => {
 				baseRatios[keyColorIndex] = keyContrastRatio;
 			}
 
+			// 黄色系かどうかを判定
+			const keyHue = keyColor.oklch.h ?? 0;
+			const isYellowish = isWarmYellowHue(keyHue);
+
 			const scaleColors: Color[] = baseRatios.map((ratio, i) => {
-				if (i === keyColorIndex) return keyColor;
+				// 黄色系以外はキーカラーをそのまま使用
+				if (i === keyColorIndex && !isYellowish) return keyColor;
+				// 黄色系はキーカラーも含めて全て変換（UIと一致させる）
 				const solved = findColorForContrast(keyColor, bgColor, ratio);
 				return solved || keyColor;
 			});
@@ -1092,8 +1098,14 @@ export const runDemo = () => {
 							baseRatios[keyColorIndex] = keyContrastRatio;
 						}
 
+						// 黄色系かどうかを判定
+						const baseHue = baseColor.oklch.h ?? 0;
+						const isYellowish = isWarmYellowHue(baseHue);
+
 						const newColors: Color[] = baseRatios.map((ratio, i) => {
-							if (i === keyColorIndex) return baseColor;
+							// 黄色系以外はキーカラーをそのまま使用
+							if (i === keyColorIndex && !isYellowish) return baseColor;
+							// 黄色系はキーカラーも含めて全て変換（最大彩度を使用）
 							const solved = findColorForContrast(baseColor, bgColor, ratio);
 							return solved || baseColor;
 						});
@@ -1804,8 +1816,14 @@ export const runDemo = () => {
 							baseRatios[keyColorIndex] = keyContrastRatio;
 						}
 
+						// 黄色系かどうかを判定
+						const baseHue = baseColor.oklch.h ?? 0;
+						const isYellowish = isWarmYellowHue(baseHue);
+
 						const newColors: Color[] = baseRatios.map((ratio, i) => {
-							if (i === keyColorIndex) return baseColor;
+							// 黄色系以外はキーカラーをそのまま使用
+							if (i === keyColorIndex && !isYellowish) return baseColor;
+							// 黄色系はキーカラーも含めて全て変換（最大彩度を使用）
 							const solved = findColorForContrast(baseColor, bgColor, ratio);
 							return solved || baseColor;
 						});
