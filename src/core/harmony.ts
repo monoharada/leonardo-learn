@@ -216,7 +216,7 @@ export const DADS_COLORS: DADSColorDefinition[] = [
 	{ name: "Link-Default", chromaName: "blue", step: 1000, category: "link" },
 	{ name: "Link-Visited", chromaName: "magenta", step: 900, category: "link" },
 	{ name: "Link-Active", chromaName: "orange", step: 800, category: "link" },
-	// Accent colors
+	// Accent colors (DADS仕様準拠)
 	{
 		name: "Accent-Purple",
 		chromaName: "purple",
@@ -224,8 +224,13 @@ export const DADS_COLORS: DADSColorDefinition[] = [
 		category: "accent",
 	},
 	{ name: "Accent-Blue", chromaName: "blue", step: 600, category: "accent" },
+	{
+		name: "Accent-Light Blue",
+		chromaName: "light blue",
+		step: 600,
+		category: "accent",
+	},
 	{ name: "Accent-Cyan", chromaName: "cyan", step: 600, category: "accent" },
-	{ name: "Accent-Teal", chromaName: "teal", step: 600, category: "accent" },
 	{ name: "Accent-Green", chromaName: "green", step: 800, category: "accent" },
 	{ name: "Accent-Lime", chromaName: "lime", step: 700, category: "accent" },
 	{
@@ -238,6 +243,12 @@ export const DADS_COLORS: DADSColorDefinition[] = [
 		name: "Accent-Orange",
 		chromaName: "orange",
 		step: 600,
+		category: "accent",
+	},
+	{
+		name: "Accent-Orange-Dark",
+		chromaName: "orange",
+		step: 1100,
 		category: "accent",
 	},
 ];
