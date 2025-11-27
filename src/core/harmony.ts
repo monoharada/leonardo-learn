@@ -5,6 +5,7 @@ import {
 } from "@material/material-color-utilities";
 import { BASE_CHROMAS, DADS_CHROMAS, snapToBaseChroma } from "./base-chroma";
 import { Color } from "./color";
+import { findColorForContrast } from "./solver";
 
 /**
  * 指定したHueで最大Chromaが得られるToneを見つける
@@ -372,7 +373,6 @@ export function generateHarmonyPalette(
 	harmonyType: HarmonyType = HarmonyType.COMPLEMENTARY,
 ): SystemPaletteColor[] {
 	const keyHex = keyColor.toHex();
-	const baseChroma = keyColor.oklch.c;
 
 	// Snap key color to nearest base chroma
 	const { chroma: primaryChroma } = snapToBaseChroma(keyColor);
@@ -510,18 +510,55 @@ export function generateHarmonyPalette(
 
 		case HarmonyType.DADS: {
 			// DADSモード: セマンティック・リンク・アクセントカラーを抽出
-			// stepに応じた明度で色を生成
+			// 各chromaNameごとにスケールを生成し、指定stepの色を取得
 
-			// stepからLightnessを計算するヘルパー
-			// 50=0.97, 600=0.55, 1200=0.15 を基準に線形補間
-			const stepToLightness = (step: number): number => {
-				// step範囲: 50-1200, Lightness範囲: 0.97-0.15
-				const minStep = 50;
-				const maxStep = 1200;
-				const maxL = 0.97; // step 50
-				const minL = 0.15; // step 1200
-				const t = (step - minStep) / (maxStep - minStep);
-				return maxL - t * (maxL - minL);
+			// STEP_NAMES順序: [1200, 1100, 1000, 900, 800, 700, 600, 500, 400, 300, 200, 100, 50]
+			const STEP_TO_INDEX: Record<number, number> = {
+				1200: 0,
+				1100: 1,
+				1000: 2,
+				900: 3,
+				800: 4,
+				700: 5,
+				600: 6,
+				500: 7,
+				400: 8,
+				300: 9,
+				200: 10,
+				100: 11,
+				50: 12,
+			};
+
+			// コントラスト比（moderateベース）
+			const baseRatios = [
+				21, 15, 10, 7, 4.5, 3, 2.2, 1.6, 1.3, 1.15, 1.07, 1.03, 1.01,
+			];
+			const bgColor = new Color("#ffffff");
+
+			// chromaNameごとにスケールをキャッシュ
+			const scaleCache = new Map<string, Color[]>();
+
+			const getScaleForChroma = (chromaName: string, hue: number): Color[] => {
+				if (scaleCache.has(chromaName)) {
+					return scaleCache.get(chromaName)!;
+				}
+
+				// キーカラー（step 600相当、中間明度）を生成
+				const keyColor = new Color({
+					mode: "oklch",
+					l: 0.55,
+					c: 0.15,
+					h: hue,
+				});
+
+				// スケール生成
+				const colors: Color[] = baseRatios.map((ratio) => {
+					const solved = findColorForContrast(keyColor, bgColor, ratio);
+					return solved || keyColor;
+				});
+
+				scaleCache.set(chromaName, colors);
+				return colors;
 			};
 
 			for (const dadsDef of DADS_COLORS) {
@@ -530,17 +567,16 @@ export function generateHarmonyPalette(
 				);
 				if (!chromaDef) continue;
 
-				// stepに応じた明度を計算
-				const lightness = stepToLightness(dadsDef.step);
+				// スケールを取得
+				const scale = getScaleForChroma(dadsDef.chromaName, chromaDef.hue);
+
+				// stepに対応するインデックスから色を取得
+				const stepIndex = STEP_TO_INDEX[dadsDef.step] ?? 6; // デフォルト600
+				const colorFromScale = scale[stepIndex] ?? scale[6]!;
 
 				palette.push({
 					name: dadsDef.name,
-					keyColor: new Color({
-						mode: "oklch",
-						l: lightness,
-						c: baseChroma,
-						h: chromaDef.hue,
-					}),
+					keyColor: colorFromScale!,
 					role: dadsDef.category === "semantic" ? "semantic" : "accent",
 					baseChromaName: chromaDef.displayName,
 					step: dadsDef.step,
