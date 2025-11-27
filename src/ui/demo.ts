@@ -1022,7 +1022,7 @@ export const runDemo = () => {
 
 				const keyColorInput = p.keyColors[0];
 				if (!keyColorInput) return;
-				const { color: hex } = parseKeyColor(keyColorInput);
+				const { color: hex, step: definedStep } = parseKeyColor(keyColorInput);
 				const keyColor = new Color(hex);
 
 				// Generate color scale for this palette
@@ -1505,7 +1505,8 @@ export const runDemo = () => {
 				info.className = "dads-card__body";
 
 				// Token name (e.g., "blue-800")
-				const step = STEP_NAMES[reversedKeyColorIndex] ?? 600;
+				// DADSの場合は定義されたステップを使用、それ以外はスケール位置から計算
+				const step = definedStep ?? STEP_NAMES[reversedKeyColorIndex] ?? 600;
 				const chromaNameLower = (p.baseChromaName || p.name || "color")
 					.toLowerCase()
 					.replace(/\s+/g, "-");
