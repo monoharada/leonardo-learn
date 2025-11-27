@@ -1,5 +1,170 @@
+import {
+	argbFromHex,
+	Hct,
+	hexFromArgb,
+} from "@material/material-color-utilities";
 import { BASE_CHROMAS, DADS_CHROMAS, snapToBaseChroma } from "./base-chroma";
 import { Color } from "./color";
+
+/**
+ * 指定したHueで最大Chromaが得られるToneを見つける
+ * 黄色系など、特定のToneでしか鮮やかさを出せない色相に対応
+ *
+ * @param hue - 色相（0-360）
+ * @returns 最大Chromaが得られるTone
+ */
+function findOptimalToneForHue(hue: number): {
+	tone: number;
+	maxChroma: number;
+} {
+	let bestTone = 50;
+	let bestChroma = 0;
+
+	// Tone 30-85 の範囲で最大Chromaを探す
+	for (let tone = 30; tone <= 85; tone += 5) {
+		const testHct = Hct.from(hue, 150, tone);
+		if (testHct.chroma > bestChroma) {
+			bestChroma = testHct.chroma;
+			bestTone = tone;
+		}
+	}
+
+	return { tone: bestTone, maxChroma: bestChroma };
+}
+
+/**
+ * 指定したHue/Toneでの最大Chromaを取得する
+ *
+ * @param hue - 色相（0-360）
+ * @param tone - トーン（0-100）
+ * @returns 最大Chroma値
+ */
+function getMaxChromaForHueTone(hue: number, tone: number): number {
+	const maxChromaHct = Hct.from(hue, 150, tone);
+	return maxChromaHct.chroma;
+}
+
+/**
+ * 黄色系（暖色系）の色相かどうかを判定
+ * 黄色系は暗いToneでは鮮やかに見えないため、特別な処理が必要
+ *
+ * @param hue - 色相（0-360）
+ * @returns 黄色系の場合true
+ */
+function isWarmYellowHue(hue: number): boolean {
+	// HCT色相で黄色〜オレンジ系（約60-120°）
+	return hue >= 60 && hue <= 120;
+}
+
+/**
+ * HCT色空間を使用して色相を回転させた色を生成
+ * 各色相で最も鮮やかに見えるようにToneとChromaを最適化
+ * 特に黄色系は高いToneを使用して鮮やかさを確保
+ *
+ * @param sourceHex - 元の色（HEX形式）
+ * @param hueShift - 色相シフト量（度）
+ * @returns 新しい色（Color）
+ */
+function rotateHueWithHCT(sourceHex: string, hueShift: number): Color {
+	const argb = argbFromHex(sourceHex);
+	const hct = Hct.fromInt(argb);
+
+	// 新しい色相を計算
+	let newHue = (hct.hue + hueShift) % 360;
+	if (newHue < 0) newHue += 360;
+
+	// 元の色相での最大Chromaを取得
+	const maxChromaAtOriginalHue = getMaxChromaForHueTone(hct.hue, hct.tone);
+
+	// 元の色の相対彩度を計算（0-1）
+	const relativeChroma =
+		maxChromaAtOriginalHue > 0 ? hct.chroma / maxChromaAtOriginalHue : 0;
+
+	// 新しい色相での最適なToneを取得
+	const newOptimal = findOptimalToneForHue(newHue);
+
+	// 黄色系の場合はより積極的にToneを上げる
+	let toneBlendFactor: number;
+	if (isWarmYellowHue(newHue)) {
+		// 黄色系: 最適Toneに強く寄せる（0.85-0.95）
+		toneBlendFactor = 0.85 + relativeChroma * 0.1;
+	} else {
+		// その他: 元のToneをある程度維持（0.5-0.7）
+		toneBlendFactor = 0.5 + relativeChroma * 0.2;
+	}
+
+	const newTone = hct.tone + (newOptimal.tone - hct.tone) * toneBlendFactor;
+
+	// 新しいToneでの最大Chromaを取得
+	const maxChromaAtNewTone = getMaxChromaForHueTone(newHue, newTone);
+
+	// 相対彩度を適用（黄色系は最大に近づける）
+	const chromaMultiplier = isWarmYellowHue(newHue)
+		? Math.min(relativeChroma * 1.2, 1.0)
+		: Math.min(relativeChroma * 1.1, 1.0);
+	const newChroma = maxChromaAtNewTone * chromaMultiplier;
+
+	// HCTで新しい色を生成
+	const newHct = Hct.from(newHue, newChroma, newTone);
+	const newHex = hexFromArgb(newHct.toInt());
+
+	return new Color(newHex);
+}
+
+/**
+ * HCT色空間を使用して指定されたHue値の色を生成
+ * 各色相で最も鮮やかに見えるようにToneとChromaを最適化
+ * 特に黄色系は高いToneを使用して鮮やかさを確保
+ *
+ * @param sourceHex - 元の色（HEX形式）
+ * @param targetHue - 目標色相（度）
+ * @returns 新しい色（Color）
+ */
+function createColorAtHueWithHCT(sourceHex: string, targetHue: number): Color {
+	const argb = argbFromHex(sourceHex);
+	const hct = Hct.fromInt(argb);
+
+	// 目標色相を正規化
+	let normalizedHue = targetHue % 360;
+	if (normalizedHue < 0) normalizedHue += 360;
+
+	// 元の色相での最大Chromaを取得
+	const maxChromaAtOriginalHue = getMaxChromaForHueTone(hct.hue, hct.tone);
+
+	// 元の色の相対彩度を計算（0-1）
+	const relativeChroma =
+		maxChromaAtOriginalHue > 0 ? hct.chroma / maxChromaAtOriginalHue : 0;
+
+	// 新しい色相での最適なToneを取得
+	const newOptimal = findOptimalToneForHue(normalizedHue);
+
+	// 黄色系の場合はより積極的にToneを上げる
+	let toneBlendFactor: number;
+	if (isWarmYellowHue(normalizedHue)) {
+		// 黄色系: 最適Toneに強く寄せる（0.85-0.95）
+		toneBlendFactor = 0.85 + relativeChroma * 0.1;
+	} else {
+		// その他: 元のToneをある程度維持（0.5-0.7）
+		toneBlendFactor = 0.5 + relativeChroma * 0.2;
+	}
+
+	const newTone = hct.tone + (newOptimal.tone - hct.tone) * toneBlendFactor;
+
+	// 新しいToneでの最大Chromaを取得
+	const maxChromaAtNewTone = getMaxChromaForHueTone(normalizedHue, newTone);
+
+	// 相対彩度を適用（黄色系は最大に近づける）
+	const chromaMultiplier = isWarmYellowHue(normalizedHue)
+		? Math.min(relativeChroma * 1.2, 1.0)
+		: Math.min(relativeChroma * 1.1, 1.0);
+	const newChroma = maxChromaAtNewTone * chromaMultiplier;
+
+	// HCTで新しい色を生成
+	const newHct = Hct.from(normalizedHue, newChroma, newTone);
+	const newHex = hexFromArgb(newHct.toInt());
+
+	return new Color(newHex);
+}
 
 export enum HarmonyType {
 	NONE = "none",
@@ -195,46 +360,36 @@ export interface SystemPaletteColor {
 /**
  * ハーモニーベースのシステムパレット生成
  * Paletteビューで使用：選択したハーモニータイプに基づいた色を生成
+ *
+ * HCT色空間を使用して、知覚的に均一な配色を生成します。
+ * これにより、色相を回転させても各色が同等の視覚的強さを持ちます。
  */
 export function generateHarmonyPalette(
 	keyColor: Color,
 	harmonyType: HarmonyType = HarmonyType.COMPLEMENTARY,
 ): SystemPaletteColor[] {
-	const baseLightness = keyColor.oklch.l;
-	const baseChroma = keyColor.oklch.c;
-	const baseHue = keyColor.oklch.h || 0;
+	const keyHex = keyColor.toHex();
 
 	// Snap key color to nearest base chroma
 	const { chroma: primaryChroma } = snapToBaseChroma(keyColor);
 
 	const palette: SystemPaletteColor[] = [];
 
-	// Helper: 色相から色を生成し、基本クロマにスナップ
-	const createColorAtHue = (
-		hue: number,
+	// Helper: HCT色空間を使用して色相を回転し、知覚的に均一な色を生成
+	const createColorWithHCT = (
+		hueShift: number,
 		roleName: string,
 		role: "primary" | "secondary" | "accent",
 	): SystemPaletteColor => {
-		let normalizedHue = hue % 360;
-		if (normalizedHue < 0) normalizedHue += 360;
+		// HCTで色相を回転（ChromaとToneは維持）
+		const newColor = rotateHueWithHCT(keyHex, hueShift);
 
-		const color = new Color({
-			mode: "oklch",
-			l: baseLightness,
-			c: baseChroma,
-			h: normalizedHue,
-		});
-
-		const { chroma: snappedChroma } = snapToBaseChroma(color);
+		// 基本クロマにスナップ
+		const { chroma: snappedChroma } = snapToBaseChroma(newColor);
 
 		return {
 			name: roleName,
-			keyColor: new Color({
-				mode: "oklch",
-				l: baseLightness,
-				c: baseChroma,
-				h: snappedChroma.hue,
-			}),
+			keyColor: newColor,
 			role,
 			baseChromaName: snappedChroma.displayName,
 		};
@@ -249,6 +404,7 @@ export function generateHarmonyPalette(
 	});
 
 	// ハーモニータイプに基づいて追加の色を生成
+	// HCT色空間を使用するため、色相シフト量のみを指定
 	switch (harmonyType) {
 		case HarmonyType.NONE:
 			// Primary のみ
@@ -256,65 +412,63 @@ export function generateHarmonyPalette(
 
 		case HarmonyType.COMPLEMENTARY:
 			// 補色（180度）
-			palette.push(createColorAtHue(baseHue + 180, "Secondary", "secondary"));
+			palette.push(createColorWithHCT(180, "Secondary", "secondary"));
 			break;
 
 		case HarmonyType.TRIADIC:
 			// 三角形（120度, 240度）
-			palette.push(createColorAtHue(baseHue + 120, "Secondary", "secondary"));
-			palette.push(createColorAtHue(baseHue + 240, "Accent", "accent"));
+			palette.push(createColorWithHCT(120, "Secondary", "secondary"));
+			palette.push(createColorWithHCT(240, "Accent", "accent"));
 			break;
 
 		case HarmonyType.ANALOGOUS:
 			// 類似色（+30度, -30度）
-			palette.push(createColorAtHue(baseHue + 30, "Secondary", "secondary"));
-			palette.push(createColorAtHue(baseHue - 30, "Accent", "accent"));
+			palette.push(createColorWithHCT(30, "Secondary", "secondary"));
+			palette.push(createColorWithHCT(-30, "Accent", "accent"));
 			break;
 
 		case HarmonyType.SPLIT_COMPLEMENTARY:
 			// 分裂補色（150度, 210度）
-			palette.push(createColorAtHue(baseHue + 150, "Secondary", "secondary"));
-			palette.push(createColorAtHue(baseHue + 210, "Accent", "accent"));
+			palette.push(createColorWithHCT(150, "Secondary", "secondary"));
+			palette.push(createColorWithHCT(210, "Accent", "accent"));
 			break;
 
 		case HarmonyType.TETRADIC:
 			// 長方形（60度, 180度, 240度）
-			palette.push(createColorAtHue(baseHue + 60, "Secondary", "secondary"));
-			palette.push(createColorAtHue(baseHue + 180, "Accent 1", "accent"));
-			palette.push(createColorAtHue(baseHue + 240, "Accent 2", "accent"));
+			palette.push(createColorWithHCT(60, "Secondary", "secondary"));
+			palette.push(createColorWithHCT(180, "Accent 1", "accent"));
+			palette.push(createColorWithHCT(240, "Accent 2", "accent"));
 			break;
 
 		case HarmonyType.SQUARE:
 			// 正方形（90度, 180度, 270度）
-			palette.push(createColorAtHue(baseHue + 90, "Secondary", "secondary"));
-			palette.push(createColorAtHue(baseHue + 180, "Accent 1", "accent"));
-			palette.push(createColorAtHue(baseHue + 270, "Accent 2", "accent"));
+			palette.push(createColorWithHCT(90, "Secondary", "secondary"));
+			palette.push(createColorWithHCT(180, "Accent 1", "accent"));
+			palette.push(createColorWithHCT(270, "Accent 2", "accent"));
 			break;
 
 		case HarmonyType.M3:
 			// M3モード: Primary, Secondary, Tertiary
-			palette.push(createColorAtHue(baseHue + 120, "Secondary", "secondary"));
-			palette.push(createColorAtHue(baseHue + 240, "Tertiary", "accent"));
+			palette.push(createColorWithHCT(120, "Secondary", "secondary"));
+			palette.push(createColorWithHCT(240, "Tertiary", "accent"));
 			break;
 
 		case HarmonyType.DADS:
 			// DADSモード: セマンティック・リンク・アクセントカラーを抽出
 			// Primaryは既に追加済みなので、DADS_COLORSから色を生成
-			// DADS_CHROMASを使用して正確なHue値を取得
+			// HCT色空間を使用して、各色相で知覚的に均一な色を生成
 			for (const dadsDef of DADS_COLORS) {
 				const chromaDef = DADS_CHROMAS.find(
 					(c) => c.name === dadsDef.chromaName,
 				);
 				if (!chromaDef) continue;
 
+				// HCTで指定されたHue値に色を生成
+				const newColor = createColorAtHueWithHCT(keyHex, chromaDef.hue);
+
 				palette.push({
 					name: dadsDef.name,
-					keyColor: new Color({
-						mode: "oklch",
-						l: baseLightness,
-						c: baseChroma,
-						h: chromaDef.hue,
-					}),
+					keyColor: newColor,
 					role: dadsDef.category === "semantic" ? "semantic" : "accent",
 					baseChromaName: chromaDef.displayName,
 					step: dadsDef.step,
