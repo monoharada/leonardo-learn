@@ -688,7 +688,13 @@ export function generateFullChromaPalette(
 		if (harmonyColor) {
 			// ハーモニーパレットのキーカラーを使用（一貫性のため）
 			color = harmonyColor.keyColor;
-			name = harmonyColor.name;
+			// semanticロールの場合、セマンティック名を使用（Error-1/2ではなくError）
+			// これによりShadesビューで統一された名前が表示される
+			if (harmonyColor.role === "semantic" && semanticName) {
+				name = semanticName;
+			} else {
+				name = harmonyColor.name;
+			}
 			role = harmonyColor.role;
 		} else if (isPrimary) {
 			// Primaryは元の入力色を保持
