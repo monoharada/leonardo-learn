@@ -473,8 +473,14 @@ export const runDemo = () => {
 				baseRatios[keyColorIndex] = keyContrastRatio;
 			}
 
+			// 黄色系かどうかを判定
+			const keyHue = keyColor.oklch.h ?? 0;
+			const isYellowish = isWarmYellowHue(keyHue);
+
 			const scaleColors: Color[] = baseRatios.map((ratio, i) => {
-				if (i === keyColorIndex) return keyColor;
+				// 黄色系以外はキーカラーをそのまま使用
+				if (i === keyColorIndex && !isYellowish) return keyColor;
+				// 黄色系はキーカラーも含めて全て変換（UIと一致させる）
 				const solved = findColorForContrast(keyColor, bgColor, ratio);
 				return solved || keyColor;
 			});

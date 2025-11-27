@@ -111,61 +111,6 @@ function rotateHueWithHCT(sourceHex: string, hueShift: number): Color {
 	return new Color(newHex);
 }
 
-/**
- * HCT色空間を使用して指定されたHue値の色を生成
- * 各色相で最も鮮やかに見えるようにToneとChromaを最適化
- * 特に黄色系は高いToneを使用して鮮やかさを確保
- *
- * @param sourceHex - 元の色（HEX形式）
- * @param targetHue - 目標色相（度）
- * @returns 新しい色（Color）
- */
-function createColorAtHueWithHCT(sourceHex: string, targetHue: number): Color {
-	const argb = argbFromHex(sourceHex);
-	const hct = Hct.fromInt(argb);
-
-	// 目標色相を正規化
-	let normalizedHue = targetHue % 360;
-	if (normalizedHue < 0) normalizedHue += 360;
-
-	// 元の色相での最大Chromaを取得
-	const maxChromaAtOriginalHue = getMaxChromaForHueTone(hct.hue, hct.tone);
-
-	// 元の色の相対彩度を計算（0-1）
-	const relativeChroma =
-		maxChromaAtOriginalHue > 0 ? hct.chroma / maxChromaAtOriginalHue : 0;
-
-	// 新しい色相での最適なToneを取得
-	const newOptimal = findOptimalToneForHue(normalizedHue);
-
-	// 黄色系の場合はより積極的にToneを上げる
-	let toneBlendFactor: number;
-	if (isWarmYellowHue(normalizedHue)) {
-		// 黄色系: 最適Toneに強く寄せる（0.85-0.95）
-		toneBlendFactor = 0.85 + relativeChroma * 0.1;
-	} else {
-		// その他: 元のToneをある程度維持（0.5-0.7）
-		toneBlendFactor = 0.5 + relativeChroma * 0.2;
-	}
-
-	const newTone = hct.tone + (newOptimal.tone - hct.tone) * toneBlendFactor;
-
-	// 新しいToneでの最大Chromaを取得
-	const maxChromaAtNewTone = getMaxChromaForHueTone(normalizedHue, newTone);
-
-	// 相対彩度を適用（黄色系は最大に近づける）
-	const chromaMultiplier = isWarmYellowHue(normalizedHue)
-		? Math.min(relativeChroma * 1.2, 1.0)
-		: Math.min(relativeChroma * 1.1, 1.0);
-	const newChroma = maxChromaAtNewTone * chromaMultiplier;
-
-	// HCTで新しい色を生成
-	const newHct = Hct.from(normalizedHue, newChroma, newTone);
-	const newHex = hexFromArgb(newHct.toInt());
-
-	return new Color(newHex);
-}
-
 export enum HarmonyType {
 	NONE = "none",
 	COMPLEMENTARY = "complementary",
@@ -369,6 +314,8 @@ export function generateHarmonyPalette(
 	harmonyType: HarmonyType = HarmonyType.COMPLEMENTARY,
 ): SystemPaletteColor[] {
 	const keyHex = keyColor.toHex();
+	const baseLightness = keyColor.oklch.l;
+	const baseChroma = keyColor.oklch.c;
 
 	// Snap key color to nearest base chroma
 	const { chroma: primaryChroma } = snapToBaseChroma(keyColor);
@@ -456,19 +403,22 @@ export function generateHarmonyPalette(
 		case HarmonyType.DADS:
 			// DADSモード: セマンティック・リンク・アクセントカラーを抽出
 			// Primaryは既に追加済みなので、DADS_COLORSから色を生成
-			// HCT色空間を使用して、各色相で知覚的に均一な色を生成
+			// DADS_CHROMASを使用して正確なHue値を取得
+			// ブランドカラーに影響されないよう、DADS固有のL/Cを使用
 			for (const dadsDef of DADS_COLORS) {
 				const chromaDef = DADS_CHROMAS.find(
 					(c) => c.name === dadsDef.chromaName,
 				);
 				if (!chromaDef) continue;
 
-				// HCTで指定されたHue値に色を生成
-				const newColor = createColorAtHueWithHCT(keyHex, chromaDef.hue);
-
 				palette.push({
 					name: dadsDef.name,
-					keyColor: newColor,
+					keyColor: new Color({
+						mode: "oklch",
+						l: baseLightness,
+						c: baseChroma,
+						h: chromaDef.hue,
+					}),
 					role: dadsDef.category === "semantic" ? "semantic" : "accent",
 					baseChromaName: chromaDef.displayName,
 					step: dadsDef.step,
