@@ -372,7 +372,6 @@ export function generateHarmonyPalette(
 	harmonyType: HarmonyType = HarmonyType.COMPLEMENTARY,
 ): SystemPaletteColor[] {
 	const keyHex = keyColor.toHex();
-	const baseLightness = keyColor.oklch.l;
 	const baseChroma = keyColor.oklch.c;
 
 	// Snap key color to nearest base chroma
@@ -509,22 +508,36 @@ export function generateHarmonyPalette(
 			break;
 		}
 
-		case HarmonyType.DADS:
+		case HarmonyType.DADS: {
 			// DADSモード: セマンティック・リンク・アクセントカラーを抽出
-			// Primaryは既に追加済みなので、DADS_COLORSから色を生成
-			// DADS_CHROMASを使用して正確なHue値を取得
-			// ブランドカラーに影響されないよう、DADS固有のL/Cを使用
+			// stepに応じた明度で色を生成
+
+			// stepからLightnessを計算するヘルパー
+			// 50=0.97, 600=0.55, 1200=0.15 を基準に線形補間
+			const stepToLightness = (step: number): number => {
+				// step範囲: 50-1200, Lightness範囲: 0.97-0.15
+				const minStep = 50;
+				const maxStep = 1200;
+				const maxL = 0.97; // step 50
+				const minL = 0.15; // step 1200
+				const t = (step - minStep) / (maxStep - minStep);
+				return maxL - t * (maxL - minL);
+			};
+
 			for (const dadsDef of DADS_COLORS) {
 				const chromaDef = DADS_CHROMAS.find(
 					(c) => c.name === dadsDef.chromaName,
 				);
 				if (!chromaDef) continue;
 
+				// stepに応じた明度を計算
+				const lightness = stepToLightness(dadsDef.step);
+
 				palette.push({
 					name: dadsDef.name,
 					keyColor: new Color({
 						mode: "oklch",
-						l: baseLightness,
+						l: lightness,
 						c: baseChroma,
 						h: chromaDef.hue,
 					}),
@@ -534,6 +547,7 @@ export function generateHarmonyPalette(
 				});
 			}
 			break;
+		}
 	}
 
 	// Neutral / Neutral Variant を追加
