@@ -738,6 +738,7 @@ export function generateFullChromaPalette(
 			keyColor: color,
 			role,
 			baseChromaName: chromaDef.displayName,
+			step: harmonyColor?.step, // DADSモード用: harmonyColorからstepを継承
 		});
 	}
 
