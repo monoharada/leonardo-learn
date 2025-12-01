@@ -23,11 +23,13 @@ import {
 } from "../core/harmony";
 import { findColorForContrast, isWarmYellowHue } from "../core/solver";
 import {
+	type CudCompatibilityMode,
 	createCudBadge,
+	createCudModeSelector,
 	createCudRangeGuide,
-	createCudSubModeToggle,
 	type PaletteColor,
 	showPaletteValidation,
+	snapToCudColor,
 } from "./cud-components";
 import {
 	type ContrastIntensity,
@@ -146,7 +148,7 @@ const state = {
 	viewMode: "harmony" as ViewMode, // 起点はハーモニー選択
 	cvdSimulation: "normal" as CVDSimulationType,
 	selectedHarmonyConfig: null as HarmonyTypeConfig | null, // 選択されたハーモニー設定
-	cudSubModeEnabled: false, // CUDサブモードの有効/無効
+	cudMode: "guide" as CudCompatibilityMode, // CUD対応モード: off/guide/strict
 };
 
 export const runDemo = () => {
@@ -822,21 +824,21 @@ export const runDemo = () => {
 		colorInput.appendChild(inputRow);
 		header.appendChild(colorInput);
 
-		// CUDサブモードトグル
-		const cudToggle = createCudSubModeToggle((enabled) => {
-			state.cudSubModeEnabled = enabled;
+		// CUDモードセレクター
+		const cudModeSelector = createCudModeSelector((mode) => {
+			state.cudMode = mode;
 			renderHarmonyView(container);
-		}, state.cudSubModeEnabled);
-		header.appendChild(cudToggle);
+		}, state.cudMode);
+		header.appendChild(cudModeSelector);
 
 		// 説明文
 		const description = document.createElement("div");
 		description.className = "dads-section__description";
 		description.innerHTML = `<p>ハーモニースタイルを選択してください。見出しをクリックすると、そのスタイルでパレットを生成します。</p>`;
 
-		// CUDサブモード有効時は範囲ガイドを表示
+		// CUDガイドモードまたはstrictモード時は範囲ガイドを表示
 		let cudGuide: HTMLElement | null = null;
-		if (state.cudSubModeEnabled) {
+		if (state.cudMode !== "off") {
 			cudGuide = createCudRangeGuide();
 		}
 
@@ -944,18 +946,32 @@ export const runDemo = () => {
 
 				const swatch = document.createElement("span");
 				swatch.className = "dads-harmony-row__swatch";
+
+				// strictモードの場合はCUD推奨色にスナップ
+				let displayHex = palette.keyColor.toHex();
+				if (state.cudMode === "strict") {
+					const snapResult = snapToCudColor(displayHex, { mode: "strict" });
+					displayHex = snapResult.hex;
+				}
+
 				// CVDシミュレーションを適用
 				const displayColor =
 					state.cvdSimulation === "normal"
-						? palette.keyColor
-						: simulateCVD(palette.keyColor, state.cvdSimulation as CVDType);
+						? new Color(displayHex)
+						: simulateCVD(
+								new Color(displayHex),
+								state.cvdSimulation as CVDType,
+							);
 				swatch.style.background = displayColor.toHex();
-				swatch.title = `${palette.name}: ${palette.keyColor.toHex()}`;
+				swatch.title =
+					state.cudMode === "strict"
+						? `${palette.name}: ${displayHex} (スナップ済み、元: ${palette.keyColor.toHex()})`
+						: `${palette.name}: ${palette.keyColor.toHex()}`;
 				swatchContainer.appendChild(swatch);
 
-				// CUDサブモード有効時はバッジを追加
-				if (state.cudSubModeEnabled) {
-					const badge = createCudBadge(palette.keyColor.toHex());
+				// CUDモードがoff以外の場合はバッジを追加
+				if (state.cudMode !== "off") {
+					const badge = createCudBadge(displayHex);
 					badge.style.marginTop = "4px";
 					swatchContainer.appendChild(badge);
 				}
@@ -1617,8 +1633,18 @@ export const runDemo = () => {
 
 				const swatch = document.createElement("div");
 				swatch.className = "dads-card__swatch";
+
+				// strictモードの場合はCUD推奨色にスナップ
+				let displayHex = keyColor.toHex();
+				let snapInfo: { snapped: boolean; originalHex: string } | null = null;
+				if (state.cudMode === "strict") {
+					const snapResult = snapToCudColor(displayHex, { mode: "strict" });
+					snapInfo = { snapped: snapResult.snapped, originalHex: displayHex };
+					displayHex = snapResult.hex;
+				}
+
 				// Apply CVD simulation to display color
-				const displayColor = applySimulation(keyColor);
+				const displayColor = applySimulation(new Color(displayHex));
 				swatch.style.backgroundColor = displayColor.toCss();
 
 				const info = document.createElement("div");
@@ -1637,15 +1663,25 @@ export const runDemo = () => {
 				tokenName.className = "dads-card__title";
 
 				const hexCode = document.createElement("code");
-				hexCode.textContent = keyColor.toHex();
+				hexCode.textContent = displayHex;
 				hexCode.className = "dads-text-mono";
 
 				info.appendChild(tokenName);
 				info.appendChild(hexCode);
 
-				// CUDサブモード有効時はバッジを追加
-				if (state.cudSubModeEnabled) {
-					const badge = createCudBadge(keyColor.toHex());
+				// strictモードでスナップされた場合は元の色を表示
+				if (snapInfo?.snapped) {
+					const originalHexCode = document.createElement("code");
+					originalHexCode.textContent = `(元: ${snapInfo.originalHex})`;
+					originalHexCode.className = "dads-text-mono";
+					originalHexCode.style.cssText =
+						"font-size: 10px; color: #666; display: block;";
+					info.appendChild(originalHexCode);
+				}
+
+				// CUDモードがoff以外の場合はバッジを追加
+				if (state.cudMode !== "off") {
+					const badge = createCudBadge(displayHex);
 					badge.style.marginTop = "4px";
 					info.appendChild(badge);
 				}
@@ -1667,22 +1703,32 @@ export const runDemo = () => {
 			container.appendChild(section);
 		});
 
-		// CUDサブモード有効時は検証パネルを表示
-		if (state.cudSubModeEnabled && state.palettes.length > 0) {
+		// CUDモードがoff以外の場合は検証パネルを表示
+		if (state.cudMode !== "off" && state.palettes.length > 0) {
 			const validationSection = document.createElement("section");
 			validationSection.className = "dads-section";
 			validationSection.style.marginTop = "24px";
 
 			const validationHeading = document.createElement("h2");
 			validationHeading.className = "dads-section__heading";
-			validationHeading.textContent = "CUD パレット検証";
+			validationHeading.textContent =
+				state.cudMode === "strict"
+					? "CUD パレット検証（CUD互換モード：スナップ適用済み）"
+					: "CUD パレット検証";
 			validationSection.appendChild(validationHeading);
 
 			// パレットの色をPaletteColor形式に変換
 			// ColorRoleは "accent" | "base" | "text" | "background" | "neutral" のみ
 			const paletteColors: PaletteColor[] = state.palettes.map((p) => {
 				const keyColorInput = p.keyColors[0];
-				const { color: hex } = parseKeyColor(keyColorInput || "#000000");
+				let { color: hex } = parseKeyColor(keyColorInput || "#000000");
+
+				// strictモードの場合はCUD推奨色にスナップ
+				if (state.cudMode === "strict") {
+					const snapResult = snapToCudColor(hex, { mode: "strict" });
+					hex = snapResult.hex;
+				}
+
 				const name = p.name.toLowerCase();
 				// セマンティック名をColorRoleにマッピング
 				const role: "accent" | "base" | "text" | "background" | "neutral" =
@@ -2681,28 +2727,40 @@ export const runDemo = () => {
 
 		container.appendChild(palettesSection);
 
-		// 3. CUDサブモード有効時はCUD検証セクションを追加
-		if (state.cudSubModeEnabled) {
+		// 3. CUDモードがoff以外の場合はCUD検証セクションを追加
+		if (state.cudMode !== "off") {
 			const cudSection = document.createElement("section");
 			cudSection.className = "dads-a11y-cud-section";
 			cudSection.style.marginTop = "32px";
 
 			const cudHeading = document.createElement("h2");
-			cudHeading.textContent = "CUD パレット検証 (CVD 混同リスク分析)";
+			cudHeading.textContent =
+				state.cudMode === "strict"
+					? "CUD パレット検証（CUD互換モード：スナップ適用済み）"
+					: "CUD パレット検証 (CVD 混同リスク分析)";
 			cudHeading.className = "dads-section__heading";
 			cudSection.appendChild(cudHeading);
 
 			const cudDesc = document.createElement("p");
 			cudDesc.className = "dads-section__description";
 			cudDesc.textContent =
-				"CUD推奨配色セットに基づいて、パレット内の色がCVD（色覚多様性）状態で混同されるリスクを検証します。";
+				state.cudMode === "strict"
+					? "CUD互換モードでは、すべての色がCUD推奨色20色にスナップされます。"
+					: "CUD推奨配色セットに基づいて、パレット内の色がCVD（色覚多様性）状態で混同されるリスクを検証します。";
 			cudSection.appendChild(cudDesc);
 
 			// パレットの色をPaletteColor形式に変換して検証
 			// ColorRoleは "accent" | "base" | "text" | "background" | "neutral" のみ
 			const paletteColors: PaletteColor[] = state.palettes.map((p) => {
 				const keyColorInput = p.keyColors[0];
-				const { color: hex } = parseKeyColor(keyColorInput || "#000000");
+				let { color: hex } = parseKeyColor(keyColorInput || "#000000");
+
+				// strictモードの場合はCUD推奨色にスナップ
+				if (state.cudMode === "strict") {
+					const snapResult = snapToCudColor(hex, { mode: "strict" });
+					hex = snapResult.hex;
+				}
+
 				const name = p.name.toLowerCase();
 				// セマンティック名をColorRoleにマッピング
 				const role: "accent" | "base" | "text" | "background" | "neutral" =

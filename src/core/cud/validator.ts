@@ -164,6 +164,10 @@ const isCoolHue = (cluster: HueCluster): boolean => {
 
 /**
  * CUDセット外チェック（タスク6.2）
+ * 段階的な警告レベル：
+ * - exact: 警告なし（CUD推奨色と同等）
+ * - near: info（参考情報 - CUD推奨色に近い）
+ * - moderate/off: warning（CUD推奨色から離れている）
  */
 const checkNotInCudSet = (palette: PaletteColor[]): ValidationIssue[] => {
 	const issues: ValidationIssue[] = [];
@@ -174,19 +178,43 @@ const checkNotInCudSet = (palette: PaletteColor[]): ValidationIssue[] => {
 
 		if (!exactMatch) {
 			const nearest = findNearestCudColor(hex);
-			if (nearest.matchLevel !== "exact") {
+			const { matchLevel, deltaE } = nearest;
+
+			// exact は警告なし
+			if (matchLevel === "exact") {
+				continue;
+			}
+
+			// near は info（参考情報）
+			if (matchLevel === "near") {
 				issues.push({
 					type: "not_in_cud_set",
-					severity: "warning",
-					message: `${hex} はCUD推奨色セットに含まれていません。最も近いCUD色は ${nearest.nearest.nameJa}（${nearest.nearest.hex}）です。`,
+					severity: "info",
+					message: `${hex} はCUD推奨色 ${nearest.nearest.nameJa}（${nearest.nearest.hex}）に近い色です（ΔE=${deltaE.toFixed(3)}）。`,
 					colors: [hex],
 					details: {
 						nearestId: nearest.nearest.id,
 						nearestHex: nearest.nearest.hex,
 						deltaE: nearest.deltaE,
+						matchLevel,
 					},
 				});
+				continue;
 			}
+
+			// moderate/off は warning
+			issues.push({
+				type: "not_in_cud_set",
+				severity: "warning",
+				message: `${hex} はCUD推奨色セットに含まれていません。最も近いCUD色は ${nearest.nearest.nameJa}（${nearest.nearest.hex}）です（ΔE=${deltaE.toFixed(3)}）。`,
+				colors: [hex],
+				details: {
+					nearestId: nearest.nearest.id,
+					nearestHex: nearest.nearest.hex,
+					deltaE: nearest.deltaE,
+					matchLevel,
+				},
+			});
 		}
 	}
 

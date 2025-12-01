@@ -11,6 +11,13 @@ import {
 	type MatchLevel,
 } from "../core/cud/service";
 import {
+	type SnapOptions,
+	type SnapResult,
+	snapPaletteToCud,
+	snapPaletteUnique,
+	snapToCudColor,
+} from "../core/cud/snapper";
+import {
 	type IssueSeverity,
 	type PaletteColor,
 	type ValidationIssue,
@@ -18,8 +25,10 @@ import {
 	validatePalette,
 } from "../core/cud/validator";
 
-// Re-export types for convenience
+// Re-export types and functions for convenience
 export type { PaletteColor, ValidationResult, ValidationIssue, IssueSeverity };
+export type { SnapOptions, SnapResult };
+export { snapToCudColor, snapPaletteToCud, snapPaletteUnique };
 
 /**
  * CUDバッジの設定
@@ -47,9 +56,15 @@ const BADGE_CONFIGS: Record<MatchLevel, CudBadgeConfig> = {
 	},
 	near: {
 		text: "≈CUD",
-		backgroundColor: "#FF9900", // CUD orange
+		backgroundColor: "#66CCFF", // CUD sky blue - info level
 		textColor: "#000000",
 		tooltip: "CUD推奨色に近い",
+	},
+	moderate: {
+		text: "~CUD",
+		backgroundColor: "#FF9900", // CUD orange - warning level
+		textColor: "#000000",
+		tooltip: "CUD推奨色からやや離れている",
 	},
 	off: {
 		text: "!CUD",
@@ -463,4 +478,115 @@ export const addCudBadgesToColors = (
 		badge: createCudBadge(hex),
 		matchInfo: getCudMatchInfo(hex),
 	}));
+};
+
+/**
+ * CUD互換モード設定
+ */
+export type CudCompatibilityMode = "off" | "guide" | "strict";
+
+/**
+ * CUD互換モードの説明
+ */
+const CUD_MODE_DESCRIPTIONS: Record<
+	CudCompatibilityMode,
+	{ label: string; description: string }
+> = {
+	off: {
+		label: "通常モード",
+		description: "CUD検証を行わない（最も自由度が高い）",
+	},
+	guide: {
+		label: "CUDガイドモード",
+		description: "CUD推奨色との距離を表示（参考情報として活用）",
+	},
+	strict: {
+		label: "CUD互換モード",
+		description: "すべての色をCUD推奨色20色にスナップ",
+	},
+};
+
+/**
+ * CUD互換モード切り替えセレクターを生成する
+ *
+ * @param onModeChange - モード変更時のコールバック
+ * @param initialMode - 初期モード
+ * @returns セレクター要素
+ */
+export const createCudModeSelector = (
+	onModeChange: (mode: CudCompatibilityMode) => void,
+	initialMode: CudCompatibilityMode = "guide",
+): HTMLElement => {
+	const container = document.createElement("div");
+	container.className = "cud-mode-selector";
+	container.style.cssText = `
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+		padding: 12px;
+		background: #f0f4f8;
+		border-radius: 8px;
+		margin-bottom: 12px;
+	`;
+
+	const label = document.createElement("label");
+	label.textContent = "CUD対応モード";
+	label.style.cssText = "font-weight: 600; font-size: 14px;";
+	container.appendChild(label);
+
+	const select = document.createElement("select");
+	select.style.cssText = `
+		padding: 8px 12px;
+		border: 1px solid #ccc;
+		border-radius: 6px;
+		font-size: 14px;
+		background: white;
+		cursor: pointer;
+	`;
+
+	for (const [value, { label }] of Object.entries(CUD_MODE_DESCRIPTIONS)) {
+		const option = document.createElement("option");
+		option.value = value;
+		option.textContent = label;
+		if (value === initialMode) {
+			option.selected = true;
+		}
+		select.appendChild(option);
+	}
+
+	const description = document.createElement("p");
+	description.style.cssText = "margin: 0; font-size: 12px; color: #666;";
+	description.textContent = CUD_MODE_DESCRIPTIONS[initialMode].description;
+
+	select.onchange = () => {
+		const mode = select.value as CudCompatibilityMode;
+		description.textContent = CUD_MODE_DESCRIPTIONS[mode].description;
+		onModeChange(mode);
+	};
+
+	container.appendChild(select);
+	container.appendChild(description);
+
+	return container;
+};
+
+/**
+ * CUD互換モードに基づいてパレットを処理する
+ *
+ * @param palette - 元のパレット（HEX配列）
+ * @param mode - CUD互換モード
+ * @returns 処理後のパレット（strict時はスナップ、それ以外は元のまま）
+ */
+export const processPaletteWithCudMode = (
+	palette: string[],
+	mode: CudCompatibilityMode,
+): { processed: string[]; snapResults?: SnapResult[] } => {
+	if (mode === "strict") {
+		const results = snapPaletteUnique(palette, { mode: "strict" });
+		return {
+			processed: results.map((r) => r.hex),
+			snapResults: results,
+		};
+	}
+	return { processed: palette };
 };

@@ -17,11 +17,12 @@ import {
 
 /**
  * マッチレベル
- * - exact: 完全一致または非常に近い（deltaE <= 0.03）
- * - near: 近い（0.03 < deltaE <= 0.06）
- * - off: 離れている（deltaE > 0.06）
+ * - exact: 完全一致または非常に近い（deltaE ≤ 0.03）- CUD推奨色として扱う
+ * - near: 近い色（0.03 < deltaE ≤ 0.10）- 参考情報レベル
+ * - moderate: やや離れている（0.10 < deltaE ≤ 0.20）- 警告レベル
+ * - off: 離れている（deltaE > 0.20）- 警告レベル（強調）
  */
-export type MatchLevel = "exact" | "near" | "off";
+export type MatchLevel = "exact" | "near" | "moderate" | "off";
 
 /**
  * CUD色検索結果
@@ -37,10 +38,15 @@ export interface CudSearchResult {
 
 /**
  * deltaEの閾値
+ * - exact: 完全一致相当（≤ 0.03）
+ * - near: 近い色（0.03 < x ≤ 0.10）- 参考情報として表示
+ * - moderate: やや離れている（0.10 < x ≤ 0.20）- 警告として表示
+ * - off: 離れている（> 0.20）- 警告として表示（強調）
  */
 const DELTA_E_THRESHOLDS = {
 	exact: 0.03,
-	near: 0.06,
+	near: 0.1,
+	moderate: 0.2,
 } as const;
 
 /**
@@ -135,6 +141,8 @@ export const findNearestCudColor = (hex: string): CudSearchResult => {
 		matchLevel = "exact";
 	} else if (minDeltaE <= DELTA_E_THRESHOLDS.near) {
 		matchLevel = "near";
+	} else if (minDeltaE <= DELTA_E_THRESHOLDS.moderate) {
+		matchLevel = "moderate";
 	} else {
 		matchLevel = "off";
 	}
