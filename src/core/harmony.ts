@@ -5,6 +5,7 @@ import {
 } from "@material/material-color-utilities";
 import { BASE_CHROMAS, DADS_CHROMAS, snapToBaseChroma } from "./base-chroma";
 import { Color } from "./color";
+import { findColorForContrast } from "./solver";
 
 /**
  * 指定したHueで最大Chromaが得られるToneを見つける
@@ -42,6 +43,53 @@ function findOptimalToneForHue(hue: number): {
 function getMaxChromaForHueTone(hue: number, tone: number): number {
 	const maxChromaHct = Hct.from(hue, 150, tone);
 	return maxChromaHct.chroma;
+}
+
+/**
+ * Hue値の差を計算（円周上の最短距離）
+ *
+ * @param hue1 - 色相1（0-360）
+ * @param hue2 - 色相2（0-360）
+ * @returns 色相の差（0-180）
+ */
+function hueDistance(hue1: number, hue2: number): number {
+	const diff = Math.abs(hue1 - hue2);
+	return Math.min(diff, 360 - diff);
+}
+
+/**
+ * 最も近いハーモニー色を見つける
+ *
+ * @param targetHue - 対象の色相
+ * @param harmonyColors - ハーモニー色の情報リスト
+ * @returns 最も近いハーモニー色の情報（色相、距離）またはnull
+ */
+function findNearestHarmonyColor(
+	targetHue: number,
+	harmonyColors: Array<{ hue: number; lightness: number; chroma: number }>,
+): { hue: number; lightness: number; chroma: number; distance: number } | null {
+	if (harmonyColors.length === 0) return null;
+
+	const first = harmonyColors[0];
+	if (!first) return null;
+
+	let nearest = first;
+	let minDistance = hueDistance(targetHue, nearest.hue);
+
+	for (const hc of harmonyColors) {
+		const dist = hueDistance(targetHue, hc.hue);
+		if (dist < minDistance) {
+			minDistance = dist;
+			nearest = hc;
+		}
+	}
+
+	return {
+		hue: nearest.hue,
+		lightness: nearest.lightness,
+		chroma: nearest.chroma,
+		distance: minDistance,
+	};
 }
 
 /**
@@ -169,7 +217,7 @@ export const DADS_COLORS: DADSColorDefinition[] = [
 	{ name: "Link-Default", chromaName: "blue", step: 1000, category: "link" },
 	{ name: "Link-Visited", chromaName: "magenta", step: 900, category: "link" },
 	{ name: "Link-Active", chromaName: "orange", step: 800, category: "link" },
-	// Accent colors
+	// Accent colors (DADS仕様準拠)
 	{
 		name: "Accent-Purple",
 		chromaName: "purple",
@@ -177,8 +225,13 @@ export const DADS_COLORS: DADSColorDefinition[] = [
 		category: "accent",
 	},
 	{ name: "Accent-Blue", chromaName: "blue", step: 600, category: "accent" },
-	{ name: "Accent-Cyan", chromaName: "cyan", step: 600, category: "accent" },
-	{ name: "Accent-Teal", chromaName: "teal", step: 600, category: "accent" },
+	{
+		name: "Accent-Light Blue",
+		chromaName: "cyan", // DADS_CHROMAS: name="cyan", displayName="Light Blue"
+		step: 600,
+		category: "accent",
+	},
+	{ name: "Accent-Cyan", chromaName: "teal", step: 600, category: "accent" }, // DADS_CHROMAS: name="teal", displayName="Cyan"
 	{ name: "Accent-Green", chromaName: "green", step: 800, category: "accent" },
 	{ name: "Accent-Lime", chromaName: "lime", step: 700, category: "accent" },
 	{
@@ -191,6 +244,12 @@ export const DADS_COLORS: DADSColorDefinition[] = [
 		name: "Accent-Orange",
 		chromaName: "orange",
 		step: 600,
+		category: "accent",
+	},
+	{
+		name: "Accent-Orange-Dark",
+		chromaName: "orange",
+		step: 1100,
 		category: "accent",
 	},
 ];
@@ -314,8 +373,6 @@ export function generateHarmonyPalette(
 	harmonyType: HarmonyType = HarmonyType.COMPLEMENTARY,
 ): SystemPaletteColor[] {
 	const keyHex = keyColor.toHex();
-	const baseLightness = keyColor.oklch.l;
-	const baseChroma = keyColor.oklch.c;
 
 	// Snap key color to nearest base chroma
 	const { chroma: primaryChroma } = snapToBaseChroma(keyColor);
@@ -342,7 +399,40 @@ export function generateHarmonyPalette(
 		};
 	};
 
-	// Primary色を追加（元の入力色を保持）
+	// Helper: Material 3用 - Hue回転とChroma指定でTone 40のキーカラーを生成
+	const createM3KeyColor = (
+		hueShift: number,
+		targetChroma: number,
+		roleName: string,
+		role: "primary" | "secondary" | "accent",
+	): SystemPaletteColor => {
+		// 入力色のHCT値を取得
+		const sourceHct = Hct.fromInt(argbFromHex(keyHex));
+
+		// Material 3仕様: キーカラーはTone 60で表示（MTB UI準拠）
+		const M3_KEY_TONE = 60;
+
+		// 新しいHCT値を計算（Chromaは固定値）
+		const newHue = (sourceHct.hue + hueShift + 360) % 360;
+
+		// HCTからRGBに変換
+		const newHct = Hct.from(newHue, targetChroma, M3_KEY_TONE);
+		const newHex = hexFromArgb(newHct.toInt());
+		const newColor = new Color(newHex);
+
+		// 基本クロマにスナップ
+		const { chroma: snappedChroma } = snapToBaseChroma(newColor);
+
+		return {
+			name: roleName,
+			keyColor: newColor,
+			role,
+			baseChromaName: snappedChroma.displayName,
+		};
+	};
+
+	// Primary色を追加（全ハーモニータイプで元の入力色を保持）
+	// Material 3でも、Primary Key Colorはブランドカラーそのもの
 	palette.push({
 		name: "Primary",
 		keyColor: keyColor,
@@ -394,44 +484,114 @@ export function generateHarmonyPalette(
 			palette.push(createColorWithHCT(270, "Accent 2", "accent"));
 			break;
 
-		case HarmonyType.M3:
-			// M3モード: Primary, Secondary, Tertiary
-			palette.push(createColorWithHCT(120, "Secondary", "secondary"));
-			palette.push(createColorWithHCT(240, "Tertiary", "accent"));
-			break;
+		case HarmonyType.M3: {
+			// Material Design 3 カラーシステム
+			// 公式仕様: https://m3.material.io/styles/color/the-color-system/key-colors-tones
+			// - Primary: ブランドカラー（ユーザー入力色）
+			// - Secondary: 同じHue、Chroma=16（固定）、Tone=40
+			// - Tertiary: Hue+60°、Chroma=24（固定）、Tone=40
+			// - Error: 固定色（H=25°, C=84, T=40）
+			palette.push(createM3KeyColor(0, 16, "Secondary", "secondary"));
+			palette.push(createM3KeyColor(60, 24, "Tertiary", "accent"));
 
-		case HarmonyType.DADS:
+			// Material 3 固定のError色（Tone 60）
+			const m3ErrorHct = Hct.from(25, 84, 60);
+			const m3ErrorHex = hexFromArgb(m3ErrorHct.toInt());
+			const m3ErrorColor = new Color(m3ErrorHex);
+			const { chroma: errorChroma } = snapToBaseChroma(m3ErrorColor);
+			palette.push({
+				name: "Error",
+				keyColor: m3ErrorColor,
+				role: "semantic",
+				baseChromaName: errorChroma.displayName,
+			});
+			break;
+		}
+
+		case HarmonyType.DADS: {
 			// DADSモード: セマンティック・リンク・アクセントカラーを抽出
-			// Primaryは既に追加済みなので、DADS_COLORSから色を生成
-			// DADS_CHROMASを使用して正確なHue値を取得
-			// ブランドカラーに影響されないよう、DADS固有のL/Cを使用
+			// 各chromaNameごとにスケールを生成し、指定stepの色を取得
+
+			// STEP_NAMES順序: [1200, 1100, 1000, 900, 800, 700, 600, 500, 400, 300, 200, 100, 50]
+			const STEP_TO_INDEX: Record<number, number> = {
+				1200: 0,
+				1100: 1,
+				1000: 2,
+				900: 3,
+				800: 4,
+				700: 5,
+				600: 6,
+				500: 7,
+				400: 8,
+				300: 9,
+				200: 10,
+				100: 11,
+				50: 12,
+			};
+
+			// コントラスト比（moderateベース）
+			const baseRatios = [
+				21, 15, 10, 7, 4.5, 3, 2.2, 1.6, 1.3, 1.15, 1.07, 1.03, 1.01,
+			];
+			const bgColor = new Color("#ffffff");
+
+			// chromaNameごとにスケールをキャッシュ
+			const scaleCache = new Map<string, Color[]>();
+
+			const getScaleForChroma = (chromaName: string, hue: number): Color[] => {
+				if (scaleCache.has(chromaName)) {
+					return scaleCache.get(chromaName)!;
+				}
+
+				// キーカラー（step 600相当、中間明度）を生成
+				const keyColor = new Color({
+					mode: "oklch",
+					l: 0.55,
+					c: 0.15,
+					h: hue,
+				});
+
+				// スケール生成
+				const colors: Color[] = baseRatios.map((ratio) => {
+					const solved = findColorForContrast(keyColor, bgColor, ratio);
+					return solved || keyColor;
+				});
+
+				scaleCache.set(chromaName, colors);
+				return colors;
+			};
+
 			for (const dadsDef of DADS_COLORS) {
 				const chromaDef = DADS_CHROMAS.find(
 					(c) => c.name === dadsDef.chromaName,
 				);
 				if (!chromaDef) continue;
 
+				// スケールを取得
+				const scale = getScaleForChroma(dadsDef.chromaName, chromaDef.hue);
+
+				// stepに対応するインデックスから色を取得
+				const stepIndex = STEP_TO_INDEX[dadsDef.step] ?? 6; // デフォルト600
+				const colorFromScale = scale[stepIndex] ?? scale[6]!;
+
 				palette.push({
 					name: dadsDef.name,
-					keyColor: new Color({
-						mode: "oklch",
-						l: baseLightness,
-						c: baseChroma,
-						h: chromaDef.hue,
-					}),
+					keyColor: colorFromScale!,
 					role: dadsDef.category === "semantic" ? "semantic" : "accent",
 					baseChromaName: chromaDef.displayName,
 					step: dadsDef.step,
 				});
 			}
 			break;
+		}
 	}
 
-	// Neutral（Gray, Slate）を追加
+	// Neutral / Neutral Variant を追加
 	const primaryHue = primaryChroma.hue;
 
+	// Material 3 Warm Neutral: seed hueを持つ低彩度色
 	palette.push({
-		name: "Gray",
+		name: "Neutral",
 		role: "neutral",
 		keyColor: new Color({
 			mode: "oklch",
@@ -442,7 +602,7 @@ export function generateHarmonyPalette(
 	});
 
 	palette.push({
-		name: "Slate",
+		name: "Neutral Variant",
 		role: "neutral",
 		keyColor: new Color({
 			mode: "oklch",
@@ -458,15 +618,47 @@ export function generateHarmonyPalette(
 /**
  * 全13基本クロマのシステムパレット生成
  * Shadesビューで使用：すべての基本クロマを色相順に生成
+ *
+ * @param keyColor - 入力キーカラー
+ * @param harmonyPalette - ハーモニーパレット（指定時はハーモニー色を優先使用）
  */
 export function generateFullChromaPalette(
 	keyColor: Color,
+	harmonyPalette?: SystemPaletteColor[],
 ): SystemPaletteColor[] {
 	const baseLightness = keyColor.oklch.l;
 	const baseChroma = keyColor.oklch.c;
 
 	// Snap key color to nearest base chroma
 	const { chroma: primaryChroma } = snapToBaseChroma(keyColor);
+
+	// ハーモニーパレットからbaseChromaName→キーカラーのマップを作成
+	const harmonyColorMap = new Map<string, SystemPaletteColor>();
+	// ハーモニー色のOKLCH情報を収集（近傍色相調整用）
+	const harmonyColorInfo: Array<{
+		hue: number;
+		lightness: number;
+		chroma: number;
+	}> = [];
+
+	if (harmonyPalette) {
+		for (const hc of harmonyPalette) {
+			if (hc.baseChromaName) {
+				// Primaryを優先：既にPrimaryが登録されている場合は上書きしない
+				const existing = harmonyColorMap.get(hc.baseChromaName);
+				if (!existing || existing.role !== "primary") {
+					harmonyColorMap.set(hc.baseChromaName, hc);
+				}
+				// ハーモニー色の特性を収集
+				const oklch = hc.keyColor.oklch;
+				harmonyColorInfo.push({
+					hue: oklch.h ?? 0,
+					lightness: oklch.l,
+					chroma: oklch.c,
+				});
+			}
+		}
+	}
 
 	const palette: SystemPaletteColor[] = [];
 
@@ -478,42 +670,84 @@ export function generateFullChromaPalette(
 		cyan: "Info",
 	};
 
+	// 近傍色相の影響範囲（度）- この範囲内のハーモニー色から影響を受ける
+	const INFLUENCE_RANGE = 45;
+
 	// すべての13基本クロマを色相順（青から）に生成
 	for (const chromaDef of BASE_CHROMAS) {
 		const isPrimary = chromaDef.name === primaryChroma.name;
 		const semanticName = semanticNames[chromaDef.name];
 
-		// Primaryは元の入力色を保持、それ以外は基本クロマのHueを使用
-		const color = isPrimary
-			? keyColor
-			: new Color({
-					mode: "oklch",
-					l: baseLightness,
-					c: baseChroma,
-					h: chromaDef.hue,
-				});
+		// ハーモニーパレットにこの色相が含まれているか確認
+		const harmonyColor = harmonyColorMap.get(chromaDef.displayName);
 
-		// 名前の決定: Primary > セマンティック > 空
+		let color: Color;
 		let name = "";
-		if (isPrimary) {
+		let role: "primary" | "secondary" | "accent" | "neutral" | "semantic";
+
+		if (harmonyColor) {
+			// ハーモニーパレットのキーカラーを使用（一貫性のため）
+			color = harmonyColor.keyColor;
+			// semanticロールの場合、セマンティック名を使用（Error-1/2ではなくError）
+			// これによりShadesビューで統一された名前が表示される
+			if (harmonyColor.role === "semantic" && semanticName) {
+				name = semanticName;
+			} else {
+				name = harmonyColor.name;
+			}
+			role = harmonyColor.role;
+		} else if (isPrimary) {
+			// Primaryは元の入力色を保持
+			color = keyColor;
 			name = "Primary";
-		} else if (semanticName) {
-			name = semanticName;
+			role = "primary";
+		} else {
+			// ハーモニーに含まれない色相：近傍ハーモニー色から影響を受ける
+			const nearestHarmony = findNearestHarmonyColor(
+				chromaDef.hue,
+				harmonyColorInfo,
+			);
+
+			let adjustedLightness = baseLightness;
+			let adjustedChroma = baseChroma;
+
+			if (nearestHarmony && nearestHarmony.distance < INFLUENCE_RANGE) {
+				// 距離に基づいて影響度を計算（近いほど強い影響）
+				const influence = 1 - nearestHarmony.distance / INFLUENCE_RANGE;
+
+				// ハーモニー色の特性を補間
+				adjustedLightness =
+					baseLightness +
+					(nearestHarmony.lightness - baseLightness) * influence;
+				adjustedChroma =
+					baseChroma + (nearestHarmony.chroma - baseChroma) * influence;
+			}
+
+			color = new Color({
+				mode: "oklch",
+				l: adjustedLightness,
+				c: adjustedChroma,
+				h: chromaDef.hue,
+			});
+			name = semanticName || "";
+			role = semanticName ? "semantic" : "accent";
 		}
 
 		palette.push({
 			name,
 			keyColor: color,
-			role: isPrimary ? "primary" : semanticName ? "semantic" : "accent",
+			role,
 			baseChromaName: chromaDef.displayName,
+			step: harmonyColor?.step, // DADSモード用: harmonyColorからstepを継承
 		});
 	}
 
-	// Gray と Slate（Neutral）を追加
+	// Neutral / Neutral Variant を追加
 	const primaryHue = primaryChroma.hue;
 
+	// Material 3 Warm Neutral: seed hueを持つ低彩度色
 	palette.push({
-		name: "Gray",
+		name: "Neutral",
 		role: "neutral",
 		keyColor: new Color({
 			mode: "oklch",
@@ -524,7 +758,7 @@ export function generateFullChromaPalette(
 	});
 
 	palette.push({
-		name: "Slate",
+		name: "Neutral Variant",
 		role: "neutral",
 		keyColor: new Color({
 			mode: "oklch",

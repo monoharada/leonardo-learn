@@ -10,6 +10,7 @@ import {
 	checkAdjacentShadesDistinguishability,
 } from "../accessibility/distinguishability";
 import { verifyContrast } from "../accessibility/wcag2";
+import { DADS_CHROMAS } from "../core/base-chroma";
 import { Color } from "../core/color";
 import { exportToCSS } from "../core/export/css-exporter";
 import { exportToDTCG } from "../core/export/dtcg-exporter";
@@ -39,6 +40,7 @@ interface PaletteConfig {
 	ratios: number[];
 	harmony: HarmonyType;
 	baseChromaName?: string; // 基本クロマ名（セマンティックカラー用）
+	step?: number; // DADSモード用のステップ番号（600, 800等）
 }
 
 type LightnessDistribution = "linear" | "easeIn" | "easeOut";
@@ -275,21 +277,25 @@ export const runDemo = () => {
 			// Primaryの場合は元の入力HEX値を使用（丸め誤差を防ぐ）
 			const hexValue = sc.role === "primary" ? inputHex : sc.keyColor.toHex();
 
-			// DADSの場合は指定されたステップを使用、それ以外は600
-			const step = sc.step ?? 600;
+			// DADSモードの場合のみ@stepを付与、それ以外はHEXのみ
+			const keyColorString = sc.step ? `${hexValue}@${sc.step}` : hexValue;
 
 			return {
 				id: `sys-${index}-${sc.name.toLowerCase().replace(/\s+/g, "-")}`,
 				name: sc.name,
-				keyColors: [`${hexValue}@${step}`],
+				keyColors: [keyColorString],
 				ratios: [21, 15, 10, 7, 4.5, 3, 1],
 				harmony: paletteHarmony,
 				baseChromaName: sc.baseChromaName,
+				step: sc.step, // DADSモード用
 			};
 		});
 
-		// Shadesビュー用: 全13色パレット
-		const fullChromaColors = generateFullChromaPalette(primaryColor);
+		// Shadesビュー用: 全13色パレット（ハーモニーパレットを渡して一貫性を確保）
+		const fullChromaColors = generateFullChromaPalette(
+			primaryColor,
+			harmonyColors,
+		);
 
 		// ハーモニーパレットの役割名をbaseChromaNameでマッピング
 		const harmonyRoleMap = new Map<string, string>();
@@ -317,6 +323,7 @@ export const runDemo = () => {
 				ratios: [21, 15, 10, 7, 4.5, 3, 1],
 				harmony: HarmonyType.NONE,
 				baseChromaName: sc.baseChromaName,
+				step: sc.step, // DADSモード用
 			};
 		});
 
@@ -982,7 +989,7 @@ export const runDemo = () => {
 			if (name.startsWith("Warning")) return "Warning";
 			if (name.startsWith("Link")) return "Link";
 			if (name.startsWith("Accent")) return "Accent";
-			if (name === "Gray" || name === "Slate") return "Neutral";
+			if (name === "Neutral" || name === "Neutral Variant") return "Neutral";
 			if (name === "Secondary") return "Secondary";
 			return name; // For other harmony types (Comp, Analog, etc.)
 		};
@@ -1019,39 +1026,75 @@ export const runDemo = () => {
 
 				const keyColorInput = p.keyColors[0];
 				if (!keyColorInput) return;
-				const { color: hex } = parseKeyColor(keyColorInput);
-				const keyColor = new Color(hex);
+				const { color: hex, step: definedStep } = parseKeyColor(keyColorInput);
+				const originalKeyColor = new Color(hex);
 
-				// Generate color scale for this palette
-				const baseRatios = getContrastRatios(state.contrastIntensity);
+				// Background color (White)
 				const bgColor = new Color("#ffffff");
-				const keyContrastRatio = keyColor.contrast(bgColor);
 
-				let keyColorIndex = -1;
-				let minDiff = Infinity;
-				for (let i = 0; i < baseRatios.length; i++) {
-					const diff = Math.abs((baseRatios[i] ?? 0) - keyContrastRatio);
-					if (diff < minDiff) {
-						minDiff = diff;
-						keyColorIndex = i;
+				let colors: Color[];
+				let keyColorIndex: number;
+				let keyColor: Color;
+
+				// DADSモード: p.stepとp.baseChromaNameがある場合
+				if (p.step && p.baseChromaName) {
+					// DADS_CHROMASからbaseChromaNameに対応するhueを取得
+					const chromaDef = DADS_CHROMAS.find(
+						(c) => c.displayName === p.baseChromaName,
+					);
+					const chromaHue = chromaDef?.hue ?? originalKeyColor.oklch.h ?? 0;
+
+					const scaleBaseColor = new Color({
+						mode: "oklch",
+						l: 0.55,
+						c: 0.15,
+						h: chromaHue,
+					});
+
+					// harmony.tsと同じ固定baseRatios（暗→明の順）
+					const dadsBaseRatios = [
+						21, 15, 10, 7, 4.5, 3, 2.2, 1.6, 1.3, 1.15, 1.07, 1.03, 1.01,
+					];
+
+					// stepからkeyColorIndexを計算
+					keyColorIndex = STEP_NAMES.findIndex((s) => s === p.step);
+					if (keyColorIndex === -1) keyColorIndex = 6;
+
+					colors = dadsBaseRatios.map((ratio) => {
+						const solved = findColorForContrast(scaleBaseColor, bgColor, ratio);
+						return solved || scaleBaseColor;
+					});
+
+					// DADSモードではreverseしない（既に暗→明の順）
+					// 固定スケールから該当stepの色を取得
+					keyColor = colors[keyColorIndex] ?? originalKeyColor;
+				} else {
+					// 非DADSモード: 従来のロジック
+					keyColor = originalKeyColor;
+					const baseRatios = getContrastRatios(state.contrastIntensity);
+					const keyContrastRatio = keyColor.contrast(bgColor);
+
+					keyColorIndex = -1;
+					let minDiff = Infinity;
+					for (let i = 0; i < baseRatios.length; i++) {
+						const diff = Math.abs((baseRatios[i] ?? 0) - keyContrastRatio);
+						if (diff < minDiff) {
+							minDiff = diff;
+							keyColorIndex = i;
+						}
 					}
-				}
-				if (keyColorIndex >= 0) {
-					baseRatios[keyColorIndex] = keyContrastRatio;
-				}
+					if (keyColorIndex >= 0) {
+						baseRatios[keyColorIndex] = keyContrastRatio;
+					}
 
-				const colors: Color[] = baseRatios.map((ratio, i) => {
-					if (i === keyColorIndex) return keyColor;
-					const solved = findColorForContrast(keyColor, bgColor, ratio);
-					return solved || keyColor;
-				});
-				colors.reverse();
-
-				// Calculate index based on contrast ratio for accurate step display
-				// After colors.reverse(), the key color's position changes
-				// Original keyColorIndex is in baseRatios order (low to high contrast)
-				// After reverse, it becomes (colors.length - 1 - keyColorIndex)
-				const reversedKeyColorIndex = colors.length - 1 - keyColorIndex;
+					colors = baseRatios.map((ratio, i) => {
+						if (i === keyColorIndex) return keyColor;
+						const solved = findColorForContrast(keyColor, bgColor, ratio);
+						return solved || keyColor;
+					});
+					colors.reverse();
+					keyColorIndex = colors.length - 1 - keyColorIndex;
+				}
 
 				card.onclick = () => {
 					const dialog = document.getElementById(
@@ -1076,46 +1119,78 @@ export const runDemo = () => {
 
 					let currentColor = keyColor;
 					let isDraggingScrubber = false;
+					let selectedScaleIndex = -1; // 選択されたスケールのインデックスを追跡
 
-					// Helper to generate scale for real-time updates
-					const generateScale = (
-						baseColor: Color,
-					): { colors: Color[]; keyIndex: number } => {
-						const baseRatios = getContrastRatios(state.contrastIntensity);
+					// keyColorで生成したスケールを固定（クリックしても変わらない）
+					const fixedScale = (() => {
 						const bgColor = new Color("#ffffff");
-						const keyContrastRatio = baseColor.contrast(bgColor);
 
 						let keyColorIndex = -1;
-						let minDiff = Infinity;
-						for (let i = 0; i < baseRatios.length; i++) {
-							const diff = Math.abs((baseRatios[i] ?? 0) - keyContrastRatio);
-							if (diff < minDiff) {
-								minDiff = diff;
-								keyColorIndex = i;
+						let scaleBaseColor: Color;
+						let baseRatios: number[];
+
+						// DADSモード判定: p.stepを優先（編集後もDADSモードを維持）
+						const dadsStep = p.step ?? definedStep;
+						if (dadsStep && p.baseChromaName) {
+							keyColorIndex = STEP_NAMES.findIndex((s) => s === dadsStep);
+							if (keyColorIndex === -1) keyColorIndex = 6; // デフォルト600相当
+
+							// DADS_CHROMASからbaseChromaNameに対応するhueを取得
+							// これによりharmony.tsと完全に同じスケールが生成される
+							const chromaDef = DADS_CHROMAS.find(
+								(c) => c.displayName === p.baseChromaName,
+							);
+							const chromaHue = chromaDef?.hue ?? keyColor.oklch.h ?? 0;
+
+							scaleBaseColor = new Color({
+								mode: "oklch",
+								l: 0.55,
+								c: 0.15,
+								h: chromaHue,
+							});
+
+							// harmony.tsのDADSケースと同じ固定baseRatios
+							baseRatios = [
+								21, 15, 10, 7, 4.5, 3, 2.2, 1.6, 1.3, 1.15, 1.07, 1.03, 1.01,
+							];
+						} else {
+							// 従来のロジック: keyColorからスケール生成
+							scaleBaseColor = keyColor;
+							baseRatios = getContrastRatios(state.contrastIntensity);
+							const keyContrastRatio = keyColor.contrast(bgColor);
+							let minDiff = Infinity;
+							for (let i = 0; i < baseRatios.length; i++) {
+								const diff = Math.abs((baseRatios[i] ?? 0) - keyContrastRatio);
+								if (diff < minDiff) {
+									minDiff = diff;
+									keyColorIndex = i;
+								}
+							}
+							if (keyColorIndex >= 0) {
+								baseRatios[keyColorIndex] = keyContrastRatio;
 							}
 						}
-						if (keyColorIndex >= 0) {
-							baseRatios[keyColorIndex] = keyContrastRatio;
-						}
 
-						// 黄色系かどうかを判定
-						const baseHue = baseColor.oklch.h ?? 0;
-						const isYellowish = isWarmYellowHue(baseHue);
-
-						const newColors: Color[] = baseRatios.map((ratio, i) => {
-							// 黄色系以外はキーカラーをそのまま使用
-							if (i === keyColorIndex && !isYellowish) return baseColor;
-							// 黄色系はキーカラーも含めて全て変換（最大彩度を使用）
-							const solved = findColorForContrast(baseColor, bgColor, ratio);
-							return solved || baseColor;
+						const newColors: Color[] = baseRatios.map((ratio) => {
+							const solved = findColorForContrast(
+								scaleBaseColor,
+								bgColor,
+								ratio,
+							);
+							return solved || scaleBaseColor;
 						});
+
+						// DADSモードではbaseRatiosが既に暗→明の順（[21,15,...,1.01]）なのでreverse不要
+						// 非DADSモードでは明→暗の順（[1.05,1.1,...]）なのでreverseで暗→明に
+						if (dadsStep && p.baseChromaName) {
+							// DADSモード: そのまま使用（keyIndexもそのまま）
+							return { colors: newColors, keyIndex: keyColorIndex };
+						}
+						// 非DADSモード: reverseして表示順を揃える
 						newColors.reverse();
-
-						// Calculate reversed key index
 						const reversedKeyIndex = newColors.length - 1 - keyColorIndex;
-
 						return { colors: newColors, keyIndex: reversedKeyIndex };
-					};
+					})();
 
 					// --- Infinite Hue Scrubber Logic ---
 					const drawScrubber = () => {
@@ -1321,10 +1396,17 @@ export const runDemo = () => {
 							detailSwatch.style.backgroundColor = color.toCss();
 
 						// Calculate token name based on scale position
-						const { keyIndex } = generateScale(color);
-						// Standard mapping for 13 steps (0-12)
-						// 0 is Darkest (1200), 12 is Lightest (50) because generateScale reverses the array (Light->Dark becomes Dark->Light)
-						const tokenNum = STEP_NAMES[keyIndex] ?? 500;
+						// 選択されているインデックスまたはデフォルトのキーインデックスを使用
+						const currentIndex =
+							selectedScaleIndex >= 0
+								? selectedScaleIndex
+								: fixedScale.keyIndex;
+						// DADSモードで初期状態（ミニスケール未選択）かつdefinedStepがある場合はそれを使用
+						// ミニスケールで別の色を選択した場合はスケールインデックスから計算
+						const tokenNum =
+							selectedScaleIndex < 0 && definedStep
+								? definedStep
+								: (STEP_NAMES[currentIndex] ?? 500);
 
 						// Use baseChromaName (e.g. "Blue") if available, else name
 						const hueName = p.baseChromaName || p.name;
@@ -1394,13 +1476,17 @@ export const runDemo = () => {
 						// Redraw scrubber
 						drawScrubber();
 
-						// Update Mini Scale
+						// Update Mini Scale（固定スケールを使用）
 						const miniScaleContainer =
 							document.getElementById("detail-mini-scale");
 						if (miniScaleContainer) {
 							miniScaleContainer.innerHTML = "";
-							const { colors: scaleColors, keyIndex: currentKeyIndex } =
-								generateScale(color);
+							const { colors: scaleColors, keyIndex: originalKeyIndex } =
+								fixedScale;
+
+							// 現在選択されているインデックスを決定
+							const currentHighlightIndex =
+								selectedScaleIndex >= 0 ? selectedScaleIndex : originalKeyIndex;
 
 							scaleColors.forEach((c, i) => {
 								const div = document.createElement("button");
@@ -1411,11 +1497,12 @@ export const runDemo = () => {
 
 								// Add click handler
 								div.onclick = () => {
+									selectedScaleIndex = i;
 									updateDetail(c);
 								};
 
 								// Highlight current color
-								if (i === currentKeyIndex) {
+								if (i === currentHighlightIndex) {
 									const check = document.createElement("div");
 									check.className = "dads-mini-scale__check";
 									check.textContent = "✓";
@@ -1499,7 +1586,9 @@ export const runDemo = () => {
 				info.className = "dads-card__body";
 
 				// Token name (e.g., "blue-800")
-				const step = STEP_NAMES[reversedKeyColorIndex] ?? 600;
+				// DADSモード: p.stepまたはdefinedStepを使用
+				// 非DADSモード: スケール位置から計算
+				const step = p.step ?? definedStep ?? STEP_NAMES[keyColorIndex] ?? 600;
 				const chromaNameLower = (p.baseChromaName || p.name || "color")
 					.toLowerCase()
 					.replace(/\s+/g, "-");
@@ -1509,7 +1598,7 @@ export const runDemo = () => {
 				tokenName.className = "dads-card__title";
 
 				const hexCode = document.createElement("code");
-				hexCode.textContent = hex;
+				hexCode.textContent = keyColor.toHex();
 				hexCode.className = "dads-text-mono";
 
 				info.appendChild(tokenName);
@@ -1606,48 +1695,76 @@ export const runDemo = () => {
 			const { color: keyHex } = parseKeyColor(keyColorInput);
 			const keyColor = new Color(keyHex);
 
-			// Define ratios for 13 steps based on intensity
-			const baseRatios = getContrastRatios(state.contrastIntensity);
-
 			// Background color (White)
 			const bgColor = new Color("#ffffff");
 
-			// Calculate key color's contrast ratio and insert into ratios
-			const keyContrastRatio = keyColor.contrast(bgColor);
+			let colors: Color[];
+			let keyColorIndex: number;
+			let reversedKeyColorIndex: number;
 
-			// Find the best position to insert/replace
-			let keyColorIndex = -1;
-			let minDiff = Infinity;
+			// DADSモード: p.stepとp.baseChromaNameがある場合
+			if (p.step && p.baseChromaName) {
+				// DADS_CHROMASからbaseChromaNameに対応するhueを取得
+				const chromaDef = DADS_CHROMAS.find(
+					(c) => c.displayName === p.baseChromaName,
+				);
+				const chromaHue = chromaDef?.hue ?? keyColor.oklch.h ?? 0;
 
-			for (let i = 0; i < baseRatios.length; i++) {
-				const diff = Math.abs((baseRatios[i] ?? 0) - keyContrastRatio);
-				if (diff < minDiff) {
-					minDiff = diff;
-					keyColorIndex = i;
+				const scaleBaseColor = new Color({
+					mode: "oklch",
+					l: 0.55,
+					c: 0.15,
+					h: chromaHue,
+				});
+
+				// harmony.tsと同じ固定baseRatios（暗→明の順）
+				const dadsBaseRatios = [
+					21, 15, 10, 7, 4.5, 3, 2.2, 1.6, 1.3, 1.15, 1.07, 1.03, 1.01,
+				];
+
+				// stepからkeyColorIndexを計算
+				keyColorIndex = STEP_NAMES.findIndex((s) => s === p.step);
+				if (keyColorIndex === -1) keyColorIndex = 6;
+
+				colors = dadsBaseRatios.map((ratio) => {
+					const solved = findColorForContrast(scaleBaseColor, bgColor, ratio);
+					return solved || scaleBaseColor;
+				});
+
+				// DADSモードではreverseしない（既に暗→明の順）
+				reversedKeyColorIndex = keyColorIndex;
+			} else {
+				// 非DADSモード: 従来のロジック
+				const baseRatios = getContrastRatios(state.contrastIntensity);
+				const keyContrastRatio = keyColor.contrast(bgColor);
+
+				keyColorIndex = -1;
+				let minDiff = Infinity;
+
+				for (let i = 0; i < baseRatios.length; i++) {
+					const diff = Math.abs((baseRatios[i] ?? 0) - keyContrastRatio);
+					if (diff < minDiff) {
+						minDiff = diff;
+						keyColorIndex = i;
+					}
 				}
-			}
 
-			// Replace the closest ratio with the key color's exact contrast
-			if (keyColorIndex >= 0) {
-				baseRatios[keyColorIndex] = keyContrastRatio;
-			}
-
-			// Generate colors by adjusting Lightness only, keeping Hue/Chroma fixed
-			const colors: Color[] = baseRatios.map((ratio, i) => {
-				if (i === keyColorIndex) {
-					// Use the exact key color for this step
-					return keyColor;
+				if (keyColorIndex >= 0) {
+					baseRatios[keyColorIndex] = keyContrastRatio;
 				}
-				// Find color with target contrast, preserving Hue/Chroma
-				const solved = findColorForContrast(keyColor, bgColor, ratio);
-				return solved || keyColor;
-			});
 
-			// Reverse for display (light to dark)
-			colors.reverse();
+				colors = baseRatios.map((ratio, i) => {
+					if (i === keyColorIndex) {
+						return keyColor;
+					}
+					const solved = findColorForContrast(keyColor, bgColor, ratio);
+					return solved || keyColor;
+				});
 
-			// Adjust keyColorIndex for reversed array
-			const reversedKeyColorIndex = colors.length - 1 - keyColorIndex;
+				// 非DADSモードではreverseして暗→明の順に
+				colors.reverse();
+				reversedKeyColorIndex = colors.length - 1 - keyColorIndex;
+			}
 
 			const scaleContainer = document.createElement("div");
 			scaleContainer.className = "dads-scale";
@@ -1794,14 +1911,13 @@ export const runDemo = () => {
 
 					let currentColor = stepColor;
 					let isDraggingScrubber = false;
+					let selectedScaleIndex = -1; // 選択されたスケールのインデックスを追跡
 
-					// Helper to generate scale for real-time updates
-					const generateScale = (
-						baseColor: Color,
-					): { colors: Color[]; keyIndex: number } => {
+					// stepColorで生成したスケールを固定（クリックしても変わらない）
+					const fixedScale = (() => {
 						const baseRatios = getContrastRatios(state.contrastIntensity);
 						const bgColor = new Color("#ffffff");
-						const keyContrastRatio = baseColor.contrast(bgColor);
+						const keyContrastRatio = stepColor.contrast(bgColor);
 
 						let keyColorIndex = -1;
 						let minDiff = Infinity;
@@ -1816,24 +1932,19 @@ export const runDemo = () => {
 							baseRatios[keyColorIndex] = keyContrastRatio;
 						}
 
-						// 黄色系かどうかを判定
-						const baseHue = baseColor.oklch.h ?? 0;
+						const baseHue = stepColor.oklch.h ?? 0;
 						const isYellowish = isWarmYellowHue(baseHue);
 
 						const newColors: Color[] = baseRatios.map((ratio, i) => {
-							// 黄色系以外はキーカラーをそのまま使用
-							if (i === keyColorIndex && !isYellowish) return baseColor;
-							// 黄色系はキーカラーも含めて全て変換（最大彩度を使用）
-							const solved = findColorForContrast(baseColor, bgColor, ratio);
-							return solved || baseColor;
+							if (i === keyColorIndex && !isYellowish) return stepColor;
+							const solved = findColorForContrast(stepColor, bgColor, ratio);
+							return solved || stepColor;
 						});
 						newColors.reverse();
 
-						// Calculate reversed key index
 						const reversedKeyIndex = newColors.length - 1 - keyColorIndex;
-
 						return { colors: newColors, keyIndex: reversedKeyIndex };
-					};
+					})();
 
 					// --- Infinite Hue Scrubber Logic ---
 					const drawScrubber = () => {
@@ -2010,7 +2121,7 @@ export const runDemo = () => {
 							document.getElementById("detail-chroma-name");
 
 						// Calculate token name based on scale position
-						const { keyIndex } = generateScale(color);
+						const { keyIndex } = fixedScale;
 						// Use selectedIndex if valid, otherwise use keyIndex
 						const tokenIndex = selectedIndex >= 0 ? selectedIndex : keyIndex;
 						const step = STEP_NAMES[tokenIndex] ?? 600;
@@ -2155,12 +2266,16 @@ export const runDemo = () => {
 						// Redraw scrubber
 						drawScrubber();
 
-						// Update mini scale selection indicator
+						// Update Mini Scale（固定スケールを使用）
 						const miniScale = document.getElementById("detail-mini-scale");
 						if (miniScale) {
 							miniScale.innerHTML = "";
-							const { colors: scaleColors, keyIndex: currentKeyIndex } =
-								generateScale(color);
+							const { colors: scaleColors, keyIndex: originalKeyIndex } =
+								fixedScale;
+
+							// 現在選択されているインデックスを決定
+							const currentHighlightIndex =
+								selectedScaleIndex >= 0 ? selectedScaleIndex : originalKeyIndex;
 
 							scaleColors.forEach((c, i) => {
 								const div = document.createElement("button");
@@ -2171,11 +2286,12 @@ export const runDemo = () => {
 
 								// Add click handler
 								div.onclick = () => {
+									selectedScaleIndex = i;
 									updateDetail(c, i);
 								};
 
 								// Highlight current color
-								if (i === currentKeyIndex) {
+								if (i === currentHighlightIndex) {
 									const check = document.createElement("div");
 									check.className = "dads-mini-scale__check";
 									check.textContent = "✓";
