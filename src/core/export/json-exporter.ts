@@ -2,10 +2,14 @@
  * JSONExporter - JSON形式でカラーデータをエクスポート
  *
  * OKLCH、sRGB、Display P3形式での色値を提供するJSONエクスポーターです。
+ * CUDメタデータオプション付き。
+ *
+ * Requirements: 8.1, 8.2
  */
 
 import { formatCss, oklch, p3 } from "culori";
 import type { Color } from "../color";
+import { findNearestCudColor, type MatchLevel } from "../cud/service";
 
 /**
  * エクスポートオプション
@@ -15,6 +19,26 @@ export interface JSONExportOptions {
 	prefix?: string;
 	/** インデント */
 	indent?: number;
+	/**
+	 * CUDメタデータを含めるか
+	 * Requirement 8.2: デフォルトはfalseで後方互換性を維持
+	 */
+	includeCudMetadata?: boolean;
+}
+
+/**
+ * CUDメタデータ
+ * Requirement 8.1: 各色にcudMetadata（nearestId、deltaE、group、matchLevel）を付加
+ */
+export interface CudMetadata {
+	/** 最も近いCUD色のID */
+	nearestId: string;
+	/** CUD色との色差（deltaE） */
+	deltaE: number;
+	/** CUD色のグループ */
+	group: string;
+	/** マッチレベル（exact/near/off） */
+	matchLevel: MatchLevel;
 }
 
 /**
@@ -53,6 +77,8 @@ export interface ExportedColorData {
 	oklch: OklchValue;
 	srgb: SrgbValue;
 	p3: P3Value;
+	/** CUDメタデータ（オプション） */
+	cudMetadata?: CudMetadata;
 }
 
 /**
@@ -76,8 +102,13 @@ export interface JSONExportResult {
 
 /**
  * ColorをエクスポートデータにExport変換する
+ * @param color - 変換する色
+ * @param includeCudMetadata - CUDメタデータを含めるか
  */
-function colorToExportData(color: Color): ExportedColorData {
+function colorToExportData(
+	color: Color,
+	includeCudMetadata = false,
+): ExportedColorData {
 	const colorOklch = color.oklch;
 	const hex = color.toHex();
 
@@ -120,11 +151,24 @@ function colorToExportData(color: Color): ExportedColorData {
 		b: p3Color?.b ?? 0,
 	};
 
-	return {
+	const result: ExportedColorData = {
 		oklch: oklchValue,
 		srgb: srgbValue,
 		p3: p3Value,
 	};
+
+	// CUDメタデータを追加（オプション）
+	if (includeCudMetadata) {
+		const cudResult = findNearestCudColor(hex);
+		result.cudMetadata = {
+			nearestId: cudResult.nearest.id,
+			deltaE: cudResult.deltaE,
+			group: cudResult.nearest.group,
+			matchLevel: cudResult.matchLevel,
+		};
+	}
+
+	return result;
 }
 
 /**
@@ -139,9 +183,10 @@ export function exportToJSON(
 	options: JSONExportOptions = {},
 ): JSONExportResult {
 	const exportedColors: Record<string, ExportedColorData> = {};
+	const includeCudMetadata = options.includeCudMetadata ?? false;
 
 	for (const [name, color] of Object.entries(colors)) {
-		exportedColors[name] = colorToExportData(color);
+		exportedColors[name] = colorToExportData(color, includeCudMetadata);
 	}
 
 	const metadata: ExportMetadata = {

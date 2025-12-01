@@ -12,6 +12,7 @@ import {
 import { verifyContrast } from "../accessibility/wcag2";
 import { DADS_CHROMAS } from "../core/base-chroma";
 import { Color } from "../core/color";
+import { validatePalette } from "../core/cud/validator";
 import { exportToCSS } from "../core/export/css-exporter";
 import { exportToDTCG } from "../core/export/dtcg-exporter";
 import { exportToTailwind } from "../core/export/tailwind-exporter";
@@ -21,6 +22,13 @@ import {
 	HarmonyType,
 } from "../core/harmony";
 import { findColorForContrast, isWarmYellowHue } from "../core/solver";
+import {
+	createCudBadge,
+	createCudRangeGuide,
+	createCudSubModeToggle,
+	type PaletteColor,
+	showPaletteValidation,
+} from "./cud-components";
 import {
 	type ContrastIntensity,
 	getContrastRatios,
@@ -138,6 +146,7 @@ const state = {
 	viewMode: "harmony" as ViewMode, // 起点はハーモニー選択
 	cvdSimulation: "normal" as CVDSimulationType,
 	selectedHarmonyConfig: null as HarmonyTypeConfig | null, // 選択されたハーモニー設定
+	cudSubModeEnabled: false, // CUDサブモードの有効/無効
 };
 
 export const runDemo = () => {
@@ -813,10 +822,23 @@ export const runDemo = () => {
 		colorInput.appendChild(inputRow);
 		header.appendChild(colorInput);
 
+		// CUDサブモードトグル
+		const cudToggle = createCudSubModeToggle((enabled) => {
+			state.cudSubModeEnabled = enabled;
+			renderHarmonyView(container);
+		}, state.cudSubModeEnabled);
+		header.appendChild(cudToggle);
+
 		// 説明文
 		const description = document.createElement("div");
 		description.className = "dads-section__description";
 		description.innerHTML = `<p>ハーモニースタイルを選択してください。見出しをクリックすると、そのスタイルでパレットを生成します。</p>`;
+
+		// CUDサブモード有効時は範囲ガイドを表示
+		let cudGuide: HTMLElement | null = null;
+		if (state.cudSubModeEnabled) {
+			cudGuide = createCudRangeGuide();
+		}
 
 		// ハーモニーリスト（各行が1つのハーモニー）
 		const harmonyList = document.createElement("div");
@@ -915,6 +937,11 @@ export const runDemo = () => {
 			}
 
 			displayPalettes.forEach((palette) => {
+				const swatchContainer = document.createElement("span");
+				swatchContainer.className = "dads-harmony-row__swatch-container";
+				swatchContainer.style.cssText =
+					"display: inline-flex; flex-direction: column; align-items: center; gap: 2px;";
+
 				const swatch = document.createElement("span");
 				swatch.className = "dads-harmony-row__swatch";
 				// CVDシミュレーションを適用
@@ -924,7 +951,16 @@ export const runDemo = () => {
 						: simulateCVD(palette.keyColor, state.cvdSimulation as CVDType);
 				swatch.style.background = displayColor.toHex();
 				swatch.title = `${palette.name}: ${palette.keyColor.toHex()}`;
-				swatches.appendChild(swatch);
+				swatchContainer.appendChild(swatch);
+
+				// CUDサブモード有効時はバッジを追加
+				if (state.cudSubModeEnabled) {
+					const badge = createCudBadge(palette.keyColor.toHex());
+					badge.style.marginTop = "4px";
+					swatchContainer.appendChild(badge);
+				}
+
+				swatches.appendChild(swatchContainer);
 			});
 
 			// カード構成：見出し → スウォッチ（下部）
@@ -936,6 +972,9 @@ export const runDemo = () => {
 		container.innerHTML = "";
 		container.appendChild(header);
 		container.appendChild(description);
+		if (cudGuide) {
+			container.appendChild(cudGuide);
+		}
 		container.appendChild(harmonyList);
 	};
 
@@ -1604,6 +1643,13 @@ export const runDemo = () => {
 				info.appendChild(tokenName);
 				info.appendChild(hexCode);
 
+				// CUDサブモード有効時はバッジを追加
+				if (state.cudSubModeEnabled) {
+					const badge = createCudBadge(keyColor.toHex());
+					badge.style.marginTop = "4px";
+					info.appendChild(badge);
+				}
+
 				// Show simulated color if CVD mode is active
 				if (state.cvdSimulation !== "normal") {
 					const simInfo = document.createElement("div");
@@ -1620,6 +1666,55 @@ export const runDemo = () => {
 			section.appendChild(cardsContainer);
 			container.appendChild(section);
 		});
+
+		// CUDサブモード有効時は検証パネルを表示
+		if (state.cudSubModeEnabled && state.palettes.length > 0) {
+			const validationSection = document.createElement("section");
+			validationSection.className = "dads-section";
+			validationSection.style.marginTop = "24px";
+
+			const validationHeading = document.createElement("h2");
+			validationHeading.className = "dads-section__heading";
+			validationHeading.textContent = "CUD パレット検証";
+			validationSection.appendChild(validationHeading);
+
+			// パレットの色をPaletteColor形式に変換
+			// ColorRoleは "accent" | "base" | "text" | "background" | "neutral" のみ
+			const paletteColors: PaletteColor[] = state.palettes.map((p) => {
+				const keyColorInput = p.keyColors[0];
+				const { color: hex } = parseKeyColor(keyColorInput || "#000000");
+				const name = p.name.toLowerCase();
+				// セマンティック名をColorRoleにマッピング
+				const role: "accent" | "base" | "text" | "background" | "neutral" =
+					name.includes("primary")
+						? "accent"
+						: name.includes("secondary")
+							? "accent"
+							: name.includes("accent")
+								? "accent"
+								: name.includes("success")
+									? "accent"
+									: name.includes("error")
+										? "accent"
+										: name.includes("warning")
+											? "accent"
+											: name.includes("info")
+												? "accent"
+												: name.includes("neutral")
+													? "neutral"
+													: name.includes("background")
+														? "background"
+														: name.includes("text")
+															? "text"
+															: "base";
+				return { hex, role };
+			});
+
+			const validationContainer = document.createElement("div");
+			showPaletteValidation(paletteColors, validationContainer);
+			validationSection.appendChild(validationContainer);
+			container.appendChild(validationSection);
+		}
 	};
 
 	const renderShadesView = (container: HTMLElement) => {
@@ -2585,6 +2680,122 @@ export const runDemo = () => {
 		});
 
 		container.appendChild(palettesSection);
+
+		// 3. CUDサブモード有効時はCUD検証セクションを追加
+		if (state.cudSubModeEnabled) {
+			const cudSection = document.createElement("section");
+			cudSection.className = "dads-a11y-cud-section";
+			cudSection.style.marginTop = "32px";
+
+			const cudHeading = document.createElement("h2");
+			cudHeading.textContent = "CUD パレット検証 (CVD 混同リスク分析)";
+			cudHeading.className = "dads-section__heading";
+			cudSection.appendChild(cudHeading);
+
+			const cudDesc = document.createElement("p");
+			cudDesc.className = "dads-section__description";
+			cudDesc.textContent =
+				"CUD推奨配色セットに基づいて、パレット内の色がCVD（色覚多様性）状態で混同されるリスクを検証します。";
+			cudSection.appendChild(cudDesc);
+
+			// パレットの色をPaletteColor形式に変換して検証
+			// ColorRoleは "accent" | "base" | "text" | "background" | "neutral" のみ
+			const paletteColors: PaletteColor[] = state.palettes.map((p) => {
+				const keyColorInput = p.keyColors[0];
+				const { color: hex } = parseKeyColor(keyColorInput || "#000000");
+				const name = p.name.toLowerCase();
+				// セマンティック名をColorRoleにマッピング
+				const role: "accent" | "base" | "text" | "background" | "neutral" =
+					name.includes("primary")
+						? "accent"
+						: name.includes("secondary")
+							? "accent"
+							: name.includes("accent")
+								? "accent"
+								: name.includes("success")
+									? "accent"
+									: name.includes("error")
+										? "accent"
+										: name.includes("warning")
+											? "accent"
+											: name.includes("info")
+												? "accent"
+												: name.includes("neutral")
+													? "neutral"
+													: name.includes("background")
+														? "background"
+														: name.includes("text")
+															? "text"
+															: "base";
+				return { hex, role };
+			});
+
+			// CUD検証を実行
+			const validationResult = validatePalette(paletteColors);
+
+			// CVD混同リスクの問題を抽出
+			const cvdIssues = validationResult.issues.filter(
+				(issue) => issue.type === "cvd_confusion_risk",
+			);
+
+			if (cvdIssues.length > 0) {
+				const issuesContainer = document.createElement("div");
+				issuesContainer.className = "dads-a11y-cud-issues";
+				issuesContainer.style.cssText = `
+					padding: 16px;
+					background: #fff3cd;
+					border-radius: 8px;
+					border-left: 4px solid #ffc107;
+					margin-top: 12px;
+				`;
+
+				const issuesTitle = document.createElement("h4");
+				issuesTitle.textContent = `⚠️ CVD混同リスク検出 (${cvdIssues.length}件)`;
+				issuesTitle.style.cssText = "margin: 0 0 12px 0; color: #856404;";
+				issuesContainer.appendChild(issuesTitle);
+
+				const issuesList = document.createElement("ul");
+				issuesList.style.cssText = "margin: 0; padding-left: 20px;";
+
+				cvdIssues.forEach((issue) => {
+					const item = document.createElement("li");
+					item.style.marginBottom = "8px";
+					item.innerHTML = `
+						<strong>${issue.colors.join(" ↔ ")}</strong>: ${issue.message}
+						${issue.details ? `<br><small style="color: #666;">詳細: 通常時 ΔE=${(issue.details.normalDeltaE as number)?.toFixed(3)}, CVD後 ΔE=${(issue.details.cvdDeltaE as number)?.toFixed(3)}</small>` : ""}
+					`;
+					issuesList.appendChild(item);
+				});
+
+				issuesContainer.appendChild(issuesList);
+				cudSection.appendChild(issuesContainer);
+			} else {
+				const noIssues = document.createElement("div");
+				noIssues.className = "dads-a11y-cud-ok";
+				noIssues.style.cssText = `
+					padding: 16px;
+					background: #d4edda;
+					border-radius: 8px;
+					border-left: 4px solid #28a745;
+					margin-top: 12px;
+					color: #155724;
+				`;
+				noIssues.innerHTML =
+					"✓ CVD混同リスクは検出されませんでした。パレット内の色はCVD状態でも十分に区別できます。";
+				cudSection.appendChild(noIssues);
+			}
+
+			// 全体検証結果のサマリー
+			const summaryContainer = document.createElement("div");
+			summaryContainer.style.cssText = "margin-top: 16px;";
+
+			const validationContainer = document.createElement("div");
+			showPaletteValidation(paletteColors, validationContainer);
+			summaryContainer.appendChild(validationContainer);
+			cudSection.appendChild(summaryContainer);
+
+			container.appendChild(cudSection);
+		}
 	};
 
 	const renderDistinguishabilityAnalysis = (

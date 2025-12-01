@@ -139,6 +139,61 @@ describe("JSONExporter", () => {
 			});
 		});
 
+		describe("CUD metadata (Task 9)", () => {
+			test("should not include CUD metadata by default", () => {
+				const color = new Color("#FF2800"); // CUD red
+				const result = exportToJSON({ primary: color });
+
+				expect(result.colors.primary.cudMetadata).toBeUndefined();
+			});
+
+			test("should include CUD metadata when option is true", () => {
+				const color = new Color("#FF2800"); // CUD red
+				const result = exportToJSON(
+					{ primary: color },
+					{ includeCudMetadata: true },
+				);
+
+				expect(result.colors.primary.cudMetadata).toBeDefined();
+				expect(result.colors.primary.cudMetadata?.nearestId).toBe("red");
+				expect(result.colors.primary.cudMetadata?.matchLevel).toBe("exact");
+			});
+
+			test("should include correct CUD metadata for non-CUD color", () => {
+				const color = new Color("#123456");
+				const result = exportToJSON(
+					{ primary: color },
+					{ includeCudMetadata: true },
+				);
+
+				expect(result.colors.primary.cudMetadata).toBeDefined();
+				expect(result.colors.primary.cudMetadata?.deltaE).toBeGreaterThan(0);
+			});
+
+			test("should include group in CUD metadata", () => {
+				const color = new Color("#FF2800"); // CUD accent red
+				const result = exportToJSON(
+					{ primary: color },
+					{ includeCudMetadata: true },
+				);
+
+				expect(result.colors.primary.cudMetadata?.group).toBe("accent");
+			});
+
+			test("should include CUD metadata for multiple colors", () => {
+				const colors = {
+					red: new Color("#FF2800"),
+					blue: new Color("#0041FF"),
+					white: new Color("#FFFFFF"),
+				};
+				const result = exportToJSON(colors, { includeCudMetadata: true });
+
+				expect(result.colors.red.cudMetadata?.nearestId).toBe("red");
+				expect(result.colors.blue.cudMetadata?.nearestId).toBe("blue");
+				expect(result.colors.white.cudMetadata?.nearestId).toBe("white");
+			});
+		});
+
 		describe("edge cases", () => {
 			test("should handle pure white", () => {
 				const color = new Color("#ffffff");
