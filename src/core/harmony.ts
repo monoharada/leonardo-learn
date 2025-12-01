@@ -227,11 +227,11 @@ export const DADS_COLORS: DADSColorDefinition[] = [
 	{ name: "Accent-Blue", chromaName: "blue", step: 600, category: "accent" },
 	{
 		name: "Accent-Light Blue",
-		chromaName: "light blue",
+		chromaName: "cyan", // DADS_CHROMAS: name="cyan", displayName="Light Blue"
 		step: 600,
 		category: "accent",
 	},
-	{ name: "Accent-Cyan", chromaName: "cyan", step: 600, category: "accent" },
+	{ name: "Accent-Cyan", chromaName: "teal", step: 600, category: "accent" }, // DADS_CHROMAS: name="teal", displayName="Cyan"
 	{ name: "Accent-Green", chromaName: "green", step: 800, category: "accent" },
 	{ name: "Accent-Lime", chromaName: "lime", step: 700, category: "accent" },
 	{

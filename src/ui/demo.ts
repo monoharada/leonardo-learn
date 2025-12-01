@@ -277,13 +277,13 @@ export const runDemo = () => {
 			// Primaryの場合は元の入力HEX値を使用（丸め誤差を防ぐ）
 			const hexValue = sc.role === "primary" ? inputHex : sc.keyColor.toHex();
 
-			// DADSの場合は指定されたステップを使用、それ以外は600
-			const step = sc.step ?? 600;
+			// DADSモードの場合のみ@stepを付与、それ以外はHEXのみ
+			const keyColorString = sc.step ? `${hexValue}@${sc.step}` : hexValue;
 
 			return {
 				id: `sys-${index}-${sc.name.toLowerCase().replace(/\s+/g, "-")}`,
 				name: sc.name,
-				keyColors: [`${hexValue}@${step}`],
+				keyColors: [keyColorString],
 				ratios: [21, 15, 10, 7, 4.5, 3, 1],
 				harmony: paletteHarmony,
 				baseChromaName: sc.baseChromaName,
@@ -1096,11 +1096,6 @@ export const runDemo = () => {
 					keyColorIndex = colors.length - 1 - keyColorIndex;
 				}
 
-				// keyColorIndexは既に適切に設定されている
-				// DADSモード: stepから直接計算（reverseなし）
-				// 非DADSモード: reverse後に更新済み
-				const reversedKeyColorIndex = keyColorIndex;
-
 				card.onclick = () => {
 					const dialog = document.getElementById(
 						"color-detail-dialog",
@@ -1134,9 +1129,10 @@ export const runDemo = () => {
 						let scaleBaseColor: Color;
 						let baseRatios: number[];
 
-						// DADSモードで定義されたstepがある場合
-						if (definedStep && p.baseChromaName) {
-							keyColorIndex = STEP_NAMES.findIndex((s) => s === definedStep);
+						// DADSモード判定: p.stepを優先（編集後もDADSモードを維持）
+						const dadsStep = p.step ?? definedStep;
+						if (dadsStep && p.baseChromaName) {
+							keyColorIndex = STEP_NAMES.findIndex((s) => s === dadsStep);
 							if (keyColorIndex === -1) keyColorIndex = 6; // デフォルト600相当
 
 							// DADS_CHROMASからbaseChromaNameに対応するhueを取得
@@ -1186,7 +1182,7 @@ export const runDemo = () => {
 
 						// DADSモードではbaseRatiosが既に暗→明の順（[21,15,...,1.01]）なのでreverse不要
 						// 非DADSモードでは明→暗の順（[1.05,1.1,...]）なのでreverseで暗→明に
-						if (definedStep && p.baseChromaName) {
+						if (dadsStep && p.baseChromaName) {
 							// DADSモード: そのまま使用（keyIndexもそのまま）
 							return { colors: newColors, keyIndex: keyColorIndex };
 						}
@@ -1590,8 +1586,9 @@ export const runDemo = () => {
 				info.className = "dads-card__body";
 
 				// Token name (e.g., "blue-800")
-				// DADSの場合は定義されたステップを使用、それ以外はスケール位置から計算
-				const step = definedStep ?? STEP_NAMES[reversedKeyColorIndex] ?? 600;
+				// DADSモード: p.stepまたはdefinedStepを使用
+				// 非DADSモード: スケール位置から計算
+				const step = p.step ?? definedStep ?? STEP_NAMES[keyColorIndex] ?? 600;
 				const chromaNameLower = (p.baseChromaName || p.name || "color")
 					.toLowerCase()
 					.replace(/\s+/g, "-");
