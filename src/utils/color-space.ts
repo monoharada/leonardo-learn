@@ -1,4 +1,11 @@
-import { converter, formatHex, inGamut, type Oklch, parse } from "culori";
+import {
+	converter,
+	formatHex,
+	inGamut,
+	type Oklab,
+	type Oklch,
+	parse,
+} from "culori";
 
 /**
  * Color object type definition (OKLCH)
@@ -6,9 +13,37 @@ import { converter, formatHex, inGamut, type Oklch, parse } from "culori";
 export type ColorObject = Oklch;
 
 /**
+ * OKLab color object type definition
+ */
+export type OklabObject = Oklab;
+
+/**
  * Convert any color string to OKLCH object
  */
 export const toOklch = converter("oklch");
+
+/**
+ * Convert any color (string or color object) to OKLab object
+ * Requirement 9.1, 9.2, 9.3: deltaEok計算のためのOKLab変換
+ */
+export const toOklab = converter("oklab");
+
+/**
+ * Calculate OKLab color difference (delta E) using Euclidean distance
+ * Requirement 9.1: deltaEok(oklab1, oklab2)でOKLabユークリッド距離を計算
+ * Formula: sqrt((L2-L1)² + (a2-a1)² + (b2-b1)²)
+ *
+ * @param oklab1 - First OKLab color object
+ * @param oklab2 - Second OKLab color object
+ * @returns deltaE value (0 or positive number)
+ */
+export const deltaEok = (oklab1: OklabObject, oklab2: OklabObject): number => {
+	const dL = (oklab2.l ?? 0) - (oklab1.l ?? 0);
+	const da = (oklab2.a ?? 0) - (oklab1.a ?? 0);
+	const db = (oklab2.b ?? 0) - (oklab1.b ?? 0);
+
+	return Math.sqrt(dL * dL + da * da + db * db);
+};
 
 /**
  * Convert OKLCH object to Hex string

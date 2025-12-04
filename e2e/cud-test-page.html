@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CUD E2E Test Page</title>
+    <link rel="stylesheet" href="../src/ui/styles/tokens.css">
+    <link rel="stylesheet" href="../src/ui/styles/global.css">
+    <link rel="stylesheet" href="../src/ui/styles/utilities.css">
+    <link rel="stylesheet" href="../src/ui/styles/components.css">
+    <style>
+        body {
+            font-family: sans-serif;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .test-section {
+            margin-bottom: 24px;
+            padding: 16px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+        }
+        .test-section h2 {
+            margin-top: 0;
+        }
+        .color-input-group {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .color-input-group input[type="color"] {
+            width: 50px;
+            height: 40px;
+            border: none;
+            cursor: pointer;
+        }
+        .color-input-group input[type="text"] {
+            width: 100px;
+            padding: 8px;
+            font-family: monospace;
+        }
+        .palette-preview {
+            display: flex;
+            gap: 4px;
+            margin-top: 12px;
+        }
+        .palette-preview .color-swatch {
+            width: 60px;
+            height: 60px;
+            border-radius: 4px;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            padding: 4px;
+            font-size: 10px;
+            font-family: monospace;
+            color: white;
+            text-shadow: 0 0 2px black;
+        }
+        .result-info {
+            margin-top: 16px;
+            padding: 12px;
+            background: #f5f5f5;
+            border-radius: 6px;
+        }
+        .result-info pre {
+            margin: 0;
+            white-space: pre-wrap;
+            font-size: 12px;
+        }
+        .badge-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .export-output {
+            width: 100%;
+            height: 200px;
+            font-family: monospace;
+            font-size: 12px;
+            margin-top: 12px;
+        }
+        .status-indicator {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-left: 8px;
+        }
+        .status-indicator[data-status="idle"] { background: #e0e0e0; }
+        .status-indicator[data-status="processing"] { background: #fff3cd; }
+        .status-indicator[data-status="complete"] { background: #d4edda; }
+    </style>
+</head>
+<body>
+    <h1>CUD-aware Harmony Generator E2E Test</h1>
+
+    <!-- Section 1: Mode Selector -->
+    <section class="test-section" id="mode-section">
+        <h2>1. CUDモードセレクター</h2>
+        <div id="mode-selector-container"></div>
+        <div class="result-info">
+            <strong>現在のモード:</strong> <span id="current-mode">-</span>
+            <span id="mode-status" class="status-indicator" data-status="idle">待機中</span>
+        </div>
+    </section>
+
+    <!-- Section 2: Anchor Color Input -->
+    <section class="test-section" id="anchor-section">
+        <h2>2. アンカーカラー設定</h2>
+        <div class="color-input-group">
+            <label for="anchor-color">ブランドカラー:</label>
+            <input type="color" id="anchor-color" value="#FF5500">
+            <input type="text" id="anchor-hex" value="#FF5500" placeholder="#RRGGBB">
+            <button id="set-anchor-btn" class="dads-button" data-size="sm">設定</button>
+        </div>
+        <div class="result-info">
+            <strong>アンカー情報:</strong>
+            <pre id="anchor-info">未設定</pre>
+        </div>
+    </section>
+
+    <!-- Section 3: Palette Input -->
+    <section class="test-section" id="palette-section">
+        <h2>3. パレット入力</h2>
+        <div>
+            <label for="palette-colors">カラーコード（カンマ区切り）:</label>
+            <input type="text" id="palette-colors"
+                   value="#FF2800,#35A16B,#0041FF,#FF9900"
+                   style="width: 100%; padding: 8px; margin-top: 8px;">
+        </div>
+        <button id="optimize-btn" class="dads-button" data-variant="primary" data-size="sm" style="margin-top: 12px;">
+            最適化実行
+        </button>
+        <div id="progress-container" style="margin-top: 12px;"></div>
+    </section>
+
+    <!-- Section 4: Preview -->
+    <section class="test-section" id="preview-section">
+        <h2>4. プレビュー</h2>
+        <div id="palette-preview" class="palette-preview">
+            <!-- Color swatches will be rendered here -->
+        </div>
+        <div id="badge-container" class="badge-container">
+            <!-- Mode-specific badges will be rendered here -->
+        </div>
+        <div class="result-info">
+            <strong>最適化結果:</strong>
+            <pre id="optimization-result">未実行</pre>
+        </div>
+    </section>
+
+    <!-- Section 5: Export -->
+    <section class="test-section" id="export-section">
+        <h2>5. エクスポート</h2>
+        <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+            <button id="export-json-btn" class="dads-button" data-size="sm">JSON出力</button>
+            <button id="export-css-btn" class="dads-button" data-size="sm">CSS出力</button>
+        </div>
+        <textarea id="export-output" class="export-output" readonly></textarea>
+        <div class="result-info">
+            <strong>CUD検証サマリー:</strong>
+            <pre id="validation-summary">未実行</pre>
+        </div>
+    </section>
+
+    <script type="module">
+        // Import CUD components and functions
+        import {
+            createCudModeSelectorWithPersistence,
+            processPaletteWithMode,
+            createPaletteProcessor,
+            createModeBadge,
+            createProgressUI,
+            createOptimizationController,
+            CUD_MODE_CONFIGS,
+        } from '../dist/index.js';
+
+        import { createAnchorColor } from '../dist/index.js';
+        import { exportToJSON, exportToCSS, generateCudValidationSummary } from '../dist/index.js';
+        import { Color } from '../dist/index.js';
+
+        // State
+        let currentMode = 'guide';
+        let currentAnchor = null;
+        let currentPalette = ['#FF2800', '#35A16B', '#0041FF', '#FF9900'];
+        let processor = null;
+
+        // DOM Elements
+        const modeSelectorContainer = document.getElementById('mode-selector-container');
+        const currentModeEl = document.getElementById('current-mode');
+        const modeStatusEl = document.getElementById('mode-status');
+        const anchorColorInput = document.getElementById('anchor-color');
+        const anchorHexInput = document.getElementById('anchor-hex');
+        const setAnchorBtn = document.getElementById('set-anchor-btn');
+        const anchorInfoEl = document.getElementById('anchor-info');
+        const paletteColorsInput = document.getElementById('palette-colors');
+        const optimizeBtn = document.getElementById('optimize-btn');
+        const progressContainer = document.getElementById('progress-container');
+        const palettePreview = document.getElementById('palette-preview');
+        const badgeContainer = document.getElementById('badge-container');
+        const optimizationResultEl = document.getElementById('optimization-result');
+        const exportJsonBtn = document.getElementById('export-json-btn');
+        const exportCssBtn = document.getElementById('export-css-btn');
+        const exportOutput = document.getElementById('export-output');
+        const validationSummaryEl = document.getElementById('validation-summary');
+
+        // Initialize mode selector
+        const modeSelector = createCudModeSelectorWithPersistence((mode) => {
+            currentMode = mode;
+            currentModeEl.textContent = `${CUD_MODE_CONFIGS[mode].icon} ${CUD_MODE_CONFIGS[mode].label}`;
+            modeStatusEl.dataset.status = 'processing';
+            modeStatusEl.textContent = '処理中...';
+
+            // Update preview
+            updatePreview();
+
+            modeStatusEl.dataset.status = 'complete';
+            modeStatusEl.textContent = '完了';
+        }, 'guide');
+
+        modeSelectorContainer.appendChild(modeSelector);
+        currentModeEl.textContent = `${CUD_MODE_CONFIGS['guide'].icon} ${CUD_MODE_CONFIGS['guide'].label}`;
+
+        // Sync color inputs
+        anchorColorInput.addEventListener('input', (e) => {
+            anchorHexInput.value = e.target.value.toUpperCase();
+        });
+        anchorHexInput.addEventListener('input', (e) => {
+            const hex = e.target.value;
+            if (/^#[0-9A-Fa-f]{6}$/.test(hex)) {
+                anchorColorInput.value = hex;
+            }
+        });
+
+        // Set anchor button
+        setAnchorBtn.addEventListener('click', () => {
+            const hex = anchorHexInput.value.toUpperCase();
+            try {
+                currentAnchor = createAnchorColor(hex);
+                anchorInfoEl.textContent = JSON.stringify({
+                    originalHex: currentAnchor.originalHex,
+                    nearestCud: {
+                        name: currentAnchor.nearestCud.nearest.nameJa,
+                        hex: currentAnchor.nearestCud.nearest.hex,
+                        matchLevel: currentAnchor.nearestCud.matchLevel,
+                        deltaE: currentAnchor.nearestCud.deltaE.toFixed(4),
+                    },
+                    priority: currentAnchor.priority,
+                    effectiveHex: currentAnchor.effectiveHex,
+                }, null, 2);
+                updatePreview();
+            } catch (error) {
+                anchorInfoEl.textContent = `Error: ${error.message}`;
+            }
+        });
+
+        // Initialize anchor
+        setAnchorBtn.click();
+
+        // Optimize button
+        optimizeBtn.addEventListener('click', () => {
+            const colorsStr = paletteColorsInput.value;
+            currentPalette = colorsStr.split(',').map(c => c.trim().toUpperCase());
+            updatePreview();
+        });
+
+        // Update preview
+        function updatePreview() {
+            const result = processPaletteWithMode(currentPalette, currentMode, {
+                anchorHex: currentAnchor?.effectiveHex,
+                lambda: 0.5,
+                returnFactor: 0.5,
+            });
+
+            // Render palette swatches
+            palettePreview.innerHTML = '';
+            result.processed.forEach((hex, i) => {
+                const swatch = document.createElement('div');
+                swatch.className = 'color-swatch';
+                swatch.style.backgroundColor = hex;
+                swatch.textContent = hex;
+                swatch.dataset.index = i;
+                swatch.dataset.hex = hex;
+                palettePreview.appendChild(swatch);
+            });
+
+            // Render badges
+            badgeContainer.innerHTML = '';
+            if (currentMode === 'guide' && result.zoneInfos) {
+                result.zoneInfos.forEach((info, i) => {
+                    const badge = createModeBadge('guide', { zoneInfo: info });
+                    if (badge) {
+                        badge.dataset.colorIndex = i;
+                        badgeContainer.appendChild(badge);
+                    }
+                });
+            } else if ((currentMode === 'soft' || currentMode === 'strict') && result.optimizationResult) {
+                result.optimizationResult.palette.forEach((color, i) => {
+                    const badge = createModeBadge(currentMode, {
+                        optimizedColor: {
+                            ...color,
+                            deltaEChange: color.snapped ? color.deltaE : 0,
+                        },
+                    });
+                    if (badge) {
+                        badge.dataset.colorIndex = i;
+                        badgeContainer.appendChild(badge);
+                    }
+                });
+            }
+
+            // Update optimization result
+            if (result.optimizationResult) {
+                optimizationResultEl.textContent = JSON.stringify({
+                    mode: currentMode,
+                    cudComplianceRate: result.optimizationResult.cudComplianceRate,
+                    harmonyScore: result.optimizationResult.harmonyScore.total.toFixed(2),
+                    objectiveValue: result.optimizationResult.objectiveValue.toFixed(4),
+                    processingTimeMs: result.optimizationResult.processingTimeMs,
+                    palette: result.optimizationResult.palette.map(c => ({
+                        hex: c.hex,
+                        zone: c.zone,
+                        snapped: c.snapped,
+                        cudTarget: c.cudTarget?.nameJa,
+                    })),
+                }, null, 2);
+            } else if (result.zoneInfos) {
+                optimizationResultEl.textContent = JSON.stringify({
+                    mode: currentMode,
+                    zoneInfos: result.zoneInfos.map(info => ({
+                        hex: info.hex,
+                        zone: info.zone,
+                        deltaE: info.deltaE.toFixed(4),
+                        nearestCud: info.nearestCud.nearest.nameJa,
+                    })),
+                }, null, 2);
+            } else {
+                optimizationResultEl.textContent = JSON.stringify({
+                    mode: currentMode,
+                    processed: result.processed,
+                }, null, 2);
+            }
+        }
+
+        // Export JSON
+        exportJsonBtn.addEventListener('click', () => {
+            const colors = {};
+            currentPalette.forEach((hex, i) => {
+                colors[`color${i}`] = new Color(hex);
+            });
+
+            const result = exportToJSON(colors, {
+                includeCudMetadata: true,
+                includeCudSummary: true,
+                cudMode: currentMode,
+            });
+
+            exportOutput.value = JSON.stringify(result, null, 2);
+
+            const summary = generateCudValidationSummary(colors);
+            validationSummaryEl.textContent = JSON.stringify({
+                totalColors: summary.totalColors,
+                zoneDistribution: summary.zoneDistribution,
+                errorCount: summary.errorCount,
+                warningCount: summary.warningCount,
+                isExportReady: summary.isExportReady,
+                message: summary.message,
+            }, null, 2);
+        });
+
+        // Export CSS
+        exportCssBtn.addEventListener('click', () => {
+            const colors = {};
+            currentPalette.forEach((hex, i) => {
+                colors[`color${i}`] = new Color(hex);
+            });
+
+            const result = exportToCSS(colors, {
+                includeCudComments: true,
+            });
+
+            exportOutput.value = result;
+        });
+
+        // Initial preview
+        updatePreview();
+    </script>
+</body>
+</html>
