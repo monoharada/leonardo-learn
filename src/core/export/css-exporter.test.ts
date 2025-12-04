@@ -5,8 +5,10 @@
 import { describe, expect, it } from "bun:test";
 import { Color } from "../color";
 import {
+	type CudCommentData,
 	exportScalesToCSS,
 	exportToCSS,
+	formatCudComment,
 	generateSemanticTokenName,
 } from "./css-exporter";
 
@@ -206,6 +208,147 @@ describe("CSSExporter", () => {
 
 			// oklch(50.0% 0.xxx 250.0) の形式
 			expect(result.css).toMatch(/oklch\(\d+\.\d+% \d+\.\d+ \d+\.\d+\)/);
+		});
+	});
+
+	describe("formatCudComment", () => {
+		it("CUDコメント文字列を正しくフォーマットする（exactマッチ）", () => {
+			const data: CudCommentData = {
+				nearestName: "赤",
+				matchLevel: "exact",
+				deltaE: 0.0,
+			};
+
+			const result = formatCudComment(data);
+
+			expect(result).toBe("/* CUD: 赤 (exact, ΔE=0.000) */");
+		});
+
+		it("CUDコメント文字列を正しくフォーマットする（nearマッチ）", () => {
+			const data: CudCommentData = {
+				nearestName: "緑",
+				matchLevel: "near",
+				deltaE: 0.032,
+			};
+
+			const result = formatCudComment(data);
+
+			expect(result).toBe("/* CUD: 緑 (near, ΔE=0.032) */");
+		});
+
+		it("CUDコメント文字列を正しくフォーマットする（moderateマッチ）", () => {
+			const data: CudCommentData = {
+				nearestName: "青",
+				matchLevel: "moderate",
+				deltaE: 0.085,
+			};
+
+			const result = formatCudComment(data);
+
+			expect(result).toBe("/* CUD: 青 (moderate, ΔE=0.085) */");
+		});
+
+		it("CUDコメント文字列を正しくフォーマットする（offマッチ）", () => {
+			const data: CudCommentData = {
+				nearestName: "橙",
+				matchLevel: "off",
+				deltaE: 0.156,
+			};
+
+			const result = formatCudComment(data);
+
+			expect(result).toBe("/* CUD: 橙 (off, ΔE=0.156) */");
+		});
+
+		it("deltaE値を小数点以下3桁でフォーマットする", () => {
+			const data: CudCommentData = {
+				nearestName: "黄",
+				matchLevel: "near",
+				deltaE: 0.1,
+			};
+
+			const result = formatCudComment(data);
+
+			expect(result).toBe("/* CUD: 黄 (near, ΔE=0.100) */");
+		});
+	});
+
+	describe("exportToCSS with CUD comments", () => {
+		it("includeCudCommentsオプションでCUDコメントを追加する", () => {
+			// CUD赤に近い色を使用
+			const colors = {
+				primary: new Color({ mode: "oklch", l: 0.5353, c: 0.2406, h: 30.1 }),
+			};
+
+			const result = exportToCSS(colors, { includeCudComments: true });
+
+			// CUDコメントが含まれている
+			expect(result.css).toContain("/* CUD:");
+			expect(result.css).toContain("ΔE=");
+		});
+
+		it("includeCudCommentsがfalseの場合はコメントなし", () => {
+			const colors = {
+				primary: new Color({ mode: "oklch", l: 0.5, c: 0.2, h: 250 }),
+			};
+
+			const result = exportToCSS(colors, { includeCudComments: false });
+
+			expect(result.css).not.toContain("/* CUD:");
+		});
+
+		it("デフォルトではCUDコメントは含まれない", () => {
+			const colors = {
+				primary: new Color({ mode: "oklch", l: 0.5, c: 0.2, h: 250 }),
+			};
+
+			const result = exportToCSS(colors);
+
+			expect(result.css).not.toContain("/* CUD:");
+		});
+
+		it("複数色でそれぞれCUDコメントが追加される", () => {
+			const colors = {
+				primary: new Color({ mode: "oklch", l: 0.5353, c: 0.2406, h: 30.1 }),
+				secondary: new Color({ mode: "oklch", l: 0.7, c: 0.15, h: 145 }),
+			};
+
+			const result = exportToCSS(colors, { includeCudComments: true });
+
+			// 両方の変数にCUDコメントがある（2回以上マッチ）
+			const cudCommentMatches = result.css.match(/\/\* CUD:/g);
+			expect(cudCommentMatches).not.toBeNull();
+			expect(cudCommentMatches!.length).toBeGreaterThanOrEqual(2);
+		});
+	});
+
+	describe("exportScalesToCSS with CUD comments", () => {
+		it("includeCudCommentsオプションでCUDコメントを追加する", () => {
+			const scales: Record<string, Map<number, Color>> = {
+				primary: new Map([
+					[500, new Color({ mode: "oklch", l: 0.5353, c: 0.2406, h: 30.1 })],
+				]),
+			};
+
+			const result = exportScalesToCSS(scales, { includeCudComments: true });
+
+			expect(result.css).toContain("/* CUD:");
+		});
+
+		it("複数トーンでそれぞれCUDコメントが追加される", () => {
+			const scales: Record<string, Map<number, Color>> = {
+				primary: new Map([
+					[50, new Color({ mode: "oklch", l: 0.95, c: 0.05, h: 30 })],
+					[500, new Color({ mode: "oklch", l: 0.5353, c: 0.2406, h: 30.1 })],
+					[900, new Color({ mode: "oklch", l: 0.2, c: 0.15, h: 30 })],
+				]),
+			};
+
+			const result = exportScalesToCSS(scales, { includeCudComments: true });
+
+			const cudCommentMatches = result.css.match(/\/\* CUD:/g);
+			expect(cudCommentMatches).not.toBeNull();
+			expect(cudCommentMatches!.length).toBeGreaterThanOrEqual(3);
 		});
 	});
 });

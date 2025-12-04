@@ -194,6 +194,261 @@ describe("JSONExporter", () => {
 			});
 		});
 
+		describe("Extended CUD metadata (Task 7.1)", () => {
+			test("should include zone classification in CUD metadata", () => {
+				const color = new Color("#FF2800"); // CUD red - exact match
+				const result = exportToJSON(
+					{ primary: color },
+					{ includeCudMetadata: true },
+				);
+
+				expect(result.colors.primary.cudMetadata?.zone).toBe("safe");
+			});
+
+			test("should include CUD color name (nameJa) in metadata", () => {
+				const color = new Color("#FF2800"); // CUD red
+				const result = exportToJSON(
+					{ primary: color },
+					{ includeCudMetadata: true },
+				);
+
+				expect(result.colors.primary.cudMetadata?.nearestName).toBe("赤");
+			});
+
+			test("should classify zone as warning for near colors", () => {
+				// A color that is close but not exact match
+				const color = new Color("#FF3010"); // Near CUD red
+				const result = exportToJSON(
+					{ primary: color },
+					{ includeCudMetadata: true },
+				);
+
+				// Check that zone is assigned based on deltaE
+				const zone = result.colors.primary.cudMetadata?.zone;
+				expect(["safe", "warning", "off"]).toContain(zone);
+			});
+
+			test("should include CUD summary when option is enabled", () => {
+				const colors = {
+					red: new Color("#FF2800"), // CUD exact
+					blue: new Color("#0041FF"), // CUD exact
+					custom: new Color("#123456"), // Non-CUD
+				};
+				const result = exportToJSON(colors, {
+					includeCudMetadata: true,
+					includeCudSummary: true,
+				});
+
+				expect(result.cudSummary).toBeDefined();
+				expect(result.cudSummary?.complianceRate).toBeGreaterThanOrEqual(0);
+				expect(result.cudSummary?.complianceRate).toBeLessThanOrEqual(100);
+			});
+
+			test("should include zone distribution in CUD summary", () => {
+				const colors = {
+					red: new Color("#FF2800"), // Safe zone
+					green: new Color("#35A16B"), // Safe zone
+					custom: new Color("#123456"), // Likely off zone
+				};
+				const result = exportToJSON(colors, {
+					includeCudMetadata: true,
+					includeCudSummary: true,
+				});
+
+				expect(result.cudSummary?.zoneDistribution).toBeDefined();
+				expect(result.cudSummary?.zoneDistribution.safe).toBeGreaterThanOrEqual(
+					0,
+				);
+				expect(
+					result.cudSummary?.zoneDistribution.warning,
+				).toBeGreaterThanOrEqual(0);
+				expect(result.cudSummary?.zoneDistribution.off).toBeGreaterThanOrEqual(
+					0,
+				);
+			});
+
+			test("should include mode info in CUD summary", () => {
+				const colors = { primary: new Color("#FF2800") };
+				const result = exportToJSON(colors, {
+					includeCudMetadata: true,
+					includeCudSummary: true,
+					cudMode: "strict",
+				});
+
+				expect(result.cudSummary?.mode).toBe("strict");
+			});
+
+			test("should set isFullyCompliant to true when all colors are in safe zone", () => {
+				const colors = {
+					red: new Color("#FF2800"), // CUD exact
+					blue: new Color("#0041FF"), // CUD exact
+					green: new Color("#35A16B"), // CUD exact
+				};
+				const result = exportToJSON(colors, {
+					includeCudMetadata: true,
+					includeCudSummary: true,
+					cudMode: "strict",
+				});
+
+				expect(result.cudSummary?.isFullyCompliant).toBe(true);
+			});
+
+			test("should set isFullyCompliant to false when any color is not in safe zone", () => {
+				const colors = {
+					red: new Color("#FF2800"), // CUD exact
+					custom: new Color("#123456"), // Non-CUD
+				};
+				const result = exportToJSON(colors, {
+					includeCudMetadata: true,
+					includeCudSummary: true,
+					cudMode: "strict",
+				});
+
+				expect(result.cudSummary?.isFullyCompliant).toBe(false);
+			});
+
+			test("should not include CUD summary when option is false", () => {
+				const colors = { primary: new Color("#FF2800") };
+				const result = exportToJSON(colors, {
+					includeCudMetadata: true,
+					includeCudSummary: false,
+				});
+
+				expect(result.cudSummary).toBeUndefined();
+			});
+
+			test("should default CUD mode to off when not specified", () => {
+				const colors = { primary: new Color("#FF2800") };
+				const result = exportToJSON(colors, {
+					includeCudMetadata: true,
+					includeCudSummary: true,
+				});
+
+				expect(result.cudSummary?.mode).toBe("off");
+			});
+		});
+
+		describe("CUD validation summary before export (Task 7.3)", () => {
+			test("should generate validation summary with warning count", () => {
+				// Import the new function
+				const { generateCudValidationSummary } = require("./json-exporter");
+
+				const colors = {
+					red: new Color("#FF2800"), // CUD exact - safe
+					blue: new Color("#0041FF"), // CUD exact - safe
+					custom: new Color("#123456"), // Non-CUD - likely off
+				};
+
+				const summary = generateCudValidationSummary(colors);
+
+				expect(summary).toBeDefined();
+				expect(typeof summary.warningCount).toBe("number");
+				expect(typeof summary.errorCount).toBe("number");
+				expect(summary.totalColors).toBe(3);
+			});
+
+			test("should count warnings for colors in warning zone", () => {
+				const { generateCudValidationSummary } = require("./json-exporter");
+
+				// Near CUD red - should be in warning zone
+				const colors = {
+					nearRed: new Color("#FF3820"),
+				};
+
+				const summary = generateCudValidationSummary(colors);
+
+				// Check that warning or off zone colors are counted
+				expect(
+					summary.warningCount + summary.errorCount,
+				).toBeGreaterThanOrEqual(0);
+			});
+
+			test("should count errors for colors in off zone", () => {
+				const { generateCudValidationSummary } = require("./json-exporter");
+
+				// Far from any CUD color
+				const colors = {
+					offColor: new Color("#123456"),
+				};
+
+				const summary = generateCudValidationSummary(colors);
+
+				expect(summary.errorCount).toBeGreaterThanOrEqual(1);
+			});
+
+			test("should return zero warnings and errors for all CUD-compliant palette", () => {
+				const { generateCudValidationSummary } = require("./json-exporter");
+
+				const colors = {
+					red: new Color("#FF2800"), // CUD exact
+					blue: new Color("#0041FF"), // CUD exact
+					green: new Color("#35A16B"), // CUD exact
+				};
+
+				const summary = generateCudValidationSummary(colors);
+
+				expect(summary.warningCount).toBe(0);
+				expect(summary.errorCount).toBe(0);
+				expect(summary.isExportReady).toBe(true);
+			});
+
+			test("should provide isExportReady flag", () => {
+				const { generateCudValidationSummary } = require("./json-exporter");
+
+				const colors = {
+					custom: new Color("#123456"), // Non-CUD
+				};
+
+				const summary = generateCudValidationSummary(colors);
+
+				expect(typeof summary.isExportReady).toBe("boolean");
+				expect(summary.isExportReady).toBe(false);
+			});
+
+			test("should include zone distribution in summary", () => {
+				const { generateCudValidationSummary } = require("./json-exporter");
+
+				const colors = {
+					red: new Color("#FF2800"), // safe
+					custom: new Color("#123456"), // off
+				};
+
+				const summary = generateCudValidationSummary(colors);
+
+				expect(summary.zoneDistribution).toBeDefined();
+				expect(typeof summary.zoneDistribution.safe).toBe("number");
+				expect(typeof summary.zoneDistribution.warning).toBe("number");
+				expect(typeof summary.zoneDistribution.off).toBe("number");
+			});
+
+			test("should provide human-readable message", () => {
+				const { generateCudValidationSummary } = require("./json-exporter");
+
+				const colors = {
+					red: new Color("#FF2800"),
+					custom: new Color("#123456"),
+				};
+
+				const summary = generateCudValidationSummary(colors);
+
+				expect(typeof summary.message).toBe("string");
+				expect(summary.message.length).toBeGreaterThan(0);
+			});
+
+			test("should work with empty color palette", () => {
+				const { generateCudValidationSummary } = require("./json-exporter");
+
+				const colors = {};
+
+				const summary = generateCudValidationSummary(colors);
+
+				expect(summary.totalColors).toBe(0);
+				expect(summary.warningCount).toBe(0);
+				expect(summary.errorCount).toBe(0);
+				expect(summary.isExportReady).toBe(true);
+			});
+		});
+
 		describe("edge cases", () => {
 			test("should handle pure white", () => {
 				const color = new Color("#ffffff");

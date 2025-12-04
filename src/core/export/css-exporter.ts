@@ -3,9 +3,26 @@
  *
  * OKLCH値とsRGB fallbackを提供するCSSエクスポーターです。
  * @supportsによる広色域検出付きfallback形式もサポートします。
+ * CUDメタデータオプション付き。
+ *
+ * Requirements: 7.3
  */
 
 import type { Color } from "../color";
+import { findNearestCudColor, type MatchLevel } from "../cud/service";
+
+/**
+ * CUDコメント生成用データ
+ * Requirement 7.3: CSSカスタムプロパティにCUD情報をコメントとして付加
+ */
+export interface CudCommentData {
+	/** CUD推奨色の名称（日本語） */
+	nearestName: string;
+	/** マッチレベル（exact/near/moderate/off） */
+	matchLevel: MatchLevel;
+	/** CUD色との色差（deltaE） */
+	deltaE: number;
+}
 
 /**
  * CSSエクスポートオプション
@@ -19,6 +36,11 @@ export interface CSSExportOptions {
 	includeWideGamutFallback?: boolean;
 	/** セレクタ（デフォルト: ":root"） */
 	selector?: string;
+	/**
+	 * CUDコメントを含めるか
+	 * Requirement 7.3: CSSカスタムプロパティにCUD情報をコメントとして付加
+	 */
+	includeCudComments?: boolean;
 }
 
 /**
@@ -52,6 +74,37 @@ function toOklchCss(color: Color): string {
 }
 
 /**
+ * CUDコメント文字列をフォーマットする
+ * Requirement 7.3: CSSカスタムプロパティにCUD情報をコメントとして付加
+ *
+ * @param data - CUDコメントデータ
+ * @returns フォーマットされたCSSコメント文字列
+ * @example
+ * formatCudComment({ nearestName: "赤", matchLevel: "exact", deltaE: 0.0 })
+ * // => "/* CUD: 赤 (exact, ΔE=0.000) *\/"
+ */
+export function formatCudComment(data: CudCommentData): string {
+	const { nearestName, matchLevel, deltaE } = data;
+	return `/* CUD: ${nearestName} (${matchLevel}, ΔE=${deltaE.toFixed(3)}) */`;
+}
+
+/**
+ * 色からCUDコメントを生成する
+ *
+ * @param color - 色
+ * @returns CUDコメント文字列
+ */
+function getCudCommentForColor(color: Color): string {
+	const hex = color.toHex();
+	const cudResult = findNearestCudColor(hex);
+	return formatCudComment({
+		nearestName: cudResult.nearest.nameJa,
+		matchLevel: cudResult.matchLevel,
+		deltaE: cudResult.deltaE,
+	});
+}
+
+/**
  * カラーをCSS Custom Properties形式でエクスポートする
  *
  * @param colors - エクスポートする色のレコード
@@ -67,6 +120,7 @@ export function exportToCSS(
 		indent = 2,
 		includeWideGamutFallback = false,
 		selector = ":root",
+		includeCudComments = false,
 	} = options;
 
 	const indentStr = " ".repeat(indent);
@@ -82,9 +136,12 @@ export function exportToCSS(
 
 		const hex = color.toHex();
 		const oklchValue = toOklchCss(color);
+		const cudComment = includeCudComments
+			? ` ${getCudCommentForColor(color)}`
+			: "";
 
 		// sRGB fallback
-		cssLines.push(`${indentStr}${varName}: ${hex};`);
+		cssLines.push(`${indentStr}${varName}: ${hex};${cudComment}`);
 		// OKLCH値（モダンブラウザ用）
 		cssLines.push(`${indentStr}${varName}: ${oklchValue};`);
 	}
@@ -145,6 +202,7 @@ export function exportScalesToCSS(
 		indent = 2,
 		includeWideGamutFallback = false,
 		selector = ":root",
+		includeCudComments = false,
 	} = options;
 
 	const indentStr = " ".repeat(indent);
@@ -167,8 +225,11 @@ export function exportScalesToCSS(
 
 			const hex = color.toHex();
 			const oklchValue = toOklchCss(color);
+			const cudComment = includeCudComments
+				? ` ${getCudCommentForColor(color)}`
+				: "";
 
-			cssLines.push(`${indentStr}${varName}: ${hex};`);
+			cssLines.push(`${indentStr}${varName}: ${hex};${cudComment}`);
 			cssLines.push(`${indentStr}${varName}: ${oklchValue};`);
 		}
 	}
