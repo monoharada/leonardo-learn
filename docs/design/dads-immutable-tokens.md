@@ -178,11 +178,21 @@ export type DadsColorCategory =
   | "semantic";  // セマンティック（success, error, warning）
 
 /**
- * DADSスケール値（50-1200）
+ * DADSスケール値
+ *
+ * 有彩色（chromatic）: 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200
+ * 無彩色（neutral gray）: 上記 + 420, 536（アクセシビリティ用中間値）
  */
-export type DadsScaleValue =
-  | 50 | 100 | 200 | 300 | 400 | 420 | 500 | 536
+export type DadsChromaScale =
+  | 50 | 100 | 200 | 300 | 400 | 500
   | 600 | 700 | 800 | 900 | 1000 | 1100 | 1200;
+
+export type DadsNeutralScale =
+  | 50 | 100 | 200 | 300 | 400 | 420 | 500 | 536
+  | 600 | 700 | 800 | 900;
+
+// 統合型（互換性のため）
+export type DadsScaleValue = DadsChromaScale | DadsNeutralScale;
 
 /**
  * DADSカラー分類
@@ -234,26 +244,88 @@ export interface DadsToken {
  *
  * @digital-go-jp/design-tokens のCSSからパースして
  * DadsToken配列を生成する
+ *
+ * 3つのカテゴリを処理:
+ * - chromatic: --color-primitive-{hue}-{scale}
+ * - neutral: --color-neutral-{type} または --color-neutral-{type}-gray-{scale}
+ * - semantic: --color-semantic-{name}
  */
 export function importDadsPrimitives(cssText: string): DadsToken[] {
-  // CSSカスタムプロパティをパース
   const tokens: DadsToken[] = [];
-  const regex = /--color-primitive-([a-z-]+)-(\d+):\s*(#[0-9a-fA-F]{6})/g;
 
+  // 1. Chromatic colors: --color-primitive-{hue}-{scale}
+  const chromaticRegex = /--color-primitive-([a-z-]+)-(\d+):\s*(#[0-9a-fA-F]{6})/g;
   let match: RegExpExecArray | null;
-  while ((match = regex.exec(cssText)) !== null) {
+  while ((match = chromaticRegex.exec(cssText)) !== null) {
     const [, hue, scaleStr, hex] = match;
-    const scale = parseInt(scaleStr, 10) as DadsScaleValue;
+    const scale = parseInt(scaleStr, 10) as DadsChromaScale;
 
     tokens.push({
       id: `dads-${hue}-${scale}`,
       hex: hex.toUpperCase(),
-      nameJa: `${hue}-${scale}`,  // 後でマッピング
+      nameJa: `${hue}-${scale}`,
       nameEn: `${hue}-${scale}`,
       classification: {
         category: "chromatic",
         hue: hue as DadsColorHue,
         scale,
+      },
+      source: "dads",
+    });
+  }
+
+  // 2. Neutral colors: --color-neutral-{white|black} or --color-neutral-{solid|opacity}-gray-{scale}
+  // 2a. white/black
+  const neutralBaseRegex = /--color-neutral-(white|black):\s*(#[0-9a-fA-F]{6})/g;
+  while ((match = neutralBaseRegex.exec(cssText)) !== null) {
+    const [, name, hex] = match;
+    tokens.push({
+      id: `dads-neutral-${name}`,
+      hex: hex.toUpperCase(),
+      nameJa: name === "white" ? "白" : "黒",
+      nameEn: name.charAt(0).toUpperCase() + name.slice(1),
+      classification: {
+        category: "neutral",
+      },
+      source: "dads",
+    });
+  }
+
+  // 2b. solid-gray / opacity-gray
+  const neutralGrayRegex = /--color-neutral-(solid|opacity)-gray-(\d+):\s*(#[0-9a-fA-F]{6}|rgba\([^)]+\))/g;
+  while ((match = neutralGrayRegex.exec(cssText)) !== null) {
+    const [, type, scaleStr, value] = match;
+    const scale = parseInt(scaleStr, 10) as DadsNeutralScale;
+
+    // rgba値はHEXに変換するか、そのまま保持
+    const hex = value.startsWith("#") ? value.toUpperCase() : value;
+
+    tokens.push({
+      id: `dads-${type}-gray-${scale}`,
+      hex,
+      nameJa: `${type === "solid" ? "ソリッド" : "透過"}グレー-${scale}`,
+      nameEn: `${type.charAt(0).toUpperCase() + type.slice(1)} Gray ${scale}`,
+      classification: {
+        category: "neutral",
+        scale,
+      },
+      source: "dads",
+    });
+  }
+
+  // 3. Semantic colors: --color-semantic-{name}: var(--color-primitive-{ref})
+  const semanticRegex = /--color-semantic-([a-z-]+(?:-\d)?):.*var\(--color-primitive-([a-z-]+)-(\d+)\)/g;
+  while ((match = semanticRegex.exec(cssText)) !== null) {
+    const [, semanticName, refHue, refScale] = match;
+
+    tokens.push({
+      id: `dads-semantic-${semanticName}`,
+      hex: `var(--color-primitive-${refHue}-${refScale})`, // 参照を保持
+      nameJa: semanticName,
+      nameEn: semanticName,
+      classification: {
+        category: "semantic",
+        // セマンティックは参照先を記録
       },
       source: "dads",
     });
@@ -897,12 +969,43 @@ export type ProcessPaletteResult<V extends ApiVersion> =
   V extends "v1" ? ProcessPaletteResultV1 : ProcessPaletteResultV2;
 
 /**
+ * アンカーカラー指定方法
+ *
+ * v1: 配列の最初の色が暗黙的にアンカーになる（既存動作）
+ * v2: anchorHexまたはanchorIndexで明示的に指定
+ */
+export interface AnchorSpecification {
+  /**
+   * アンカーカラーのHEX値（直接指定）
+   * これを指定すると、colorsに含まれていなくてもアンカーとして使用
+   */
+  anchorHex?: string;
+  /**
+   * アンカーカラーのインデックス（colors配列内の位置）
+   * デフォルト: 0（最初の色）
+   */
+  anchorIndex?: number;
+  /**
+   * アンカーを固定するか（最適化で変更しない）
+   * デフォルト: true
+   */
+  isFixed?: boolean;
+}
+
+/**
  * パレット処理オプション（拡張）
  */
 export interface ProcessPaletteOptions {
   mode: CudCompatibilityMode;
   /** APIバージョン（デフォルト: グローバル設定に従う） */
   apiVersion?: ApiVersion;
+  /**
+   * アンカーカラー指定（v1/v2共通）
+   *
+   * v1動作: 省略時はcolors[0]がアンカー
+   * v2動作: 省略時はcolors[0]がアンカー、anchorHexで明示的に指定可能
+   */
+  anchor?: AnchorSpecification;
   /** ブランドトークン生成コンテキスト（v2のみ） */
   generationContext?: PaletteGenerationContext;
 }
@@ -910,14 +1013,26 @@ export interface ProcessPaletteOptions {
 /**
  * パレットをCUDモードで処理する
  *
- * @example v1（後方互換）
- * const result = processPaletteWithMode(colors, { mode: "soft" });
- * console.log(result.palette); // OptimizedColor[]
+ * アンカーカラーの扱い:
+ * - アンカーはブランドの「基準色」として機能
+ * - 最適化処理でアンカーは変更されない（isFixed=trueの場合）
+ * - ハーモニースコア計算の基準点になる
  *
- * @example v2（推奨）
+ * @example v1（後方互換、最初の色がアンカー）
+ * const result = processPaletteWithMode(colors, { mode: "soft" });
+ * // colors[0]がアンカーとして使用される
+ *
+ * @example v1（アンカー明示指定）
+ * const result = processPaletteWithMode(colors, {
+ *   mode: "soft",
+ *   anchor: { anchorHex: "#FF5500" }  // 配列外の色をアンカーに
+ * });
+ *
+ * @example v2（推奨、アンカー明示指定）
  * const result = processPaletteWithMode(colors, {
  *   mode: "soft",
  *   apiVersion: "v2",
+ *   anchor: { anchorIndex: 0, isFixed: true },
  *   generationContext: { usedIds: new Set(), roleAssignment: "sequential" }
  * });
  * console.log(result.brandTokens); // BrandToken[]
@@ -927,6 +1042,13 @@ export function processPaletteWithMode<V extends ApiVersion = "v1">(
   options: ProcessPaletteOptions & { apiVersion?: V }
 ): ProcessPaletteResult<V> {
   const version = options.apiVersion ?? getApiVersion();
+
+  // アンカーカラーを解決
+  const anchorSpec = options.anchor ?? {};
+  const anchorHex = anchorSpec.anchorHex ?? colors[anchorSpec.anchorIndex ?? 0];
+  const anchor = createAnchorColor(anchorHex, {
+    isFixed: anchorSpec.isFixed ?? true,
+  });
 
   // 内部処理は共通
   const optimizationResult = optimizePalette(colors, anchor, {
@@ -1100,5 +1222,6 @@ if (options.apiVersion === "v1" || !options.apiVersion) {
 
 | 日付 | バージョン | 変更内容 |
 |------|-----------|----------|
+| 2025-12-04 | 0.3 | 追加レビュー指摘対応: スケール型分離（chromatic/neutral）、neutral/semanticインポート対応、anchor引数フロー明確化 |
 | 2025-12-04 | 0.2 | レビュー指摘対応: DADSグループ型分離、ID生成規則追加、API互換性設計追加 |
 | 2025-12-04 | 0.1 | 初版作成 |
