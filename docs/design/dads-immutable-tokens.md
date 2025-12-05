@@ -232,11 +232,39 @@ export type DerivationType =
  */
 export interface DadsToken {
   readonly id: string;                    // "dads-red", "dads-orange"
-  readonly hex: string;                   // "#FF2800" (不変)
+  readonly hex: string;                   // "#FF2800" (不変、常に#RRGGBB形式)
   readonly nameJa: string;                // "赤"
   readonly nameEn: string;                // "Red"
   readonly classification: DadsColorClassification;
   readonly source: "dads";                // 常に "dads"
+  /**
+   * 透明度（0-1、オプション）
+   * opacity-grayなどの透過色で使用
+   * 省略時は1（完全不透明）として扱う
+   */
+  readonly alpha?: number;
+}
+
+/**
+ * rgba()形式の色値をパースしてHEXとalphaに分離する
+ *
+ * @param rgba - "rgba(R, G, B, A)" 形式の文字列
+ * @returns { hex: "#RRGGBB", alpha: number } または null（パース失敗時）
+ *
+ * @example
+ * parseRgba("rgba(0, 0, 0, 0.5)")
+ * // => { hex: "#000000", alpha: 0.5 }
+ */
+function parseRgba(rgba: string): { hex: string; alpha: number } | null {
+  const match = rgba.match(/rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)/);
+  if (!match) return null;
+
+  const [, r, g, b, a] = match;
+  const toHex = (n: string) => parseInt(n, 10).toString(16).padStart(2, "0");
+  const hex = `#${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
+  const alpha = parseFloat(a);
+
+  return { hex, alpha };
 }
 
 /**
@@ -297,8 +325,25 @@ export function importDadsPrimitives(cssText: string): DadsToken[] {
     const [, type, scaleStr, value] = match;
     const scale = parseInt(scaleStr, 10) as DadsNeutralScale;
 
-    // rgba値はHEXに変換するか、そのまま保持
-    const hex = value.startsWith("#") ? value.toUpperCase() : value;
+    // HEXまたはrgba()をパース
+    // hexフィールドは常に#RRGGBB形式、alphaは別フィールドに格納
+    let hex: string;
+    let alpha: number | undefined;
+
+    if (value.startsWith("#")) {
+      hex = value.toUpperCase();
+    } else {
+      // rgba()形式をパース
+      const parsed = parseRgba(value);
+      if (parsed) {
+        hex = parsed.hex;
+        alpha = parsed.alpha;
+      } else {
+        // パース失敗時はスキップ（警告ログ出力推奨）
+        console.warn(`Failed to parse rgba value: ${value}`);
+        continue;
+      }
+    }
 
     tokens.push({
       id: `dads-${type}-gray-${scale}`,
@@ -310,6 +355,7 @@ export function importDadsPrimitives(cssText: string): DadsToken[] {
         scale,
       },
       source: "dads",
+      ...(alpha !== undefined && { alpha }),
     });
   }
 
@@ -336,12 +382,23 @@ export function importDadsPrimitives(cssText: string): DadsToken[] {
 
 /**
  * CUD推奨色との距離を計算してマッピング情報を付加
+ *
+ * 注意: セマンティックトークンは var(--color-primitive-...) 形式で
+ * HEX値を持たないため、CUDマッピング処理はスキップされる。
+ * セマンティックトークンのCUDマッピングが必要な場合は、
+ * 先にプリミティブ参照を解決する必要がある。
  */
 export function enrichWithCudMapping(
   dadsTokens: DadsToken[],
   cudColors: CudColor[]
 ): DadsToken[] {
   return dadsTokens.map(token => {
+    // セマンティックトークン（var参照）はスキップ
+    // hex値が#で始まらない場合はCUDマッピング不可
+    if (!token.hex.startsWith("#")) {
+      return token;
+    }
+
     const nearest = findNearestCudColor(token.hex);
     return {
       ...token,
@@ -354,6 +411,34 @@ export function enrichWithCudMapping(
       },
     };
   });
+}
+
+/**
+ * セマンティックトークンのプリミティブ参照を解決する
+ *
+ * var(--color-primitive-{hue}-{scale}) 形式の参照を
+ * 対応するプリミティブトークンのHEX値に展開する。
+ *
+ * @param semanticToken - セマンティックトークン
+ * @param primitives - 解決済みプリミティブトークン配列
+ * @returns 参照解決済みのHEX値、または解決不可の場合はnull
+ */
+export function resolveSemanticReference(
+  semanticToken: DadsToken,
+  primitives: DadsToken[]
+): string | null {
+  // var(--color-primitive-{hue}-{scale}) 形式をパース
+  const varMatch = semanticToken.hex.match(
+    /var\(--color-primitive-([a-z-]+)-(\d+)\)/
+  );
+  if (!varMatch) return null;
+
+  const [, hue, scale] = varMatch;
+  const targetId = `dads-${hue}-${scale}`;
+
+  // 対応するプリミティブを検索
+  const primitive = primitives.find(p => p.id === targetId);
+  return primitive?.hex ?? null;
 }
 
 /**
@@ -988,6 +1073,10 @@ export interface AnchorSpecification {
   /**
    * アンカーを固定するか（最適化で変更しない）
    * デフォルト: true
+   *
+   * 注意: 現行のcreateAnchorColor APIはこのオプションをサポートしていない。
+   * 将来のoptimizePalette拡張でpreserveAnchorオプションとして実装予定。
+   * 現状、アンカーカラーは常に固定（変更されない）として扱われる。
    */
   isFixed?: boolean;
 }
@@ -1044,16 +1133,19 @@ export function processPaletteWithMode<V extends ApiVersion = "v1">(
   const version = options.apiVersion ?? getApiVersion();
 
   // アンカーカラーを解決
+  // 注意: createAnchorColor は hex: string のみを受け取る（現行API）
+  // isFixed はオプティマイザに渡すことでアンカーを固定する
   const anchorSpec = options.anchor ?? {};
   const anchorHex = anchorSpec.anchorHex ?? colors[anchorSpec.anchorIndex ?? 0];
-  const anchor = createAnchorColor(anchorHex, {
-    isFixed: anchorSpec.isFixed ?? true,
-  });
+  const anchor = createAnchorColor(anchorHex);
 
   // 内部処理は共通
+  // isFixed: true の場合、オプティマイザはアンカー色を変更しない
   const optimizationResult = optimizePalette(colors, anchor, {
     lambda: getLambdaForMode(options.mode),
     mode: options.mode === "strict" ? "strict" : "soft",
+    // アンカー固定オプション（将来拡張予定）
+    // preserveAnchor: anchorSpec.isFixed ?? true,
   });
 
   if (version === "v1") {
@@ -1222,6 +1314,7 @@ if (options.apiVersion === "v1" || !options.apiVersion) {
 
 | 日付 | バージョン | 変更内容 |
 |------|-----------|----------|
+| 2025-12-05 | 0.4 | レビュー指摘3件対応: セマンティックトークンvar()参照スキップ、createAnchorColor API例修正、rgba()→HEX+alpha分離 |
 | 2025-12-04 | 0.3 | 追加レビュー指摘対応: スケール型分離（chromatic/neutral）、neutral/semanticインポート対応、anchor引数フロー明確化 |
 | 2025-12-04 | 0.2 | レビュー指摘対応: DADSグループ型分離、ID生成規則追加、API互換性設計追加 |
 | 2025-12-04 | 0.1 | 初版作成 |
