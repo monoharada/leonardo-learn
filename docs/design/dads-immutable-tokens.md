@@ -419,9 +419,46 @@ export function enrichWithCudMapping(
  * var(--color-primitive-{hue}-{scale}) 形式の参照を
  * 対応するプリミティブトークンのHEX値に展開する。
  *
+ * ## 使用タイミング
+ *
+ * この関数は以下のケースで呼び出す:
+ *
+ * 1. **CUDマッピング前**: enrichWithCudMappingを呼ぶ前にセマンティック
+ *    トークンの参照を解決し、HEX値を取得する必要がある場合
+ *
+ * 2. **エクスポート前**: セマンティックトークンを具体的なHEX値として
+ *    出力したい場合（CSS変数ではなくインライン値として）
+ *
+ * 3. **色計算時**: セマンティックトークンの実際の色値を使って
+ *    deltaE計算やゾーン分類を行う場合
+ *
+ * ## 注意事項
+ *
+ * - セマンティックトークンはenrichWithCudMappingでスキップされる
+ * - CUDマッピングが必要な場合は、この関数で先に解決すること
+ * - 解決後のHEX値は一時的な計算用であり、トークン自体は変更しない
+ *
  * @param semanticToken - セマンティックトークン
  * @param primitives - 解決済みプリミティブトークン配列
  * @returns 参照解決済みのHEX値、または解決不可の場合はnull
+ *
+ * @example
+ * // CUDマッピング前にセマンティックトークンを解決
+ * const tokens = importDadsPrimitives(cssText);
+ * const primitives = tokens.filter(t => t.classification.category !== "semantic");
+ * const semantics = tokens.filter(t => t.classification.category === "semantic");
+ *
+ * // セマンティックトークンのCUDマッピングを行う場合
+ * for (const semantic of semantics) {
+ *   const resolvedHex = resolveSemanticReference(semantic, primitives);
+ *   if (resolvedHex) {
+ *     const nearest = findNearestCudColor(resolvedHex);
+ *     // マッピング情報を利用...
+ *   }
+ * }
+ *
+ * // プリミティブのみenrichWithCudMappingに渡す
+ * const enrichedPrimitives = enrichWithCudMapping(primitives, cudColors);
  */
 export function resolveSemanticReference(
   semanticToken: DadsToken,
@@ -736,6 +773,7 @@ export interface OptimizedColor {
  * 独自の色が必要な場合は brand-* トークンを作成してください。
  */
 :root {
+  /* Chromatic colors */
   --dads-red: #FF2800;
   --dads-orange: #FF9900;
   --dads-yellow: #FAF500;
@@ -745,8 +783,14 @@ export interface OptimizedColor {
   --dads-pink: #FF99A0;
   --dads-purple: #9A0079;
   --dads-brown: #663300;
-  /* ... base colors ... */
-  /* ... neutral colors ... */
+
+  /* Neutral colors with alpha */
+  /* 透過トークンはrgba()形式で出力 */
+  --dads-opacity-gray-536: rgba(26, 26, 28, 0.56);
+  --dads-opacity-gray-700: rgba(26, 26, 28, 0.7);
+
+  /* Solid neutrals (no alpha) */
+  --dads-solid-gray-500: #757575;
 }
 
 /**
@@ -762,6 +806,31 @@ export interface OptimizedColor {
 
   /* Accent: Derived from --dads-orange (ΔE=0.120, soft-snap) */
   --brand-accent-500: #FF8800;
+
+  /* Overlay: Reference to opacity token (alpha preserved) */
+  --brand-overlay-500: rgba(26, 26, 28, 0.56);
+}
+```
+
+#### 5.1.1 Alpha値のCSS出力ルール
+
+| トークン種別 | alpha値 | CSS出力形式 |
+|-------------|---------|-------------|
+| DadsToken / BrandToken | なし（undefined） | `#RRGGBB` |
+| DadsToken / BrandToken | あり（0-1） | `rgba(R, G, B, alpha)` |
+
+**エクスポーター実装例:**
+
+```typescript
+function formatCssValue(token: DadsToken | BrandToken): string {
+  if (token.alpha === undefined || token.alpha === 1) {
+    return token.hex;
+  }
+  // HEXをRGBに変換してrgba()形式で出力
+  const r = parseInt(token.hex.slice(1, 3), 16);
+  const g = parseInt(token.hex.slice(3, 5), 16);
+  const b = parseInt(token.hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${token.alpha})`;
 }
 ```
 
@@ -1110,11 +1179,15 @@ export interface AnchorSpecification {
    * アンカーを固定するか（最適化で変更しない）
    *
    * - true（デフォルト）: アンカーを保持、他の色のみ最適化
-   * - false: 【将来機能】アンカーも含めて全色を最適化対象とする
+   * - false: 【現在は無視される】trueと同じ動作をする
    *
-   * 現行のoptimizePaletteはアンカーを常に保持する設計のため、
-   * isFixed=trueは明示的に指定しなくても同等の動作となる。
-   * isFixed=false指定時は警告を出力し、trueと同じ動作をする。
+   * ## 重要: 現在の動作
+   *
+   * **isFixed=falseは現在無視されます。** 指定しても内部的にはtrueとして
+   * 扱われ、アンカーは常に保持されます。将来のバージョンでfalseの動作が
+   * 実装される可能性がありますが、その動作に依存しないでください。
+   *
+   * isFixed=falseを指定すると警告がコンソールに出力されます。
    */
   isFixed?: boolean;
 }
@@ -1147,9 +1220,11 @@ export interface ProcessPaletteOptions {
  *
  * isFixedオプションについて:
  * - isFixed=true（デフォルト）: アンカーを保持、他の色のみ最適化
- * - isFixed=false: 【将来機能】アンカーも含めて全色を最適化対象とする
- * - 現行のoptimizePaletteはアンカー保持が標準動作のため、
- *   isFixed=trueは明示的に指定しなくても同等の動作となる
+ * - isFixed=false: **現在は無視される**（trueと同じ動作、警告出力）
+ *
+ * **注意**: isFixed=falseは現在実装されていません。指定しても
+ * アンカーは常に保持され、trueと同じ動作をします。
+ * 将来の動作変更に依存しないでください。
  *
  * @example v1（後方互換、最初の色がアンカー）
  * const result = processPaletteWithMode(colors, { mode: "soft" });
@@ -1181,17 +1256,19 @@ export function processPaletteWithMode<V extends ApiVersion = "v1">(
   const anchorHex = anchorSpec.anchorHex ?? colors[anchorSpec.anchorIndex ?? 0];
   const anchor = createAnchorColor(anchorHex);
 
-  // isFixed=false の場合の警告（将来機能）
+  // isFixed=false の場合の警告
+  // 現在はfalseを指定しても無視され、trueと同じ動作をする
   if (anchorSpec.isFixed === false) {
     console.warn(
-      "[Not Implemented] isFixed=false is reserved for future use. " +
-      "Currently, anchor is always preserved during optimization."
+      "[Ignored] isFixed=false is currently not implemented. " +
+      "The anchor will be preserved (same behavior as isFixed=true). " +
+      "Do not rely on future isFixed=false behavior."
     );
   }
 
   // 内部処理は共通
   // 現行のoptimizePaletteはアンカーを常に保持する設計
-  // isFixed=falseでアンカーも最適化対象にする機能は将来実装予定
+  // isFixed=falseは現在無視され、アンカーは常に保持される
   const optimizationResult = optimizePalette(colors, anchor, {
     lambda: getLambdaForMode(options.mode),
     mode: options.mode === "strict" ? "strict" : "soft",
@@ -1363,6 +1440,7 @@ if (options.apiVersion === "v1" || !options.apiVersion) {
 
 | 日付 | バージョン | 変更内容 |
 |------|-----------|----------|
+| 2025-12-05 | 0.6 | レビュー指摘3件対応: CSS出力alpha対応ルール追加、resolveSemanticReference使用タイミング文書化、isFixed=false無視動作明確化 |
 | 2025-12-05 | 0.5 | レビュー指摘2件対応: DadsReference/BrandTokenにalpha伝播、isFixed仕様明確化（現行動作=常に保持、false=将来機能） |
 | 2025-12-05 | 0.4 | レビュー指摘3件対応: セマンティックトークンvar()参照スキップ、createAnchorColor API例修正、rgba()→HEX+alpha分離 |
 | 2025-12-04 | 0.3 | 追加レビュー指摘対応: スケール型分離（chromatic/neutral）、neutral/semanticインポート対応、anchor引数フロー明確化 |
