@@ -450,6 +450,12 @@ export interface DadsReference {
   tokenId: string;               // "dads-red"
   /** 参照先DADSトークンのHEX（不変値） */
   tokenHex: string;              // "#FF2800"
+  /**
+   * 参照先DADSトークンの透明度（オプション）
+   * opacity-grayなど透過トークン参照時に設定
+   * 省略時は1（完全不透明）
+   */
+  tokenAlpha?: number;           // 0.5
   /** 色差（deltaE） */
   deltaE: number;                // 0.080
   /** 派生タイプ */
@@ -467,6 +473,12 @@ export interface BrandToken {
   id: string;                    // "brand-primary-500"
   /** 色値（派生値、変更可能） */
   hex: string;                   // "#FF3000"
+  /**
+   * 透明度（オプション）
+   * 透過ブランドトークンの場合に設定
+   * 省略時は1（完全不透明）
+   */
+  alpha?: number;                // 0.8
   /** ソース */
   source: "brand";               // 常に "brand"
   /** DADS参照情報 */
@@ -772,6 +784,16 @@ export interface OptimizedColor {
       "group": "accent",
       "source": "dads",
       "immutable": true
+    },
+    "opacity-gray-536": {
+      "id": "dads-opacity-gray-536",
+      "hex": "#1A1A1C",
+      "alpha": 0.56,
+      "nameJa": "透過グレー-536",
+      "nameEn": "Opacity Gray 536",
+      "group": "neutral",
+      "source": "dads",
+      "immutable": true
     }
   },
 
@@ -799,6 +821,20 @@ export interface OptimizedColor {
         "tokenHex": "#35A16B",
         "deltaE": 0.000,
         "derivationType": "strict-snap",
+        "zone": "safe"
+      }
+    },
+    "brand-overlay-500": {
+      "id": "brand-overlay-500",
+      "hex": "#1A1A1C",
+      "alpha": 0.56,
+      "source": "brand",
+      "dadsReference": {
+        "tokenId": "dads-opacity-gray-536",
+        "tokenHex": "#1A1A1C",
+        "tokenAlpha": 0.56,
+        "deltaE": 0.000,
+        "derivationType": "reference",
         "zone": "safe"
       }
     }
@@ -1072,11 +1108,13 @@ export interface AnchorSpecification {
   anchorIndex?: number;
   /**
    * アンカーを固定するか（最適化で変更しない）
-   * デフォルト: true
    *
-   * 注意: 現行のcreateAnchorColor APIはこのオプションをサポートしていない。
-   * 将来のoptimizePalette拡張でpreserveAnchorオプションとして実装予定。
-   * 現状、アンカーカラーは常に固定（変更されない）として扱われる。
+   * - true（デフォルト）: アンカーを保持、他の色のみ最適化
+   * - false: 【将来機能】アンカーも含めて全色を最適化対象とする
+   *
+   * 現行のoptimizePaletteはアンカーを常に保持する設計のため、
+   * isFixed=trueは明示的に指定しなくても同等の動作となる。
+   * isFixed=false指定時は警告を出力し、trueと同じ動作をする。
    */
   isFixed?: boolean;
 }
@@ -1104,12 +1142,18 @@ export interface ProcessPaletteOptions {
  *
  * アンカーカラーの扱い:
  * - アンカーはブランドの「基準色」として機能
- * - 最適化処理でアンカーは変更されない（isFixed=trueの場合）
+ * - 現行実装ではアンカーは常に保持される（最適化で変更されない）
  * - ハーモニースコア計算の基準点になる
+ *
+ * isFixedオプションについて:
+ * - isFixed=true（デフォルト）: アンカーを保持、他の色のみ最適化
+ * - isFixed=false: 【将来機能】アンカーも含めて全色を最適化対象とする
+ * - 現行のoptimizePaletteはアンカー保持が標準動作のため、
+ *   isFixed=trueは明示的に指定しなくても同等の動作となる
  *
  * @example v1（後方互換、最初の色がアンカー）
  * const result = processPaletteWithMode(colors, { mode: "soft" });
- * // colors[0]がアンカーとして使用される
+ * // colors[0]がアンカーとして使用される（常に保持）
  *
  * @example v1（アンカー明示指定）
  * const result = processPaletteWithMode(colors, {
@@ -1121,7 +1165,7 @@ export interface ProcessPaletteOptions {
  * const result = processPaletteWithMode(colors, {
  *   mode: "soft",
  *   apiVersion: "v2",
- *   anchor: { anchorIndex: 0, isFixed: true },
+ *   anchor: { anchorIndex: 0 },  // isFixed省略時はtrue（保持）
  *   generationContext: { usedIds: new Set(), roleAssignment: "sequential" }
  * });
  * console.log(result.brandTokens); // BrandToken[]
@@ -1133,19 +1177,24 @@ export function processPaletteWithMode<V extends ApiVersion = "v1">(
   const version = options.apiVersion ?? getApiVersion();
 
   // アンカーカラーを解決
-  // 注意: createAnchorColor は hex: string のみを受け取る（現行API）
-  // isFixed はオプティマイザに渡すことでアンカーを固定する
   const anchorSpec = options.anchor ?? {};
   const anchorHex = anchorSpec.anchorHex ?? colors[anchorSpec.anchorIndex ?? 0];
   const anchor = createAnchorColor(anchorHex);
 
+  // isFixed=false の場合の警告（将来機能）
+  if (anchorSpec.isFixed === false) {
+    console.warn(
+      "[Not Implemented] isFixed=false is reserved for future use. " +
+      "Currently, anchor is always preserved during optimization."
+    );
+  }
+
   // 内部処理は共通
-  // isFixed: true の場合、オプティマイザはアンカー色を変更しない
+  // 現行のoptimizePaletteはアンカーを常に保持する設計
+  // isFixed=falseでアンカーも最適化対象にする機能は将来実装予定
   const optimizationResult = optimizePalette(colors, anchor, {
     lambda: getLambdaForMode(options.mode),
     mode: options.mode === "strict" ? "strict" : "soft",
-    // アンカー固定オプション（将来拡張予定）
-    // preserveAnchor: anchorSpec.isFixed ?? true,
   });
 
   if (version === "v1") {
@@ -1314,6 +1363,7 @@ if (options.apiVersion === "v1" || !options.apiVersion) {
 
 | 日付 | バージョン | 変更内容 |
 |------|-----------|----------|
+| 2025-12-05 | 0.5 | レビュー指摘2件対応: DadsReference/BrandTokenにalpha伝播、isFixed仕様明確化（現行動作=常に保持、false=将来機能） |
 | 2025-12-05 | 0.4 | レビュー指摘3件対応: セマンティックトークンvar()参照スキップ、createAnchorColor API例修正、rgba()→HEX+alpha分離 |
 | 2025-12-04 | 0.3 | 追加レビュー指摘対応: スケール型分離（chromatic/neutral）、neutral/semanticインポート対応、anchor引数フロー明確化 |
 | 2025-12-04 | 0.2 | レビュー指摘対応: DADSグループ型分離、ID生成規則追加、API互換性設計追加 |
