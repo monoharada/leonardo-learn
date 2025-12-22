@@ -14,6 +14,272 @@ import {
 } from "./optimizer";
 import { DEFAULT_ZONE_THRESHOLDS } from "./zone";
 
+// Task 3.2: brandToken情報テスト
+// Requirements: 8.1, 8.2, 8.3
+describe("OptimizedColor brandToken property (Task 3.2)", () => {
+	describe("brandToken property structure", () => {
+		it("should include brandToken property in OptimizedColor (Requirement 8.1)", () => {
+			const anchor = createAnchorColor("#FF2800");
+			const candidates = ["#FF2800"];
+
+			const options: OptimizationOptions = {
+				lambda: 0.5,
+				mode: "soft",
+			};
+
+			const result = optimizePalette(candidates, anchor, options);
+			const optimizedColor = result.palette[0];
+
+			// brandTokenプロパティが存在する
+			expect(optimizedColor).toHaveProperty("brandToken");
+			expect(optimizedColor.brandToken).toBeDefined();
+		});
+
+		it("should include suggestedId in brandToken (Requirement 8.2)", () => {
+			const anchor = createAnchorColor("#FF2800");
+			const candidates = ["#FF2800"];
+
+			const options: OptimizationOptions = {
+				lambda: 0.5,
+				mode: "soft",
+			};
+
+			const result = optimizePalette(candidates, anchor, options);
+			const optimizedColor = result.palette[0];
+
+			// suggestedIdが含まれる
+			expect(optimizedColor.brandToken).toHaveProperty("suggestedId");
+			expect(typeof optimizedColor.brandToken?.suggestedId).toBe("string");
+		});
+
+		it("should include dadsReference in brandToken (Requirement 8.2)", () => {
+			const anchor = createAnchorColor("#FF2800");
+			const candidates = ["#FF2800"];
+
+			const options: OptimizationOptions = {
+				lambda: 0.5,
+				mode: "soft",
+			};
+
+			const result = optimizePalette(candidates, anchor, options);
+			const optimizedColor = result.palette[0];
+
+			// dadsReferenceが含まれる
+			expect(optimizedColor.brandToken).toHaveProperty("dadsReference");
+			expect(optimizedColor.brandToken?.dadsReference).toBeDefined();
+		});
+
+		it("should have correct dadsReference structure (Requirement 8.2)", () => {
+			const anchor = createAnchorColor("#FF2800");
+			const candidates = ["#FF2800"];
+
+			const options: OptimizationOptions = {
+				lambda: 0.5,
+				mode: "soft",
+			};
+
+			const result = optimizePalette(candidates, anchor, options);
+			const dadsRef = result.palette[0].brandToken?.dadsReference;
+
+			// dadsReferenceの構造を検証
+			expect(dadsRef).toHaveProperty("tokenId");
+			expect(dadsRef).toHaveProperty("tokenHex");
+			expect(dadsRef).toHaveProperty("deltaE");
+			expect(dadsRef).toHaveProperty("derivationType");
+			expect(dadsRef).toHaveProperty("zone");
+		});
+	});
+
+	describe("derivation info conversion (Requirement 8.3)", () => {
+		it("should convert Snapper derivation to dadsReference in Soft mode", () => {
+			const anchor = createAnchorColor("#FF2800");
+			const candidates = ["#FF2800"]; // CUD赤
+
+			const options: OptimizationOptions = {
+				lambda: 0.5,
+				mode: "soft",
+			};
+
+			const result = optimizePalette(candidates, anchor, options);
+			const dadsRef = result.palette[0].brandToken?.dadsReference;
+
+			// CUD赤への参照（CUD色のIDは"red"）
+			expect(dadsRef?.tokenId).toBe("red");
+			expect(dadsRef?.tokenHex).toBe("#FF2800");
+			expect(dadsRef?.derivationType).toBe("reference"); // Safe Zoneはスナップなし
+			expect(dadsRef?.zone).toBe("safe");
+		});
+
+		it("should convert Snapper derivation to dadsReference in Strict mode", () => {
+			const anchor = createAnchorColor("#FF2800");
+			const candidates = ["#123456"]; // Off Zone色
+
+			const options: OptimizationOptions = {
+				lambda: 0.5,
+				mode: "strict",
+			};
+
+			const result = optimizePalette(candidates, anchor, options);
+			const dadsRef = result.palette[0].brandToken?.dadsReference;
+
+			// Strictモードではstrict-snap
+			expect(dadsRef?.derivationType).toBe("strict-snap");
+			expect(dadsRef?.tokenId).toBeDefined();
+			expect(dadsRef?.tokenHex).toBeDefined();
+		});
+
+		it("should set soft-snap derivationType for Warning Zone colors in Soft mode", () => {
+			const anchor = createAnchorColor("#FF2800");
+			const candidates = ["#FF3500"]; // Warning Zone付近
+
+			const options: OptimizationOptions = {
+				lambda: 0.5,
+				mode: "soft",
+				returnFactor: 0.5,
+			};
+
+			const result = optimizePalette(candidates, anchor, options);
+			const optimizedColor = result.palette[0];
+			const dadsRef = optimizedColor.brandToken?.dadsReference;
+
+			// Warning Zoneでスナップありならsoft-snap
+			if (optimizedColor.snapped && optimizedColor.zone === "warning") {
+				expect(dadsRef?.derivationType).toBe("soft-snap");
+			}
+		});
+
+		it("should preserve zone info in dadsReference", () => {
+			const anchor = createAnchorColor("#FF2800");
+			const candidates = ["#FF2800", "#123456"]; // Safe Zone + Off Zone
+
+			const options: OptimizationOptions = {
+				lambda: 0.5,
+				mode: "soft",
+			};
+
+			const result = optimizePalette(candidates, anchor, options);
+
+			// Safe Zone色のdadsReference
+			expect(result.palette[0].brandToken?.dadsReference.zone).toBe("safe");
+			// Off Zone色のdadsReference
+			expect(result.palette[1].brandToken?.dadsReference.zone).toBe("off");
+		});
+
+		it("should include deltaE in dadsReference", () => {
+			const anchor = createAnchorColor("#FF2800");
+			const candidates = ["#FF2800"];
+
+			const options: OptimizationOptions = {
+				lambda: 0.5,
+				mode: "soft",
+			};
+
+			const result = optimizePalette(candidates, anchor, options);
+			const dadsRef = result.palette[0].brandToken?.dadsReference;
+
+			// deltaEは数値
+			expect(typeof dadsRef?.deltaE).toBe("number");
+			// CUD推奨色なのでdeltaE ≈ 0
+			expect(dadsRef?.deltaE).toBeCloseTo(0, 3);
+		});
+	});
+
+	describe("backward compatibility (Requirement 8.3)", () => {
+		it("should preserve existing hex property", () => {
+			const anchor = createAnchorColor("#FF2800");
+			const candidates = ["#FF2800"];
+
+			const options: OptimizationOptions = {
+				lambda: 0.5,
+				mode: "soft",
+			};
+
+			const result = optimizePalette(candidates, anchor, options);
+			const optimizedColor = result.palette[0];
+
+			expect(optimizedColor.hex).toBeDefined();
+			expect(optimizedColor.hex).toBe("#FF2800");
+		});
+
+		it("should preserve existing originalHex property", () => {
+			const anchor = createAnchorColor("#FF2800");
+			const candidates = ["#FF2800"];
+
+			const options: OptimizationOptions = {
+				lambda: 0.5,
+				mode: "soft",
+			};
+
+			const result = optimizePalette(candidates, anchor, options);
+			const optimizedColor = result.palette[0];
+
+			expect(optimizedColor.originalHex).toBeDefined();
+			expect(optimizedColor.originalHex).toBe("#FF2800");
+		});
+
+		it("should preserve existing zone property", () => {
+			const anchor = createAnchorColor("#FF2800");
+			const candidates = ["#FF2800"];
+
+			const options: OptimizationOptions = {
+				lambda: 0.5,
+				mode: "soft",
+			};
+
+			const result = optimizePalette(candidates, anchor, options);
+			const optimizedColor = result.palette[0];
+
+			expect(optimizedColor.zone).toBeDefined();
+			expect(optimizedColor.zone).toBe("safe");
+		});
+
+		it("should preserve existing deltaE property", () => {
+			const anchor = createAnchorColor("#FF2800");
+			const candidates = ["#FF2800"];
+
+			const options: OptimizationOptions = {
+				lambda: 0.5,
+				mode: "soft",
+			};
+
+			const result = optimizePalette(candidates, anchor, options);
+			const optimizedColor = result.palette[0];
+
+			expect(typeof optimizedColor.deltaE).toBe("number");
+		});
+
+		it("should preserve existing snapped property", () => {
+			const anchor = createAnchorColor("#FF2800");
+			const candidates = ["#FF2800"];
+
+			const options: OptimizationOptions = {
+				lambda: 0.5,
+				mode: "soft",
+			};
+
+			const result = optimizePalette(candidates, anchor, options);
+			const optimizedColor = result.palette[0];
+
+			expect(typeof optimizedColor.snapped).toBe("boolean");
+		});
+
+		it("should preserve existing cudTarget property", () => {
+			const anchor = createAnchorColor("#FF2800");
+			const candidates = ["#FF2800"];
+
+			const options: OptimizationOptions = {
+				lambda: 0.5,
+				mode: "strict",
+			};
+
+			const result = optimizePalette(candidates, anchor, options);
+			const optimizedColor = result.palette[0];
+
+			expect(optimizedColor.cudTarget).toBeDefined();
+		});
+	});
+});
+
 describe("CUD Optimizer", () => {
 	describe("calculateObjective", () => {
 		it("should calculate objective function correctly with default lambda", () => {
