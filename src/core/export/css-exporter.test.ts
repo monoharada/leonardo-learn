@@ -318,7 +318,7 @@ describe("CSSExporter", () => {
 			// 両方の変数にCUDコメントがある（2回以上マッチ）
 			const cudCommentMatches = result.css.match(/\/\* CUD:/g);
 			expect(cudCommentMatches).not.toBeNull();
-			expect(cudCommentMatches!.length).toBeGreaterThanOrEqual(2);
+			expect(cudCommentMatches?.length).toBeGreaterThanOrEqual(2);
 		});
 	});
 
@@ -348,7 +348,314 @@ describe("CSSExporter", () => {
 
 			const cudCommentMatches = result.css.match(/\/\* CUD:/g);
 			expect(cudCommentMatches).not.toBeNull();
-			expect(cudCommentMatches!.length).toBeGreaterThanOrEqual(3);
+			expect(cudCommentMatches?.length).toBeGreaterThanOrEqual(3);
+		});
+	});
+});
+
+/**
+ * CSSエクスポーターv2のテスト
+ * Requirements: 10.1, 10.2, 10.3, 10.4, 10.5
+ */
+describe("CSSExporter v2", () => {
+	describe("exportToCSSv2", () => {
+		// Requirements 10.1, 10.2: DADSプリミティブとブランドトークンの出力
+		it("DADSプリミティブを--dads-{color}形式で出力する", async () => {
+			const { exportToCSSv2 } = await import("./css-exporter");
+			const { BrandToken, DadsToken } = await import("../tokens/types");
+
+			const dadsTokens: DadsToken[] = [
+				{
+					id: "dads-blue-500",
+					hex: "#0066cc",
+					nameJa: "青500",
+					nameEn: "Blue 500",
+					classification: { category: "chromatic", hue: "blue", scale: 500 },
+					source: "dads" as const,
+				},
+			];
+
+			const brandTokens: BrandToken[] = [];
+
+			const result = exportToCSSv2(brandTokens, dadsTokens);
+
+			expect(result).toContain("--dads-blue-500");
+			expect(result).toContain("#0066cc");
+		});
+
+		it("ブランドトークンを--brand-{role}-{shade}形式で出力する", async () => {
+			const { exportToCSSv2 } = await import("./css-exporter");
+			const { BrandToken, DadsToken } = await import("../tokens/types");
+
+			const brandTokens: BrandToken[] = [
+				{
+					id: "brand-primary-500",
+					hex: "#1a73e8",
+					source: "brand" as const,
+					dadsReference: {
+						tokenId: "dads-blue-500",
+						tokenHex: "#0066cc",
+						deltaE: 0.02,
+						derivationType: "soft-snap" as const,
+						zone: "safe" as const,
+					},
+				},
+			];
+
+			const result = exportToCSSv2(brandTokens);
+
+			expect(result).toContain("--brand-primary-500");
+			expect(result).toContain("#1a73e8");
+		});
+
+		// Requirement 10.3: alpha値を持つトークンはrgba()形式で出力
+		it("alpha値を持つトークンはrgba(R, G, B, alpha)形式で出力する", async () => {
+			const { exportToCSSv2 } = await import("./css-exporter");
+			const { BrandToken, DadsToken } = await import("../tokens/types");
+
+			const dadsTokens: DadsToken[] = [
+				{
+					id: "dads-neutral-gray-500",
+					hex: "#808080",
+					alpha: 0.5,
+					nameJa: "グレー500透過",
+					nameEn: "Gray 500 Alpha",
+					classification: { category: "neutral", scale: 500 },
+					source: "dads" as const,
+				},
+			];
+
+			const brandTokens: BrandToken[] = [
+				{
+					id: "brand-overlay-500",
+					hex: "#000000",
+					alpha: 0.3,
+					source: "brand" as const,
+					dadsReference: {
+						tokenId: "dads-neutral-gray-500",
+						tokenHex: "#808080",
+						tokenAlpha: 0.5,
+						deltaE: 0.1,
+						derivationType: "reference" as const,
+						zone: "warning" as const,
+					},
+				},
+			];
+
+			const result = exportToCSSv2(brandTokens, dadsTokens);
+
+			// DADSトークンのrgba出力
+			expect(result).toContain("rgba(128, 128, 128, 0.5)");
+			// ブランドトークンのrgba出力
+			expect(result).toContain("rgba(0, 0, 0, 0.3)");
+		});
+
+		// Requirement 10.4: alpha値がないか1の場合は#RRGGBB形式で出力
+		it("alpha値がないか1の場合は#RRGGBB形式で出力する", async () => {
+			const { exportToCSSv2 } = await import("./css-exporter");
+			const { BrandToken, DadsToken } = await import("../tokens/types");
+
+			const dadsTokens: DadsToken[] = [
+				{
+					id: "dads-red-500",
+					hex: "#ff0000",
+					nameJa: "赤500",
+					nameEn: "Red 500",
+					classification: { category: "chromatic", hue: "red", scale: 500 },
+					source: "dads" as const,
+				},
+				{
+					id: "dads-green-500",
+					hex: "#00ff00",
+					alpha: 1,
+					nameJa: "緑500",
+					nameEn: "Green 500",
+					classification: { category: "chromatic", hue: "green", scale: 500 },
+					source: "dads" as const,
+				},
+			];
+
+			const result = exportToCSSv2([], dadsTokens);
+
+			expect(result).toContain("--dads-red-500: #ff0000;");
+			expect(result).toContain("--dads-green-500: #00ff00;");
+			// rgba形式ではないことを確認
+			expect(result).not.toContain("rgba(255, 0, 0,");
+			expect(result).not.toContain("rgba(0, 255, 0,");
+		});
+
+		// Requirement 10.5: derivationコメント（参照先DADS、deltaE、派生タイプ）を追加
+		it("derivationコメント（参照先DADS、deltaE、派生タイプ）を追加する", async () => {
+			const { exportToCSSv2 } = await import("./css-exporter");
+			const { BrandToken } = await import("../tokens/types");
+
+			const brandTokens: BrandToken[] = [
+				{
+					id: "brand-accent-500",
+					hex: "#e91e63",
+					source: "brand" as const,
+					dadsReference: {
+						tokenId: "dads-magenta-500",
+						tokenHex: "#d81b60",
+						deltaE: 0.045,
+						derivationType: "soft-snap" as const,
+						zone: "safe" as const,
+					},
+				},
+			];
+
+			const result = exportToCSSv2(brandTokens, [], { includeComments: true });
+
+			// derivationコメントの確認
+			expect(result).toContain("dads-magenta-500");
+			expect(result).toContain("0.045");
+			expect(result).toContain("soft-snap");
+		});
+
+		// Requirement 10.5: 不変性を示すコメントをDADSセクションに追加
+		it("不変性を示すコメントをDADSセクションに追加する", async () => {
+			const { exportToCSSv2 } = await import("./css-exporter");
+			const { DadsToken } = await import("../tokens/types");
+
+			const dadsTokens: DadsToken[] = [
+				{
+					id: "dads-blue-500",
+					hex: "#0066cc",
+					nameJa: "青500",
+					nameEn: "Blue 500",
+					classification: { category: "chromatic", hue: "blue", scale: 500 },
+					source: "dads" as const,
+				},
+			];
+
+			const result = exportToCSSv2([], dadsTokens, { includeComments: true });
+
+			// 不変性コメントの確認
+			expect(result).toMatch(/DADS.*(?:Immutable|不変|変更不可)/i);
+		});
+
+		it("DADSトークンとブランドトークンを分離したセクションで出力する", async () => {
+			const { exportToCSSv2 } = await import("./css-exporter");
+			const { BrandToken, DadsToken } = await import("../tokens/types");
+
+			const dadsTokens: DadsToken[] = [
+				{
+					id: "dads-blue-500",
+					hex: "#0066cc",
+					nameJa: "青500",
+					nameEn: "Blue 500",
+					classification: { category: "chromatic", hue: "blue", scale: 500 },
+					source: "dads" as const,
+				},
+			];
+
+			const brandTokens: BrandToken[] = [
+				{
+					id: "brand-primary-500",
+					hex: "#1a73e8",
+					source: "brand" as const,
+					dadsReference: {
+						tokenId: "dads-blue-500",
+						tokenHex: "#0066cc",
+						deltaE: 0.02,
+						derivationType: "soft-snap" as const,
+						zone: "safe" as const,
+					},
+				},
+			];
+
+			const result = exportToCSSv2(brandTokens, dadsTokens, {
+				includeComments: true,
+			});
+
+			// DADSセクションがブランドセクションより前にある
+			const dadsIndex = result.indexOf("--dads-");
+			const brandIndex = result.indexOf("--brand-");
+			expect(dadsIndex).toBeLessThan(brandIndex);
+		});
+
+		it("includeDadsTokens=falseの場合はDADSトークンを出力しない", async () => {
+			const { exportToCSSv2 } = await import("./css-exporter");
+			const { BrandToken, DadsToken } = await import("../tokens/types");
+
+			const dadsTokens: DadsToken[] = [
+				{
+					id: "dads-blue-500",
+					hex: "#0066cc",
+					nameJa: "青500",
+					nameEn: "Blue 500",
+					classification: { category: "chromatic", hue: "blue", scale: 500 },
+					source: "dads" as const,
+				},
+			];
+
+			const brandTokens: BrandToken[] = [
+				{
+					id: "brand-primary-500",
+					hex: "#1a73e8",
+					source: "brand" as const,
+					dadsReference: {
+						tokenId: "dads-blue-500",
+						tokenHex: "#0066cc",
+						deltaE: 0.02,
+						derivationType: "soft-snap" as const,
+						zone: "safe" as const,
+					},
+				},
+			];
+
+			const result = exportToCSSv2(brandTokens, dadsTokens, {
+				includeDadsTokens: false,
+			});
+
+			expect(result).not.toContain("--dads-");
+			expect(result).toContain("--brand-primary-500");
+		});
+
+		it("空のトークン配列でも正常に動作する", async () => {
+			const { exportToCSSv2 } = await import("./css-exporter");
+
+			const result = exportToCSSv2([], []);
+
+			expect(result).toContain(":root");
+			expect(result).toContain("}");
+		});
+	});
+
+	describe("formatDerivationComment", () => {
+		it("派生情報を正しいフォーマットでコメント化する", async () => {
+			const { formatDerivationComment } = await import("./css-exporter");
+			const { DadsReference } = await import("../tokens/types");
+
+			const dadsRef: DadsReference = {
+				tokenId: "dads-blue-500",
+				tokenHex: "#0066cc",
+				deltaE: 0.032,
+				derivationType: "soft-snap" as const,
+				zone: "safe" as const,
+			};
+
+			const result = formatDerivationComment(dadsRef);
+
+			expect(result).toContain("dads-blue-500");
+			expect(result).toContain("ΔE=0.032");
+			expect(result).toContain("soft-snap");
+		});
+	});
+
+	describe("hexToRgba", () => {
+		it("HEXとalphaからrgba文字列を生成する", async () => {
+			const { hexToRgba } = await import("./css-exporter");
+
+			const result = hexToRgba("#ff0000", 0.5);
+			expect(result).toBe("rgba(255, 0, 0, 0.5)");
+		});
+
+		it("小文字HEXも正しく処理する", async () => {
+			const { hexToRgba } = await import("./css-exporter");
+
+			const result = hexToRgba("#00ff00", 0.75);
+			expect(result).toBe("rgba(0, 255, 0, 0.75)");
 		});
 	});
 });
