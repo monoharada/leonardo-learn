@@ -588,6 +588,154 @@ describe("CUD Snapper", () => {
 		});
 	});
 
+	// タスク3.1: Snapperにderivation情報を追加する
+	// Requirements: 7.1, 7.2, 7.3
+	describe("softSnapToCudColor - derivation information (Task 3.1)", () => {
+		describe("derivation property presence", () => {
+			it("should include derivation property in SoftSnapResult", () => {
+				const result = softSnapToCudColor("#FF2800", { mode: "soft" });
+
+				expect(result.derivation).toBeDefined();
+				expect(result.derivation.type).toBeDefined();
+				expect(result.derivation.dadsTokenId).toBeDefined();
+				expect(result.derivation.dadsTokenHex).toBeDefined();
+				expect(result.derivation.brandTokenHex).toBeDefined();
+			});
+
+			it("should include derivation for all modes", () => {
+				const modes: ("strict" | "prefer" | "soft")[] = [
+					"strict",
+					"prefer",
+					"soft",
+				];
+
+				for (const mode of modes) {
+					const result = softSnapToCudColor("#FF2800", { mode });
+					expect(result.derivation).toBeDefined();
+					expect(result.derivation.type).toBeDefined();
+				}
+			});
+		});
+
+		describe("derivation.type assignment", () => {
+			it("should set derivation.type to 'strict-snap' in strict mode", () => {
+				const result = softSnapToCudColor("#123456", { mode: "strict" });
+
+				expect(result.derivation.type).toBe("strict-snap");
+			});
+
+			it("should set derivation.type to 'soft-snap' in soft mode when snapped", () => {
+				// Off Zone color that will be snapped
+				const result = softSnapToCudColor("#123456", { mode: "soft" });
+
+				if (result.snapped) {
+					expect(result.derivation.type).toBe("soft-snap");
+				}
+			});
+
+			it("should set derivation.type to 'reference' in soft mode when not snapped", () => {
+				// Safe Zone color that will not be snapped
+				const result = softSnapToCudColor("#FF2800", { mode: "soft" });
+
+				if (!result.snapped) {
+					expect(result.derivation.type).toBe("reference");
+				}
+			});
+
+			it("should set derivation.type correctly in prefer mode", () => {
+				// Color that gets snapped in prefer mode
+				const snappedResult = softSnapToCudColor("#FF2800", {
+					mode: "prefer",
+					returnFactor: 0.5,
+				});
+
+				if (snappedResult.snapped) {
+					expect(snappedResult.derivation.type).toBe("soft-snap");
+				}
+
+				// Color that doesn't get snapped in prefer mode
+				const notSnappedResult = softSnapToCudColor("#123456", {
+					mode: "prefer",
+					returnFactor: 0.5,
+					zoneThresholds: { warning: 0.05 },
+				});
+
+				if (!notSnappedResult.snapped) {
+					expect(notSnappedResult.derivation.type).toBe("reference");
+				}
+			});
+		});
+
+		describe("derivation.dadsTokenId and dadsTokenHex", () => {
+			it("should include dadsTokenId matching nearest CUD color ID", () => {
+				const result = softSnapToCudColor("#FF2800", { mode: "soft" });
+
+				// dadsTokenIdはDADSトークンIDフォーマットで表現される
+				expect(result.derivation.dadsTokenId).toBeDefined();
+				expect(typeof result.derivation.dadsTokenId).toBe("string");
+				// CUD色のIDを含む形式であること
+				expect(result.derivation.dadsTokenId.length).toBeGreaterThan(0);
+			});
+
+			it("should include dadsTokenHex matching nearest CUD color HEX", () => {
+				const result = softSnapToCudColor("#FF2800", { mode: "soft" });
+
+				expect(result.derivation.dadsTokenHex).toBe(result.cudColor.hex);
+			});
+		});
+
+		describe("derivation.brandTokenHex", () => {
+			it("should include brandTokenHex matching result hex", () => {
+				const result = softSnapToCudColor("#FF2800", { mode: "soft" });
+
+				expect(result.derivation.brandTokenHex).toBe(result.hex);
+			});
+
+			it("should include original hex as brandTokenHex when not snapped", () => {
+				const cudRed = "#FF2800";
+				const result = softSnapToCudColor(cudRed, { mode: "soft" });
+
+				// Safe Zoneでスナップなしの場合、brandTokenHexは元の色
+				if (!result.snapped) {
+					expect(result.derivation.brandTokenHex).toBe(cudRed);
+				}
+			});
+
+			it("should include snapped hex as brandTokenHex when snapped", () => {
+				const result = softSnapToCudColor("#123456", { mode: "strict" });
+
+				// strictモードでは必ずスナップされる
+				expect(result.snapped).toBe(true);
+				expect(result.derivation.brandTokenHex).toBe(result.hex);
+			});
+		});
+
+		describe("backward compatibility", () => {
+			it("should preserve existing properties (hex, originalHex, cudColor, snapped, deltaE, zone, deltaEChange, explanation)", () => {
+				const result = softSnapToCudColor("#FF3500", { mode: "soft" });
+
+				// 既存プロパティが存在し続けること
+				expect(result.hex).toBeDefined();
+				expect(result.originalHex).toBeDefined();
+				expect(result.cudColor).toBeDefined();
+				expect(result.snapped).toBeDefined();
+				expect(result.deltaE).toBeDefined();
+				expect(result.zone).toBeDefined();
+				expect(result.deltaEChange).toBeDefined();
+				expect(result.explanation).toBeDefined();
+			});
+
+			it("should not break existing test assertions", () => {
+				const result = softSnapToCudColor("#FF2800", { mode: "soft" });
+
+				// 既存のアサーションと同じ動作を確認
+				expect(result.zone).toBe("safe");
+				expect(result.snapped).toBe(false);
+				expect(result.hex).toBe("#FF2800");
+			});
+		});
+	});
+
 	// タスク4.3: Soft Snap機能のユニットテスト追加
 	// Requirements: 8.4
 	describe("softSnapToCudColor - Task 4.3 Tests", () => {
