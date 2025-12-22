@@ -3,14 +3,16 @@
  *
  * OKLCH、sRGB、Display P3形式での色値を提供するJSONエクスポーターです。
  * CUDメタデータオプション付き。
+ * v2 APIでは、DADSトークン/ブランドトークン構造をサポート。
  *
- * Requirements: 8.1, 8.2
+ * Requirements: 8.1, 8.2, 11.1, 11.2, 11.3, 11.4, 11.5, 11.6
  */
 
 import { formatCss, oklch, p3 } from "culori";
 import type { Color } from "../color";
 import { findNearestCudColor, type MatchLevel } from "../cud/service";
 import { type CudZone, classifyZone } from "../cud/zone";
+import type { BrandToken, DadsReference, DadsToken } from "../tokens/types";
 
 /**
  * CUD互換モード
@@ -391,4 +393,294 @@ export function generateCudValidationSummary(
 		isExportReady,
 		message,
 	};
+}
+
+// ============================================
+// v2 API: DADS/Brand Token Export Functions
+// ============================================
+
+/**
+ * JSONエクスポートv2オプション
+ * Requirements: 11.1, 11.2, 11.3, 11.4, 11.5, 11.6
+ */
+export interface JSONExportOptionsV2 {
+	/** 出力バージョン（デフォルト: "v2"） */
+	outputVersion?: "v1" | "v2";
+	/** DADSトークンを含めるか（デフォルト: true） */
+	includeDadsTokens?: boolean;
+	/** DADSトークン配列 */
+	dadsTokens?: DadsToken[];
+	/** ブランド名前空間 */
+	brandNamespace?: string;
+	/** CUDモード */
+	cudMode?: CudCompatibilityMode;
+}
+
+/**
+ * エクスポートされたDADSトークンデータ
+ * Requirement 11.1
+ */
+export interface ExportedDadsTokenData {
+	/** トークンID */
+	id: string;
+	/** HEX値 */
+	hex: string;
+	/** 日本語名 */
+	nameJa: string;
+	/** 英語名 */
+	nameEn: string;
+	/** ソース種別 */
+	source: "dads";
+	/** 不変フラグ（常にtrue） */
+	immutable: boolean;
+	/** alpha値（オプショナル） */
+	alpha?: number;
+}
+
+/**
+ * エクスポートされたブランドトークンデータ
+ * Requirements: 11.3, 11.4
+ */
+export interface ExportedBrandTokenData {
+	/** トークンID */
+	id: string;
+	/** HEX値 */
+	hex: string;
+	/** ソース種別 */
+	source: "brand";
+	/** 最適化前の入力色 */
+	originalHex?: string;
+	/** alpha値（オプショナル） */
+	alpha?: number;
+	/** DADS参照情報 */
+	dadsReference: DadsReference;
+}
+
+/**
+ * CUDサマリーv2
+ * Requirement 11.5
+ */
+export interface CudSummaryV2 {
+	/** CUD準拠率（%） */
+	complianceRate: number;
+	/** 使用モード */
+	mode: string;
+	/** ゾーン別色数 */
+	zoneDistribution: Record<CudZone, number>;
+}
+
+/**
+ * メタデータv2
+ * Requirement 11.6
+ */
+export interface MetadataV2 {
+	/** バージョン */
+	version: string;
+	/** 生成日時（ISO形式） */
+	generatedAt: string;
+	/** トークンスキーマ */
+	tokenSchema: string;
+	/** ブランド名前空間（オプショナル） */
+	brandNamespace?: string;
+}
+
+/**
+ * JSONエクスポート結果v2
+ * Requirements: 11.1, 11.2, 11.3, 11.4, 11.5, 11.6
+ */
+export interface JSONExportResultV2 {
+	/** メタデータ */
+	metadata: MetadataV2;
+	/** DADSトークン（オプショナル） */
+	dadsTokens?: Record<string, ExportedDadsTokenData>;
+	/** ブランドトークン */
+	brandTokens: Record<string, ExportedBrandTokenData>;
+	/** CUDサマリー */
+	cudSummary: CudSummaryV2;
+}
+
+/**
+ * JSONエクスポート結果v1互換（colors形式）
+ */
+export interface JSONExportResultV1Compat {
+	/** メタデータ */
+	metadata: MetadataV2;
+	/** カラー（v1形式） */
+	colors: Record<string, ExportedBrandTokenData>;
+}
+
+/**
+ * DADSトークンをエクスポートデータに変換する
+ *
+ * @param token - DADSトークン
+ * @returns エクスポートされたDADSトークンデータ
+ */
+function convertDadsTokenToExportData(token: DadsToken): ExportedDadsTokenData {
+	const result: ExportedDadsTokenData = {
+		id: token.id,
+		hex: token.hex,
+		nameJa: token.nameJa,
+		nameEn: token.nameEn,
+		source: "dads",
+		immutable: true,
+	};
+
+	// alpha値がある場合は追加
+	if (token.alpha !== undefined && token.alpha !== 1) {
+		result.alpha = token.alpha;
+	}
+
+	return result;
+}
+
+/**
+ * ブランドトークンをエクスポートデータに変換する
+ *
+ * @param token - ブランドトークン
+ * @returns エクスポートされたブランドトークンデータ
+ */
+function convertBrandTokenToExportData(
+	token: BrandToken,
+): ExportedBrandTokenData {
+	const result: ExportedBrandTokenData = {
+		id: token.id,
+		hex: token.hex,
+		source: "brand",
+		dadsReference: token.dadsReference,
+	};
+
+	// originalHexがある場合は追加
+	if (token.originalHex) {
+		result.originalHex = token.originalHex;
+	}
+
+	// alpha値がある場合は追加
+	if (token.alpha !== undefined && token.alpha !== 1) {
+		result.alpha = token.alpha;
+	}
+
+	return result;
+}
+
+/**
+ * ブランドトークン配列からCUDサマリーを計算する
+ *
+ * @param brandTokens - ブランドトークン配列
+ * @param mode - CUDモード
+ * @returns CUDサマリー
+ */
+function calculateCudSummaryFromBrandTokens(
+	brandTokens: BrandToken[],
+	mode: CudCompatibilityMode,
+): CudSummaryV2 {
+	const total = brandTokens.length;
+
+	// ゾーン別色数をカウント
+	const zoneDistribution: Record<CudZone, number> = {
+		safe: 0,
+		warning: 0,
+		off: 0,
+	};
+
+	for (const token of brandTokens) {
+		const zone = token.dadsReference.zone;
+		zoneDistribution[zone]++;
+	}
+
+	// CUD準拠率（Safe + Warning = 準拠）
+	const compliantCount = zoneDistribution.safe + zoneDistribution.warning;
+	const complianceRate = total > 0 ? (compliantCount / total) * 100 : 100;
+
+	return {
+		complianceRate,
+		mode,
+		zoneDistribution,
+	};
+}
+
+/**
+ * DADS/Brandトークンを機械可読なJSON形式でエクスポートする（v2 API）
+ *
+ * Requirements:
+ * - 11.1: dadsTokensオブジェクトにid, hex, nameJa, nameEn, source, immutableプロパティを含める
+ * - 11.2: alpha値を持つDadsTokenにはalphaプロパティを追加
+ * - 11.3: brandTokensオブジェクトにid, hex, source, originalHex, dadsReferenceを含める
+ * - 11.4: dadsReferenceにtokenId, tokenHex, tokenAlpha, deltaE, derivationType, zoneを含める
+ * - 11.5: cudSummaryにcomplianceRate, mode, zoneDistributionを出力
+ * - 11.6: metadataにversion, generatedAt, tokenSchemaを含める
+ *
+ * @param brandTokens - ブランドトークン配列
+ * @param options - エクスポートオプション
+ * @returns JSONエクスポート結果
+ *
+ * @example
+ * ```ts
+ * const result = exportToJSONv2(
+ *   [{ id: "brand-primary-500", hex: "#1a73e8", ... }],
+ *   {
+ *     includeDadsTokens: true,
+ *     dadsTokens: [{ id: "dads-blue-500", hex: "#0066cc", ... }],
+ *     cudMode: "soft"
+ *   }
+ * );
+ * ```
+ */
+export function exportToJSONv2(
+	brandTokens: BrandToken[],
+	options: JSONExportOptionsV2 = {},
+): JSONExportResultV2 | JSONExportResultV1Compat {
+	const {
+		outputVersion = "v2",
+		includeDadsTokens = true,
+		dadsTokens = [],
+		brandNamespace,
+		cudMode = "off",
+	} = options;
+
+	// メタデータを生成
+	const metadata: MetadataV2 = {
+		version: "2.0.0",
+		generatedAt: new Date().toISOString(),
+		tokenSchema: "dads-brand-v1",
+	};
+
+	if (brandNamespace) {
+		metadata.brandNamespace = brandNamespace;
+	}
+
+	// v1互換形式の場合
+	if (outputVersion === "v1") {
+		const colors: Record<string, ExportedBrandTokenData> = {};
+
+		for (const token of brandTokens) {
+			colors[token.id] = convertBrandTokenToExportData(token);
+		}
+
+		return {
+			metadata,
+			colors,
+		} as JSONExportResultV1Compat;
+	}
+
+	// v2形式
+	const result: JSONExportResultV2 = {
+		metadata,
+		brandTokens: {},
+		cudSummary: calculateCudSummaryFromBrandTokens(brandTokens, cudMode),
+	};
+
+	// DADSトークンを変換（オプション）
+	if (includeDadsTokens && dadsTokens.length > 0) {
+		result.dadsTokens = {};
+		for (const token of dadsTokens) {
+			result.dadsTokens[token.id] = convertDadsTokenToExportData(token);
+		}
+	}
+
+	// ブランドトークンを変換
+	for (const token of brandTokens) {
+		result.brandTokens[token.id] = convertBrandTokenToExportData(token);
+	}
+
+	return result;
 }

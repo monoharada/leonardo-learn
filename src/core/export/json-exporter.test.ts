@@ -476,3 +476,378 @@ describe("JSONExporter", () => {
 		});
 	});
 });
+
+/**
+ * JSON Exporter v2 テスト
+ * Requirements: 11.1, 11.2, 11.3, 11.4, 11.5, 11.6
+ */
+describe("JSONExporter v2", () => {
+	describe("exportToJSONv2", () => {
+		// Requirement 11.1: dadsTokensオブジェクトにid, hex, nameJa, nameEn, source, immutableプロパティを含める
+		test("should output dadsTokens with id, hex, nameJa, nameEn, source, immutable properties", async () => {
+			const { exportToJSONv2 } = await import("./json-exporter");
+			const { DadsToken } = await import("../tokens/types");
+
+			const dadsTokens: DadsToken[] = [
+				{
+					id: "dads-blue-500",
+					hex: "#0066cc",
+					nameJa: "青500",
+					nameEn: "Blue 500",
+					classification: { category: "chromatic", hue: "blue", scale: 500 },
+					source: "dads" as const,
+				},
+			];
+
+			const brandTokens: BrandToken[] = [];
+
+			const result = exportToJSONv2(brandTokens, {
+				includeDadsTokens: true,
+				dadsTokens,
+			});
+
+			expect(result.dadsTokens).toBeDefined();
+			expect(result.dadsTokens["dads-blue-500"]).toBeDefined();
+			expect(result.dadsTokens["dads-blue-500"].id).toBe("dads-blue-500");
+			expect(result.dadsTokens["dads-blue-500"].hex).toBe("#0066cc");
+			expect(result.dadsTokens["dads-blue-500"].nameJa).toBe("青500");
+			expect(result.dadsTokens["dads-blue-500"].nameEn).toBe("Blue 500");
+			expect(result.dadsTokens["dads-blue-500"].source).toBe("dads");
+			expect(result.dadsTokens["dads-blue-500"].immutable).toBe(true);
+		});
+
+		// Requirement 11.2: alpha値を持つDadsTokenにはalphaプロパティを追加
+		test("should include alpha property when DadsToken has alpha value", async () => {
+			const { exportToJSONv2 } = await import("./json-exporter");
+			const { DadsToken } = await import("../tokens/types");
+
+			const dadsTokens: DadsToken[] = [
+				{
+					id: "dads-neutral-gray-500-alpha",
+					hex: "#808080",
+					alpha: 0.5,
+					nameJa: "グレー500透過",
+					nameEn: "Gray 500 Alpha",
+					classification: { category: "neutral", scale: 500 },
+					source: "dads" as const,
+				},
+			];
+
+			const result = exportToJSONv2([], {
+				includeDadsTokens: true,
+				dadsTokens,
+			});
+
+			expect(result.dadsTokens["dads-neutral-gray-500-alpha"].alpha).toBe(0.5);
+		});
+
+		// Requirement 11.3: brandTokensオブジェクトにid, hex, source, originalHex, dadsReferenceを含める
+		test("should output brandTokens with id, hex, source, originalHex, dadsReference", async () => {
+			const { exportToJSONv2 } = await import("./json-exporter");
+			const { BrandToken } = await import("../tokens/types");
+
+			const brandTokens: BrandToken[] = [
+				{
+					id: "brand-primary-500",
+					hex: "#1a73e8",
+					source: "brand" as const,
+					originalHex: "#1a70e5",
+					dadsReference: {
+						tokenId: "dads-blue-500",
+						tokenHex: "#0066cc",
+						deltaE: 0.02,
+						derivationType: "soft-snap" as const,
+						zone: "safe" as const,
+					},
+				},
+			];
+
+			const result = exportToJSONv2(brandTokens);
+
+			expect(result.brandTokens).toBeDefined();
+			expect(result.brandTokens["brand-primary-500"]).toBeDefined();
+			expect(result.brandTokens["brand-primary-500"].id).toBe(
+				"brand-primary-500",
+			);
+			expect(result.brandTokens["brand-primary-500"].hex).toBe("#1a73e8");
+			expect(result.brandTokens["brand-primary-500"].source).toBe("brand");
+			expect(result.brandTokens["brand-primary-500"].originalHex).toBe(
+				"#1a70e5",
+			);
+			expect(
+				result.brandTokens["brand-primary-500"].dadsReference,
+			).toBeDefined();
+		});
+
+		// Requirement 11.4: dadsReferenceにtokenId, tokenHex, tokenAlpha, deltaE, derivationType, zoneを含める
+		test("should include complete dadsReference with tokenId, tokenHex, tokenAlpha, deltaE, derivationType, zone", async () => {
+			const { exportToJSONv2 } = await import("./json-exporter");
+			const { BrandToken } = await import("../tokens/types");
+
+			const brandTokens: BrandToken[] = [
+				{
+					id: "brand-overlay-500",
+					hex: "#000000",
+					alpha: 0.3,
+					source: "brand" as const,
+					dadsReference: {
+						tokenId: "dads-neutral-gray-500",
+						tokenHex: "#808080",
+						tokenAlpha: 0.5,
+						deltaE: 0.1,
+						derivationType: "reference" as const,
+						zone: "warning" as const,
+					},
+				},
+			];
+
+			const result = exportToJSONv2(brandTokens);
+
+			const ref = result.brandTokens["brand-overlay-500"].dadsReference;
+			expect(ref.tokenId).toBe("dads-neutral-gray-500");
+			expect(ref.tokenHex).toBe("#808080");
+			expect(ref.tokenAlpha).toBe(0.5);
+			expect(ref.deltaE).toBe(0.1);
+			expect(ref.derivationType).toBe("reference");
+			expect(ref.zone).toBe("warning");
+		});
+
+		// Requirement 11.5: cudSummaryにcomplianceRate, mode, zoneDistributionを出力
+		test("should output cudSummary with complianceRate, mode, zoneDistribution", async () => {
+			const { exportToJSONv2 } = await import("./json-exporter");
+			const { BrandToken } = await import("../tokens/types");
+
+			const brandTokens: BrandToken[] = [
+				{
+					id: "brand-primary-500",
+					hex: "#1a73e8",
+					source: "brand" as const,
+					dadsReference: {
+						tokenId: "dads-blue-500",
+						tokenHex: "#0066cc",
+						deltaE: 0.02,
+						derivationType: "soft-snap" as const,
+						zone: "safe" as const,
+					},
+				},
+				{
+					id: "brand-secondary-500",
+					hex: "#ff5733",
+					source: "brand" as const,
+					dadsReference: {
+						tokenId: "dads-red-500",
+						tokenHex: "#ff0000",
+						deltaE: 0.08,
+						derivationType: "soft-snap" as const,
+						zone: "warning" as const,
+					},
+				},
+			];
+
+			const result = exportToJSONv2(brandTokens, { cudMode: "soft" });
+
+			expect(result.cudSummary).toBeDefined();
+			expect(typeof result.cudSummary.complianceRate).toBe("number");
+			expect(result.cudSummary.mode).toBe("soft");
+			expect(result.cudSummary.zoneDistribution).toBeDefined();
+			expect(typeof result.cudSummary.zoneDistribution.safe).toBe("number");
+			expect(typeof result.cudSummary.zoneDistribution.warning).toBe("number");
+			expect(typeof result.cudSummary.zoneDistribution.off).toBe("number");
+		});
+
+		// Requirement 11.6: metadataにversion, generatedAt, tokenSchemaを含める
+		test("should include metadata with version, generatedAt, tokenSchema", async () => {
+			const { exportToJSONv2 } = await import("./json-exporter");
+
+			const result = exportToJSONv2([]);
+
+			expect(result.metadata).toBeDefined();
+			expect(result.metadata.version).toBe("2.0.0");
+			expect(result.metadata.generatedAt).toBeDefined();
+			// tokenSchemaは仕様どおり "dads-brand-v1" で固定
+			// ref: docs/design/dads-immutable-tokens.md:844
+			expect(result.metadata.tokenSchema).toBe("dads-brand-v1");
+			// generatedAtはISO形式の日時文字列
+			expect(result.metadata.generatedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+		});
+
+		// v1/v2切り替え - デフォルトはv2
+		test("should use v2 output format by default", async () => {
+			const { exportToJSONv2 } = await import("./json-exporter");
+			const { BrandToken } = await import("../tokens/types");
+
+			const brandTokens: BrandToken[] = [
+				{
+					id: "brand-primary-500",
+					hex: "#1a73e8",
+					source: "brand" as const,
+					dadsReference: {
+						tokenId: "dads-blue-500",
+						tokenHex: "#0066cc",
+						deltaE: 0.02,
+						derivationType: "soft-snap" as const,
+						zone: "safe" as const,
+					},
+				},
+			];
+
+			const result = exportToJSONv2(brandTokens);
+
+			// v2形式の確認
+			expect(result.brandTokens).toBeDefined();
+			expect(result.metadata).toBeDefined();
+			expect(result.cudSummary).toBeDefined();
+		});
+
+		// v1互換出力
+		test("should support v1 output format when outputVersion is v1", async () => {
+			const { exportToJSONv2 } = await import("./json-exporter");
+			const { BrandToken } = await import("../tokens/types");
+
+			const brandTokens: BrandToken[] = [
+				{
+					id: "brand-primary-500",
+					hex: "#1a73e8",
+					source: "brand" as const,
+					dadsReference: {
+						tokenId: "dads-blue-500",
+						tokenHex: "#0066cc",
+						deltaE: 0.02,
+						derivationType: "soft-snap" as const,
+						zone: "safe" as const,
+					},
+				},
+			];
+
+			const result = exportToJSONv2(brandTokens, { outputVersion: "v1" });
+
+			// v1形式ではcolorsフィールドを使用
+			expect(result.colors).toBeDefined();
+			expect(result.brandTokens).toBeUndefined();
+		});
+
+		// 空配列でも正常動作
+		test("should handle empty token arrays", async () => {
+			const { exportToJSONv2 } = await import("./json-exporter");
+
+			const result = exportToJSONv2([]);
+
+			expect(result.brandTokens).toBeDefined();
+			expect(Object.keys(result.brandTokens)).toHaveLength(0);
+			expect(result.metadata).toBeDefined();
+			expect(result.cudSummary).toBeDefined();
+		});
+
+		// brandNamespaceオプション
+		test("should use brandNamespace option for token grouping", async () => {
+			const { exportToJSONv2 } = await import("./json-exporter");
+			const { BrandToken } = await import("../tokens/types");
+
+			const brandTokens: BrandToken[] = [
+				{
+					id: "brand-primary-500",
+					hex: "#1a73e8",
+					source: "brand" as const,
+					dadsReference: {
+						tokenId: "dads-blue-500",
+						tokenHex: "#0066cc",
+						deltaE: 0.02,
+						derivationType: "soft-snap" as const,
+						zone: "safe" as const,
+					},
+				},
+			];
+
+			const result = exportToJSONv2(brandTokens, { brandNamespace: "myapp" });
+
+			expect(result.metadata.brandNamespace).toBe("myapp");
+		});
+
+		// includeDadsTokens=falseでDADSトークンを除外
+		test("should exclude dadsTokens when includeDadsTokens is false", async () => {
+			const { exportToJSONv2 } = await import("./json-exporter");
+			const { DadsToken } = await import("../tokens/types");
+
+			const dadsTokens: DadsToken[] = [
+				{
+					id: "dads-blue-500",
+					hex: "#0066cc",
+					nameJa: "青500",
+					nameEn: "Blue 500",
+					classification: { category: "chromatic", hue: "blue", scale: 500 },
+					source: "dads" as const,
+				},
+			];
+
+			const result = exportToJSONv2([], {
+				includeDadsTokens: false,
+				dadsTokens,
+			});
+
+			expect(result.dadsTokens).toBeUndefined();
+		});
+
+		// 複数のDADSトークンとブランドトークンの処理
+		test("should handle multiple DADS tokens and brand tokens", async () => {
+			const { exportToJSONv2 } = await import("./json-exporter");
+			const { BrandToken, DadsToken } = await import("../tokens/types");
+
+			const dadsTokens: DadsToken[] = [
+				{
+					id: "dads-blue-500",
+					hex: "#0066cc",
+					nameJa: "青500",
+					nameEn: "Blue 500",
+					classification: { category: "chromatic", hue: "blue", scale: 500 },
+					source: "dads" as const,
+				},
+				{
+					id: "dads-red-500",
+					hex: "#ff0000",
+					nameJa: "赤500",
+					nameEn: "Red 500",
+					classification: { category: "chromatic", hue: "red", scale: 500 },
+					source: "dads" as const,
+				},
+			];
+
+			const brandTokens: BrandToken[] = [
+				{
+					id: "brand-primary-500",
+					hex: "#1a73e8",
+					source: "brand" as const,
+					dadsReference: {
+						tokenId: "dads-blue-500",
+						tokenHex: "#0066cc",
+						deltaE: 0.02,
+						derivationType: "soft-snap" as const,
+						zone: "safe" as const,
+					},
+				},
+				{
+					id: "brand-accent-500",
+					hex: "#ff5733",
+					source: "brand" as const,
+					dadsReference: {
+						tokenId: "dads-red-500",
+						tokenHex: "#ff0000",
+						deltaE: 0.05,
+						derivationType: "soft-snap" as const,
+						zone: "safe" as const,
+					},
+				},
+			];
+
+			const result = exportToJSONv2(brandTokens, {
+				includeDadsTokens: true,
+				dadsTokens,
+			});
+
+			expect(Object.keys(result.dadsTokens!)).toHaveLength(2);
+			expect(Object.keys(result.brandTokens)).toHaveLength(2);
+		});
+	});
+});
+
+// BrandToken型のインポート（テスト用）
+import type { BrandToken, DadsToken } from "../tokens/types";
