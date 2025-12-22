@@ -395,11 +395,12 @@ export function processPaletteWithModeV2<V extends ApiVersion = "v1">(
 		anchor.anchorIndex >= 0 &&
 		anchor.anchorIndex < normalizedColors.length
 	) {
-		effectiveAnchorHex = normalizedColors[anchor.anchorIndex];
+		effectiveAnchorHex =
+			normalizedColors[anchor.anchorIndex] ?? normalizedColors[0] ?? "#000000";
 	} else if (anchorHex) {
 		effectiveAnchorHex = normalizeHex(anchorHex);
 	} else {
-		effectiveAnchorHex = normalizedColors[0];
+		effectiveAnchorHex = normalizedColors[0] ?? "#000000";
 	}
 
 	// isFixed=false の場合の警告（Requirement 9.5）
