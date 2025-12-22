@@ -2,7 +2,7 @@
 
 ## Tasks
 
-- [ ] 1. 基盤型システムの構築
+- [x] 1. 基盤型システムの構築
 - [x] 1.1 (P) DADSトークンとブランドトークンの型定義を作成する
   - DADSカラーの10色相（blue, light-blue, cyan, green, lime, yellow, orange, red, magenta, purple）を表現する型を定義
   - 有彩色スケール（50-1200）と無彩色スケール（420, 536を含む）を別々の型として定義
@@ -24,7 +24,7 @@
   - 入力値のサニタイズ処理（小文字化、スペース→ハイフン、特殊文字除去）を実装
   - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
 
-- [ ] 2. DADSプリミティブのインポート機能
+- [x] 2. DADSプリミティブのインポート機能
 - [x] 2.1 CSSからDADSプリミティブカラーをパースする機能を実装する
   - --color-primitive-{hue}-{scale}形式のCSS変数をパースしてDadsTokenオブジェクトを生成
   - --color-neutral-white/black形式のCSS変数を処理し、適切な日本語名を設定
@@ -48,7 +48,7 @@
   - var()参照を持つトークン（hex値が#で始まらない）はスキップ
   - _Requirements: 4.1, 4.2, 4.3_
 
-- [ ] 3. CUD処理層の拡張
+- [x] 3. CUD処理層の拡張
 - [x] 3.1 Snapperにderivation情報を追加する
   - SoftSnapResult型にderivationプロパティを追加
   - derivationにtype, dadsTokenId, dadsTokenHex, brandTokenHexを含める
@@ -65,7 +65,7 @@
   - 既存テストが壊れないことを確認
   - _Requirements: 8.1, 8.2, 8.3_
 
-- [ ] 4. サービスAPI v1/v2互換性対応
+- [x] 4. サービスAPI v1/v2互換性対応
 - [x] 4.1 processPaletteWithModeのv2対応を実装する
   - apiVersionオプション（"v1" | "v2"）を追加
   - v1またはapiVersion未指定時はProcessPaletteResultV1（palette: OptimizedColor[]）を返却
@@ -80,7 +80,7 @@
   - パレット内の色にIDを割り当てる際にコンテキストのusedIdsを参照
   - _Requirements: 9.4, 9.5, 9.6_
 
-- [ ] 5. エクスポート機能のv2対応
+- [x] 5. エクスポート機能のv2対応
 - [x] 5.1 (P) CSSエクスポーターv2を実装する
   - DADSプリミティブを--dads-{color}形式で出力
   - ブランドトークンを--brand-{role}-{shade}形式で出力
@@ -99,7 +99,7 @@
   - cudSummaryにcomplianceRate, mode, zoneDistributionを出力
   - _Requirements: 11.1, 11.2, 11.3, 11.4, 11.5, 11.6_
 
-- [ ] 6. UI保護機能とマイグレーション
+- [x] 6. UI保護機能とマイグレーション
 - [x] 6.1 (P) トークン編集保護機能を実装する
   - isDadsToken判定を使用して編集可否を決定
   - DADSトークン編集時に「DADSプリミティブカラーは変更できません」メッセージを返却
@@ -114,7 +114,7 @@
   - brandPrefixとrolesオプションでID生成をカスタマイズ可能に
   - _Requirements: 13.1, 13.2, 13.3, 13.4_
 
-- [ ] 7. 統合テストとUI連携
+- [x] 7. 統合テストとUI連携
 - [x] 7.1 パレット生成からエクスポートまでの統合テストを作成する
   - v2 APIでのパレット生成→BrandToken配列取得のフローを検証
   - CSS/JSONエクスポートv2形式の出力を検証
