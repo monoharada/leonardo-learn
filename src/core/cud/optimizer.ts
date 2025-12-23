@@ -5,6 +5,7 @@
  * Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6
  */
 
+import type { DadsReference } from "../tokens/types";
 import type { AnchorColorState } from "./anchor";
 import type { CudColor } from "./colors";
 import {
@@ -12,7 +13,7 @@ import {
 	type HarmonyScoreResult,
 } from "./harmony-score";
 import { findNearestCudColor } from "./service";
-import { snapToCudColor, softSnapToCudColor } from "./snapper";
+import { type SoftSnapResult, softSnapToCudColor } from "./snapper";
 import { type CudZone, classifyZone, type ZoneThresholds } from "./zone";
 
 /**
@@ -47,8 +48,20 @@ export interface OptimizationOptions {
 }
 
 /**
+ * ブランドトークン参照情報
+ * Requirement 8.1, 8.2: brandTokenプロパティにsuggestedIdとdadsReferenceを含める
+ */
+export interface BrandTokenReference {
+	/** 推奨されるトークンID */
+	suggestedId: string;
+	/** DADS参照情報 */
+	dadsReference: DadsReference;
+}
+
+/**
  * 最適化された色
  * Requirement 3.5: 各色の最適化結果
+ * Requirement 8.1, 8.2, 8.3: brandToken情報を追加（後方互換性維持）
  */
 export interface OptimizedColor {
 	/** 最適化後のHEX */
@@ -63,6 +76,8 @@ export interface OptimizedColor {
 	snapped: boolean;
 	/** スナップ先CUD色情報（スナップ時） */
 	cudTarget?: CudColor;
+	/** ブランドトークン参照情報（Task 3.2追加） */
+	brandToken?: BrandTokenReference;
 }
 
 /**
@@ -113,6 +128,44 @@ const normalizeHex = (hex: string): string => {
 		normalized = `#${normalized}`;
 	}
 	return normalized;
+};
+
+/**
+ * インデックスからsuggestedIdを生成
+ * 単純な番号ベースのID生成（将来のIdGenerator統合用）
+ */
+const generateSuggestedId = (index: number): string => {
+	return `brand-color-${index + 1}`;
+};
+
+/**
+ * Snapperのderivation情報からDadsReferenceを作成
+ * Requirement 8.3: Snapper derivation → dadsReference変換
+ */
+const createDadsReferenceFromSnapResult = (
+	snapResult: SoftSnapResult,
+): DadsReference => {
+	return {
+		tokenId: snapResult.derivation.dadsTokenId,
+		tokenHex: snapResult.derivation.dadsTokenHex,
+		deltaE: snapResult.deltaE,
+		derivationType: snapResult.derivation.type,
+		zone: snapResult.zone,
+	};
+};
+
+/**
+ * BrandTokenReferenceを作成
+ * Requirement 8.1, 8.2: suggestedIdとdadsReferenceを含む
+ */
+const createBrandTokenReference = (
+	snapResult: SoftSnapResult,
+	index: number,
+): BrandTokenReference => {
+	return {
+		suggestedId: generateSuggestedId(index),
+		dadsReference: createDadsReferenceFromSnapResult(snapResult),
+	};
 };
 
 /**
@@ -233,10 +286,12 @@ const generateAlternatives = (
 /**
  * Softモードで色を最適化する
  * Requirement 3.4: Safe Zoneからの色選択を優先し、不足時はWarning Zoneから補充
+ * Requirement 8.1, 8.2, 8.3: brandToken情報を追加
  */
 const optimizeColorSoft = (
 	hex: string,
 	options: OptimizationOptions,
+	index: number,
 ): OptimizedColor => {
 	const { zoneThresholds, returnFactor = DEFAULT_RETURN_FACTOR } = options;
 	const normalizedHex = normalizeHex(hex);
@@ -255,22 +310,28 @@ const optimizeColorSoft = (
 		deltaE: snapResult.deltaE,
 		snapped: snapResult.snapped,
 		cudTarget: snapResult.cudColor,
+		brandToken: createBrandTokenReference(snapResult, index),
 	};
 };
 
 /**
  * Strictモードで色を最適化する
  * Requirement 3.3: Strictは完全スナップ
+ * Requirement 8.1, 8.2, 8.3: brandToken情報を追加
  */
 const optimizeColorStrict = (
 	hex: string,
 	options: OptimizationOptions,
+	index: number,
 ): OptimizedColor => {
 	const { zoneThresholds } = options;
 	const normalizedHex = normalizeHex(hex);
 
-	// Strictスナップを適用
-	const snapResult = snapToCudColor(normalizedHex, { mode: "strict" });
+	// Strictスナップを適用（SoftSnapResultを使用してderivation情報を取得）
+	const snapResult = softSnapToCudColor(normalizedHex, {
+		mode: "strict",
+		zoneThresholds,
+	});
 
 	// ゾーン判定（スナップ前の色に対して）
 	const nearest = findNearestCudColor(normalizedHex);
@@ -283,6 +344,7 @@ const optimizeColorStrict = (
 		deltaE: snapResult.deltaE,
 		snapped: true,
 		cudTarget: snapResult.cudColor,
+		brandToken: createBrandTokenReference(snapResult, index),
 	};
 };
 
@@ -322,12 +384,12 @@ export const optimizePalette = (
 
 	const { mode, lambda } = options;
 
-	// 各色を最適化
-	const optimizedPalette: OptimizedColor[] = candidates.map((hex) => {
+	// 各色を最適化（indexを渡してbrandToken.suggestedId生成に使用）
+	const optimizedPalette: OptimizedColor[] = candidates.map((hex, index) => {
 		if (mode === "strict") {
-			return optimizeColorStrict(hex, options);
+			return optimizeColorStrict(hex, options, index);
 		}
-		return optimizeColorSoft(hex, options);
+		return optimizeColorSoft(hex, options, index);
 	});
 
 	// 最適化後のHEX配列を取得

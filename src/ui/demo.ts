@@ -23,6 +23,13 @@ import {
 } from "../core/harmony";
 import { findColorForContrast, isWarmYellowHue } from "../core/solver";
 import {
+	type DadsColorScale,
+	getAllDadsChromatic,
+	getDadsColorsByHue,
+	getDadsHueFromDisplayName,
+	loadDadsTokens,
+} from "../core/tokens/dads-data-provider";
+import {
 	type CudCompatibilityMode,
 	createCudBadge,
 	createCudModeSelector,
@@ -716,7 +723,8 @@ export const runDemo = () => {
 		app.innerHTML = "";
 
 		if (state.viewMode === "palette") {
-			renderPaletteView(app);
+			// 非同期関数を呼び出し（エラーはcatch内で処理）
+			renderPaletteView(app).catch(console.error);
 		} else if (state.viewMode === "shades") {
 			renderShadesView(app);
 		} else {
@@ -1027,13 +1035,21 @@ export const runDemo = () => {
 		}
 	};
 
-	const renderPaletteView = (container: HTMLElement) => {
+	const renderPaletteView = async (container: HTMLElement) => {
 		container.className = "dads-section";
 
 		// パレットが生成されていない場合
 		if (state.palettes.length === 0) {
 			renderEmptyState(container, "パレット");
 			return;
+		}
+
+		// DADSトークンを読み込む（シェード画面と同じデータソース）
+		let dadsTokens: Awaited<ReturnType<typeof loadDadsTokens>> | null = null;
+		try {
+			dadsTokens = await loadDadsTokens();
+		} catch (error) {
+			console.error("Failed to load DADS tokens for palette view:", error);
 		}
 
 		// Group palettes by semantic category
@@ -1091,38 +1107,57 @@ export const runDemo = () => {
 				let keyColorIndex: number;
 				let keyColor: Color;
 
-				// DADSモード: p.stepとp.baseChromaNameがある場合
-				if (p.step && p.baseChromaName) {
-					// DADS_CHROMASからbaseChromaNameに対応するhueを取得
-					const chromaDef = DADS_CHROMAS.find(
-						(c) => c.displayName === p.baseChromaName,
-					);
-					const chromaHue = chromaDef?.hue ?? originalKeyColor.oklch.h ?? 0;
+				// Primaryはブランドカラー（ユーザー入力色）を使用
+				// DADSモード: p.baseChromaNameがあり、DADSトークンが読み込めた場合（Primaryは除く）
+				const isPrimary = p.name === "Primary" || p.name?.startsWith("Primary");
+				if (p.baseChromaName && dadsTokens && !isPrimary) {
+					// baseChromaName（displayName）からDadsColorHueを取得
+					const dadsHue = getDadsHueFromDisplayName(p.baseChromaName);
 
-					const scaleBaseColor = new Color({
-						mode: "oklch",
-						l: 0.55,
-						c: 0.15,
-						h: chromaHue,
-					});
+					if (dadsHue) {
+						// DADSプリミティブカラーから直接取得
+						const colorScale = getDadsColorsByHue(dadsTokens, dadsHue);
 
-					// harmony.tsと同じ固定baseRatios（暗→明の順）
-					const dadsBaseRatios = [
-						21, 15, 10, 7, 4.5, 3, 2.2, 1.6, 1.3, 1.15, 1.07, 1.03, 1.01,
-					];
+						// DADSトークンのHEX値をColorオブジェクトに変換
+						// colorScale.colorsは50→1200の順（明→暗）だが、
+						// STEP_NAMESは1200→50の順（暗→明）なので逆順にする
+						colors = colorScale.colors.map((c) => new Color(c.hex)).reverse();
 
-					// stepからkeyColorIndexを計算
-					keyColorIndex = STEP_NAMES.findIndex((s) => s === p.step);
-					if (keyColorIndex === -1) keyColorIndex = 6;
+						// stepからkeyColorIndexを計算（STEP_NAMESは暗→明の順）
+						keyColorIndex = p.step
+							? STEP_NAMES.findIndex((s) => s === p.step)
+							: 6;
+						if (keyColorIndex === -1) keyColorIndex = 6;
 
-					colors = dadsBaseRatios.map((ratio) => {
-						const solved = findColorForContrast(scaleBaseColor, bgColor, ratio);
-						return solved || scaleBaseColor;
-					});
+						// 固定スケールから該当stepの色を取得
+						keyColor = colors[keyColorIndex] ?? originalKeyColor;
+					} else {
+						// フォールバック: 従来の計算ロジック
+						keyColor = originalKeyColor;
+						const baseRatios = getContrastRatios(state.contrastIntensity);
+						const keyContrastRatio = keyColor.contrast(bgColor);
 
-					// DADSモードではreverseしない（既に暗→明の順）
-					// 固定スケールから該当stepの色を取得
-					keyColor = colors[keyColorIndex] ?? originalKeyColor;
+						keyColorIndex = -1;
+						let minDiff = Infinity;
+						for (let i = 0; i < baseRatios.length; i++) {
+							const diff = Math.abs((baseRatios[i] ?? 0) - keyContrastRatio);
+							if (diff < minDiff) {
+								minDiff = diff;
+								keyColorIndex = i;
+							}
+						}
+						if (keyColorIndex >= 0) {
+							baseRatios[keyColorIndex] = keyContrastRatio;
+						}
+
+						colors = baseRatios.map((ratio, i) => {
+							if (i === keyColorIndex) return keyColor;
+							const solved = findColorForContrast(keyColor, bgColor, ratio);
+							return solved || keyColor;
+						});
+						colors.reverse();
+						keyColorIndex = colors.length - 1 - keyColorIndex;
+					}
 				} else {
 					// 非DADSモード: 従来のロジック
 					keyColor = originalKeyColor;
@@ -1176,71 +1211,67 @@ export const runDemo = () => {
 					let isDraggingScrubber = false;
 					let selectedScaleIndex = -1; // 選択されたスケールのインデックスを追跡
 
+					// Primaryはブランドカラー（独立した存在、シェードなし）
+					const isPrimaryModal =
+						p.name === "Primary" || p.name?.startsWith("Primary");
+
 					// keyColorで生成したスケールを固定（クリックしても変わらない）
+					// Primaryの場合はシェードなし（単一色のみ）
 					const fixedScale = (() => {
+						// Primaryはブランドカラー：シェードなしで単一色のみ返す
+						if (isPrimaryModal) {
+							return { colors: [keyColor], keyIndex: 0, isBrandColor: true };
+						}
+
 						const bgColor = new Color("#ffffff");
 
 						let keyColorIndex = -1;
-						let scaleBaseColor: Color;
-						let baseRatios: number[];
 
-						// DADSモード判定: p.stepを優先（編集後もDADSモードを維持）
+						// DADSモード判定: p.baseChromaNameがあり、DADSトークンが読み込めた場合
 						const dadsStep = p.step ?? definedStep;
-						if (dadsStep && p.baseChromaName) {
-							keyColorIndex = STEP_NAMES.findIndex((s) => s === dadsStep);
-							if (keyColorIndex === -1) keyColorIndex = 6; // デフォルト600相当
+						if (p.baseChromaName && dadsTokens) {
+							const dadsHue = getDadsHueFromDisplayName(p.baseChromaName);
 
-							// DADS_CHROMASからbaseChromaNameに対応するhueを取得
-							// これによりharmony.tsと完全に同じスケールが生成される
-							const chromaDef = DADS_CHROMAS.find(
-								(c) => c.displayName === p.baseChromaName,
-							);
-							const chromaHue = chromaDef?.hue ?? keyColor.oklch.h ?? 0;
+							if (dadsHue) {
+								// DADSプリミティブカラーから直接取得（シェード画面と同じデータ）
+								const colorScale = getDadsColorsByHue(dadsTokens, dadsHue);
 
-							scaleBaseColor = new Color({
-								mode: "oklch",
-								l: 0.55,
-								c: 0.15,
-								h: chromaHue,
-							});
+								// colorScale.colorsは50→1200の順（明→暗）だが、
+								// STEP_NAMESは1200→50の順（暗→明）なので逆順にする
+								const newColors = colorScale.colors
+									.map((c) => new Color(c.hex))
+									.reverse();
 
-							// harmony.tsのDADSケースと同じ固定baseRatios
-							baseRatios = [
-								21, 15, 10, 7, 4.5, 3, 2.2, 1.6, 1.3, 1.15, 1.07, 1.03, 1.01,
-							];
-						} else {
-							// 従来のロジック: keyColorからスケール生成
-							scaleBaseColor = keyColor;
-							baseRatios = getContrastRatios(state.contrastIntensity);
-							const keyContrastRatio = keyColor.contrast(bgColor);
-							let minDiff = Infinity;
-							for (let i = 0; i < baseRatios.length; i++) {
-								const diff = Math.abs((baseRatios[i] ?? 0) - keyContrastRatio);
-								if (diff < minDiff) {
-									minDiff = diff;
-									keyColorIndex = i;
-								}
+								// stepからkeyColorIndexを計算（STEP_NAMESは暗→明の順）
+								keyColorIndex = dadsStep
+									? STEP_NAMES.findIndex((s) => s === dadsStep)
+									: 6;
+								if (keyColorIndex === -1) keyColorIndex = 6;
+
+								return { colors: newColors, keyIndex: keyColorIndex };
 							}
-							if (keyColorIndex >= 0) {
-								baseRatios[keyColorIndex] = keyContrastRatio;
+						}
+
+						// フォールバック: 従来のロジック（DADSトークンがない場合）
+						const baseRatios = getContrastRatios(state.contrastIntensity);
+						const keyContrastRatio = keyColor.contrast(bgColor);
+						let minDiff = Infinity;
+						for (let i = 0; i < baseRatios.length; i++) {
+							const diff = Math.abs((baseRatios[i] ?? 0) - keyContrastRatio);
+							if (diff < minDiff) {
+								minDiff = diff;
+								keyColorIndex = i;
 							}
+						}
+						if (keyColorIndex >= 0) {
+							baseRatios[keyColorIndex] = keyContrastRatio;
 						}
 
 						const newColors: Color[] = baseRatios.map((ratio) => {
-							const solved = findColorForContrast(
-								scaleBaseColor,
-								bgColor,
-								ratio,
-							);
-							return solved || scaleBaseColor;
+							const solved = findColorForContrast(keyColor, bgColor, ratio);
+							return solved || keyColor;
 						});
 
-						// DADSモードではbaseRatiosが既に暗→明の順（[21,15,...,1.01]）なのでreverse不要
-						// 非DADSモードでは明→暗の順（[1.05,1.1,...]）なのでreverseで暗→明に
-						if (dadsStep && p.baseChromaName) {
-							// DADSモード: そのまま使用（keyIndexもそのまま）
-							return { colors: newColors, keyIndex: keyColorIndex };
-						}
 						// 非DADSモード: reverseして表示順を揃える
 						newColors.reverse();
 						const reversedKeyIndex = newColors.length - 1 - keyColorIndex;
@@ -1463,16 +1494,21 @@ export const runDemo = () => {
 								? definedStep
 								: (STEP_NAMES[currentIndex] ?? 500);
 
-						// Use baseChromaName (e.g. "Blue") if available, else name
-						const hueName = p.baseChromaName || p.name;
-
-						if (detailTokenName)
-							detailTokenName.textContent = `${hueName}-${tokenNum}`;
+						// Primaryはブランドカラーとして独立表示
+						if (isPrimaryModal) {
+							if (detailTokenName) detailTokenName.textContent = "Brand Color";
+							if (detailChromaName) detailChromaName.textContent = "Primary";
+						} else {
+							// Use baseChromaName (e.g. "Blue") if available, else name
+							const hueName = p.baseChromaName || p.name;
+							if (detailTokenName)
+								detailTokenName.textContent = `${hueName}-${tokenNum}`;
+							if (detailChromaName)
+								detailChromaName.textContent = p.baseChromaName || p.name;
+						}
 						if (detailHex) detailHex.textContent = color.toHex();
 						if (detailLightness)
 							detailLightness.textContent = `${Math.round(l * 100)}% L`;
-						if (detailChromaName)
-							detailChromaName.textContent = p.baseChromaName || p.name;
 
 						// Update Contrast Cards
 						const updateCard = (bgHex: string, prefix: string) => {
@@ -1532,42 +1568,57 @@ export const runDemo = () => {
 						drawScrubber();
 
 						// Update Mini Scale（固定スケールを使用）
+						// Primaryはブランドカラーなのでシェード（Mini Scale）を表示しない
 						const miniScaleContainer =
 							document.getElementById("detail-mini-scale");
 						if (miniScaleContainer) {
 							miniScaleContainer.innerHTML = "";
-							const { colors: scaleColors, keyIndex: originalKeyIndex } =
-								fixedScale;
 
-							// 現在選択されているインデックスを決定
-							const currentHighlightIndex =
-								selectedScaleIndex >= 0 ? selectedScaleIndex : originalKeyIndex;
+							// Primaryの場合はシェードなし
+							if (isPrimaryModal) {
+								// シェードの代わりにメッセージを表示（オプション）
+								const message = document.createElement("div");
+								message.className = "dads-text-muted";
+								message.style.cssText =
+									"padding: 8px; text-align: center; font-size: 12px;";
+								message.textContent = "ブランドカラーにはシェードがありません";
+								miniScaleContainer.appendChild(message);
+							} else {
+								const { colors: scaleColors, keyIndex: originalKeyIndex } =
+									fixedScale;
 
-							scaleColors.forEach((c, i) => {
-								const div = document.createElement("button");
-								div.type = "button";
-								div.className = "dads-mini-scale__item";
-								div.style.backgroundColor = c.toCss();
-								div.setAttribute("aria-label", `Color ${c.toHex()}`);
+								// 現在選択されているインデックスを決定
+								const currentHighlightIndex =
+									selectedScaleIndex >= 0
+										? selectedScaleIndex
+										: originalKeyIndex;
 
-								// Add click handler
-								div.onclick = () => {
-									selectedScaleIndex = i;
-									updateDetail(c);
-								};
+								scaleColors.forEach((c, i) => {
+									const div = document.createElement("button");
+									div.type = "button";
+									div.className = "dads-mini-scale__item";
+									div.style.backgroundColor = c.toCss();
+									div.setAttribute("aria-label", `Color ${c.toHex()}`);
 
-								// Highlight current color
-								if (i === currentHighlightIndex) {
-									const check = document.createElement("div");
-									check.className = "dads-mini-scale__check";
-									check.textContent = "✓";
-									check.style.color =
-										c.contrast(new Color("#fff")) > 4.5 ? "white" : "black";
-									div.appendChild(check);
-								}
+									// Add click handler
+									div.onclick = () => {
+										selectedScaleIndex = i;
+										updateDetail(c);
+									};
 
-								miniScaleContainer.appendChild(div);
-							});
+									// Highlight current color
+									if (i === currentHighlightIndex) {
+										const check = document.createElement("div");
+										check.className = "dads-mini-scale__check";
+										check.textContent = "✓";
+										check.style.color =
+											c.contrast(new Color("#fff")) > 4.5 ? "white" : "black";
+										div.appendChild(check);
+									}
+
+									miniScaleContainer.appendChild(div);
+								});
+							}
 						}
 					};
 
@@ -1650,16 +1701,21 @@ export const runDemo = () => {
 				const info = document.createElement("div");
 				info.className = "dads-card__body";
 
-				// Token name (e.g., "blue-800")
+				// Token name (e.g., "blue-800") or step only for Primary (brand color)
 				// DADSモード: p.stepまたはdefinedStepを使用
 				// 非DADSモード: スケール位置から計算
 				const step = p.step ?? definedStep ?? STEP_NAMES[keyColorIndex] ?? 600;
-				const chromaNameLower = (p.baseChromaName || p.name || "color")
-					.toLowerCase()
-					.replace(/\s+/g, "-");
 
 				const tokenName = document.createElement("h3");
-				tokenName.textContent = `${chromaNameLower}-${step}`;
+				// Primaryはブランドカラーなので、プリミティブカラー名（blue-800等）ではなく「Brand Color」と表示
+				if (isPrimary) {
+					tokenName.textContent = "Brand Color";
+				} else {
+					const chromaNameLower = (p.baseChromaName || p.name || "color")
+						.toLowerCase()
+						.replace(/\s+/g, "-");
+					tokenName.textContent = `${chromaNameLower}-${step}`;
+				}
 				tokenName.className = "dads-card__title";
 
 				const hexCode = document.createElement("code");
@@ -1763,20 +1819,196 @@ export const runDemo = () => {
 		}
 	};
 
-	const renderShadesView = (container: HTMLElement) => {
+	/**
+	 * DADSプリミティブカラーを表示するシェードビュー
+	 * 10色相 × 13スケール（50-1200）をそのまま表示
+	 */
+	const renderShadesView = async (container: HTMLElement) => {
 		container.className = "dads-section";
 
-		// Shadesビューでは全13色パレットを使用
+		const loadingEl = document.createElement("div");
+		loadingEl.className = "dads-loading";
+		loadingEl.textContent = "DADSカラーを読み込み中...";
+		container.appendChild(loadingEl);
+
+		try {
+			const dadsTokens = await loadDadsTokens();
+			const chromaticScales = getAllDadsChromatic(dadsTokens);
+			container.removeChild(loadingEl);
+
+			// 説明セクション
+			const infoSection = document.createElement("div");
+			infoSection.className = "dads-info-section";
+			infoSection.innerHTML = `
+				<p class="dads-info-section__text">
+					デジタル庁デザインシステム（DADS）のプリミティブカラーです。
+					これらの色はデザイントークンとして定義されており、変更できません。
+				</p>
+			`;
+			container.appendChild(infoSection);
+
+			// 各色相のセクションを描画
+			for (const colorScale of chromaticScales) {
+				renderDadsHueSection(container, colorScale);
+			}
+
+			// ブランドカラーセクション
+			const activePalette = getActivePalette();
+			if (activePalette && activePalette.keyColors[0]) {
+				const { color: brandHex } = parseKeyColor(activePalette.keyColors[0]);
+				renderBrandColorSection(container, brandHex, activePalette.name);
+			}
+		} catch (error) {
+			console.error("Failed to load DADS tokens:", error);
+			container.removeChild(loadingEl);
+			renderEmptyState(container, "シェード（読み込みエラー）");
+		}
+	};
+
+	/** 色相セクションを描画 */
+	const renderDadsHueSection = (
+		container: HTMLElement,
+		colorScale: DadsColorScale,
+	) => {
+		const section = document.createElement("section");
+		section.className = "dads-hue-section";
+
+		const header = document.createElement("h2");
+		header.className = "dads-section__heading";
+		header.innerHTML = `
+			<span class="dads-section__heading-en">${colorScale.hueName.en}</span>
+			<span class="dads-section__heading-ja">(${colorScale.hueName.ja})</span>
+			<span class="dads-section__heading-lock" title="DADSプリミティブカラー">🔒</span>
+		`;
+		section.appendChild(header);
+
+		const scaleContainer = document.createElement("div");
+		scaleContainer.className = "dads-scale";
+
+		for (const colorItem of colorScale.colors) {
+			const swatch = document.createElement("div");
+			swatch.className = "dads-swatch dads-swatch--readonly";
+
+			const originalColor = new Color(colorItem.hex);
+			const displayColor = applySimulation(originalColor);
+			swatch.style.backgroundColor = displayColor.toCss();
+
+			const whiteContrast = verifyContrast(
+				originalColor,
+				new Color("#ffffff"),
+			).contrast;
+			const blackContrast = verifyContrast(
+				originalColor,
+				new Color("#000000"),
+			).contrast;
+			const textColor = whiteContrast >= blackContrast ? "white" : "black";
+
+			const scaleLabel = document.createElement("span");
+			scaleLabel.className = "dads-swatch__scale";
+			scaleLabel.style.color = textColor;
+			scaleLabel.textContent = String(colorItem.scale);
+			swatch.appendChild(scaleLabel);
+
+			const hexLabel = document.createElement("span");
+			hexLabel.className = "dads-swatch__hex";
+			hexLabel.style.color = textColor;
+			hexLabel.textContent = colorItem.hex.toUpperCase();
+			swatch.appendChild(hexLabel);
+
+			swatch.setAttribute(
+				"aria-label",
+				`${colorScale.hueName.en} ${colorItem.scale}: ${colorItem.hex}`,
+			);
+			swatch.setAttribute(
+				"title",
+				`${colorItem.hex} - ${colorItem.token.nameJa}`,
+			);
+			swatch.style.cursor = "pointer";
+			swatch.onclick = () => {
+				navigator.clipboard.writeText(colorItem.hex).then(() => {
+					const originalText = hexLabel.textContent;
+					hexLabel.textContent = "Copied!";
+					setTimeout(() => {
+						hexLabel.textContent = originalText;
+					}, 1000);
+				});
+			};
+
+			scaleContainer.appendChild(swatch);
+		}
+
+		section.appendChild(scaleContainer);
+		container.appendChild(section);
+	};
+
+	/** ブランドカラーセクションを描画 */
+	const renderBrandColorSection = (
+		container: HTMLElement,
+		brandHex: string,
+		brandName: string,
+	) => {
+		const section = document.createElement("section");
+		section.className = "dads-brand-section";
+
+		const header = document.createElement("h2");
+		header.className = "dads-section__heading";
+		header.innerHTML = `
+			<span class="dads-section__heading-en">Brand Color</span>
+			<span class="dads-section__heading-ja">(${brandName})</span>
+		`;
+		section.appendChild(header);
+
+		const swatchContainer = document.createElement("div");
+		swatchContainer.className = "dads-brand-swatch-container";
+
+		const swatch = document.createElement("div");
+		swatch.className = "dads-swatch dads-swatch--brand";
+
+		const originalColor = new Color(brandHex);
+		const displayColor = applySimulation(originalColor);
+		swatch.style.backgroundColor = displayColor.toCss();
+
+		const whiteContrast = verifyContrast(
+			originalColor,
+			new Color("#ffffff"),
+		).contrast;
+		const blackContrast = verifyContrast(
+			originalColor,
+			new Color("#000000"),
+		).contrast;
+		const textColor = whiteContrast >= blackContrast ? "white" : "black";
+
+		const hexLabel = document.createElement("span");
+		hexLabel.className = "dads-swatch__hex";
+		hexLabel.style.color = textColor;
+		hexLabel.textContent = brandHex.toUpperCase();
+		swatch.appendChild(hexLabel);
+
+		swatchContainer.appendChild(swatch);
+		section.appendChild(swatchContainer);
+
+		const note = document.createElement("p");
+		note.className = "dads-brand-section__note";
+		note.textContent =
+			"ブランドカラーのシェード生成は今後の拡張で対応予定です。";
+		section.appendChild(note);
+
+		container.appendChild(section);
+	};
+
+	/** @deprecated 旧実装（互換性のため保持、将来削除予定） */
+	// @ts-expect-error: Kept for backward compatibility, to be removed in future
+	const _legacyRenderShadesView = (container: HTMLElement) => {
+		container.className = "dads-section";
+
 		const palettesToRender =
 			state.shadesPalettes.length > 0 ? state.shadesPalettes : state.palettes;
 
-		// パレットが生成されていない場合
 		if (palettesToRender.length === 0) {
 			renderEmptyState(container, "シェード");
 			return;
 		}
 
-		// コントラストコントロールをコンテンツ上部に配置
 		const contrastControlsSection = document.createElement("div");
 		contrastControlsSection.className = "dads-content-controls";
 

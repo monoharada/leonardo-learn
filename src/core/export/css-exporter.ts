@@ -5,11 +5,12 @@
  * @supportsによる広色域検出付きfallback形式もサポートします。
  * CUDメタデータオプション付き。
  *
- * Requirements: 7.3
+ * Requirements: 7.3, 10.1, 10.2, 10.3, 10.4, 10.5
  */
 
 import type { Color } from "../color";
 import { findNearestCudColor, type MatchLevel } from "../cud/service";
+import type { BrandToken, DadsReference, DadsToken } from "../tokens/types";
 
 /**
  * CUDコメント生成用データ
@@ -184,6 +185,189 @@ export function generateSemanticTokenName(
 	prefix = "color",
 ): string {
 	return `--${prefix}-${role}-${shade}`;
+}
+
+// ============================================
+// v2 API: DADS/Brand Token Export Functions
+// ============================================
+
+/**
+ * CSSエクスポートv2オプション
+ * Requirements: 10.1, 10.2
+ */
+export interface CSSExportOptionsV2 {
+	/** 出力バージョン（デフォルト: "v2"） */
+	outputVersion?: "v1" | "v2";
+	/** DADSトークンを含めるか（デフォルト: true） */
+	includeDadsTokens?: boolean;
+	/** コメントを含めるか（デフォルト: true） */
+	includeComments?: boolean;
+	/** インデント（スペース数、デフォルト: 2） */
+	indent?: number;
+	/** セレクタ（デフォルト: ":root"） */
+	selector?: string;
+}
+
+/**
+ * HEXカラーコードをRGBA形式に変換する
+ *
+ * @param hex - HEXカラーコード（#RRGGBB形式）
+ * @param alpha - アルファ値（0-1）
+ * @returns rgba(R, G, B, alpha)形式の文字列
+ *
+ * @example
+ * ```ts
+ * hexToRgba("#ff0000", 0.5)
+ * // => "rgba(255, 0, 0, 0.5)"
+ * ```
+ */
+export function hexToRgba(hex: string, alpha: number): string {
+	const cleanHex = hex.replace("#", "");
+	const r = Number.parseInt(cleanHex.substring(0, 2), 16);
+	const g = Number.parseInt(cleanHex.substring(2, 4), 16);
+	const b = Number.parseInt(cleanHex.substring(4, 6), 16);
+	return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+/**
+ * 派生情報をコメント形式にフォーマットする
+ * Requirement 10.5: derivationコメント（参照先DADS、deltaE、派生タイプ）を追加
+ *
+ * @param dadsRef - DADS参照情報
+ * @returns フォーマットされたコメント文字列
+ *
+ * @example
+ * ```ts
+ * formatDerivationComment({
+ *   tokenId: "dads-blue-500",
+ *   tokenHex: "#0066cc",
+ *   deltaE: 0.032,
+ *   derivationType: "soft-snap",
+ *   zone: "safe"
+ * })
+ * // => "/* Derived: dads-blue-500, ΔE=0.032, soft-snap *\/"
+ * ```
+ */
+export function formatDerivationComment(dadsRef: DadsReference): string {
+	const { tokenId, deltaE, derivationType } = dadsRef;
+	return `/* Derived: ${tokenId}, ΔE=${deltaE.toFixed(3)}, ${derivationType} */`;
+}
+
+/**
+ * トークンのカラー値を取得する（alpha考慮）
+ *
+ * @param hex - HEXカラーコード
+ * @param alpha - オプショナルのアルファ値
+ * @returns HEXまたはrgba形式の文字列
+ */
+function getColorValue(hex: string, alpha?: number): string {
+	// alpha値がないか1の場合はHEX形式で出力
+	if (alpha === undefined || alpha === 1) {
+		return hex;
+	}
+	// alpha値を持つ場合はrgba形式で出力
+	return hexToRgba(hex, alpha);
+}
+
+/**
+ * DADS/Brandトークンを分離したCSS形式でエクスポートする（v2 API）
+ *
+ * Requirements:
+ * - 10.1: DADSプリミティブを--dads-{color}形式で出力、不変性コメント追加
+ * - 10.2: ブランドトークンを--brand-{role}-{shade}形式で出力、derivationコメント追加
+ * - 10.3: alpha値を持つトークンはrgba(R, G, B, alpha)形式で出力
+ * - 10.4: alpha値がないか1の場合は#RRGGBB形式で出力
+ * - 10.5: derivationコメント（参照先DADS、deltaE、派生タイプ）を追加
+ *
+ * @param brandTokens - ブランドトークン配列
+ * @param dadsTokens - DADSトークン配列（オプショナル）
+ * @param options - エクスポートオプション
+ * @returns CSS文字列
+ *
+ * @example
+ * ```ts
+ * const css = exportToCSSv2(
+ *   [{ id: "brand-primary-500", hex: "#1a73e8", ... }],
+ *   [{ id: "dads-blue-500", hex: "#0066cc", ... }],
+ *   { includeComments: true }
+ * );
+ * ```
+ */
+export function exportToCSSv2(
+	brandTokens: BrandToken[],
+	dadsTokens?: DadsToken[],
+	options: CSSExportOptionsV2 = {},
+): string {
+	const {
+		includeDadsTokens = true,
+		includeComments = false,
+		indent = 2,
+		selector = ":root",
+	} = options;
+
+	const indentStr = " ".repeat(indent);
+	const cssLines: string[] = [];
+
+	cssLines.push(`${selector} {`);
+
+	// DADSトークンセクション（オプショナル）
+	if (includeDadsTokens && dadsTokens && dadsTokens.length > 0) {
+		if (includeComments) {
+			cssLines.push(
+				`${indentStr}/* ========================================== */`,
+			);
+			cssLines.push(
+				`${indentStr}/* DADS Primitive Colors (Immutable/不変)     */`,
+			);
+			cssLines.push(
+				`${indentStr}/* ========================================== */`,
+			);
+		}
+
+		for (const token of dadsTokens) {
+			const varName = `--${token.id}`;
+			const colorValue = getColorValue(token.hex, token.alpha);
+			cssLines.push(`${indentStr}${varName}: ${colorValue};`);
+		}
+
+		// セクション間のスペース
+		if (brandTokens.length > 0) {
+			cssLines.push("");
+		}
+	}
+
+	// ブランドトークンセクション
+	if (brandTokens.length > 0) {
+		if (includeComments) {
+			cssLines.push(
+				`${indentStr}/* ========================================== */`,
+			);
+			cssLines.push(
+				`${indentStr}/* Brand Tokens (Derived from DADS)           */`,
+			);
+			cssLines.push(
+				`${indentStr}/* ========================================== */`,
+			);
+		}
+
+		for (const token of brandTokens) {
+			const varName = `--${token.id}`;
+			const colorValue = getColorValue(token.hex, token.alpha);
+
+			if (includeComments) {
+				const derivationComment = formatDerivationComment(token.dadsReference);
+				cssLines.push(
+					`${indentStr}${varName}: ${colorValue}; ${derivationComment}`,
+				);
+			} else {
+				cssLines.push(`${indentStr}${varName}: ${colorValue};`);
+			}
+		}
+	}
+
+	cssLines.push("}");
+
+	return cssLines.join("\n");
 }
 
 /**

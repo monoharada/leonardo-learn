@@ -5,7 +5,7 @@
  * CUD互換モードでは、生成されたすべての色が20色のCUD推奨色セットの
  * いずれかにマッピングされる
  *
- * Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6
+ * Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 7.1, 7.2, 7.3
  */
 
 import {
@@ -15,6 +15,7 @@ import {
 	toOklab,
 	toOklch,
 } from "../../utils/color-space";
+import type { DerivationType } from "../tokens/types";
 import type { CudColor } from "./colors";
 import { findNearestCudColor, getCudColorSet } from "./service";
 import {
@@ -304,8 +305,23 @@ export interface SoftSnapOptions {
 }
 
 /**
+ * 派生情報
+ * Requirements: 7.1, 7.2
+ */
+export interface SnapDerivation {
+	/** 派生タイプ（strict-snap/soft-snap/reference） */
+	type: DerivationType;
+	/** 参照先DADSトークンID（CUD色ID形式） */
+	dadsTokenId: string;
+	/** 参照先DADSトークンHEX */
+	dadsTokenHex: string;
+	/** 結果のブランドトークンHEX */
+	brandTokenHex: string;
+}
+
+/**
  * Soft Snap結果（既存SnapResultを拡張）
- * Requirements: 5.4, 5.6
+ * Requirements: 5.4, 5.6, 7.1, 7.2, 7.3
  */
 export interface SoftSnapResult {
 	/** スナップ後のHEX */
@@ -324,9 +340,46 @@ export interface SoftSnapResult {
 	deltaEChange: number;
 	/** 説明文（UI表示用） - Requirement 5.4 */
 	explanation: string;
+	/** 派生情報 - Requirement 7.1, 7.2 */
+	derivation: SnapDerivation;
 }
 
 const DEFAULT_RETURN_FACTOR = 0.5;
+
+/**
+ * スナップモードとスナップ状態に基づいて派生タイプを決定
+ * Requirements: 7.1, 7.2
+ */
+const determineDerivationType = (
+	mode: "strict" | "prefer" | "soft",
+	snapped: boolean,
+): DerivationType => {
+	if (mode === "strict") {
+		return "strict-snap";
+	}
+	if (snapped) {
+		return "soft-snap";
+	}
+	return "reference";
+};
+
+/**
+ * 派生情報を生成
+ * Requirements: 7.1, 7.2
+ */
+const createDerivation = (
+	mode: "strict" | "prefer" | "soft",
+	snapped: boolean,
+	cudColor: CudColor,
+	resultHex: string,
+): SnapDerivation => {
+	return {
+		type: determineDerivationType(mode, snapped),
+		dadsTokenId: cudColor.id,
+		dadsTokenHex: cudColor.hex,
+		brandTokenHex: resultHex,
+	};
+};
 
 /**
  * deltaEを3桁の小数点でフォーマット
@@ -513,8 +566,9 @@ export function softSnapToCudColor(
 
 	// strictモード: 常にCUD色にスナップ
 	if (mode === "strict") {
+		const resultHex = nearest.nearest.hex;
 		return {
-			hex: nearest.nearest.hex,
+			hex: resultHex,
 			originalHex: normalizedHex,
 			cudColor: nearest.nearest,
 			snapped: true,
@@ -528,6 +582,7 @@ export function softSnapToCudColor(
 				true,
 				mode,
 			),
+			derivation: createDerivation(mode, true, nearest.nearest, resultHex),
 		};
 	}
 
@@ -562,6 +617,7 @@ export function softSnapToCudColor(
 					true,
 					mode,
 				),
+				derivation: createDerivation(mode, true, nearest.nearest, resultHex),
 			};
 		}
 		// 閾値超過: スナップなし
@@ -580,6 +636,7 @@ export function softSnapToCudColor(
 				false,
 				mode,
 			),
+			derivation: createDerivation(mode, false, nearest.nearest, normalizedHex),
 		};
 	}
 
@@ -601,6 +658,7 @@ export function softSnapToCudColor(
 				false,
 				mode,
 			),
+			derivation: createDerivation(mode, false, nearest.nearest, normalizedHex),
 		};
 	}
 
@@ -622,6 +680,12 @@ export function softSnapToCudColor(
 					deltaE,
 					false,
 					mode,
+				),
+				derivation: createDerivation(
+					mode,
+					false,
+					nearest.nearest,
+					normalizedHex,
 				),
 			};
 		}
@@ -653,6 +717,7 @@ export function softSnapToCudColor(
 				true,
 				mode,
 			),
+			derivation: createDerivation(mode, true, nearest.nearest, resultHex),
 		};
 	}
 
@@ -696,6 +761,7 @@ export function softSnapToCudColor(
 			true,
 			mode,
 		),
+		derivation: createDerivation(mode, true, nearest.nearest, resultHex),
 	};
 }
 

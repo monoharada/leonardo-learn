@@ -9,32 +9,33 @@
  * Requirements: 8.4
  */
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 // UI modules
 import {
 	type CudCompatibilityMode,
 	createPaletteProcessor,
-	type PaletteProcessResult,
 	processPaletteWithMode,
 } from "../../ui/cud-components";
 import { Color } from "../color";
 // Export modules
+import { exportToCSSv2 } from "../export/css-exporter";
 import {
 	exportToJSON,
+	exportToJSONv2,
 	generateCudValidationSummary,
-	type JSONExportOptions,
+	type JSONExportResultV2,
 } from "../export/json-exporter";
+import type { BrandToken, DadsToken } from "../tokens/types";
 // Core modules
+import { createAnchorColor, setAnchorPriority } from "./anchor";
+import { optimizePalette } from "./optimizer";
 import {
-	type AnchorColorState,
-	createAnchorColor,
-	setAnchorPriority,
-} from "./anchor";
-import { calculateHarmonyScore } from "./harmony-score";
-import { type OptimizationResult, optimizePalette } from "./optimizer";
-import { findNearestCudColor } from "./service";
-import { softSnapToCudColor } from "./snapper";
-import { type CudZone, classifyZone } from "./zone";
+	findNearestCudColor,
+	type ProcessPaletteResultV1,
+	type ProcessPaletteResultV2,
+	processPaletteWithModeV2,
+} from "./service";
+import { classifyZone } from "./zone";
 
 /**
  * テスト用CUD推奨色のHEX値
@@ -440,7 +441,11 @@ describe("UIフロー統合テスト", () => {
 			expect(result.optimizationResult).toBeUndefined();
 
 			// ゾーン情報の検証
-			for (const info of result.zoneInfos!) {
+			const zoneInfos = result.zoneInfos;
+			if (!zoneInfos) {
+				throw new Error("zoneInfos should be defined in guide mode");
+			}
+			for (const info of zoneInfos) {
 				expect(["safe", "warning", "off"]).toContain(info.zone);
 				expect(info.deltaE).toBeGreaterThanOrEqual(0);
 				expect(info.nearestCud).toBeDefined();
@@ -457,7 +462,10 @@ describe("UIフロー統合テスト", () => {
 			expect(result.zoneInfos).toBeUndefined();
 
 			// 最適化結果の検証
-			const opt = result.optimizationResult!;
+			const opt = result.optimizationResult;
+			if (!opt) {
+				throw new Error("optimizationResult should be defined in soft mode");
+			}
 			expect(opt.palette).toHaveLength(3);
 			expect(opt.cudComplianceRate).toBeGreaterThanOrEqual(0);
 			expect(opt.harmonyScore).toBeDefined();
@@ -472,7 +480,10 @@ describe("UIフロー統合テスト", () => {
 			expect(result.optimizationResult).toBeDefined();
 
 			// 全色がスナップされている
-			const opt = result.optimizationResult!;
+			const opt = result.optimizationResult;
+			if (!opt) {
+				throw new Error("optimizationResult should be defined in strict mode");
+			}
 			for (const color of opt.palette) {
 				expect(color.snapped).toBe(true);
 				expect(color.cudTarget).toBeDefined();
@@ -531,8 +542,6 @@ describe("UIフロー統合テスト", () => {
 				callback,
 				"soft",
 			);
-
-			const initialResult = processor.getResult();
 
 			// Act
 			processor.setOptions({ lambda: 0.9 });
@@ -634,7 +643,7 @@ describe("エクスポートフロー統合テスト", () => {
 			expect(Object.keys(result.colors)).toHaveLength(3);
 
 			// 各色にCUDメタデータが含まれている
-			for (const [name, colorData] of Object.entries(result.colors)) {
+			for (const colorData of Object.values(result.colors)) {
 				expect(colorData.cudMetadata).toBeDefined();
 				expect(colorData.cudMetadata?.nearestId).toBeDefined();
 				expect(colorData.cudMetadata?.nearestName).toBeDefined();
@@ -703,8 +712,12 @@ describe("エクスポートフロー統合テスト", () => {
 			});
 
 			// Assert
-			expect(result.cudSummary?.zoneDistribution).toBeDefined();
-			const dist = result.cudSummary!.zoneDistribution;
+			expect(result.cudSummary).toBeDefined();
+			const summary = result.cudSummary;
+			if (!summary) {
+				throw new Error("cudSummary should be defined");
+			}
+			const dist = summary.zoneDistribution;
 			expect(dist.safe + dist.warning + dist.off).toBe(3);
 		});
 	});
@@ -908,5 +921,461 @@ describe("エンドツーエンドシナリオ", () => {
 
 		// エクスポート結果のモードが正しい
 		expect(exportResult.cudSummary?.mode).toBe("strict");
+	});
+});
+
+// ============================================================================
+// 5. v2 API統合テスト（Task 7.1）
+// パレット生成からエクスポートまでの統合テスト
+// Requirements: 9.1, 9.2, 9.3, 10.1, 11.1
+// ============================================================================
+
+describe("v2 API統合テスト (Task 7.1)", () => {
+	/**
+	 * テスト用パレット
+	 */
+	const TEST_PALETTE = ["#FF2800", "#35A16B", "#0041FF"]; // CUD推奨色
+	const MIXED_PALETTE = ["#FF2800", "#123456", "#AABBCC"]; // CUD/非CUD混在
+
+	describe("v2 APIでのパレット生成→BrandToken配列取得フロー", () => {
+		it("v2 APIでBrandToken配列が正しく生成される", () => {
+			// Act
+			const result = processPaletteWithModeV2(TEST_PALETTE, {
+				mode: "soft",
+				apiVersion: "v2",
+			}) as ProcessPaletteResultV2;
+
+			// Assert: BrandToken配列が生成される
+			expect(result.brandTokens).toBeDefined();
+			expect(Array.isArray(result.brandTokens)).toBe(true);
+			expect(result.brandTokens.length).toBe(3);
+
+			// 各BrandTokenの構造を検証
+			for (const token of result.brandTokens) {
+				expect(token.id).toBeDefined();
+				expect(token.hex).toMatch(/^#[A-F0-9]{6}$/);
+				expect(token.source).toBe("brand");
+				expect(token.dadsReference).toBeDefined();
+				expect(token.dadsReference.tokenId).toBeDefined();
+				expect(token.dadsReference.tokenHex).toMatch(/^#[A-F0-9]{6}$/);
+				expect(typeof token.dadsReference.deltaE).toBe("number");
+				expect(["strict-snap", "soft-snap", "reference", "manual"]).toContain(
+					token.dadsReference.derivationType,
+				);
+				expect(["safe", "warning", "off"]).toContain(token.dadsReference.zone);
+			}
+		});
+
+		it("v2 APIでDADSリファレンスMapが正しく生成される", () => {
+			// Act
+			const result = processPaletteWithModeV2(TEST_PALETTE, {
+				mode: "soft",
+				apiVersion: "v2",
+			}) as ProcessPaletteResultV2;
+
+			// Assert: DADSリファレンスMapが生成される
+			expect(result.dadsReferences).toBeDefined();
+			expect(result.dadsReferences).toBeInstanceOf(Map);
+
+			// 参照されたDADSトークンが含まれる
+			for (const [tokenId, dadsToken] of result.dadsReferences) {
+				expect(typeof tokenId).toBe("string");
+				expect(dadsToken.id).toBe(tokenId);
+				expect(dadsToken.source).toBe("dads");
+				expect(dadsToken.hex).toMatch(/^#[A-F0-9]{6}$/);
+				expect(dadsToken.nameJa).toBeDefined();
+				expect(dadsToken.nameEn).toBeDefined();
+			}
+		});
+
+		it("v2 APIでgenerationContextが正しく適用される", () => {
+			// Act
+			const usedIds = new Set<string>();
+			const result = processPaletteWithModeV2(TEST_PALETTE, {
+				mode: "soft",
+				apiVersion: "v2",
+				generationContext: {
+					namespace: "myapp",
+					roles: ["primary", "secondary", "accent"],
+					usedIds,
+				},
+			}) as ProcessPaletteResultV2;
+
+			// Assert: namespaceがIDに含まれる
+			for (const token of result.brandTokens) {
+				expect(token.id).toContain("myapp");
+			}
+
+			// Assert: rolesがIDに含まれる
+			expect(result.brandTokens[0].id).toContain("primary");
+			expect(result.brandTokens[1].id).toContain("secondary");
+			expect(result.brandTokens[2].id).toContain("accent");
+
+			// Assert: usedIdsが更新される
+			expect(usedIds.size).toBe(3);
+			for (const token of result.brandTokens) {
+				expect(usedIds.has(token.id)).toBe(true);
+			}
+		});
+
+		it("v2 APIでoriginalHexが保持される", () => {
+			// Act
+			const result = processPaletteWithModeV2(MIXED_PALETTE, {
+				mode: "soft",
+				apiVersion: "v2",
+			}) as ProcessPaletteResultV2;
+
+			// Assert: originalHexが元の色を保持
+			expect(result.brandTokens[0].originalHex).toBe("#FF2800");
+			expect(result.brandTokens[1].originalHex).toBe("#123456");
+			expect(result.brandTokens[2].originalHex).toBe("#AABBCC");
+		});
+
+		it("v2 APIでcudComplianceRateが正しく計算される", () => {
+			// CUD推奨色のみ
+			const cudResult = processPaletteWithModeV2(TEST_PALETTE, {
+				mode: "soft",
+				apiVersion: "v2",
+			}) as ProcessPaletteResultV2;
+
+			expect(cudResult.cudComplianceRate).toBe(100);
+
+			// 混在パレット
+			const mixedResult = processPaletteWithModeV2(MIXED_PALETTE, {
+				mode: "soft",
+				apiVersion: "v2",
+			}) as ProcessPaletteResultV2;
+
+			// 1色がCUD、2色が非CUD
+			expect(mixedResult.cudComplianceRate).toBeLessThan(100);
+		});
+
+		it("v2 APIでharmonyScoreが計算される", () => {
+			// Act
+			const result = processPaletteWithModeV2(TEST_PALETTE, {
+				mode: "soft",
+				apiVersion: "v2",
+			}) as ProcessPaletteResultV2;
+
+			// Assert
+			expect(result.harmonyScore).toBeDefined();
+			expect(result.harmonyScore.total).toBeGreaterThanOrEqual(0);
+			expect(result.harmonyScore.total).toBeLessThanOrEqual(100);
+			expect(result.harmonyScore.breakdown).toBeDefined();
+		});
+	});
+
+	describe("CSS/JSONエクスポートv2形式の出力検証", () => {
+		it("BrandTokenからCSS v2形式が正しく出力される", () => {
+			// Arrange: v2 APIでBrandToken生成
+			const result = processPaletteWithModeV2(TEST_PALETTE, {
+				mode: "soft",
+				apiVersion: "v2",
+				generationContext: {
+					roles: ["primary", "secondary", "accent"],
+				},
+			}) as ProcessPaletteResultV2;
+
+			// DADSトークンを配列に変換
+			const dadsTokens: DadsToken[] = Array.from(
+				result.dadsReferences.values(),
+			);
+
+			// Act: CSS v2エクスポート
+			const css = exportToCSSv2(result.brandTokens, dadsTokens, {
+				includeComments: true,
+			});
+
+			// Assert: CSS構造
+			expect(css).toContain(":root");
+			expect(css).toContain("}");
+
+			// DADSセクションの確認
+			expect(css).toMatch(/DADS.*(?:Immutable|不変)/i);
+
+			// ブランドトークンの確認
+			for (const token of result.brandTokens) {
+				expect(css).toContain(`--${token.id}`);
+			}
+
+			// derivationコメントの確認
+			expect(css).toContain("Derived:");
+			expect(css).toContain("ΔE=");
+		});
+
+		it("BrandTokenからJSON v2形式が正しく出力される", () => {
+			// Arrange: v2 APIでBrandToken生成
+			const result = processPaletteWithModeV2(TEST_PALETTE, {
+				mode: "soft",
+				apiVersion: "v2",
+				generationContext: {
+					namespace: "myapp",
+					roles: ["primary", "secondary", "accent"],
+				},
+			}) as ProcessPaletteResultV2;
+
+			const dadsTokens: DadsToken[] = Array.from(
+				result.dadsReferences.values(),
+			);
+
+			// Act: JSON v2エクスポート
+			const json = exportToJSONv2(result.brandTokens, {
+				includeDadsTokens: true,
+				dadsTokens,
+				brandNamespace: "myapp",
+				cudMode: "soft",
+			}) as JSONExportResultV2;
+
+			// Assert: メタデータ
+			expect(json.metadata).toBeDefined();
+			expect(json.metadata.version).toBe("2.0.0");
+			expect(json.metadata.generatedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+			expect(json.metadata.tokenSchema).toBe("dads-brand-v1");
+			expect(json.metadata.brandNamespace).toBe("myapp");
+
+			// Assert: DADSトークン
+			expect(json.dadsTokens).toBeDefined();
+			const exportedDadsTokens = json.dadsTokens;
+			if (!exportedDadsTokens) {
+				throw new Error("dadsTokens should be defined");
+			}
+			for (const [id, dadsData] of Object.entries(exportedDadsTokens)) {
+				expect(dadsData.id).toBe(id);
+				expect(dadsData.source).toBe("dads");
+				expect(dadsData.immutable).toBe(true);
+			}
+
+			// Assert: ブランドトークン
+			expect(json.brandTokens).toBeDefined();
+			expect(Object.keys(json.brandTokens).length).toBe(3);
+			for (const [id, brandData] of Object.entries(json.brandTokens)) {
+				expect(brandData.id).toBe(id);
+				expect(brandData.source).toBe("brand");
+				expect(brandData.dadsReference).toBeDefined();
+				expect(brandData.dadsReference.tokenId).toBeDefined();
+				expect(brandData.dadsReference.derivationType).toBeDefined();
+				expect(brandData.dadsReference.zone).toBeDefined();
+			}
+
+			// Assert: CUDサマリー
+			expect(json.cudSummary).toBeDefined();
+			expect(json.cudSummary.mode).toBe("soft");
+			expect(typeof json.cudSummary.complianceRate).toBe("number");
+			expect(json.cudSummary.zoneDistribution).toBeDefined();
+			expect(typeof json.cudSummary.zoneDistribution.safe).toBe("number");
+			expect(typeof json.cudSummary.zoneDistribution.warning).toBe("number");
+			expect(typeof json.cudSummary.zoneDistribution.off).toBe("number");
+		});
+
+		it("alpha値を持つトークンが正しくエクスポートされる", () => {
+			// Arrange: alpha値を持つBrandToken
+			const brandTokenWithAlpha: BrandToken[] = [
+				{
+					id: "brand-overlay-500",
+					hex: "#000000",
+					alpha: 0.5,
+					source: "brand",
+					dadsReference: {
+						tokenId: "cud-black",
+						tokenHex: "#000000",
+						deltaE: 0,
+						derivationType: "reference",
+						zone: "safe",
+					},
+				},
+			];
+
+			// Act: CSS v2エクスポート
+			const css = exportToCSSv2(brandTokenWithAlpha);
+
+			// Assert: rgba形式で出力
+			expect(css).toContain("rgba(0, 0, 0, 0.5)");
+
+			// Act: JSON v2エクスポート
+			const json = exportToJSONv2(brandTokenWithAlpha) as JSONExportResultV2;
+
+			// Assert: alpha値が含まれる
+			expect(json.brandTokens["brand-overlay-500"].alpha).toBe(0.5);
+		});
+	});
+
+	describe("v1 APIとの後方互換性検証", () => {
+		it("apiVersion未指定時はv1形式で返却される", () => {
+			// Act
+			const result = processPaletteWithModeV2(TEST_PALETTE, {
+				mode: "soft",
+			});
+
+			// Assert: v1形式（palette属性を持つ）
+			expect("palette" in result).toBe(true);
+			expect("brandTokens" in result).toBe(false);
+
+			const v1Result = result as ProcessPaletteResultV1;
+			expect(v1Result.palette).toHaveLength(3);
+			for (const color of v1Result.palette) {
+				expect(color.hex).toBeDefined();
+				expect(color.originalHex).toBeDefined();
+				expect(color.zone).toBeDefined();
+				expect(color.deltaE).toBeDefined();
+				expect(typeof color.snapped).toBe("boolean");
+			}
+		});
+
+		it("apiVersion=v1で明示的にv1形式が返却される", () => {
+			// Act
+			const result = processPaletteWithModeV2(TEST_PALETTE, {
+				mode: "soft",
+				apiVersion: "v1",
+			}) as ProcessPaletteResultV1;
+
+			// Assert: v1形式
+			expect(result.palette).toBeDefined();
+			expect(result.cudComplianceRate).toBeDefined();
+			expect(result.harmonyScore).toBeDefined();
+			expect(result.warnings).toBeDefined();
+		});
+
+		it("v1とv2で同じ入力に対して一貫した結果が得られる", () => {
+			// Act
+			const v1Result = processPaletteWithModeV2(TEST_PALETTE, {
+				mode: "soft",
+				apiVersion: "v1",
+			}) as ProcessPaletteResultV1;
+
+			const v2Result = processPaletteWithModeV2(TEST_PALETTE, {
+				mode: "soft",
+				apiVersion: "v2",
+			}) as ProcessPaletteResultV2;
+
+			// Assert: CUD準拠率が一致
+			expect(v1Result.cudComplianceRate).toBe(v2Result.cudComplianceRate);
+
+			// Assert: 調和スコアが一致
+			expect(v1Result.harmonyScore.total).toBe(v2Result.harmonyScore.total);
+
+			// Assert: 最適化された色が一致
+			for (let i = 0; i < TEST_PALETTE.length; i++) {
+				expect(v1Result.palette[i].hex).toBe(v2Result.brandTokens[i].hex);
+				expect(v1Result.palette[i].originalHex).toBe(
+					v2Result.brandTokens[i].originalHex,
+				);
+				expect(v1Result.palette[i].zone).toBe(
+					v2Result.brandTokens[i].dadsReference.zone,
+				);
+			}
+		});
+
+		it("anchorオプションがv1/v2両方で動作する", () => {
+			// Act: v1
+			const v1Result = processPaletteWithModeV2(TEST_PALETTE, {
+				mode: "soft",
+				apiVersion: "v1",
+				anchor: { anchorIndex: 1, isFixed: true },
+			}) as ProcessPaletteResultV1;
+
+			// Act: v2
+			const v2Result = processPaletteWithModeV2(TEST_PALETTE, {
+				mode: "soft",
+				apiVersion: "v2",
+				anchor: { anchorIndex: 1, isFixed: true },
+			}) as ProcessPaletteResultV2;
+
+			// Assert: 結果が存在する
+			expect(v1Result.palette).toHaveLength(3);
+			expect(v2Result.brandTokens).toHaveLength(3);
+		});
+	});
+
+	describe("エンドツーエンド: パレット生成→エクスポートフロー", () => {
+		it("ブランドカラーからv2形式での完全なフローが動作する", () => {
+			// Step 1: ブランドカラーでパレット生成
+			const brandColors = ["#FF5500", "#0066CC", "#33CC33", "#CC3333"];
+			const usedIds = new Set<string>();
+
+			// Step 2: v2 APIで処理
+			const result = processPaletteWithModeV2(brandColors, {
+				mode: "soft",
+				apiVersion: "v2",
+				anchor: { anchorIndex: 0, isFixed: true },
+				generationContext: {
+					namespace: "brand",
+					roles: ["primary", "secondary", "success", "danger"],
+					usedIds,
+				},
+			}) as ProcessPaletteResultV2;
+
+			// Step 3: DADSトークン配列に変換
+			const dadsTokens: DadsToken[] = Array.from(
+				result.dadsReferences.values(),
+			);
+
+			// Step 4: CSSエクスポート
+			const css = exportToCSSv2(result.brandTokens, dadsTokens, {
+				includeComments: true,
+			});
+
+			// Step 5: JSONエクスポート
+			const json = exportToJSONv2(result.brandTokens, {
+				includeDadsTokens: true,
+				dadsTokens,
+				brandNamespace: "brand",
+				cudMode: "soft",
+			}) as JSONExportResultV2;
+
+			// Assertions
+			expect(result.brandTokens).toHaveLength(4);
+			expect(css).toContain(":root");
+			expect(css).toContain("--brand-");
+			expect(json.brandTokens).toBeDefined();
+			expect(Object.keys(json.brandTokens)).toHaveLength(4);
+			expect(json.metadata.brandNamespace).toBe("brand");
+
+			// 処理結果の整合性
+			for (const token of result.brandTokens) {
+				// CSSに含まれる
+				expect(css).toContain(`--${token.id}`);
+				// JSONに含まれる
+				expect(json.brandTokens[token.id]).toBeDefined();
+				// originalHexが保持されている
+				expect(token.originalHex).toBeDefined();
+			}
+		});
+
+		it("Strictモードでの完全なv2フローが動作する", () => {
+			// Step 1: 任意の色でパレット生成
+			const colors = ["#FF0000", "#00FF00", "#0000FF"];
+
+			// Step 2: Strictモードで処理
+			const result = processPaletteWithModeV2(colors, {
+				mode: "strict",
+				apiVersion: "v2",
+				generationContext: {
+					roles: ["primary", "secondary", "accent"],
+				},
+			}) as ProcessPaletteResultV2;
+
+			// Step 3: 全色がstrict-snapであることを確認
+			for (const token of result.brandTokens) {
+				expect(token.dadsReference.derivationType).toBe("strict-snap");
+			}
+
+			// Step 4: エクスポート
+			const dadsTokens: DadsToken[] = Array.from(
+				result.dadsReferences.values(),
+			);
+			const json = exportToJSONv2(result.brandTokens, {
+				includeDadsTokens: true,
+				dadsTokens,
+				cudMode: "strict",
+			}) as JSONExportResultV2;
+
+			// Assert: モードがstrict
+			expect(json.cudSummary.mode).toBe("strict");
+
+			// Assert: 全てのブランドトークンがstrict-snap
+			for (const brandData of Object.values(json.brandTokens)) {
+				expect(brandData.dadsReference.derivationType).toBe("strict-snap");
+			}
+		});
 	});
 });
