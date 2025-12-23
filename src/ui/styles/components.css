@@ -1166,6 +1166,18 @@
 	gap: 1.5rem;
 }
 
+/* カラーチューナーを非表示
+ * DADSプリミティブカラーは不変であるため、色の変更機能は無効化
+ */
+.dads-drawer__tuner-col {
+	display: none;
+}
+
+/* カラーチューナー非表示時はコントラスト列を全幅に */
+.dads-drawer__grid {
+	grid-template-columns: 1fr;
+}
+
 .dads-drawer__section-title {
 	margin: 0;
 	font-size: var(--font-size-16);
