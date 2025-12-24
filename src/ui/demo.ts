@@ -1889,6 +1889,11 @@ export const runDemo = () => {
 			const swatch = document.createElement("div");
 			swatch.className = "dads-swatch dads-swatch--readonly";
 
+			// Task 4.1: data属性とdata-testidを追加（E2Eテスト・オーバーレイ統合用）
+			swatch.dataset.hue = colorScale.hue;
+			swatch.dataset.scale = String(colorItem.scale);
+			swatch.dataset.testid = `swatch-${colorScale.hue}-${colorItem.scale}`;
+
 			const originalColor = new Color(colorItem.hex);
 			const displayColor = applySimulation(originalColor);
 			swatch.style.backgroundColor = displayColor.toCss();
@@ -1963,6 +1968,9 @@ export const runDemo = () => {
 
 		const swatch = document.createElement("div");
 		swatch.className = "dads-swatch dads-swatch--brand";
+
+		// Task 4.1: data-testidを追加（E2Eテスト・オーバーレイ統合用）
+		swatch.dataset.testid = "swatch-brand";
 
 		const originalColor = new Color(brandHex);
 		const displayColor = applySimulation(originalColor);

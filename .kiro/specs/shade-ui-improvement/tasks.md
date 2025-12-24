@@ -90,7 +90,7 @@
 
 - [ ] 4. 統合 - 既存シェードビューへのオーバーレイ統合
 
-- [ ] 4.1 スウォッチにdata属性とdata-testidを追加する
+- [x] 4.1 スウォッチにdata属性とdata-testidを追加する
   - renderDadsHueSectionのスウォッチ生成時にdata-hue属性を設定（colorScale.hueをそのまま使用、DadsColorHue値）
   - renderDadsHueSectionのスウォッチ生成時にdata-scale属性を設定（スケール値）
   - E2Eテスト用にdata-testid="swatch-{hue}-{scale}"を追加
