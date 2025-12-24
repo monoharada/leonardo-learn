@@ -1,3 +1,9 @@
+import {
+	createSemanticRoleMapper,
+	type PaletteInfo,
+	type SemanticRoleMapperService,
+} from "@/core/semantic-role/role-mapper";
+import type { DadsColorHue } from "@/core/tokens/types";
 import { getAPCA } from "../accessibility/apca";
 import {
 	type CVDType,
@@ -38,6 +44,7 @@ import {
 	showPaletteValidation,
 	snapToCudColor,
 } from "./cud-components";
+import { applyOverlay } from "./semantic-role/semantic-role-overlay";
 import {
 	type ContrastIntensity,
 	getContrastRatios,
@@ -1836,6 +1843,21 @@ export const runDemo = () => {
 			const chromaticScales = getAllDadsChromatic(dadsTokens);
 			container.removeChild(loadingEl);
 
+			// Task 4.2: ロールマッピング生成
+			// state.shadesPalettesからPaletteInfo形式に変換
+			const palettesInfo: PaletteInfo[] = state.shadesPalettes.map((p) => ({
+				name: p.name,
+				baseChromaName: p.baseChromaName,
+				step: p.step,
+			}));
+
+			// 現在のハーモニー種別を取得（アクティブパレットのharmony）
+			const activePalette = getActivePalette();
+			const harmonyType = activePalette?.harmony || HarmonyType.DADS;
+
+			// SemanticRoleMapperを生成
+			const roleMapper = createSemanticRoleMapper(palettesInfo, harmonyType);
+
 			// 説明セクション
 			const infoSection = document.createElement("div");
 			infoSection.className = "dads-info-section";
@@ -1847,16 +1869,20 @@ export const runDemo = () => {
 			`;
 			container.appendChild(infoSection);
 
-			// 各色相のセクションを描画
+			// 各色相のセクションを描画（Task 4.3: オーバーレイ適用のためにroleMapperを渡す）
 			for (const colorScale of chromaticScales) {
-				renderDadsHueSection(container, colorScale);
+				renderDadsHueSection(container, colorScale, roleMapper);
 			}
 
-			// ブランドカラーセクション
-			const activePalette = getActivePalette();
+			// ブランドカラーセクション（Task 4.4: ブランドロール表示のためにroleMapperを渡す）
 			if (activePalette && activePalette.keyColors[0]) {
 				const { color: brandHex } = parseKeyColor(activePalette.keyColors[0]);
-				renderBrandColorSection(container, brandHex, activePalette.name);
+				renderBrandColorSection(
+					container,
+					brandHex,
+					activePalette.name,
+					roleMapper,
+				);
 			}
 		} catch (error) {
 			console.error("Failed to load DADS tokens:", error);
@@ -1869,6 +1895,7 @@ export const runDemo = () => {
 	const renderDadsHueSection = (
 		container: HTMLElement,
 		colorScale: DadsColorScale,
+		roleMapper?: SemanticRoleMapperService,
 	) => {
 		const section = document.createElement("section");
 		section.className = "dads-hue-section";
@@ -1939,6 +1966,25 @@ export const runDemo = () => {
 				});
 			};
 
+			// Task 4.3: DADSセマンティックロールのオーバーレイを適用
+			// colorScale.hueはDadsColorHue型として直接使用
+			// ブランドロールはDADSスウォッチには表示しない（設計書準拠）
+			if (roleMapper) {
+				const roles = roleMapper.lookupRoles(
+					colorScale.hue as DadsColorHue,
+					colorItem.scale,
+				);
+				if (roles.length > 0) {
+					applyOverlay(
+						swatch,
+						colorScale.hue as DadsColorHue,
+						colorItem.scale,
+						roles,
+						false,
+					);
+				}
+			}
+
 			scaleContainer.appendChild(swatch);
 		}
 
@@ -1951,6 +1997,7 @@ export const runDemo = () => {
 		container: HTMLElement,
 		brandHex: string,
 		brandName: string,
+		roleMapper?: SemanticRoleMapperService,
 	) => {
 		const section = document.createElement("section");
 		section.className = "dads-brand-section";
@@ -1991,6 +2038,19 @@ export const runDemo = () => {
 		hexLabel.style.color = textColor;
 		hexLabel.textContent = brandHex.toUpperCase();
 		swatch.appendChild(hexLabel);
+
+		// title属性を設定（ツールチップ用）
+		swatch.setAttribute("title", brandHex.toUpperCase());
+
+		// Task 4.4: ブランドロール表示を統合
+		// lookupBrandRolesで「brand」キーから全ブランドロール配列を取得
+		// DADSシェードと同様のドット・バッジ表示スタイルを適用
+		if (roleMapper) {
+			const brandRoles = roleMapper.lookupBrandRoles();
+			if (brandRoles.length > 0) {
+				applyOverlay(swatch, undefined, undefined, brandRoles, true);
+			}
+		}
 
 		swatchContainer.appendChild(swatch);
 		section.appendChild(swatchContainer);

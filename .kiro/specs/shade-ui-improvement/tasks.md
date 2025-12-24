@@ -97,14 +97,14 @@
   - renderBrandColorSectionのスウォッチにdata-testid="swatch-brand"を追加
   - _Requirements: 5.2_
 
-- [ ] 4.2 renderShadesViewにロールマッピング生成を統合する
+- [x] 4.2 renderShadesViewにロールマッピング生成を統合する
   - generateRoleMapping(state.shadesPalettes, harmonyType)を呼び出し
   - ハーモニー種別がDADS以外の場合は空Mapが返却されるのでオーバーレイ表示なし
   - DADS_COLORSから直接マッピングを生成
   - ブランドロールはstate.shadesPalettesからname === "Primary"/"Secondary"のパレットを検索
   - _Requirements: 1.1_
 
-- [ ] 4.3 renderDadsHueSectionにオーバーレイ適用を統合する
+- [x] 4.3 renderDadsHueSectionにオーバーレイ適用を統合する
   - 各スウォッチループ内でcolorScale.hue（既にDadsColorHue値）を使用
   - lookupRolesでスウォッチに対応するDADSセマンティックロールのみを取得
   - **ブランドロールはDADSスウォッチには表示しない**（設計書準拠）
@@ -114,7 +114,7 @@
   - 統合テスト: CVDシミュレーション時にドット・バッジ色が固定されること
   - _Requirements: 2.1, 2.4, 3.1, 4.3_
 
-- [ ] 4.4 renderBrandColorSectionにブランドロール表示を統合する
+- [x] 4.4 renderBrandColorSectionにブランドロール表示を統合する
   - ブランドカラースウォッチにオーバーレイを適用
   - lookupBrandRolesで「brand」キーから全ブランドロール配列を取得
   - 全ブランドロール（Primary/Secondary等）をバッジ表示
