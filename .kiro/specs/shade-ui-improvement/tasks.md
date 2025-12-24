@@ -60,9 +60,9 @@
 
 ## Task 3: UI層 - オーバーレイ統括とアクセシビリティ
 
-- [ ] 3. UI層 - SemanticRoleOverlay統括コンポーネント実装
+- [x] 3. UI層 - SemanticRoleOverlay統括コンポーネント実装
 
-- [ ] 3.1 SemanticRoleOverlay関数群を実装する
+- [x] 3.1 SemanticRoleOverlay関数群を実装する
   - applyOverlay関数でスウォッチにドット・バッジを追加
   - RoleDotIndicatorとRoleBadgeLabelを呼び出し
   - ロール配列が空の場合は何も追加しない
@@ -70,14 +70,14 @@
   - ユニットテスト: 空配列の場合にオーバーレイが追加されないこと
   - _Requirements: 4.2, 5.2_
 
-- [ ] 3.2 ツールチップ結合機能を実装する
+- [x] 3.2 ツールチップ結合機能を実装する
   - mergeTooltipContent関数で既存title属性とロール情報を結合
   - フォーマット: 「${existingTitle}\n---\nセマンティックロール:\n${role.fullName}」
   - 既存title属性（HEX/トークン名）を保持しながらロール情報を追記
   - ユニットテスト: 既存titleとロール情報が正しく結合されること
   - _Requirements: 4.1_
 
-- [ ] 3.3 アクセシビリティ対応を実装する
+- [x] 3.3 アクセシビリティ対応を実装する
   - createAccessibleDescription関数でスクリーンリーダー用説明要素を生成
   - ID形式: DADSシェードは「swatch-{dadsHue}-{scale}-desc」
   - ID形式: ブランドロールは「swatch-brand-desc」（単一キーで全ブランドロールを集約）
