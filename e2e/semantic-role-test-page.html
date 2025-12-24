@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Semantic Role Overlay E2E Test Page</title>
+    <link rel="stylesheet" href="../src/ui/styles/tokens.css">
+    <link rel="stylesheet" href="../src/ui/styles/global.css">
+    <link rel="stylesheet" href="../src/ui/styles/utilities.css">
+    <link rel="stylesheet" href="../src/ui/styles/components.css">
+    <style>
+        body {
+            font-family: sans-serif;
+            padding: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .test-section {
+            margin-bottom: 24px;
+            padding: 16px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+        }
+        .test-section h2 {
+            margin-top: 0;
+        }
+        .control-group {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+        .control-group label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .shades-container {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            padding: 16px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            min-height: 200px;
+        }
+        .hue-section {
+            background: white;
+            padding: 16px;
+            border-radius: 8px;
+        }
+        .hue-section h3 {
+            margin-top: 0;
+            margin-bottom: 12px;
+        }
+        .scale-container {
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+        }
+        .dads-swatch {
+            width: 60px;
+            height: 60px;
+            border-radius: 4px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-family: monospace;
+            position: relative;
+            cursor: pointer;
+        }
+        .dads-swatch--brand {
+            width: 80px;
+            height: 80px;
+        }
+        .brand-section {
+            background: white;
+            padding: 16px;
+            border-radius: 8px;
+        }
+        /* Screen reader only content */
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Semantic Role Overlay E2E Test</h1>
+
+    <!-- Section 1: Controls -->
+    <section class="test-section" id="controls-section">
+        <h2>1. Controls</h2>
+        <div class="control-group">
+            <label>
+                Harmony Type:
+                <select id="harmony-type-selector" data-testid="harmony-type-selector">
+                    <option value="dads">DADS</option>
+                    <option value="complementary">Complementary</option>
+                    <option value="analogous">Analogous</option>
+                    <option value="triadic">Triadic</option>
+                    <option value="split-complementary">Split Complementary</option>
+                </select>
+            </label>
+            <label>
+                Brand Color:
+                <input type="text" id="brand-color-input" data-testid="brand-color-input" value="#3B82F6" placeholder="#RRGGBB">
+            </label>
+            <button id="render-shades-btn" data-testid="render-shades-btn" class="dads-button" data-variant="primary" data-size="sm">
+                Render Shades View
+            </button>
+        </div>
+        <div class="result-info">
+            <strong>Status:</strong> <span id="status">Ready</span>
+        </div>
+    </section>
+
+    <!-- Section 2: Shades View Container -->
+    <section class="test-section" id="shades-section">
+        <h2>2. Shades View</h2>
+        <div id="shades-view-container" data-testid="shades-view-container" class="shades-container">
+            <!-- Shades will be rendered here -->
+            <p>Click "Render Shades View" to display the shades.</p>
+        </div>
+    </section>
+
+    <!-- Section 3: Performance Results -->
+    <section class="test-section" id="performance-section">
+        <h2>3. Performance Metrics</h2>
+        <div class="result-info">
+            <pre id="performance-result" data-testid="performance-result">No metrics yet</pre>
+        </div>
+    </section>
+
+    <script type="module">
+        import {
+            createSemanticRoleMapper,
+        } from '../dist/index.js';
+        import { HarmonyType } from '../dist/index.js';
+        import { loadDadsTokens, getAllDadsChromatic } from '../dist/index.js';
+        import { applyOverlay } from '../dist/index.js';
+        import { Color } from '../dist/index.js';
+        import { verifyContrast } from '../dist/index.js';
+
+        // DOM Elements
+        const harmonySelector = document.getElementById('harmony-type-selector');
+        const brandColorInput = document.getElementById('brand-color-input');
+        const renderBtn = document.getElementById('render-shades-btn');
+        const container = document.getElementById('shades-view-container');
+        const statusEl = document.getElementById('status');
+        const performanceEl = document.getElementById('performance-result');
+
+        // State
+        let currentHarmonyType = 'dads';
+
+        // Harmony type mapping
+        const harmonyTypeMap = {
+            'dads': HarmonyType.DADS,
+            'complementary': HarmonyType.COMPLEMENTARY,
+            'analogous': HarmonyType.ANALOGOUS,
+            'triadic': HarmonyType.TRIADIC,
+            'split-complementary': HarmonyType.SPLIT_COMPLEMENTARY,
+        };
+
+        // Event handlers
+        harmonySelector.addEventListener('change', (e) => {
+            currentHarmonyType = e.target.value;
+        });
+
+        renderBtn.addEventListener('click', async () => {
+            statusEl.textContent = 'Rendering...';
+            container.innerHTML = '';
+
+            const startTime = performance.now();
+            const brandHex = brandColorInput.value.toUpperCase();
+
+            try {
+                // Load DADS tokens
+                const dadsTokens = await loadDadsTokens();
+                const tokenLoadTime = performance.now();
+
+                // Get harmony type
+                const harmonyType = harmonyTypeMap[currentHarmonyType];
+
+                // Create palettes for brand roles
+                const palettes = [
+                    { name: 'Primary', baseChromaName: 'Blue', step: 600 },
+                    { name: 'Secondary', baseChromaName: 'Purple', step: 500 },
+                ];
+
+                // Generate role mapping
+                const mappingStartTime = performance.now();
+                const roleMapper = createSemanticRoleMapper(palettes, harmonyType);
+                const mappingEndTime = performance.now();
+                const mappingTime = mappingEndTime - mappingStartTime;
+
+                // Render brand section if DADS
+                if (harmonyType === HarmonyType.DADS) {
+                    renderBrandSection(container, brandHex, 'Primary', roleMapper);
+                }
+
+                // Render DADS color sections
+                const dadsColors = getAllDadsChromatic(dadsTokens);
+                const renderStartTime = performance.now();
+
+                for (const colorScale of dadsColors) {
+                    renderDadsHueSection(container, colorScale, roleMapper, harmonyType);
+                }
+
+                const renderEndTime = performance.now();
+                const totalTime = renderEndTime - startTime;
+
+                // Update performance metrics
+                performanceEl.textContent = JSON.stringify({
+                    tokenLoadTimeMs: (tokenLoadTime - startTime).toFixed(2),
+                    mappingTimeMs: mappingTime.toFixed(2),
+                    renderTimeMs: (renderEndTime - renderStartTime).toFixed(2),
+                    totalTimeMs: totalTime.toFixed(2),
+                    shadeCount: dadsColors.reduce((acc, cs) => acc + cs.colors.length, 0),
+                    mappingSize: roleMapper.getRoleMapping().size,
+                }, null, 2);
+
+                statusEl.textContent = `Complete (${totalTime.toFixed(0)}ms)`;
+            } catch (error) {
+                statusEl.textContent = `Error: ${error.message}`;
+                console.error(error);
+            }
+        });
+
+        /**
+         * Render a DADS hue section
+         */
+        function renderDadsHueSection(container, colorScale, roleMapper, harmonyType) {
+            const section = document.createElement('section');
+            section.className = 'hue-section';
+
+            const header = document.createElement('h3');
+            header.textContent = `${colorScale.hueName.en} (${colorScale.hueName.ja})`;
+            section.appendChild(header);
+
+            const scaleContainer = document.createElement('div');
+            scaleContainer.className = 'scale-container';
+
+            for (const colorItem of colorScale.colors) {
+                const swatch = document.createElement('div');
+                swatch.className = 'dads-swatch';
+
+                // Task 4.1: data attributes
+                swatch.dataset.hue = colorScale.hue;
+                swatch.dataset.scale = String(colorItem.scale);
+                swatch.dataset.testid = `swatch-${colorScale.hue}-${colorItem.scale}`;
+
+                swatch.style.backgroundColor = colorItem.hex;
+
+                // Calculate text color for contrast
+                const originalColor = new Color(colorItem.hex);
+                const whiteContrast = verifyContrast(originalColor, new Color('#ffffff')).contrast;
+                const blackContrast = verifyContrast(originalColor, new Color('#000000')).contrast;
+                const textColor = whiteContrast >= blackContrast ? 'white' : 'black';
+
+                // Add scale and hex labels
+                const scaleLabel = document.createElement('span');
+                scaleLabel.style.color = textColor;
+                scaleLabel.textContent = String(colorItem.scale);
+                swatch.appendChild(scaleLabel);
+
+                // Set title attribute for tooltip
+                swatch.setAttribute('title', `${colorItem.hex} - ${colorItem.token.nameJa}`);
+
+                // Task 4.3: Apply semantic role overlay if DADS
+                if (harmonyType === HarmonyType.DADS && roleMapper) {
+                    const roles = roleMapper.lookupRoles(colorScale.hue, colorItem.scale);
+                    if (roles.length > 0) {
+                        applyOverlay(swatch, colorScale.hue, colorItem.scale, roles, false);
+                    }
+                }
+
+                scaleContainer.appendChild(swatch);
+            }
+
+            section.appendChild(scaleContainer);
+            container.appendChild(section);
+        }
+
+        /**
+         * Render brand color section
+         */
+        function renderBrandSection(container, brandHex, brandName, roleMapper) {
+            const section = document.createElement('section');
+            section.className = 'brand-section';
+
+            const header = document.createElement('h3');
+            header.textContent = `Brand Color (${brandName})`;
+            section.appendChild(header);
+
+            const swatch = document.createElement('div');
+            swatch.className = 'dads-swatch dads-swatch--brand';
+            swatch.dataset.testid = 'swatch-brand';
+            swatch.style.backgroundColor = brandHex;
+
+            // Calculate text color
+            const originalColor = new Color(brandHex);
+            const whiteContrast = verifyContrast(originalColor, new Color('#ffffff')).contrast;
+            const blackContrast = verifyContrast(originalColor, new Color('#000000')).contrast;
+            const textColor = whiteContrast >= blackContrast ? 'white' : 'black';
+
+            const hexLabel = document.createElement('span');
+            hexLabel.style.color = textColor;
+            hexLabel.textContent = brandHex;
+            swatch.appendChild(hexLabel);
+
+            swatch.setAttribute('title', brandHex);
+
+            // Task 4.4: Apply brand role overlay
+            if (roleMapper) {
+                const brandRoles = roleMapper.lookupBrandRoles();
+                if (brandRoles.length > 0) {
+                    applyOverlay(swatch, undefined, undefined, brandRoles, true);
+                }
+            }
+
+            section.appendChild(swatch);
+            container.appendChild(section);
+        }
+    </script>
+</body>
+</html>
