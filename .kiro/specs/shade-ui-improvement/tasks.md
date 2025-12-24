@@ -31,7 +31,7 @@
 
 ## Task 2: UI層 - ドットインジケーターとバッジラベル
 
-- [ ] 2. UI層 - 視覚的インジケーターコンポーネント実装
+- [x] 2. UI層 - 視覚的インジケーターコンポーネント実装
 
 - [x] 2.1 (P) RoleDotIndicator関数を実装する
   - ROLE_CATEGORY_COLORS定数を定義（Primary/Secondary/Accent/Semantic/Link）
@@ -88,7 +88,7 @@
 
 ## Task 4: 統合 - renderShadesViewへの組み込み
 
-- [ ] 4. 統合 - 既存シェードビューへのオーバーレイ統合
+- [x] 4. 統合 - 既存シェードビューへのオーバーレイ統合
 
 - [x] 4.1 スウォッチにdata属性とdata-testidを追加する
   - renderDadsHueSectionのスウォッチ生成時にdata-hue属性を設定（colorScale.hueをそのまま使用、DadsColorHue値）

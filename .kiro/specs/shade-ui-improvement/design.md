@@ -67,11 +67,11 @@ graph TB
         RoleOverlay[SemanticRoleOverlay]
         RoleDot[RoleDotIndicator]
         RoleBadge[RoleBadgeLabel]
-        HueNormalizer[HueNameNormalizer]
     end
 
     subgraph CoreLayer[Core Layer]
         RoleMapper[SemanticRoleMapper]
+        HueNormalizer[HueNameNormalizer]
         HarmonyData[DADS_COLORS]
         DadsChromas[DADS_CHROMAS]
         DadsProvider[getDadsHueFromDisplayName]
@@ -84,7 +84,7 @@ graph TB
     RoleMapper --> HarmonyData
     RoleMapper --> DadsChromas
     RoleMapper --> DadsProvider
-    RoleOverlay --> HueNormalizer
+    RoleMapper --> HueNormalizer
     HueNormalizer --> DadsProvider
 ```
 
