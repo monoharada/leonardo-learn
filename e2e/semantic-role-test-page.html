@@ -143,14 +143,9 @@
     </section>
 
     <script type="module">
-        import {
-            createSemanticRoleMapper,
+        import {applyOverlay, Color, 
+            createSemanticRoleMapper,getAllDadsChromatic, HarmonyType, loadDadsTokens, verifyContrast 
         } from '../dist/index.js';
-        import { HarmonyType } from '../dist/index.js';
-        import { loadDadsTokens, getAllDadsChromatic } from '../dist/index.js';
-        import { applyOverlay } from '../dist/index.js';
-        import { Color } from '../dist/index.js';
-        import { verifyContrast } from '../dist/index.js';
 
         // DOM Elements
         const harmonySelector = document.getElementById('harmony-type-selector');
@@ -278,10 +273,11 @@
                 swatch.setAttribute('title', `${colorItem.hex} - ${colorItem.token.nameJa}`);
 
                 // Task 4.3: Apply semantic role overlay if DADS
+                // Task 10.1: 新UI仕様でbackgroundColorを追加
                 if (harmonyType === HarmonyType.DADS && roleMapper) {
                     const roles = roleMapper.lookupRoles(colorScale.hue, colorItem.scale);
                     if (roles.length > 0) {
-                        applyOverlay(swatch, colorScale.hue, colorItem.scale, roles, false);
+                        applyOverlay(swatch, colorScale.hue, colorItem.scale, roles, false, colorItem.hex);
                     }
                 }
 
@@ -322,10 +318,11 @@
             swatch.setAttribute('title', brandHex);
 
             // Task 4.4: Apply brand role overlay
+            // Task 10.1: lookupUnresolvedBrandRolesに変更、backgroundColorを追加
             if (roleMapper) {
-                const brandRoles = roleMapper.lookupBrandRoles();
+                const brandRoles = roleMapper.lookupUnresolvedBrandRoles();
                 if (brandRoles.length > 0) {
-                    applyOverlay(swatch, undefined, undefined, brandRoles, true);
+                    applyOverlay(swatch, undefined, undefined, brandRoles, true, brandHex);
                 }
             }
 

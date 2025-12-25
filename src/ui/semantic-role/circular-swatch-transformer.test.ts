@@ -364,5 +364,45 @@ describe("CircularSwatchTransformer", () => {
 			const label = swatchElement.querySelector(".dads-swatch__role-label");
 			expect(label?.textContent).toBe("W");
 		});
+
+		it("should not duplicate labels when called multiple times on same element", () => {
+			const role1: SemanticRole = {
+				name: "Primary",
+				category: "primary",
+				fullName: "[Primary] Primary",
+				shortLabel: "P",
+			};
+
+			const role2: SemanticRole = {
+				name: "Secondary",
+				category: "secondary",
+				fullName: "[Secondary] Secondary",
+				shortLabel: "S",
+			};
+
+			// 1回目の適用
+			transformToCircle(swatchElement, role1, "#3B82F6");
+			expect(
+				swatchElement.querySelectorAll(".dads-swatch__role-label").length,
+			).toBe(1);
+			expect(
+				swatchElement.querySelector(".dads-swatch__role-label")?.textContent,
+			).toBe("P");
+
+			// 2回目の適用（ラベルが重複せず更新されること）
+			transformToCircle(swatchElement, role2, "#8B5CF6");
+			expect(
+				swatchElement.querySelectorAll(".dads-swatch__role-label").length,
+			).toBe(1);
+			expect(
+				swatchElement.querySelector(".dads-swatch__role-label")?.textContent,
+			).toBe("S");
+
+			// 3回目の適用も確認
+			transformToCircle(swatchElement, role1, "#3B82F6");
+			expect(
+				swatchElement.querySelectorAll(".dads-swatch__role-label").length,
+			).toBe(1);
+		});
 	});
 });

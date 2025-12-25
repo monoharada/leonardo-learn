@@ -1,27 +1,36 @@
 /**
  * SemanticRoleOverlay - スウォッチへのオーバーレイ要素統括
  *
- * スウォッチDOM要素にドット・バッジを追加し、
- * アクセシビリティ対応とツールチップ結合を行う
+ * スウォッチDOM要素を円形化し、中央にラベルを表示
+ * アクセシビリティ対応とツールチップ結合を維持
  *
- * Requirements: 4.1, 4.2, 5.2
+ * Task 10.1: 旧RoleDotIndicator/RoleBadgeLabelを削除し、
+ * CircularSwatchTransformerベースの新UIに切り替え
+ *
+ * Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 4.1, 4.2
  */
 
 import type { SemanticRole } from "@/core/semantic-role/types";
 import type { DadsColorHue } from "@/core/tokens/types";
-import { createRoleBadges } from "./role-badge-label";
-import { createRoleDot } from "./role-dot-indicator";
+import {
+	selectPriorityRole,
+	transformToCircle,
+} from "./circular-swatch-transformer";
 
 /**
  * スウォッチにセマンティックロールオーバーレイを適用
+ *
+ * Task 10.1: 旧RoleDotIndicator/RoleBadgeLabelを削除し、
+ * CircularSwatchTransformerベースの新UIに切り替え
  *
  * @param swatchElement - 対象のスウォッチDOM要素
  * @param dadsHue - DadsColorHue（DADSシェード用、ブランドスウォッチの場合はundefined）
  * @param scale - スケール値（DADSシェード用、ブランドスウォッチの場合はundefined）
  * @param roles - セマンティックロール配列
  * @param isBrand - ブランドスウォッチかどうか（trueの場合はbrandキーとして処理）
+ * @param backgroundColor - スウォッチの背景色（円形化時のテキスト色決定用、省略時は円形化をスキップ）
  *
- * Requirements: 4.2, 5.2
+ * Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 4.1, 4.2
  */
 export function applyOverlay(
 	swatchElement: HTMLElement,
@@ -29,8 +38,9 @@ export function applyOverlay(
 	scale: number | undefined,
 	roles: SemanticRole[],
 	isBrand?: boolean,
+	backgroundColor?: string,
 ): void {
-	// ロール配列が空の場合は何も追加しない
+	// ロール配列が空の場合は何も追加しない（四角形スウォッチを維持）
 	if (roles.length === 0) {
 		return;
 	}
@@ -41,17 +51,19 @@ export function applyOverlay(
 	// キーボードフォーカス可能にする
 	swatchElement.setAttribute("tabindex", "0");
 
-	// ドットインジケーターを追加（最初のロールのカテゴリを使用）
-	const firstRole = roles[0];
-	if (firstRole) {
-		const dot = createRoleDot(firstRole.category);
-		swatchElement.appendChild(dot);
-	}
+	// 【新UI】円形化とラベル表示
+	// backgroundColorが指定されていて、かつ hue-scale が特定可能な場合のみ
+	// hue-scale特定不可のブランドロール（isBrand=true かつ dadsHue/scale が undefined）は円形化しない
+	const canCircularize =
+		backgroundColor !== undefined &&
+		!(isBrand && (dadsHue === undefined || scale === undefined));
 
-	// バッジコンテナを追加
-	const badges = createRoleBadges(roles);
-	if (badges) {
-		swatchElement.appendChild(badges);
+	if (canCircularize) {
+		// 複数ロールから優先ロールを選択
+		const priorityRole = selectPriorityRole(roles);
+
+		// 円形化とラベル表示
+		transformToCircle(swatchElement, priorityRole, backgroundColor);
 	}
 
 	// ツールチップ更新（既存titleに追記）

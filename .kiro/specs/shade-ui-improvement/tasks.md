@@ -291,7 +291,7 @@
 
 - [ ] 10. 統合 - 円形スウォッチ・欄外情報・コントラスト境界をシェードビューに統合する
 
-- [ ] 10.1 SemanticRoleOverlayを新UIコンポーネントに切り替える
+- [x] 10.1 SemanticRoleOverlayを新UIコンポーネントに切り替える
   - applyOverlay関数をCircularSwatchTransformerベースに更新
   - **旧RoleDotIndicator/RoleBadgeLabelの呼び出しを削除**
   - 円形化とラベル表示の新ロジックを適用

@@ -1577,7 +1577,9 @@
 }
 
 /* 円形スウォッチ内のscaleラベル・hexラベルを非表示 */
-.dads-swatch--circular .dads-swatch__label {
+.dads-swatch--circular .dads-swatch__label,
+.dads-swatch--circular .dads-swatch__scale,
+.dads-swatch--circular .dads-swatch__hex {
 	display: none;
 }
 

@@ -131,6 +131,12 @@ export function transformToCircle(
 	// 円形化クラスを追加
 	swatchElement.classList.add("dads-swatch--circular");
 
+	// 既存のラベルを削除（再適用時の重複防止）
+	const existingLabel = swatchElement.querySelector(".dads-swatch__role-label");
+	if (existingLabel) {
+		existingLabel.remove();
+	}
+
 	// 中央ラベル要素を生成
 	const label = document.createElement("span");
 	label.classList.add("dads-swatch__role-label");

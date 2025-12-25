@@ -180,12 +180,14 @@ describe("パフォーマンステスト", () => {
 				}
 			}
 
-			// テスト用のロール
+			// Task 10.1: 新UI仕様でshortLabelを追加
 			const testRoles: SemanticRole[] = [
 				{
 					name: "Success",
 					category: "semantic",
 					fullName: "[Semantic] Success",
+					semanticSubType: "success",
+					shortLabel: "Su",
 				},
 			];
 
@@ -201,7 +203,8 @@ describe("パフォーマンステスト", () => {
 					const swatch = swatches[i];
 					const hue = swatch.dataset.hue as DadsColorHue;
 					const scale = Number.parseInt(swatch.dataset.scale || "0", 10);
-					applyOverlay(swatch, hue, scale, testRoles, false);
+					// Task 10.1: 新UI仕様でbackgroundColorを追加
+					applyOverlay(swatch, hue, scale, testRoles, false, "#AABBCC");
 					appliedCount++;
 				}
 			}
@@ -216,21 +219,21 @@ describe("パフォーマンステスト", () => {
         - 1スウォッチあたり: ${(totalTime / appliedCount).toFixed(2)}ms
         - 注: JSDOMはブラウザより遅いため、E2Eテストで200ms要件を検証`);
 
-			// DOM要素が正しく生成されていることを検証
-			let dotCount = 0;
-			let badgeCount = 0;
+			// Task 10.1: 新UI仕様に更新
+			// DOM要素が正しく生成されていることを検証（円形スウォッチ + 中央ラベル）
+			let circularCount = 0;
+			let labelCount = 0;
 			for (const swatch of swatches) {
-				const dot = swatch.querySelector("[data-semantic-role-dot]");
-				const badges = swatch.querySelector("[data-semantic-role-badges]");
-				if (dot) dotCount++;
-				if (badges) badgeCount++;
+				if (swatch.classList.contains("dads-swatch--circular")) circularCount++;
+				const label = swatch.querySelector(".dads-swatch__role-label");
+				if (label) labelCount++;
 			}
 
-			expect(dotCount).toBe(appliedCount);
-			expect(badgeCount).toBe(appliedCount);
+			expect(circularCount).toBe(appliedCount);
+			expect(labelCount).toBe(appliedCount);
 		});
 
-		it("全スウォッチへのオーバーレイ適用で正しいDOM構造が生成されること", async () => {
+		it("全スウォッチへのオーバーレイ適用で正しいDOM構造が生成されること（新UI）", async () => {
 			const { applyOverlay } = await import(
 				"@/ui/semantic-role/semantic-role-overlay"
 			);
@@ -251,40 +254,47 @@ describe("パフォーマンステスト", () => {
 				}
 			}
 
+			// Task 10.1: 新UI仕様でshortLabelを追加
 			const testRoles: SemanticRole[] = [
 				{
 					name: "Success",
 					category: "semantic",
 					fullName: "[Semantic] Success",
+					semanticSubType: "success",
+					shortLabel: "Su",
 				},
-				{ name: "Error", category: "semantic", fullName: "[Semantic] Error" },
+				{
+					name: "Error",
+					category: "semantic",
+					fullName: "[Semantic] Error",
+					semanticSubType: "error",
+					shortLabel: "E",
+				},
 			];
 
-			// 全スウォッチにオーバーレイを適用
+			// 全スウォッチにオーバーレイを適用（新UI仕様: backgroundColorを指定）
 			const startTime = performance.now();
 
 			for (const swatch of swatches) {
 				const hue = swatch.dataset.hue as DadsColorHue;
 				const scale = Number.parseInt(swatch.dataset.scale || "0", 10);
-				applyOverlay(swatch, hue, scale, testRoles, false);
+				applyOverlay(swatch, hue, scale, testRoles, false, "#AABBCC");
 			}
 
 			const endTime = performance.now();
 			const totalTime = endTime - startTime;
 
-			console.log(`小規模DOM操作パフォーマンス:
+			console.log(`小規模DOM操作パフォーマンス（新UI）:
         - スウォッチ数: ${swatches.length}
         - 合計時間: ${totalTime.toFixed(2)}ms
         - 1スウォッチあたり: ${(totalTime / swatches.length).toFixed(2)}ms`);
 
-			// DOM構造が正しいことを検証
+			// Task 10.1: 新UI仕様でDOM構造を検証
 			for (const swatch of swatches) {
-				// ドットが追加されていること
-				expect(swatch.querySelector("[data-semantic-role-dot]")).not.toBeNull();
-				// バッジが追加されていること
-				expect(
-					swatch.querySelector("[data-semantic-role-badges]"),
-				).not.toBeNull();
+				// 【新UI】円形スウォッチクラスが追加されていること
+				expect(swatch.classList.contains("dads-swatch--circular")).toBe(true);
+				// 【新UI】中央ラベルが追加されていること
+				expect(swatch.querySelector(".dads-swatch__role-label")).not.toBeNull();
 				// tabindexが設定されていること
 				expect(swatch.getAttribute("tabindex")).toBe("0");
 				// aria-describedbyが設定されていること
@@ -292,16 +302,19 @@ describe("パフォーマンステスト", () => {
 			}
 		});
 
-		it("DOM操作のパフォーマンスが概ね線形にスケールすること", async () => {
+		it("DOM操作のパフォーマンスが概ね線形にスケールすること（新UI）", async () => {
 			const { applyOverlay } = await import(
 				"@/ui/semantic-role/semantic-role-overlay"
 			);
 
+			// Task 10.1: 新UI仕様でshortLabelを追加
 			const testRoles: SemanticRole[] = [
 				{
 					name: "Success",
 					category: "semantic",
 					fullName: "[Semantic] Success",
+					semanticSubType: "success",
+					shortLabel: "Su",
 				},
 			];
 
@@ -321,7 +334,8 @@ describe("パフォーマンステスト", () => {
 
 				const startTime = performance.now();
 				for (const swatch of swatches) {
-					applyOverlay(swatch, "blue", 600, testRoles, false);
+					// Task 10.1: 新UI仕様でbackgroundColorを追加
+					applyOverlay(swatch, "blue", 600, testRoles, false, "#3B82F6");
 				}
 				const endTime = performance.now();
 				times.push(endTime - startTime);

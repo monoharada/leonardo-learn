@@ -107,7 +107,11 @@ export function renderBoundaryPills(
 	if (sortedScales.length === 0) {
 		return container;
 	}
-	const referenceElement = scaleElements.get(sortedScales[0]);
+	const firstScale = sortedScales[0];
+	if (firstScale === undefined) {
+		return container;
+	}
+	const referenceElement = scaleElements.get(firstScale);
 	if (!referenceElement) {
 		return container;
 	}

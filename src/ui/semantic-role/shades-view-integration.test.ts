@@ -105,15 +105,23 @@ describe("シェードビュー統合テスト", () => {
 			const roles = mapper.lookupRoles("green" as DadsColorHue, 600);
 
 			if (roles.length > 0) {
-				applyOverlay(swatchElement, "green" as DadsColorHue, 600, roles);
+				// Task 10.1: 新UI仕様（円形スウォッチ）
+				applyOverlay(
+					swatchElement,
+					"green" as DadsColorHue,
+					600,
+					roles,
+					false,
+					"#22C55E",
+				);
 
-				// ドットが追加されていること
+				// 【新UI】円形スウォッチクラスが追加されること
+				expect(swatchElement.classList.contains("dads-swatch--circular")).toBe(
+					true,
+				);
+				// 【新UI】中央ラベルが追加されること
 				expect(
-					swatchElement.querySelector("[data-semantic-role-dot]"),
-				).not.toBeNull();
-				// バッジが追加されていること
-				expect(
-					swatchElement.querySelector("[data-semantic-role-badges]"),
+					swatchElement.querySelector(".dads-swatch__role-label"),
 				).not.toBeNull();
 				// tabindexが設定されていること
 				expect(swatchElement.getAttribute("tabindex")).toBe("0");
@@ -141,7 +149,14 @@ describe("シェードビュー統合テスト", () => {
 			// 通常使われないスケール値
 			const roles = mapper.lookupRoles("green" as DadsColorHue, 50);
 
-			applyOverlay(swatchElement, "green" as DadsColorHue, 50, roles);
+			applyOverlay(
+				swatchElement,
+				"green" as DadsColorHue,
+				50,
+				roles,
+				false,
+				"#F0FDF4",
+			);
 
 			// ロールがない場合はオーバーレイが適用されない
 			if (roles.length === 0) {
@@ -152,17 +167,13 @@ describe("シェードビュー統合テスト", () => {
 		});
 	});
 
-	describe("Task 4.4: renderBrandColorSectionオーバーレイ統合", () => {
-		let brandSwatchElement: HTMLElement;
+	describe("Task 4.4: renderBrandColorSectionオーバーレイ統合（新UI仕様）", () => {
+		// Task 10.1: 旧テストを削除
+		// hue-scale特定不可のブランドロールは欄外情報のみで表示され、
+		// スウォッチの円形化は行わない（Task 10.2で実装予定）
+		// そのため、このセクションのテストは大幅に変更
 
-		beforeEach(() => {
-			brandSwatchElement = document.createElement("div");
-			brandSwatchElement.className = "dads-swatch dads-swatch--brand";
-			brandSwatchElement.dataset.testid = "swatch-brand";
-			brandSwatchElement.setAttribute("title", "#3B82F6");
-		});
-
-		it("ブランドスウォッチに未解決ブランドロールが表示される", () => {
+		it("hue-scale特定不可のブランドロールはスウォッチを円形化しない", () => {
 			const palettes: PaletteInfo[] = [
 				{ name: "Primary" }, // hue-scale特定不可
 				{ name: "Secondary" }, // hue-scale特定不可
@@ -170,40 +181,57 @@ describe("シェードビュー統合テスト", () => {
 			const mapper = createSemanticRoleMapper(palettes, HarmonyType.DADS);
 			const brandRoles = mapper.lookupUnresolvedBrandRoles();
 
-			applyOverlay(brandSwatchElement, undefined, undefined, brandRoles, true);
+			const brandSwatchElement = document.createElement("div");
+			brandSwatchElement.className = "dads-swatch dads-swatch--brand";
 
-			// ドットが追加されていること
+			// hue-scale特定不可のブランドロールはtransformToCircleが呼ばれないため円形化されない
+			// （applyOverlay内でdadsHue/scaleがundefinedかつisBrand=trueの場合はスキップ）
+			applyOverlay(
+				brandSwatchElement,
+				undefined,
+				undefined,
+				brandRoles,
+				true,
+				"#3B82F6",
+			);
+
+			// hue-scale特定不可の場合、円形化クラスは追加されない
 			expect(
-				brandSwatchElement.querySelector("[data-semantic-role-dot]"),
-			).not.toBeNull();
-			// バッジが追加されていること
-			expect(
-				brandSwatchElement.querySelector("[data-semantic-role-badges]"),
-			).not.toBeNull();
+				brandSwatchElement.classList.contains("dads-swatch--circular"),
+			).toBe(false);
 			// hue-scale特定不可の場合、aria-describedbyは設定されない（新仕様）
 			expect(brandSwatchElement.getAttribute("aria-describedby")).toBeNull();
 		});
 
-		it("DADSシェードと同じスタイルでバッジが表示される", () => {
+		it("hue-scale特定不可のブランドロールでもツールチップは更新される", () => {
 			const palettes: PaletteInfo[] = [
 				{ name: "Primary" }, // hue-scale特定不可
 			];
 			const mapper = createSemanticRoleMapper(palettes, HarmonyType.DADS);
 			const brandRoles = mapper.lookupUnresolvedBrandRoles();
 
-			applyOverlay(brandSwatchElement, undefined, undefined, brandRoles, true);
+			const brandSwatchElement = document.createElement("div");
+			brandSwatchElement.setAttribute("title", "#3B82F6");
 
-			const badges = brandSwatchElement.querySelector(
-				"[data-semantic-role-badges]",
+			applyOverlay(
+				brandSwatchElement,
+				undefined,
+				undefined,
+				brandRoles,
+				true,
+				"#3B82F6",
 			);
-			expect(badges).not.toBeNull();
+
+			// ツールチップにロール情報が追加されていること
+			const title = brandSwatchElement.getAttribute("title");
+			expect(title).toContain("セマンティックロール");
 		});
 	});
 
-	describe("CVDシミュレーションモードでの動作", () => {
-		it("CVDシミュレーション時もドット・バッジ色は固定維持される", () => {
-			// ドット・バッジはインラインスタイルで固定色が設定されているため
-			// CVDシミュレーションの影響を受けない
+	describe("CVDシミュレーションモードでの動作（新UI仕様）", () => {
+		// Task 10.1: 新UI仕様に更新
+		// 円形スウォッチのラベル色はインラインスタイルで固定設定
+		it("CVDシミュレーション時もラベル文字色は固定維持される", () => {
 			const swatchElement = document.createElement("div");
 			swatchElement.className = "dads-swatch";
 
@@ -212,17 +240,27 @@ describe("シェードビュー統合テスト", () => {
 					name: "Success",
 					category: "semantic",
 					fullName: "[Semantic] Success",
+					semanticSubType: "success",
+					shortLabel: "Su",
 				},
 			];
 
-			applyOverlay(swatchElement, "green" as DadsColorHue, 600, roles);
+			applyOverlay(
+				swatchElement,
+				"green" as DadsColorHue,
+				600,
+				roles,
+				false,
+				"#22C55E",
+			);
 
-			const dot = swatchElement.querySelector(
-				"[data-semantic-role-dot]",
+			// 【新UI】中央ラベルが追加されること
+			const label = swatchElement.querySelector(
+				".dads-swatch__role-label",
 			) as HTMLElement;
-			expect(dot).not.toBeNull();
-			// ドットにはインラインスタイルで背景色が設定されている
-			expect(dot?.style.backgroundColor).toBeTruthy();
+			expect(label).not.toBeNull();
+			// ラベルにはインラインスタイルでテキスト色が設定されている
+			expect(label?.style.color).toBeTruthy();
 		});
 	});
 });

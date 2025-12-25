@@ -1966,9 +1966,9 @@ export const runDemo = () => {
 				});
 			};
 
-			// Task 4.3: DADSセマンティックロールのオーバーレイを適用
+			// Task 4.3: セマンティックロールのオーバーレイを適用
 			// colorScale.hueはDadsColorHue型として直接使用
-			// ブランドロールはDADSスウォッチには表示しない（設計書準拠）
+			// lookupRolesはDADS+ブランド統合済みロールを返却（hue-scale特定可能なブランドロールを含む）
 			if (roleMapper) {
 				const roles = roleMapper.lookupRoles(
 					colorScale.hue as DadsColorHue,
@@ -1981,6 +1981,7 @@ export const runDemo = () => {
 						colorItem.scale,
 						roles,
 						false,
+						colorItem.hex,
 					);
 				}
 			}
@@ -2048,7 +2049,7 @@ export const runDemo = () => {
 		if (roleMapper) {
 			const brandRoles = roleMapper.lookupUnresolvedBrandRoles();
 			if (brandRoles.length > 0) {
-				applyOverlay(swatch, undefined, undefined, brandRoles, true);
+				applyOverlay(swatch, undefined, undefined, brandRoles, true, brandHex);
 			}
 		}
 
