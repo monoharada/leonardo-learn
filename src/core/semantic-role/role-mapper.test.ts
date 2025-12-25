@@ -4,9 +4,10 @@
  * Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 5.1
  * - generateRoleMappingでDADS判定を含むマッピング生成
  * - DADSセマンティックロールのキー形式「${dadsHue}-${scale}」
- * - ブランドロールは「brand」キーに集約
- * - lookupRolesで特定hue-scaleのロールを検索
- * - lookupBrandRolesでブランドロール配列を取得
+ * - ブランドロール（hue-scale特定可能時）: 該当DADSキーに統合
+ * - ブランドロール（hue-scale特定不可時）: 「brand-unresolved」キーに集約
+ * - lookupRolesで特定hue-scaleの全ロール（DADS+ブランド統合済み）を検索
+ * - lookupUnresolvedBrandRolesでhue-scale不定のブランドロール配列を取得
  * - 計算時間200ms以内を保証
  */
 
@@ -14,6 +15,7 @@ import { describe, expect, it } from "bun:test";
 import { HarmonyType } from "@/core/harmony";
 import type { PaletteInfo } from "./role-mapper";
 import { createSemanticRoleMapper, generateRoleMapping } from "./role-mapper";
+import { BRAND_UNRESOLVED_KEY } from "./types";
 
 describe("SemanticRoleMapper", () => {
 	describe("generateRoleMapping", () => {
@@ -67,50 +69,44 @@ describe("SemanticRoleMapper", () => {
 			expect(result.has("cyan-600")).toBe(true);
 		});
 
-		it("should aggregate brand roles under 'brand' key", () => {
+		it("should integrate brand roles with resolved hue-scale into DADS key", () => {
 			const palettes: PaletteInfo[] = [
-				{ name: "Primary", baseChromaName: "Blue", step: 500 },
-				{ name: "Secondary", baseChromaName: "Purple", step: 600 },
+				{ name: "Primary", baseChromaName: "Blue", step: 600 },
 			];
 			const result = generateRoleMapping(palettes, HarmonyType.DADS);
 
-			expect(result.has("brand")).toBe(true);
-			const brandRoles = result.get("brand");
-			expect(brandRoles).toBeDefined();
-			expect(brandRoles?.length).toBe(2);
-			expect(brandRoles?.some((r) => r.name === "Primary")).toBe(true);
-			expect(brandRoles?.some((r) => r.name === "Secondary")).toBe(true);
+			// blue-600にはAccent-Blueがあり、Primaryも統合される
+			const blueRoles = result.get("blue-600");
+			expect(blueRoles).toBeDefined();
+			expect(blueRoles?.some((r) => r.name === "Primary")).toBe(true);
+			expect(blueRoles?.some((r) => r.name === "Accent-Blue")).toBe(true);
 		});
 
-		it("should set hueScale for brand roles with baseChromaName/step", () => {
-			const palettes: PaletteInfo[] = [
-				{ name: "Primary", baseChromaName: "Blue", step: 500 },
-				{ name: "Secondary", baseChromaName: "Purple", step: 600 },
-			];
-			const result = generateRoleMapping(palettes, HarmonyType.DADS);
-
-			const brandRoles = result.get("brand");
-			const primaryRole = brandRoles?.find((r) => r.name === "Primary");
-			const secondaryRole = brandRoles?.find((r) => r.name === "Secondary");
-
-			// baseChromaName/stepがある場合はhueScaleが設定される
-			expect(primaryRole?.hueScale).toBe("blue-500");
-			expect(secondaryRole?.hueScale).toBe("purple-600");
-		});
-
-		it("should handle brand palettes without baseChromaName/step", () => {
+		it("should aggregate unresolved brand roles under 'brand-unresolved' key", () => {
 			const palettes: PaletteInfo[] = [
 				{ name: "Primary" }, // no baseChromaName/step
+				{ name: "Secondary" }, // no baseChromaName/step
 			];
 			const result = generateRoleMapping(palettes, HarmonyType.DADS);
 
-			expect(result.has("brand")).toBe(true);
-			const brandRoles = result.get("brand");
-			expect(brandRoles).toBeDefined();
-			expect(brandRoles?.length).toBe(1);
-			expect(brandRoles?.[0].name).toBe("Primary");
-			// baseChromaName/stepがない場合はhueScaleがundefined
-			expect(brandRoles?.[0].hueScale).toBeUndefined();
+			expect(result.has(BRAND_UNRESOLVED_KEY)).toBe(true);
+			const unresolvedRoles = result.get(BRAND_UNRESOLVED_KEY);
+			expect(unresolvedRoles).toBeDefined();
+			expect(unresolvedRoles?.length).toBe(2);
+			expect(unresolvedRoles?.some((r) => r.name === "Primary")).toBe(true);
+			expect(unresolvedRoles?.some((r) => r.name === "Secondary")).toBe(true);
+		});
+
+		it("should set hueScale for brand roles with resolved baseChromaName/step", () => {
+			const palettes: PaletteInfo[] = [
+				{ name: "Primary", baseChromaName: "Blue", step: 500 },
+			];
+			const result = generateRoleMapping(palettes, HarmonyType.DADS);
+
+			// blue-500にPrimaryが統合される
+			const blueRoles = result.get("blue-500");
+			const primaryRole = blueRoles?.find((r) => r.name === "Primary");
+			expect(primaryRole?.hueScale).toBe("blue-500");
 		});
 
 		it("should not set hueScale when only baseChromaName exists without step", () => {
@@ -119,8 +115,9 @@ describe("SemanticRoleMapper", () => {
 			];
 			const result = generateRoleMapping(palettes, HarmonyType.DADS);
 
-			const brandRoles = result.get("brand");
-			expect(brandRoles?.[0].hueScale).toBeUndefined();
+			const unresolvedRoles = result.get(BRAND_UNRESOLVED_KEY);
+			expect(unresolvedRoles?.some((r) => r.name === "Primary")).toBe(true);
+			expect(unresolvedRoles?.[0].hueScale).toBeUndefined();
 		});
 
 		it("should not set hueScale when only step exists without baseChromaName", () => {
@@ -129,8 +126,9 @@ describe("SemanticRoleMapper", () => {
 			];
 			const result = generateRoleMapping(palettes, HarmonyType.DADS);
 
-			const brandRoles = result.get("brand");
-			expect(brandRoles?.[0].hueScale).toBeUndefined();
+			const unresolvedRoles = result.get(BRAND_UNRESOLVED_KEY);
+			expect(unresolvedRoles?.some((r) => r.name === "Primary")).toBe(true);
+			expect(unresolvedRoles?.[0].hueScale).toBeUndefined();
 		});
 
 		it("should return empty map when palettes is empty and no DADS colors", () => {
@@ -167,6 +165,52 @@ describe("SemanticRoleMapper", () => {
 			expect(successRole).toBeDefined();
 			expect(successRole?.fullName).toBe("[Semantic] Success-1");
 		});
+
+		it("should generate correct shortLabel for each category", () => {
+			const palettes: PaletteInfo[] = [
+				{ name: "Primary", baseChromaName: "Blue", step: 500 },
+				{ name: "Secondary", baseChromaName: "Purple", step: 600 },
+			];
+			const result = generateRoleMapping(palettes, HarmonyType.DADS);
+
+			// Primary
+			const blueRoles = result.get("blue-500");
+			const primaryRole = blueRoles?.find((r) => r.name === "Primary");
+			expect(primaryRole?.shortLabel).toBe("P");
+
+			// Secondary
+			const purpleRoles = result.get("purple-600");
+			const secondaryRole = purpleRoles?.find((r) => r.name === "Secondary");
+			expect(secondaryRole?.shortLabel).toBe("S");
+
+			// Semantic (Success)
+			const greenRoles = result.get("green-600");
+			const successRole = greenRoles?.find((r) => r.name === "Success-1");
+			expect(successRole?.shortLabel).toBe("Su");
+			expect(successRole?.semanticSubType).toBe("success");
+
+			// Semantic (Error)
+			const redRoles = result.get("red-800");
+			const errorRole = redRoles?.find((r) => r.name === "Error-1");
+			expect(errorRole?.shortLabel).toBe("E");
+			expect(errorRole?.semanticSubType).toBe("error");
+
+			// Semantic (Warning)
+			const yellowRoles = result.get("yellow-700");
+			const warningRole = yellowRoles?.find((r) => r.name === "Warning-YL1");
+			expect(warningRole?.shortLabel).toBe("W");
+			expect(warningRole?.semanticSubType).toBe("warning");
+
+			// Link
+			const linkRoles = result.get("blue-1000");
+			const linkRole = linkRoles?.find((r) => r.name === "Link-Default");
+			expect(linkRole?.shortLabel).toBe("L");
+
+			// Accent
+			const accentRoles = result.get("purple-500");
+			const accentRole = accentRoles?.find((r) => r.name === "Accent-Purple");
+			expect(accentRole?.shortLabel).toBe("A");
+		});
 	});
 
 	describe("createSemanticRoleMapper (Service Interface)", () => {
@@ -179,6 +223,17 @@ describe("SemanticRoleMapper", () => {
 			expect(roles.some((r) => r.name === "Success-1")).toBe(true);
 		});
 
+		it("should return DADS + brand integrated roles from lookupRoles", () => {
+			const palettes: PaletteInfo[] = [
+				{ name: "Primary", baseChromaName: "Blue", step: 600 },
+			];
+			const mapper = createSemanticRoleMapper(palettes, HarmonyType.DADS);
+
+			const roles = mapper.lookupRoles("blue", 600);
+			expect(roles.some((r) => r.name === "Primary")).toBe(true);
+			expect(roles.some((r) => r.name === "Accent-Blue")).toBe(true);
+		});
+
 		it("should return empty array for non-existent hue-scale", () => {
 			const palettes: PaletteInfo[] = [];
 			const mapper = createSemanticRoleMapper(palettes, HarmonyType.DADS);
@@ -187,24 +242,26 @@ describe("SemanticRoleMapper", () => {
 			expect(roles).toEqual([]);
 		});
 
-		it("should provide lookupBrandRoles function", () => {
+		it("should provide lookupUnresolvedBrandRoles function", () => {
+			const palettes: PaletteInfo[] = [
+				{ name: "Primary" }, // no baseChromaName/step
+			];
+			const mapper = createSemanticRoleMapper(palettes, HarmonyType.DADS);
+
+			const unresolvedRoles = mapper.lookupUnresolvedBrandRoles();
+			expect(unresolvedRoles.length).toBe(1);
+			expect(unresolvedRoles[0].name).toBe("Primary");
+			expect(unresolvedRoles[0].category).toBe("primary");
+		});
+
+		it("should return empty array for unresolved brand roles when all are resolved", () => {
 			const palettes: PaletteInfo[] = [
 				{ name: "Primary", baseChromaName: "Blue", step: 500 },
 			];
 			const mapper = createSemanticRoleMapper(palettes, HarmonyType.DADS);
 
-			const brandRoles = mapper.lookupBrandRoles();
-			expect(brandRoles.length).toBe(1);
-			expect(brandRoles[0].name).toBe("Primary");
-			expect(brandRoles[0].category).toBe("primary");
-		});
-
-		it("should return empty array for brand roles when none exist", () => {
-			const palettes: PaletteInfo[] = [];
-			const mapper = createSemanticRoleMapper(palettes, HarmonyType.DADS);
-
-			const brandRoles = mapper.lookupBrandRoles();
-			expect(brandRoles).toEqual([]);
+			const unresolvedRoles = mapper.lookupUnresolvedBrandRoles();
+			expect(unresolvedRoles).toEqual([]);
 		});
 
 		it("should provide getRoleMapping function", () => {

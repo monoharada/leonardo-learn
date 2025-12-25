@@ -2043,10 +2043,10 @@ export const runDemo = () => {
 		swatch.setAttribute("title", brandHex.toUpperCase());
 
 		// Task 4.4: ブランドロール表示を統合
-		// lookupBrandRolesで「brand」キーから全ブランドロール配列を取得
+		// lookupUnresolvedBrandRolesで「brand-unresolved」キーから未解決ブランドロール配列を取得
 		// DADSシェードと同様のドット・バッジ表示スタイルを適用
 		if (roleMapper) {
-			const brandRoles = roleMapper.lookupBrandRoles();
+			const brandRoles = roleMapper.lookupUnresolvedBrandRoles();
 			if (brandRoles.length > 0) {
 				applyOverlay(swatch, undefined, undefined, brandRoles, true);
 			}

@@ -364,7 +364,7 @@ describe("パフォーマンステスト", () => {
 				const mapper = createSemanticRoleMapper(palettes, HarmonyType.DADS);
 				// マッピングを使用
 				mapper.lookupRoles("blue", 600);
-				mapper.lookupBrandRoles();
+				mapper.lookupUnresolvedBrandRoles();
 				// マッパーはスコープを抜けるとGC対象になる
 			}
 

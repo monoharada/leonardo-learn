@@ -10,7 +10,13 @@
 import { DADS_COLORS, HarmonyType } from "@/core/harmony";
 import type { DadsColorHue } from "@/core/tokens/types";
 import { chromaNameToDadsHue, normalizeToDadsHue } from "./hue-name-normalizer";
-import type { RoleCategory, RoleMapping, SemanticRole } from "./types";
+import type {
+	RoleCategory,
+	RoleMapping,
+	SemanticRole,
+	SemanticSubType,
+} from "./types";
+import { BRAND_UNRESOLVED_KEY } from "./types";
 
 /**
  * Core層用パレット情報（UI層PaletteConfigの最小サブセット）
@@ -27,8 +33,10 @@ export interface PaletteInfo {
 
 /**
  * マッピングキー形式
+ * - DADSロール / ブランドロール（hue-scale特定可能時）: "${dadsHue}-${scale}"
+ * - ブランドロール（hue-scale特定不可時）: "brand-unresolved"
  */
-export type MappingKey = `${DadsColorHue}-${number}` | "brand";
+export type MappingKey = `${DadsColorHue}-${number}` | "brand-unresolved";
 
 /**
  * SemanticRoleMapperサービスインターフェース
@@ -38,15 +46,15 @@ export interface SemanticRoleMapperService {
 	 * 特定のhue-scaleに対するロールを検索
 	 * @param dadsHue - DadsColorHue（例: "blue", "light-blue"）
 	 * @param scale - スケール値（例: 600）
-	 * @returns ロール配列（空配列は該当なし）
+	 * @returns ロール配列（DADS + ブランド統合済み、空配列は該当なし）
 	 */
 	lookupRoles(dadsHue: DadsColorHue, scale: number): SemanticRole[];
 
 	/**
-	 * ブランドロール配列を取得
-	 * @returns ブランドロール配列（Primary/Secondary）
+	 * hue-scale特定不可のブランドロール配列を取得
+	 * @returns ブランドロール配列（「brand-unresolved」キーから取得）
 	 */
-	lookupBrandRoles(): SemanticRole[];
+	lookupUnresolvedBrandRoles(): SemanticRole[];
 
 	/**
 	 * ロールマッピングを取得
@@ -54,6 +62,26 @@ export interface SemanticRoleMapperService {
 	 */
 	getRoleMapping(): RoleMapping;
 }
+
+/**
+ * カテゴリ別の短縮ラベル
+ */
+const CATEGORY_SHORT_LABELS: Record<RoleCategory, string> = {
+	primary: "P",
+	secondary: "S",
+	accent: "A",
+	semantic: "", // semanticSubTypeで決定
+	link: "L",
+};
+
+/**
+ * semanticサブタイプ別の短縮ラベル
+ */
+const SEMANTIC_SUBTYPE_LABELS: Record<SemanticSubType, string> = {
+	success: "Su",
+	error: "E",
+	warning: "W",
+};
 
 /**
  * DADS_COLORSのカテゴリからRoleCategoryへの変換
@@ -90,6 +118,30 @@ function getCategoryDisplayName(category: RoleCategory): string {
 }
 
 /**
+ * ロール名からsemanticSubTypeを推定
+ */
+function inferSemanticSubType(name: string): SemanticSubType | undefined {
+	const lowerName = name.toLowerCase();
+	if (lowerName.includes("success")) return "success";
+	if (lowerName.includes("error")) return "error";
+	if (lowerName.includes("warning")) return "warning";
+	return undefined;
+}
+
+/**
+ * カテゴリとサブタイプから短縮ラベルを取得
+ */
+function getShortLabel(
+	category: RoleCategory,
+	semanticSubType?: SemanticSubType,
+): string {
+	if (category === "semantic" && semanticSubType) {
+		return SEMANTIC_SUBTYPE_LABELS[semanticSubType];
+	}
+	return CATEGORY_SHORT_LABELS[category];
+}
+
+/**
  * SemanticRoleを生成
  * @param name - ロール名
  * @param category - カテゴリ
@@ -101,11 +153,20 @@ function createSemanticRole(
 	hueScale?: string,
 ): SemanticRole {
 	const categoryName = getCategoryDisplayName(category);
+	const semanticSubType =
+		category === "semantic" ? inferSemanticSubType(name) : undefined;
+	const shortLabel = getShortLabel(category, semanticSubType);
+
 	const role: SemanticRole = {
 		name,
 		category,
 		fullName: `[${categoryName}] ${name}`,
+		shortLabel,
 	};
+
+	if (semanticSubType) {
+		role.semanticSubType = semanticSubType;
+	}
 	if (hueScale) {
 		role.hueScale = hueScale;
 	}
@@ -124,7 +185,9 @@ function createSemanticRole(
  * 2. DADS_COLORSをイテレート
  * 3. chromaName → DADS_CHROMAS.displayName → DadsColorHue に変換
  * 4. キー "${dadsHue}-${step}" でマッピング登録
- * 5. ブランドロール: palettesからname === "Primary"/"Secondary"を検索し、キー "brand" に集約
+ * 5. ブランドロール:
+ *    - hue-scale特定可能時: 該当DADSキー「${dadsHue}-${scale}」に統合
+ *    - hue-scale特定不可時: 「brand-unresolved」キーに集約
  */
 export function generateRoleMapping(
 	palettes: PaletteInfo[],
@@ -164,30 +227,41 @@ export function generateRoleMapping(
 	}
 
 	// ブランドロール検索（name === "Primary" または "Secondary"）
-	// Requirements 1.3: baseChromaName/stepが存在する場合のみhue-scaleを特定
 	const brandPalettes = palettes.filter(
 		(p) => p.name === "Primary" || p.name === "Secondary",
 	);
 
-	if (brandPalettes.length > 0) {
-		const brandRoles: SemanticRole[] = brandPalettes.map((palette) => {
-			const category: RoleCategory =
-				palette.name === "Primary" ? "primary" : "secondary";
+	for (const palette of brandPalettes) {
+		const category: RoleCategory =
+			palette.name === "Primary" ? "primary" : "secondary";
 
-			// baseChromaName/stepが両方存在する場合のみhue-scaleを生成
-			let hueScale: string | undefined;
-			if (palette.baseChromaName && palette.step !== undefined) {
-				// baseChromaName（displayName形式）をDadsColorHueに変換
-				const dadsHue = normalizeToDadsHue(palette.baseChromaName);
-				if (dadsHue) {
-					hueScale = `${dadsHue}-${palette.step}`;
-				}
+		// baseChromaName/stepが両方存在する場合のみhue-scaleを生成
+		if (palette.baseChromaName && palette.step !== undefined) {
+			// baseChromaName（displayName形式）をDadsColorHueに変換
+			const dadsHue = normalizeToDadsHue(palette.baseChromaName);
+			if (dadsHue) {
+				const hueScale = `${dadsHue}-${palette.step}`;
+				const key: MappingKey = `${dadsHue}-${palette.step}`;
+				const role = createSemanticRole(palette.name, category, hueScale);
+
+				// 既存のロール配列に追加（DADSロールと統合）
+				const existingRoles = mapping.get(key) || [];
+				existingRoles.push(role);
+				mapping.set(key, existingRoles);
+			} else {
+				// DadsColorHueに変換できない場合は未解決として扱う
+				const role = createSemanticRole(palette.name, category);
+				const unresolvedRoles = mapping.get(BRAND_UNRESOLVED_KEY) || [];
+				unresolvedRoles.push(role);
+				mapping.set(BRAND_UNRESOLVED_KEY, unresolvedRoles);
 			}
-
-			return createSemanticRole(palette.name, category, hueScale);
-		});
-
-		mapping.set("brand", brandRoles);
+		} else {
+			// baseChromaName/stepがない場合は未解決キーに集約
+			const role = createSemanticRole(palette.name, category);
+			const unresolvedRoles = mapping.get(BRAND_UNRESOLVED_KEY) || [];
+			unresolvedRoles.push(role);
+			mapping.set(BRAND_UNRESOLVED_KEY, unresolvedRoles);
+		}
 	}
 
 	return mapping;
@@ -212,8 +286,8 @@ export function createSemanticRoleMapper(
 			return roleMapping.get(key) || [];
 		},
 
-		lookupBrandRoles(): SemanticRole[] {
-			return roleMapping.get("brand") || [];
+		lookupUnresolvedBrandRoles(): SemanticRole[] {
+			return roleMapping.get(BRAND_UNRESOLVED_KEY) || [];
 		},
 
 		getRoleMapping(): RoleMapping {

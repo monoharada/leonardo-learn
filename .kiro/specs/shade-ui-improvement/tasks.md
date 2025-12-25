@@ -13,7 +13,7 @@
   - ユニットテスト: 未知の表示名でundefinedが返ることを検証
   - _Requirements: 1.2_
 
-- [ ] 1.2 SemanticRoleMapper関数群を実装する（**要再実装**）
+- [x] 1.2 SemanticRoleMapper関数群を実装する（**再実装完了**）
   - RoleCategory型とSemanticRole型を定義
   - generateRoleMapping(palettes, harmonyType)でDADS判定を含むマッピング生成
   - ハーモニー種別がDADS（HarmonyType.DADS）の場合のみマッピング生成（DADS以外は空Mapを返却）
@@ -151,9 +151,9 @@
 
 ## Task 6: Core層 - コントラスト境界計算
 
-- [ ] 6. Core層 - コントラスト境界計算機能を実装する
+- [x] 6. Core層 - コントラスト境界計算機能を実装する
 
-- [ ] 6.1 (P) ContrastBoundaryCalculator関数群を実装する
+- [x] 6.1 (P) ContrastBoundaryCalculator関数群を実装する
   - ContrastBoundaryResult型を定義（white3to1, white4_5to1, black4_5to1, black3to1）
   - calculateBoundaries関数で色スケール配列からコントラスト境界位置を計算
   - findWhiteBoundary関数で白背景に対する境界を検索（scale昇順で走査、初めて閾値を超える位置）
@@ -168,16 +168,16 @@
 
 ## Task 7: UI層 - スウォッチ円形化とラベル表示
 
-- [ ] 7. UI層 - CircularSwatchTransformerコンポーネントを実装する
+- [x] 7. UI層 - CircularSwatchTransformerコンポーネントを実装する
 
-- [ ] 7.1 CSSクラスを定義する
+- [x] 7.1 CSSクラスを定義する
   - components.cssに.dads-swatch--circularクラスを追加（border-radius: 50%）
   - .dads-swatch__role-labelクラスを追加（中央配置、pointer-events: none）
   - 円形スウォッチ内のscaleラベル・hexラベルを非表示にするスタイル
   - サイズは隣接する四角形スウォッチと同等を維持
   - _Requirements: 2.1, 2.5_
 
-- [ ] 7.2 (P) ロールラベル短縮名生成機能を実装する
+- [x] 7.2 (P) ロールラベル短縮名生成機能を実装する
   - CATEGORY_SHORT_LABELS定数を定義（primary: "P", secondary: "S", accent: "A", link: "L"）
   - SEMANTIC_SUBTYPE_LABELS定数を定義（success: "Su", error: "E", warning: "W"）
   - ROLE_PRIORITY定数を定義（primary > secondary > accent > semantic > link）
@@ -189,7 +189,7 @@
   - ユニットテスト: 複数ロール時に優先順位に従ったロールが選択されること
   - _Requirements: 2.2_
 
-- [ ] 7.3 (P) テキスト色自動調整機能を実装する
+- [x] 7.3 (P) テキスト色自動調整機能を実装する
   - getContrastTextColor関数で背景色に対する最適なテキスト色（黒/白）を取得
   - wcagContrast計算で4.5:1以上を確保する色を選択
   - 明るい背景→黒文字、暗い背景→白文字
@@ -209,9 +209,9 @@
 
 ## Task 8: UI層 - 欄外ロール情報表示
 
-- [ ] 8. UI層 - ExternalRoleInfoBarコンポーネントを実装する
+- [x] 8. UI層 - ExternalRoleInfoBarコンポーネントを実装する
 
-- [ ] 8.1 CSSクラスを定義する
+- [x] 8.1 CSSクラスを定義する
   - components.cssに.dads-role-info-barクラスを追加（パレット下部に配置）
   - .dads-role-info-itemクラスを追加（font-size: 11px, font-weight: 500, border-radius: 4px, padding: 2px 8px, color: white）
   - .dads-role-connectorクラスを追加（スウォッチと情報バーの縦線接続）
@@ -220,7 +220,7 @@
   - pointer-events: noneで操作を透過
   - _Requirements: 3.3, 4.2_
 
-- [ ] 8.2 (P) RoleInfoItem型とロール情報要素生成関数を実装する
+- [x] 8.2 (P) RoleInfoItem型とロール情報要素生成関数を実装する
   - RoleInfoItem型を定義（role, scale, swatchElement）※全て必須
   - UnresolvedRoleItem型を定義（roleのみ、scale/swatchElementなし）
   - createRoleBadge関数でロールバッジ要素を生成（共通スタイル適用、scale任意）
@@ -231,7 +231,7 @@
   - ユニットテスト: createRoleBadgeがscaleなしでも動作すること
   - _Requirements: 3.2_
 
-- [ ] 8.3 (P) renderConnector関数を実装する
+- [x] 8.3 (P) renderConnector関数を実装する
   - スウォッチから情報バーへの縦線コネクタを生成
   - スウォッチの中央下部から情報バーまでの視覚的接続
   - RoleInfoItemは必ずswatchElementを持つため、常にコネクタ生成可能
@@ -260,9 +260,9 @@
 
 ## Task 9: UI層 - コントラスト境界表示
 
-- [ ] 9. UI層 - ContrastBoundaryIndicatorコンポーネントを実装する
+- [x] 9. UI層 - ContrastBoundaryIndicatorコンポーネントを実装する
 
-- [ ] 9.1 CSSクラスを定義する
+- [x] 9.1 CSSクラスを定義する
   - components.cssに.dads-contrast-boundaryクラスを追加（境界ピルコンテナ）
   - .dads-contrast-pillクラスを追加（共通ピルスタイル: border-radius: 9999px, font-size: 10px, padding: 2px 8px）
   - .dads-contrast-pill--outlineクラスを追加（白抜き: border: 1px solid #333, background: transparent, color: #333）

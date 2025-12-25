@@ -1564,3 +1564,141 @@
 .dads-a11y-table tbody tr:hover {
 	background: var(--color-neutral-solid-gray-50);
 }
+
+/* ============================================
+ * Circular Swatch Component (Task 7.1)
+ * セマンティックロール割り当てスウォッチの円形化
+ * Requirements: 2.1, 2.2, 2.5
+ * ============================================ */
+
+.dads-swatch--circular {
+	border-radius: 50%;
+	/* サイズは隣接する四角形スウォッチと同等を維持 */
+}
+
+/* 円形スウォッチ内のscaleラベル・hexラベルを非表示 */
+.dads-swatch--circular .dads-swatch__label {
+	display: none;
+}
+
+.dads-swatch--circular .dads-swatch__badges {
+	display: none;
+}
+
+/* 中央ラベル（P/S/A/Su/E/W/L等） */
+.dads-swatch__role-label {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	font-size: 1rem;
+	font-weight: 700;
+	pointer-events: none;
+	z-index: 1;
+	/* color はインラインstyleで動的設定 */
+}
+
+/* ============================================
+ * External Role Info Bar (Task 8.1)
+ * 欄外ロール情報表示コンポーネント
+ * Requirements: 3.1, 3.3, 3.4, 3.5
+ * ============================================ */
+
+.dads-role-info-bar {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	padding: 8px 0;
+	margin-top: 8px;
+	position: relative;
+}
+
+.dads-role-info-item {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	pointer-events: none;
+}
+
+/* ロールバッジ（共通スタイル） */
+.dads-role-badge {
+	display: inline-block;
+	font-size: 11px;
+	font-weight: 500;
+	border-radius: 4px;
+	padding: 2px 8px;
+	color: white;
+	white-space: nowrap;
+	/* background-color はインラインstyleで動的設定 */
+}
+
+.dads-role-connector {
+	position: absolute;
+	width: 1px;
+	background-color: var(--color-neutral-solid-gray-300);
+	pointer-events: none;
+	/* top, bottom, left はインラインstyleで動的設定 */
+}
+
+/* 未解決ロールバー（hue-scale不定のブランドロール用） */
+.dads-unresolved-roles-bar {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	align-items: center;
+	padding: 8px 12px;
+	margin-bottom: 16px;
+	background-color: var(--color-neutral-solid-gray-50);
+	border-radius: var(--border-radius-8);
+	border: 1px solid var(--color-neutral-solid-gray-200);
+	pointer-events: none; /* 操作を透過（要件4.2） */
+}
+
+.dads-unresolved-roles-bar__label {
+	font-size: 11px;
+	font-weight: 600;
+	color: var(--color-neutral-solid-gray-600);
+	margin-right: 4px;
+}
+
+/* ============================================
+ * Contrast Boundary Indicator (Task 9.1)
+ * コントラスト比境界ピル表示
+ * Requirements: 6.1, 6.4, 6.5
+ * ============================================ */
+
+.dads-contrast-boundary {
+	display: flex;
+	position: relative;
+	height: 24px;
+	margin-top: 4px;
+}
+
+/* 共通ピルスタイル */
+.dads-contrast-pill {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	position: absolute;
+	font-size: 10px;
+	font-weight: 500;
+	border-radius: 9999px;
+	padding: 2px 8px;
+	white-space: nowrap;
+	pointer-events: none;
+	/* left はインラインstyleで動的設定 */
+}
+
+/* 白抜きピル（白背景用） */
+.dads-contrast-pill--outline {
+	border: 1px solid #333;
+	background: transparent;
+	color: #333;
+}
+
+/* 黒塗りピル（黒背景用） */
+.dads-contrast-pill--filled {
+	border: none;
+	background: #333;
+	color: white;
+}

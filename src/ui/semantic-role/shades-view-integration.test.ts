@@ -50,18 +50,39 @@ describe("シェードビュー統合テスト", () => {
 			expect(roleMapping.size).toBe(0);
 		});
 
-		it("ブランドロールがbrandキーに集約される", () => {
+		it("hue-scale特定可能なブランドロールがDADSキーに統合される", () => {
 			const palettes: PaletteInfo[] = [
 				{ name: "Primary", baseChromaName: "Blue", step: 600 },
 				{ name: "Secondary", baseChromaName: "Purple", step: 500 },
 			];
 
 			const mapper = createSemanticRoleMapper(palettes, HarmonyType.DADS);
-			const brandRoles = mapper.lookupBrandRoles();
 
-			expect(brandRoles).toHaveLength(2);
-			expect(brandRoles.map((r) => r.name)).toContain("Primary");
-			expect(brandRoles.map((r) => r.name)).toContain("Secondary");
+			// blue-600にPrimaryが統合される
+			const blueRoles = mapper.lookupRoles("blue", 600);
+			expect(blueRoles.map((r) => r.name)).toContain("Primary");
+
+			// purple-500にSecondaryが統合される
+			const purpleRoles = mapper.lookupRoles("purple", 500);
+			expect(purpleRoles.map((r) => r.name)).toContain("Secondary");
+
+			// hue-scale特定可能な場合、unresolvedには入らない
+			const unresolvedRoles = mapper.lookupUnresolvedBrandRoles();
+			expect(unresolvedRoles).toHaveLength(0);
+		});
+
+		it("hue-scale特定不可なブランドロールがbrand-unresolvedに集約される", () => {
+			const palettes: PaletteInfo[] = [
+				{ name: "Primary" }, // baseChromaName/stepなし
+				{ name: "Secondary" }, // baseChromaName/stepなし
+			];
+
+			const mapper = createSemanticRoleMapper(palettes, HarmonyType.DADS);
+			const unresolvedRoles = mapper.lookupUnresolvedBrandRoles();
+
+			expect(unresolvedRoles).toHaveLength(2);
+			expect(unresolvedRoles.map((r) => r.name)).toContain("Primary");
+			expect(unresolvedRoles.map((r) => r.name)).toContain("Secondary");
 		});
 	});
 
@@ -99,20 +120,18 @@ describe("シェードビュー統合テスト", () => {
 			}
 		});
 
-		it("DADSスウォッチにはブランドロールが表示されない", () => {
+		it("hue-scale特定可能なブランドロールがDADSキーに統合される", () => {
 			const palettes: PaletteInfo[] = [
 				{ name: "Primary", baseChromaName: "Green", step: 600 },
 			];
 			const mapper = createSemanticRoleMapper(palettes, HarmonyType.DADS);
 
-			// lookupRolesはDADSセマンティックロールのみ返す（ブランドロールは含まない）
+			// lookupRolesはDADSセマンティックロール + 統合されたブランドロールを返す
 			const roles = mapper.lookupRoles("green" as DadsColorHue, 600);
 
-			// ブランドロールは含まれていないこと
-			const hasBrandRole = roles.some(
-				(r) => r.category === "primary" || r.category === "secondary",
-			);
-			expect(hasBrandRole).toBe(false);
+			// Primaryブランドロールがgreen-600に統合されていること
+			const hasBrandRole = roles.some((r) => r.name === "Primary");
+			expect(hasBrandRole).toBe(true);
 		});
 
 		it("セマンティックロールがないスウォッチにはオーバーレイが適用されない", () => {
@@ -143,13 +162,13 @@ describe("シェードビュー統合テスト", () => {
 			brandSwatchElement.setAttribute("title", "#3B82F6");
 		});
 
-		it("ブランドスウォッチに全ブランドロールが表示される", () => {
+		it("ブランドスウォッチに未解決ブランドロールが表示される", () => {
 			const palettes: PaletteInfo[] = [
-				{ name: "Primary", baseChromaName: "Blue", step: 600 },
-				{ name: "Secondary", baseChromaName: "Purple", step: 500 },
+				{ name: "Primary" }, // hue-scale特定不可
+				{ name: "Secondary" }, // hue-scale特定不可
 			];
 			const mapper = createSemanticRoleMapper(palettes, HarmonyType.DADS);
-			const brandRoles = mapper.lookupBrandRoles();
+			const brandRoles = mapper.lookupUnresolvedBrandRoles();
 
 			applyOverlay(brandSwatchElement, undefined, undefined, brandRoles, true);
 
@@ -169,10 +188,10 @@ describe("シェードビュー統合テスト", () => {
 
 		it("DADSシェードと同じスタイルでバッジが表示される", () => {
 			const palettes: PaletteInfo[] = [
-				{ name: "Primary", baseChromaName: "Blue", step: 600 },
+				{ name: "Primary" }, // hue-scale特定不可
 			];
 			const mapper = createSemanticRoleMapper(palettes, HarmonyType.DADS);
-			const brandRoles = mapper.lookupBrandRoles();
+			const brandRoles = mapper.lookupUnresolvedBrandRoles();
 
 			applyOverlay(brandSwatchElement, undefined, undefined, brandRoles, true);
 
