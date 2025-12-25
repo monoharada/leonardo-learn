@@ -100,7 +100,7 @@ describe("SemanticRoleOverlay", () => {
 			expect(swatchElement.style.position).toBe("relative");
 		});
 
-		it("ブランドスウォッチの場合、isBrand=trueでaria-describedbyを設定する", () => {
+		it("hue-scale特定不可のブランドスウォッチの場合、aria-describedbyを設定しない", () => {
 			const roles: SemanticRole[] = [
 				{ name: "Primary", category: "primary", fullName: "[Primary] Primary" },
 				{
@@ -112,9 +112,8 @@ describe("SemanticRoleOverlay", () => {
 
 			applyOverlay(swatchElement, undefined, undefined, roles, true);
 
-			expect(swatchElement.getAttribute("aria-describedby")).toBe(
-				"swatch-brand-desc",
-			);
+			// hue-scale特定不可の場合はaria-describedbyを設定しない
+			expect(swatchElement.getAttribute("aria-describedby")).toBeNull();
 		});
 
 		it("DADSスウォッチの場合、適切なaria-describedby IDを設定する", () => {
@@ -131,6 +130,36 @@ describe("SemanticRoleOverlay", () => {
 			expect(swatchElement.getAttribute("aria-describedby")).toBe(
 				"swatch-green-600-desc",
 			);
+		});
+
+		it("同一スウォッチに対して再実行しても、ARIA説明要素が重複しない", () => {
+			const roles1: SemanticRole[] = [
+				{
+					name: "Success",
+					category: "semantic",
+					fullName: "[Semantic] Success",
+				},
+			];
+			const roles2: SemanticRole[] = [
+				{
+					name: "Error",
+					category: "semantic",
+					fullName: "[Semantic] Error",
+				},
+			];
+
+			// 1回目のapplyOverlay
+			applyOverlay(swatchElement, "green" as DadsColorHue, 600, roles1);
+
+			// 2回目のapplyOverlay（同じスウォッチに再実行）
+			applyOverlay(swatchElement, "green" as DadsColorHue, 600, roles2);
+
+			// 説明要素は1つのみ存在する（重複しない）
+			const descElements = document.querySelectorAll("#swatch-green-600-desc");
+			expect(descElements.length).toBe(1);
+
+			// 最新のロール情報が反映されている
+			expect(descElements[0]?.textContent).toContain("[Semantic] Error");
 		});
 	});
 
@@ -186,7 +215,7 @@ describe("SemanticRoleOverlay", () => {
 		});
 	});
 
-	describe("createAccessibleDescription", () => {
+	describe("createAccessibleDescription（新仕様）", () => {
 		it("DADSシェードの場合、正しいID形式を生成する（swatch-{hue}-{scale}-desc）", () => {
 			const dadsHue = "blue" as DadsColorHue;
 			const scale = 600;
@@ -199,14 +228,28 @@ describe("SemanticRoleOverlay", () => {
 			expect(id).toBe("swatch-blue-600-desc");
 		});
 
-		it("ブランドロールの場合、正しいID形式を生成する（swatch-brand-desc）", () => {
+		it("hue-scale特定可能なブランドロールの場合、該当DADSシェードのIDにマージする", () => {
+			const dadsHue = "blue" as DadsColorHue;
+			const scale = 600;
 			const roles: SemanticRole[] = [
 				{ name: "Primary", category: "primary", fullName: "[Primary] Primary" },
 			];
 
+			// hue-scaleが特定可能なブランドロールはDADSシェードのIDを使用
+			const id = createAccessibleDescription(dadsHue, scale, roles);
+
+			expect(id).toBe("swatch-blue-600-desc");
+		});
+
+		it("hue-scale特定不可のブランドロールの場合、nullを返す（ARIA ID不要）", () => {
+			const roles: SemanticRole[] = [
+				{ name: "Primary", category: "primary", fullName: "[Primary] Primary" },
+			];
+
+			// isBrand=trueでhue-scaleがundefinedの場合はARIA ID不要
 			const id = createAccessibleDescription(undefined, undefined, roles, true);
 
-			expect(id).toBe("swatch-brand-desc");
+			expect(id).toBeNull();
 		});
 
 		it("light-blueなどのハイフン含みのhueも正しく処理する", () => {
@@ -222,7 +265,7 @@ describe("SemanticRoleOverlay", () => {
 		});
 	});
 
-	describe("createAccessibleDescriptionElement", () => {
+	describe("createAccessibleDescriptionElement（新仕様）", () => {
 		it("正しいID属性を持つspan要素を生成する", () => {
 			const dadsHue = "green" as DadsColorHue;
 			const scale = 600;
@@ -236,8 +279,9 @@ describe("SemanticRoleOverlay", () => {
 
 			const element = createAccessibleDescriptionElement(dadsHue, scale, roles);
 
-			expect(element.id).toBe("swatch-green-600-desc");
-			expect(element.tagName.toLowerCase()).toBe("span");
+			expect(element).not.toBeNull();
+			expect(element?.id).toBe("swatch-green-600-desc");
+			expect(element?.tagName.toLowerCase()).toBe("span");
 		});
 
 		it("スクリーンリーダー専用のスタイルを適用する（視覚的に非表示）", () => {
@@ -252,10 +296,11 @@ describe("SemanticRoleOverlay", () => {
 			);
 
 			// sr-only相当のスタイルが適用されていること
-			expect(element.style.position).toBe("absolute");
-			expect(element.style.width).toBe("1px");
-			expect(element.style.height).toBe("1px");
-			expect(element.style.overflow).toBe("hidden");
+			expect(element).not.toBeNull();
+			expect(element?.style.position).toBe("absolute");
+			expect(element?.style.width).toBe("1px");
+			expect(element?.style.height).toBe("1px");
+			expect(element?.style.overflow).toBe("hidden");
 		});
 
 		it("ロール情報を含むテキストコンテンツを設定する", () => {
@@ -278,11 +323,12 @@ describe("SemanticRoleOverlay", () => {
 				roles,
 			);
 
-			expect(element.textContent).toContain("[Semantic] Success");
-			expect(element.textContent).toContain("[Semantic] Warning");
+			expect(element).not.toBeNull();
+			expect(element?.textContent).toContain("[Semantic] Success");
+			expect(element?.textContent).toContain("[Semantic] Warning");
 		});
 
-		it("ブランドロールの場合、brand IDで生成する", () => {
+		it("hue-scale特定不可のブランドロールの場合、nullを返す（ARIA要素不要）", () => {
 			const roles: SemanticRole[] = [
 				{ name: "Primary", category: "primary", fullName: "[Primary] Primary" },
 			];
@@ -294,7 +340,8 @@ describe("SemanticRoleOverlay", () => {
 				true,
 			);
 
-			expect(element.id).toBe("swatch-brand-desc");
+			// hue-scale特定不可の場合はnull（ARIA要素生成不要）
+			expect(element).toBeNull();
 		});
 	});
 });

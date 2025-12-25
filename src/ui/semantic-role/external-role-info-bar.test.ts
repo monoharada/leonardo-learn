@@ -22,6 +22,7 @@ import {
 	ROLE_CATEGORY_COLORS,
 	type RoleInfoItem,
 	renderConnector,
+	renderRoleInfoBar,
 	renderUnresolvedRolesBar,
 	type UnresolvedRoleItem,
 } from "./external-role-info-bar";
@@ -309,6 +310,124 @@ describe("ExternalRoleInfoBar", () => {
 
 			// グレー系の背景色
 			expect(connector.style.backgroundColor).toBeTruthy();
+		});
+	});
+
+	describe("renderRoleInfoBar", () => {
+		let mockSwatchElement: HTMLElement;
+
+		beforeEach(() => {
+			mockSwatchElement = document.createElement("div");
+			mockSwatchElement.className = "dads-swatch";
+		});
+
+		it("should create bar element with dads-role-info-bar class", () => {
+			const items: RoleInfoItem[] = [
+				{
+					role: {
+						name: "Primary",
+						category: "primary",
+						fullName: "[Primary] Primary",
+						shortLabel: "P",
+					},
+					scale: 500,
+					swatchElement: mockSwatchElement,
+				},
+			];
+
+			const bar = renderRoleInfoBar(items);
+
+			expect(bar.tagName.toLowerCase()).toBe("div");
+			expect(bar.classList.contains("dads-role-info-bar")).toBe(true);
+		});
+
+		it("should return empty container for empty items", () => {
+			const bar = renderRoleInfoBar([]);
+
+			expect(bar.classList.contains("dads-role-info-bar")).toBe(true);
+			expect(bar.children.length).toBe(0);
+		});
+
+		it("should contain role info elements", () => {
+			const items: RoleInfoItem[] = [
+				{
+					role: {
+						name: "Primary",
+						category: "primary",
+						fullName: "[Primary] Primary",
+						shortLabel: "P",
+					},
+					scale: 500,
+					swatchElement: mockSwatchElement,
+				},
+				{
+					role: {
+						name: "Success-1",
+						category: "semantic",
+						semanticSubType: "success",
+						fullName: "[Semantic] Success-1",
+						shortLabel: "Su",
+					},
+					scale: 600,
+					swatchElement: mockSwatchElement,
+				},
+			];
+
+			const bar = renderRoleInfoBar(items);
+			const infoElements = bar.querySelectorAll(".dads-role-info-item");
+
+			expect(infoElements.length).toBe(2);
+		});
+
+		it("should generate connectors for each item", () => {
+			const items: RoleInfoItem[] = [
+				{
+					role: {
+						name: "Primary",
+						category: "primary",
+						fullName: "[Primary] Primary",
+						shortLabel: "P",
+					},
+					scale: 500,
+					swatchElement: mockSwatchElement,
+				},
+			];
+
+			const bar = renderRoleInfoBar(items);
+			const connectors = bar.querySelectorAll('[data-testid="role-connector"]');
+
+			expect(connectors.length).toBe(1);
+		});
+
+		it("should display multiple roles for same hue horizontally", () => {
+			const items: RoleInfoItem[] = [
+				{
+					role: {
+						name: "Primary",
+						category: "primary",
+						fullName: "[Primary] Primary",
+						shortLabel: "P",
+					},
+					scale: 500,
+					swatchElement: mockSwatchElement,
+				},
+				{
+					role: {
+						name: "Link-Default",
+						category: "link",
+						fullName: "[Link] Link-Default",
+						shortLabel: "L",
+					},
+					scale: 500,
+					swatchElement: mockSwatchElement,
+				},
+			];
+
+			const bar = renderRoleInfoBar(items);
+			const badges = bar.querySelectorAll(".dads-role-badge");
+
+			// 同一scaleでも水平に並ぶ
+			expect(badges.length).toBe(2);
 		});
 	});
 });

@@ -180,10 +180,8 @@ describe("シェードビュー統合テスト", () => {
 			expect(
 				brandSwatchElement.querySelector("[data-semantic-role-badges]"),
 			).not.toBeNull();
-			// aria-describedbyがbrand形式で設定されていること
-			expect(brandSwatchElement.getAttribute("aria-describedby")).toBe(
-				"swatch-brand-desc",
-			);
+			// hue-scale特定不可の場合、aria-describedbyは設定されない（新仕様）
+			expect(brandSwatchElement.getAttribute("aria-describedby")).toBeNull();
 		});
 
 		it("DADSシェードと同じスタイルでバッジが表示される", () => {

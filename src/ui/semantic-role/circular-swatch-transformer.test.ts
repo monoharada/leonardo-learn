@@ -7,14 +7,21 @@
  * - テキスト色自動調整（明るい背景→黒、暗い背景→白）
  */
 
-import { describe, expect, it } from "bun:test";
+import { beforeEach, describe, expect, it } from "bun:test";
+import { JSDOM } from "jsdom";
 import type { SemanticRole } from "@/core/semantic-role/types";
 import {
 	getContrastTextColor,
 	getShortLabel,
 	ROLE_PRIORITY,
 	selectPriorityRole,
+	transformToCircle,
 } from "./circular-swatch-transformer";
+
+// JSDOMでdocumentをセットアップ
+const dom = new JSDOM("<!DOCTYPE html><html><body></body></html>");
+global.document = dom.window.document;
+global.HTMLElement = dom.window.HTMLElement as typeof HTMLElement;
 
 describe("CircularSwatchTransformer", () => {
 	describe("getShortLabel", () => {
@@ -250,6 +257,112 @@ describe("CircularSwatchTransformer", () => {
 			// 中間色は4.5:1のコントラスト基準で判定
 			const midGray = getContrastTextColor("#808080");
 			expect(["black", "white"]).toContain(midGray);
+		});
+	});
+
+	describe("transformToCircle", () => {
+		let swatchElement: HTMLElement;
+
+		beforeEach(() => {
+			swatchElement = document.createElement("div");
+			swatchElement.classList.add("dads-swatch");
+			// 背景色をセット
+			swatchElement.style.backgroundColor = "#3B82F6";
+		});
+
+		it("should add circular class to swatch", () => {
+			const role: SemanticRole = {
+				name: "Primary",
+				category: "primary",
+				fullName: "[Primary] Primary",
+				shortLabel: "P",
+			};
+
+			transformToCircle(swatchElement, role, "#3B82F6");
+
+			expect(swatchElement.classList.contains("dads-swatch--circular")).toBe(
+				true,
+			);
+		});
+
+		it("should add center label with short label text", () => {
+			const role: SemanticRole = {
+				name: "Primary",
+				category: "primary",
+				fullName: "[Primary] Primary",
+				shortLabel: "P",
+			};
+
+			transformToCircle(swatchElement, role, "#3B82F6");
+
+			const label = swatchElement.querySelector(".dads-swatch__role-label");
+			expect(label).not.toBeNull();
+			expect(label?.textContent).toBe("P");
+		});
+
+		it("should set white text color for dark backgrounds", () => {
+			const role: SemanticRole = {
+				name: "Primary",
+				category: "primary",
+				fullName: "[Primary] Primary",
+				shortLabel: "P",
+			};
+
+			// 暗い背景色
+			transformToCircle(swatchElement, role, "#1a1a1a");
+
+			const label = swatchElement.querySelector(
+				".dads-swatch__role-label",
+			) as HTMLElement;
+			expect(label?.style.color).toBe("white");
+		});
+
+		it("should set black text color for light backgrounds", () => {
+			const role: SemanticRole = {
+				name: "Success",
+				category: "semantic",
+				semanticSubType: "success",
+				fullName: "[Semantic] Success",
+				shortLabel: "Su",
+			};
+
+			// 明るい背景色
+			transformToCircle(swatchElement, role, "#ffffff");
+
+			const label = swatchElement.querySelector(
+				".dads-swatch__role-label",
+			) as HTMLElement;
+			expect(label?.style.color).toBe("black");
+		});
+
+		it("should display semantic subtype label for semantic roles", () => {
+			const role: SemanticRole = {
+				name: "Error-1",
+				category: "semantic",
+				semanticSubType: "error",
+				fullName: "[Semantic] Error-1",
+				shortLabel: "E",
+			};
+
+			transformToCircle(swatchElement, role, "#ff0000");
+
+			const label = swatchElement.querySelector(".dads-swatch__role-label");
+			expect(label?.textContent).toBe("E");
+		});
+
+		it("should display warning label for warning semantic role", () => {
+			const role: SemanticRole = {
+				name: "Warning-1",
+				category: "semantic",
+				semanticSubType: "warning",
+				fullName: "[Semantic] Warning-1",
+				shortLabel: "W",
+			};
+
+			transformToCircle(swatchElement, role, "#ffcc00");
+
+			const label = swatchElement.querySelector(".dads-swatch__role-label");
+			expect(label?.textContent).toBe("W");
 		});
 	});
 });

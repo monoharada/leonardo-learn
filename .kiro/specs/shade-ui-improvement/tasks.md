@@ -79,7 +79,7 @@
   - ユニットテスト: 既存titleとロール情報が正しく結合されること
   - _Requirements: 4.1_
 
-- [ ] 3.3 アクセシビリティ対応を実装する（**要再実装**）
+- [x] 3.3 アクセシビリティ対応を実装する（**再実装完了**）
   - createAccessibleDescription関数でスクリーンリーダー用説明要素を生成
   - **ID形式（新仕様）**: DADSシェードは「swatch-{dadsHue}-{scale}-desc」
   - **ブランドロール（hue-scale特定可能時）**: 該当DADSシェードのID（swatch-{dadsHue}-{scale}-desc）にロール情報をマージ（専用ID不使用）
@@ -197,7 +197,7 @@
   - ユニットテスト: 暗い背景で白が返ること
   - _Requirements: 2.3_
 
-- [ ] 7.4 transformToCircle関数を実装する
+- [x] 7.4 transformToCircle関数を実装する（**実装完了**）
   - スウォッチ要素に.dads-swatch--circularクラスを追加
   - 中央ラベル要素を生成してスウォッチに追加
   - getContrastTextColorでテキスト色を動的設定（インラインstyle）
@@ -238,7 +238,7 @@
   - ユニットテスト: コネクタ要素が正しい位置に生成されること
   - _Requirements: 3.4_
 
-- [ ] 8.4 renderRoleInfoBar関数を実装する
+- [x] 8.4 renderRoleInfoBar関数を実装する（**実装完了**）
   - 欄外ロール情報バーコンテナを生成
   - hue-scale特定可能なRoleInfoItemをスウォッチ位置に対応して水平配置
   - 同一色相に複数ロールがある場合は全て水平表示
@@ -247,7 +247,7 @@
   - 統合テスト: 同一色相の複数ロールが水平に並ぶこと
   - _Requirements: 3.1, 3.5_
 
-- [ ] 8.5 renderUnresolvedRolesBar関数を実装する
+- [x] 8.5 renderUnresolvedRolesBar関数を実装する（**実装済み**）
   - **hue-scale特定不可のブランドロール専用バーを生成**
   - **シェードビュー全体で1回のみ表示**（最初の色相セクションの前に配置）
   - コネクタなし、左揃えで水平配置
@@ -269,7 +269,7 @@
   - .dads-contrast-pill--filledクラスを追加（黒塗り: background: #333, color: white）
   - _Requirements: 6.4_
 
-- [ ] 9.2 (P) createBoundaryPill関数を実装する
+- [x] 9.2 (P) createBoundaryPill関数を実装する（**実装完了**）
   - BoundaryPillConfig型を定義（scale, label, style, direction）
   - 白背景用ピル: 「3:1→」「4.5:1→」（outlineスタイル、start方向）
   - 黒背景用ピル: 「←4.5:1」「←3:1」（filledスタイル、end方向）

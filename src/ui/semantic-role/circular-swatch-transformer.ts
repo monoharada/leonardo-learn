@@ -113,3 +113,35 @@ export function getContrastTextColor(
 	// コントラスト比が高い方を選択
 	return contrastWithBlack >= contrastWithWhite ? "black" : "white";
 }
+
+/**
+ * スウォッチを円形に変形
+ *
+ * @param swatchElement - 対象のスウォッチDOM要素
+ * @param role - セマンティックロール
+ * @param backgroundColor - スウォッチの背景色（テキスト色決定用）
+ *
+ * Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6
+ */
+export function transformToCircle(
+	swatchElement: HTMLElement,
+	role: SemanticRole,
+	backgroundColor: string,
+): void {
+	// 円形化クラスを追加
+	swatchElement.classList.add("dads-swatch--circular");
+
+	// 中央ラベル要素を生成
+	const label = document.createElement("span");
+	label.classList.add("dads-swatch__role-label");
+
+	// ラベルテキストを設定（role.shortLabelを直接使用、複数アクセントのA1/A2等に対応）
+	label.textContent = role.shortLabel;
+
+	// テキスト色を背景色に応じて設定
+	const textColor = getContrastTextColor(backgroundColor);
+	label.style.color = textColor;
+
+	// ラベルをスウォッチに追加
+	swatchElement.appendChild(label);
+}

@@ -61,16 +61,28 @@ export function applyOverlay(
 
 	// アクセシビリティ用説明要素の生成とaria-describedby設定
 	const descId = createAccessibleDescription(dadsHue, scale, roles, isBrand);
-	swatchElement.setAttribute("aria-describedby", descId);
 
-	// 説明要素をDOMに追加
-	const descElement = createAccessibleDescriptionElement(
-		dadsHue,
-		scale,
-		roles,
-		isBrand,
-	);
-	swatchElement.appendChild(descElement);
+	// hue-scale特定不可のブランドロールの場合はaria-describedbyを設定しない
+	if (descId !== null) {
+		swatchElement.setAttribute("aria-describedby", descId);
+
+		// 既存の説明要素がある場合は削除（ARIA ID重複防止）
+		const existingDesc = document.getElementById(descId);
+		if (existingDesc) {
+			existingDesc.remove();
+		}
+
+		// 説明要素をDOMに追加
+		const descElement = createAccessibleDescriptionElement(
+			dadsHue,
+			scale,
+			roles,
+			isBrand,
+		);
+		if (descElement) {
+			swatchElement.appendChild(descElement);
+		}
+	}
 }
 
 /**
@@ -106,12 +118,14 @@ export function mergeTooltipContent(
  * @param dadsHue - DadsColorHue（DADSシェード用、ブランドスウォッチの場合はundefined）
  * @param scale - スケール値（DADSシェード用、ブランドスウォッチの場合はundefined）
  * @param roles - セマンティックロール配列
- * @param isBrand - ブランドスウォッチかどうか（trueの場合はbrandキーとして処理）
- * @returns 説明用span要素のID
+ * @param isBrand - ブランドスウォッチかどうか（trueの場合で hue-scale が undefined なら ARIA ID 不要）
+ * @returns 説明用span要素のID、またはnull（hue-scale特定不可のブランドロールの場合）
  *
- * ID形式（要件準拠）:
+ * ID形式（新仕様準拠）:
  * - DADSシェード: "swatch-{dadsHue}-{scale}-desc" (例: "swatch-blue-600-desc")
- * - ブランドロール: "swatch-brand-desc" (単一キーで全ブランドロールを集約)
+ * - ブランドロール（hue-scale特定可能）: 該当DADSシェードのIDを使用
+ * - ブランドロール（hue-scale特定不可）: null（ARIA ID不要、欄外情報のみで表示）
+ * - 廃止: "swatch-brand-desc"形式のIDは使用しない
  *
  * Requirements: 4.1
  */
@@ -120,13 +134,13 @@ export function createAccessibleDescription(
 	scale: number | undefined,
 	_roles: SemanticRole[],
 	isBrand?: boolean,
-): string {
-	// ブランドスウォッチの場合
-	if (isBrand) {
-		return "swatch-brand-desc";
+): string | null {
+	// hue-scale特定不可のブランドスウォッチの場合はnull（ARIA ID不要）
+	if (isBrand && (dadsHue === undefined || scale === undefined)) {
+		return null;
 	}
 
-	// DADSシェードの場合
+	// DADSシェード、または hue-scale 特定可能なブランドロール
 	return `swatch-${dadsHue}-${scale}-desc`;
 }
 
@@ -136,8 +150,8 @@ export function createAccessibleDescription(
  * @param dadsHue - DadsColorHue（DADSシェード用、ブランドスウォッチの場合はundefined）
  * @param scale - スケール値（DADSシェード用、ブランドスウォッチの場合はundefined）
  * @param roles - セマンティックロール配列
- * @param isBrand - ブランドスウォッチかどうか（trueの場合はbrandキーとして処理）
- * @returns 説明用span要素
+ * @param isBrand - ブランドスウォッチかどうか（trueの場合で hue-scale が undefined なら要素生成不要）
+ * @returns 説明用span要素、またはnull（hue-scale特定不可のブランドロールの場合）
  *
  * スクリーンリーダー専用（視覚的に非表示）のspan要素を生成
  *
@@ -148,11 +162,19 @@ export function createAccessibleDescriptionElement(
 	scale: number | undefined,
 	roles: SemanticRole[],
 	isBrand?: boolean,
-): HTMLElement {
+): HTMLElement | null {
+	// IDを取得
+	const descId = createAccessibleDescription(dadsHue, scale, roles, isBrand);
+
+	// hue-scale特定不可のブランドロールの場合は要素生成不要
+	if (descId === null) {
+		return null;
+	}
+
 	const span = document.createElement("span");
 
 	// ID設定
-	span.id = createAccessibleDescription(dadsHue, scale, roles, isBrand);
+	span.id = descId;
 
 	// スクリーンリーダー専用スタイル（sr-only相当）
 	span.style.cssText = `

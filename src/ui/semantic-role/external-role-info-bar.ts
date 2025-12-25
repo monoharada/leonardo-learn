@@ -167,3 +167,35 @@ export function renderConnector(
 
 	return connector;
 }
+
+/**
+ * 欄外ロール情報バーを生成
+ *
+ * @param roleItems - ロール情報アイテム配列
+ * @returns 情報バーコンテナ要素
+ *
+ * Requirements: 3.1, 3.4, 3.5
+ */
+export function renderRoleInfoBar(roleItems: RoleInfoItem[]): HTMLDivElement {
+	const bar = document.createElement("div");
+	bar.className = "dads-role-info-bar";
+	bar.dataset.testid = "role-info-bar";
+
+	// 空の場合は空コンテナを返す
+	if (roleItems.length === 0) {
+		return bar;
+	}
+
+	// 各ロール情報アイテムを水平に配置
+	for (const item of roleItems) {
+		// ロール情報要素を生成
+		const infoElement = createRoleInfoElement(item);
+		bar.appendChild(infoElement);
+
+		// コネクタを生成
+		const connector = renderConnector(item.swatchElement, infoElement);
+		bar.appendChild(connector);
+	}
+
+	return bar;
+}
