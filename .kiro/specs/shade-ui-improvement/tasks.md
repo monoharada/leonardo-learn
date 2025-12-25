@@ -103,7 +103,7 @@
   - renderBrandColorSectionのスウォッチにdata-testid="swatch-brand"を追加
   - _Requirements: 5.2_
 
-- [ ] 4.2 renderShadesViewにロールマッピング生成を統合する（**要再実装**）
+- [x] 4.2 renderShadesViewにロールマッピング生成を統合する（**実装完了**）
   - generateRoleMapping(state.shadesPalettes, harmonyType)を呼び出し
   - ハーモニー種別がDADS以外の場合は空Mapが返却されるのでオーバーレイ表示なし
   - DADS_COLORSから直接マッピングを生成
@@ -111,7 +111,7 @@
   - **ブランドロール（hue-scale特定不可時）**: lookupUnresolvedBrandRoles()で取得し欄外表示用に保持
   - _Requirements: 1.1_
 
-- [ ] 4.3 renderDadsHueSectionにオーバーレイ適用を統合する（**要再実装**）
+- [x] 4.3 renderDadsHueSectionにオーバーレイ適用を統合する（**実装完了**）
   - 各スウォッチループ内でcolorScale.hue（既にDadsColorHue値）を使用
   - lookupRoles(dadsHue, scale)でDADS+ブランド統合済みロールを取得
   - **hue-scale特定可能なブランドロールはDADSスウォッチに統合表示**（設計書準拠）
@@ -278,7 +278,7 @@
   - ユニットテスト: 黒塗りピルが正しいスタイルで生成されること
   - _Requirements: 6.2, 6.3, 6.4_
 
-- [ ] 9.3 renderBoundaryPills関数を実装する
+- [x] 9.3 renderBoundaryPills関数を実装する（**実装完了**）
   - ContrastBoundaryResultから4種類のピルを生成
   - scaleElements（scale→DOM要素のマップ）から位置を参照
   - 境界がnullの場合は該当ピルを非表示

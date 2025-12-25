@@ -139,4 +139,367 @@ describe("ContrastBoundaryIndicator", () => {
 			expect(pill.classList.contains("dads-contrast-pill")).toBe(true);
 		});
 	});
+
+	describe("renderBoundaryPills", () => {
+		let scaleElements: Map<number, HTMLElement>;
+
+		beforeEach(() => {
+			// スウォッチ要素のモックを作成
+			scaleElements = new Map();
+			const scales = [
+				50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200,
+			];
+			for (const scale of scales) {
+				const el = document.createElement("div");
+				el.style.width = "40px";
+				el.style.height = "40px";
+				el.dataset.scale = String(scale);
+				scaleElements.set(scale, el);
+			}
+		});
+
+		it("should create container with correct class", async () => {
+			const { renderBoundaryPills } = await import(
+				"./contrast-boundary-indicator"
+			);
+
+			const boundaries = {
+				white3to1: 400,
+				white4_5to1: 500,
+				black4_5to1: 700,
+				black3to1: 800,
+			};
+
+			const container = renderBoundaryPills(boundaries, scaleElements);
+
+			expect(container.classList.contains("dads-contrast-boundary")).toBe(true);
+		});
+
+		it("should render all 4 pills when all boundaries exist", async () => {
+			const { renderBoundaryPills } = await import(
+				"./contrast-boundary-indicator"
+			);
+
+			const boundaries = {
+				white3to1: 400,
+				white4_5to1: 500,
+				black4_5to1: 700,
+				black3to1: 800,
+			};
+
+			const container = renderBoundaryPills(boundaries, scaleElements);
+			const pills = container.querySelectorAll(".dads-contrast-pill");
+
+			expect(pills.length).toBe(4);
+		});
+
+		it("should render white background pills with outline style at correct scale positions", async () => {
+			const { renderBoundaryPills } = await import(
+				"./contrast-boundary-indicator"
+			);
+
+			const boundaries = {
+				white3to1: 400,
+				white4_5to1: 500,
+				black4_5to1: null,
+				black3to1: null,
+			};
+
+			const container = renderBoundaryPills(boundaries, scaleElements);
+			const outlinePills = container.querySelectorAll(
+				".dads-contrast-pill--outline",
+			);
+
+			expect(outlinePills.length).toBe(2);
+
+			// 3:1→ と 4.5:1→ のラベルを確認
+			const labels = Array.from(outlinePills).map((p) => p.textContent);
+			expect(labels).toContain("3:1→");
+			expect(labels).toContain("4.5:1→");
+		});
+
+		it("should render black background pills with filled style at correct scale positions", async () => {
+			const { renderBoundaryPills } = await import(
+				"./contrast-boundary-indicator"
+			);
+
+			const boundaries = {
+				white3to1: null,
+				white4_5to1: null,
+				black4_5to1: 700,
+				black3to1: 800,
+			};
+
+			const container = renderBoundaryPills(boundaries, scaleElements);
+			const filledPills = container.querySelectorAll(
+				".dads-contrast-pill--filled",
+			);
+
+			expect(filledPills.length).toBe(2);
+
+			// ←4.5:1 と ←3:1 のラベルを確認
+			const labels = Array.from(filledPills).map((p) => p.textContent);
+			expect(labels).toContain("←4.5:1");
+			expect(labels).toContain("←3:1");
+		});
+
+		it("should not render pill when boundary is null", async () => {
+			const { renderBoundaryPills } = await import(
+				"./contrast-boundary-indicator"
+			);
+
+			const boundaries = {
+				white3to1: null,
+				white4_5to1: null,
+				black4_5to1: null,
+				black3to1: null,
+			};
+
+			const container = renderBoundaryPills(boundaries, scaleElements);
+			const pills = container.querySelectorAll(".dads-contrast-pill");
+
+			expect(pills.length).toBe(0);
+		});
+
+		it("should skip pill when scale element does not exist in scaleElements map", async () => {
+			const { renderBoundaryPills } = await import(
+				"./contrast-boundary-indicator"
+			);
+
+			// 400のスウォッチを削除
+			scaleElements.delete(400);
+
+			const boundaries = {
+				white3to1: 400, // このスウォッチは存在しない
+				white4_5to1: 500,
+				black4_5to1: null,
+				black3to1: null,
+			};
+
+			const container = renderBoundaryPills(boundaries, scaleElements);
+			const pills = container.querySelectorAll(".dads-contrast-pill");
+
+			// 400のピルはスキップされる
+			expect(pills.length).toBe(1);
+		});
+
+		it("should set data-scale attribute on pills", async () => {
+			const { renderBoundaryPills } = await import(
+				"./contrast-boundary-indicator"
+			);
+
+			const boundaries = {
+				white3to1: 400,
+				white4_5to1: null,
+				black4_5to1: null,
+				black3to1: null,
+			};
+
+			const container = renderBoundaryPills(boundaries, scaleElements);
+			const pill = container.querySelector(".dads-contrast-pill");
+
+			expect(pill?.getAttribute("data-scale")).toBe("400");
+		});
+
+		it("should set correct direction data attribute", async () => {
+			const { renderBoundaryPills } = await import(
+				"./contrast-boundary-indicator"
+			);
+
+			const boundaries = {
+				white3to1: 400,
+				white4_5to1: null,
+				black4_5to1: 700,
+				black3to1: null,
+			};
+
+			const container = renderBoundaryPills(boundaries, scaleElements);
+			const startPill = container.querySelector('[data-direction="start"]');
+			const endPill = container.querySelector('[data-direction="end"]');
+
+			expect(startPill).not.toBeNull();
+			expect(endPill).not.toBeNull();
+		});
+
+		it("should set left style for white background pills (start direction)", async () => {
+			const { renderBoundaryPills } = await import(
+				"./contrast-boundary-indicator"
+			);
+
+			const boundaries = {
+				white3to1: 400,
+				white4_5to1: null,
+				black4_5to1: null,
+				black3to1: null,
+			};
+
+			const container = renderBoundaryPills(boundaries, scaleElements);
+			const pill = container.querySelector(
+				".dads-contrast-pill",
+			) as HTMLElement;
+
+			// JSDOM環境ではoffsetLeftは0を返すため、style.leftが設定されていることを確認
+			expect(pill.style.left).toBe("0px");
+		});
+
+		it("should set left style with transform for black background pills (end direction)", async () => {
+			const { renderBoundaryPills } = await import(
+				"./contrast-boundary-indicator"
+			);
+
+			const boundaries = {
+				white3to1: null,
+				white4_5to1: null,
+				black4_5to1: 700,
+				black3to1: null,
+			};
+
+			const container = renderBoundaryPills(boundaries, scaleElements);
+			const pill = container.querySelector(
+				".dads-contrast-pill",
+			) as HTMLElement;
+
+			// JSDOM環境ではoffsetWidth/offsetLeftは0を返すため、transformが設定されていることを確認
+			expect(pill.style.left).toBe("0px");
+			expect(pill.style.transform).toBe("translateX(-100%)");
+		});
+
+		it("should position pills correctly based on scaleElements (integration)", async () => {
+			const { renderBoundaryPills } = await import(
+				"./contrast-boundary-indicator"
+			);
+
+			const boundaries = {
+				white3to1: 400,
+				white4_5to1: 500,
+				black4_5to1: 700,
+				black3to1: 800,
+			};
+
+			const container = renderBoundaryPills(boundaries, scaleElements);
+			const pills = container.querySelectorAll(".dads-contrast-pill");
+
+			// 全4つのピルが生成されること
+			expect(pills.length).toBe(4);
+
+			// 各ピルにstyle.leftが設定されていること
+			for (const pill of pills) {
+				const htmlPill = pill as HTMLElement;
+				expect(htmlPill.style.left).toBeDefined();
+				expect(htmlPill.style.left).not.toBe("");
+			}
+
+			// endディレクションのピルにはtransformが設定されていること
+			const endPills = container.querySelectorAll('[data-direction="end"]');
+			for (const pill of endPills) {
+				const htmlPill = pill as HTMLElement;
+				expect(htmlPill.style.transform).toBe("translateX(-100%)");
+			}
+		});
+
+		it("should use minimum scale as reference point for position calculation", async () => {
+			const { renderBoundaryPills } = await import(
+				"./contrast-boundary-indicator"
+			);
+
+			// 挿入順を意図的にシャッフル（500, 400, 600の順）
+			const shuffledElements = new Map<number, HTMLElement>();
+			const mockRect = (left: number, width: number) => ({
+				left,
+				width,
+				top: 0,
+				right: left + width,
+				bottom: 40,
+				height: 40,
+				x: left,
+				y: 0,
+				toJSON: () => ({}),
+			});
+
+			const el500 = document.createElement("div");
+			el500.getBoundingClientRect = () => mockRect(40, 40);
+			el500.dataset.scale = "500";
+			shuffledElements.set(500, el500);
+
+			const el400 = document.createElement("div");
+			el400.getBoundingClientRect = () => mockRect(0, 40); // 最小scaleが基準点（left=0）
+			el400.dataset.scale = "400";
+			shuffledElements.set(400, el400);
+
+			const el600 = document.createElement("div");
+			el600.getBoundingClientRect = () => mockRect(80, 40);
+			el600.dataset.scale = "600";
+			shuffledElements.set(600, el600);
+
+			const boundaries = {
+				white3to1: 400,
+				white4_5to1: 500,
+				black4_5to1: null,
+				black3to1: null,
+			};
+
+			const container = renderBoundaryPills(boundaries, shuffledElements);
+			const pills = container.querySelectorAll(".dads-contrast-pill");
+
+			expect(pills.length).toBe(2);
+
+			// 400の3:1ピルは基準点からの相対位置0px
+			const pill400 = container.querySelector(
+				'[data-scale="400"]',
+			) as HTMLElement;
+			expect(pill400.style.left).toBe("0px");
+
+			// 500の4.5:1ピルは基準点から40px右
+			const pill500 = container.querySelector(
+				'[data-scale="500"]',
+			) as HTMLElement;
+			expect(pill500.style.left).toBe("40px");
+		});
+
+		it("should calculate end direction pill position correctly with width", async () => {
+			const { renderBoundaryPills } = await import(
+				"./contrast-boundary-indicator"
+			);
+
+			const mockRect = (left: number, width: number) => ({
+				left,
+				width,
+				top: 0,
+				right: left + width,
+				bottom: 40,
+				height: 40,
+				x: left,
+				y: 0,
+				toJSON: () => ({}),
+			});
+
+			const elementsWithMock = new Map<number, HTMLElement>();
+
+			const el50 = document.createElement("div");
+			el50.getBoundingClientRect = () => mockRect(0, 40);
+			el50.dataset.scale = "50";
+			elementsWithMock.set(50, el50);
+
+			const el700 = document.createElement("div");
+			el700.getBoundingClientRect = () => mockRect(200, 40);
+			el700.dataset.scale = "700";
+			elementsWithMock.set(700, el700);
+
+			const boundaries = {
+				white3to1: null,
+				white4_5to1: null,
+				black4_5to1: 700,
+				black3to1: null,
+			};
+
+			const container = renderBoundaryPills(boundaries, elementsWithMock);
+			const pill = container.querySelector(
+				".dads-contrast-pill",
+			) as HTMLElement;
+
+			// end方向: left = 200 + 40 = 240px (基準点0から)
+			expect(pill.style.left).toBe("240px");
+			expect(pill.style.transform).toBe("translateX(-100%)");
+		});
+	});
 });
