@@ -31,6 +31,18 @@
 			"final_verdict": "APPROVED",
 			"resolved_issues": 1,
 			"summary": "DOM統合テスト追加。renderShadesView直接検証はTask 11のE2E前提。110テスト全パス。"
+		},
+		"impl_10_3": {
+			"review_count": 1,
+			"final_verdict": "APPROVED",
+			"resolved_issues": 0,
+			"summary": "Task 10.3仕様どおり各色相セクション直後に欄外ロール情報バー追加。RoleInfoItem収集、hue-scale特定可能ブランドロール含む。Requirements 3.1/3.2/3.4/3.5適合。1372テスト全パス。"
+		},
+		"impl_10_4": {
+			"review_count": 2,
+			"final_verdict": "APPROVED",
+			"resolved_issues": 1,
+			"summary": "renderDadsHueSectionにコントラスト境界表示を統合。DOM追加後にrenderBoundaryPills呼び出しに修正（getBoundingClientRect前提の位置計算安定化）。Requirements 6.1/6.5適合。1377テスト全パス。"
 		}
 	}
 }

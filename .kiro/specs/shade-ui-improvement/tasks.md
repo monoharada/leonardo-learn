@@ -313,7 +313,7 @@
   - 統合テスト: 未解決ロールがない場合にバーが表示されないこと
   - _Requirements: 3.1, 3.2, 3.3, 3.5_
 
-- [ ] 10.3 renderDadsHueSectionに欄外ロール情報バーを追加する
+- [x] 10.3 renderDadsHueSectionに欄外ロール情報バーを追加する
   - 各色相セクションの直後にExternalRoleInfoBar.renderRoleInfoBarを呼び出し
   - ロールが割り当てられたスウォッチからRoleInfoItemを収集
   - **hue-scale特定可能なブランドロールも対象に含める**（該当DADSスウォッチと連携）
@@ -323,7 +323,7 @@
   - 統合テスト: hue-scale特定可能ブランドロールがコネクタ付きで表示されること
   - _Requirements: 3.1, 3.2, 3.4, 3.5_
 
-- [ ] 10.4 renderDadsHueSectionにコントラスト境界表示を追加する
+- [x] 10.4 renderDadsHueSectionにコントラスト境界表示を追加する
   - 各色相セクションでContrastBoundaryCalculator.calculateBoundariesを呼び出し
   - ContrastBoundaryIndicator.renderBoundaryPillsで境界ピルを生成
   - セクション要素の子としてコントラスト境界インジケーターを追加

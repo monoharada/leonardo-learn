@@ -1,3 +1,4 @@
+import { calculateBoundaries } from "@/core/semantic-role/contrast-boundary-calculator";
 import {
 	createSemanticRoleMapper,
 	type PaletteInfo,
@@ -44,7 +45,10 @@ import {
 	showPaletteValidation,
 	snapToCudColor,
 } from "./cud-components";
+import { renderBoundaryPills } from "./semantic-role/contrast-boundary-indicator";
 import {
+	type RoleInfoItem,
+	renderRoleInfoBar,
 	renderUnresolvedRolesBar,
 	type UnresolvedRoleItem,
 } from "./semantic-role/external-role-info-bar";
@@ -1931,6 +1935,12 @@ export const runDemo = () => {
 		const scaleContainer = document.createElement("div");
 		scaleContainer.className = "dads-scale";
 
+		// Task 10.3: 欄外ロール情報バー用のRoleInfoItemを収集
+		const roleInfoItems: RoleInfoItem[] = [];
+
+		// Task 10.4: コントラスト境界表示用のscale→スウォッチ要素マップ
+		const scaleElements = new Map<number, HTMLElement>();
+
 		for (const colorItem of colorScale.colors) {
 			const swatch = document.createElement("div");
 			swatch.className = "dads-swatch dads-swatch--readonly";
@@ -2002,14 +2012,48 @@ export const runDemo = () => {
 						false,
 						colorItem.hex,
 					);
+
+					// Task 10.3: 各ロールについてRoleInfoItemを収集
+					// hue-scale特定可能なブランドロールも含まれる（該当DADSスウォッチと連携）
+					for (const role of roles) {
+						roleInfoItems.push({
+							role,
+							scale: colorItem.scale,
+							swatchElement: swatch,
+						});
+					}
 				}
 			}
 
 			scaleContainer.appendChild(swatch);
+
+			// Task 10.4: スウォッチ要素をマップに追加（コントラスト境界表示用）
+			scaleElements.set(colorItem.scale, swatch);
 		}
 
 		section.appendChild(scaleContainer);
+
+		// Task 10.3: 欄外ロール情報バーを追加
+		// hue-scale特定可能なブランドロールも対象に含まれる（lookupRolesで統合済み）
+		// hue-scale特定不可ロールはTask 10.2で処理済みのため除外
+		if (roleInfoItems.length > 0) {
+			const roleInfoBar = renderRoleInfoBar(roleInfoItems);
+			section.appendChild(roleInfoBar);
+		}
+
+		// sectionをDOMに追加（コントラスト境界ピルの位置計算のため先に追加が必要）
 		container.appendChild(section);
+
+		// Task 10.4: コントラスト境界表示を追加
+		// 注: renderBoundaryPillsはgetBoundingClientRect()を使用するため、
+		// sectionがDOMに追加された後に呼び出す必要がある
+		const colorItems = colorScale.colors.map((item) => ({
+			scale: item.scale,
+			hex: item.hex,
+		}));
+		const boundaries = calculateBoundaries(colorItems);
+		const boundaryContainer = renderBoundaryPills(boundaries, scaleElements);
+		section.appendChild(boundaryContainer);
 	};
 
 	/** ブランドカラーセクションを描画 */
