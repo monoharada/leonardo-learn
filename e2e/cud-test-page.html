@@ -169,25 +169,21 @@
 
     <script type="module">
         // Import CUD components and functions
-        import {
+        import {Color, 
+            CUD_MODE_CONFIGS,createAnchorColor, 
             createCudModeSelectorWithPersistence,
-            processPaletteWithMode,
-            createPaletteProcessor,
             createModeBadge,
-            createProgressUI,
             createOptimizationController,
-            CUD_MODE_CONFIGS,
+            createPaletteProcessor,
+            createProgressUI,exportToCSS, exportToJSON, generateCudValidationSummary, 
+            processPaletteWithMode
         } from '../dist/index.js';
-
-        import { createAnchorColor } from '../dist/index.js';
-        import { exportToJSON, exportToCSS, generateCudValidationSummary } from '../dist/index.js';
-        import { Color } from '../dist/index.js';
 
         // State
         let currentMode = 'guide';
         let currentAnchor = null;
         let currentPalette = ['#FF2800', '#35A16B', '#0041FF', '#FF9900'];
-        let processor = null;
+        const processor = null;
 
         // DOM Elements
         const modeSelectorContainer = document.getElementById('mode-selector-container');
