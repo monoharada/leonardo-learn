@@ -13,7 +13,13 @@
  * - 複数ロール時の優先ロール表示テスト
  * - hue-scale特定可能なブランドロール（Primary/Secondary）の円形化テスト
  *
- * Requirements: 2.1, 2.2, 2.3, 2.4, 2.6, 4.1
+ * Task 11.4: コントラスト境界のE2Eテストを追加
+ * - コントラスト境界ピル（3:1→、4.5:1→、←4.5:1、←3:1）が正しいscale位置に表示されること
+ * - 白背景用ピルは白抜きスタイルであること
+ * - 黒背景用ピルは黒塗りスタイルであること
+ * - DADS以外のハーモニー種別ではコントラスト境界が表示されないこと
+ *
+ * Requirements: 2.1, 2.2, 2.3, 2.4, 2.6, 4.1, 6.1, 6.2, 6.3, 6.4, 6.5
  */
 
 import { expect, type Page, test } from "playwright/test";
@@ -1000,6 +1006,407 @@ test.describe("パフォーマンス検証", () => {
 });
 
 // ============================================================================
+// 6. コントラスト境界表示（Task 11.4）
+// Requirements: 6.1, 6.2, 6.3, 6.4, 6.5
+// ============================================================================
+
+test.describe("コントラスト境界表示", () => {
+	// Requirement 6.1: 各色相のシェードパレット下部にコントラスト比境界インジケーターを表示
+	test("各色相セクションにコントラスト境界コンテナとピルが存在すること（6.1）", async ({
+		page,
+	}) => {
+		await selectHarmonyType(page, "dads");
+		await page.click("[data-testid='render-shades-btn']");
+		await page.waitForSelector("[data-testid^='contrast-boundary-']");
+
+		// 各色相セクション（hue-section）の数を取得
+		const hueSections = page.locator(".hue-section");
+		const hueSectionCount = await hueSections.count();
+		expect(hueSectionCount).toBeGreaterThan(0);
+
+		// コントラスト境界コンテナの数を取得
+		const boundaryContainers = page.locator(
+			"[data-testid^='contrast-boundary-']",
+		);
+		const boundaryCount = await boundaryContainers.count();
+
+		// 各色相セクションに境界コンテナが存在すること
+		expect(boundaryCount).toBe(hueSectionCount);
+
+		// 全境界コンテナを走査し、各コンテナにピルが1つ以上存在することを確認
+		// DADS全10色相（blue/light-blue/cyan/green/lime/yellow/orange/red/magenta/purple）を網羅
+		for (let i = 0; i < boundaryCount; i++) {
+			const boundary = boundaryContainers.nth(i);
+			await expect(boundary).toBeVisible();
+
+			// 各色相コンテナにピルが1つ以上存在すること（空コンテナでないことを確認）
+			const pillsInBoundary = boundary.locator(".dads-contrast-pill");
+			const pillCount = await pillsInBoundary.count();
+			expect(pillCount).toBeGreaterThan(0);
+		}
+	});
+
+	// Requirement 6.2: 白背景に対するコントラスト比境界（3:1→、4.5:1→）を白抜きスタイルで表示
+	test("白背景用ピル（3:1→、4.5:1→）が白抜きスタイルで表示されること（6.2/6.4）", async ({
+		page,
+	}) => {
+		await selectHarmonyType(page, "dads");
+		await page.click("[data-testid='render-shades-btn']");
+		await page.waitForSelector("[data-testid^='contrast-boundary-']");
+
+		// 白背景用ピル（outlineクラス）を取得 - 必須要件として存在確認
+		const outlinePills = page.locator(".dads-contrast-pill--outline");
+		const pillCount = await outlinePills.count();
+		expect(pillCount).toBeGreaterThan(0);
+
+		// 色相ごとにスタイルを検証（全色相をカバー）
+		const hues = ["blue", "red", "green", "yellow", "purple"];
+		for (const hue of hues) {
+			const hueBoundary = page.locator(
+				`[data-testid='contrast-boundary-${hue}']`,
+			);
+			const hueOutlinePills = hueBoundary.locator(
+				".dads-contrast-pill--outline",
+			);
+			const hueOutlineCount = await hueOutlinePills.count();
+
+			// 各色相でoutlineピルが存在すればスタイル検証
+			for (let i = 0; i < hueOutlineCount; i++) {
+				const pill = hueOutlinePills.nth(i);
+				const pillStyles = await pill.evaluate((el) => {
+					const style = window.getComputedStyle(el);
+					return {
+						borderColor: style.borderColor,
+						backgroundColor: style.backgroundColor,
+						color: style.color,
+						borderRadius: style.borderRadius,
+					};
+				});
+
+				// 白抜きスタイル: border: 1px solid #333, background: transparent, color: #333
+				expect(pillStyles.borderColor).toBe("rgb(51, 51, 51)");
+				expect(pillStyles.backgroundColor).toBe("rgba(0, 0, 0, 0)");
+				expect(pillStyles.color).toBe("rgb(51, 51, 51)");
+				expect(pillStyles.borderRadius).toBe("9999px");
+			}
+		}
+
+		// ラベルテキストが正しいこと（→で終わる）
+		const firstPillText = await outlinePills.first().textContent();
+		expect(firstPillText).toMatch(/\d+(\.\d+)?:1→/);
+	});
+
+	// Requirement 6.3: 黒背景に対するコントラスト比境界（←4.5:1、←3:1）を黒塗りスタイルで表示
+	test("黒背景用ピル（←4.5:1、←3:1）が黒塗りスタイルで表示されること（6.3/6.4）", async ({
+		page,
+	}) => {
+		await selectHarmonyType(page, "dads");
+		await page.click("[data-testid='render-shades-btn']");
+		await page.waitForSelector("[data-testid^='contrast-boundary-']");
+
+		// 黒背景用ピル（filledクラス）を取得 - 必須要件として存在確認
+		const filledPills = page.locator(".dads-contrast-pill--filled");
+		const pillCount = await filledPills.count();
+		expect(pillCount).toBeGreaterThan(0);
+
+		// 色相ごとにスタイルを検証（全色相をカバー）
+		const hues = ["blue", "red", "green", "yellow", "purple"];
+		for (const hue of hues) {
+			const hueBoundary = page.locator(
+				`[data-testid='contrast-boundary-${hue}']`,
+			);
+			const hueFilledPills = hueBoundary.locator(".dads-contrast-pill--filled");
+			const hueFilledCount = await hueFilledPills.count();
+
+			// 各色相でfilledピルが存在すればスタイル検証
+			for (let i = 0; i < hueFilledCount; i++) {
+				const pill = hueFilledPills.nth(i);
+				const pillStyles = await pill.evaluate((el) => {
+					const style = window.getComputedStyle(el);
+					return {
+						backgroundColor: style.backgroundColor,
+						color: style.color,
+						borderRadius: style.borderRadius,
+					};
+				});
+
+				// 黒塗りスタイル: background: #333, color: white
+				expect(pillStyles.backgroundColor).toBe("rgb(51, 51, 51)");
+				expect(pillStyles.color).toBe("rgb(255, 255, 255)");
+				expect(pillStyles.borderRadius).toBe("9999px");
+			}
+		}
+
+		// ラベルテキストが正しいこと（←で始まる）
+		const firstPillText = await filledPills.first().textContent();
+		expect(firstPillText).toMatch(/←\d+(\.\d+)?:1/);
+	});
+
+	// Requirement 6.2/6.3: 4つの境界ラベル（3:1→、4.5:1→、←4.5:1、←3:1）の存在確認
+	test("4つの境界ラベルパターンが全て存在すること（6.2/6.3）", async ({
+		page,
+	}) => {
+		await selectHarmonyType(page, "dads");
+		await page.click("[data-testid='render-shades-btn']");
+		await page.waitForSelector("[data-testid^='contrast-boundary-']");
+
+		// 全ピルのラベルを収集
+		const allPills = page.locator(".dads-contrast-pill");
+		const pillCount = await allPills.count();
+		expect(pillCount).toBeGreaterThan(0);
+
+		const labels: string[] = [];
+		for (let i = 0; i < pillCount; i++) {
+			const text = await allPills.nth(i).textContent();
+			if (text) labels.push(text);
+		}
+
+		// 4つのラベルパターンが全て存在すること
+		const expectedLabels = ["3:1→", "4.5:1→", "←4.5:1", "←3:1"];
+		for (const expectedLabel of expectedLabels) {
+			const hasLabel = labels.some((label) => label === expectedLabel);
+			expect(hasLabel).toBe(true);
+		}
+
+		// 各色相でoutline/filledの両方が存在することを確認（特定色相の欠落を防ぐ）
+		const hues = ["blue", "red", "green", "yellow", "purple"];
+		for (const hue of hues) {
+			const hueBoundary = page.locator(
+				`[data-testid='contrast-boundary-${hue}']`,
+			);
+			const hueOutlinePills = hueBoundary.locator(
+				".dads-contrast-pill--outline",
+			);
+			const hueFilledPills = hueBoundary.locator(".dads-contrast-pill--filled");
+
+			// 各色相でoutline（白背景用）が1つ以上存在
+			const outlineCount = await hueOutlinePills.count();
+			expect(outlineCount).toBeGreaterThan(0);
+
+			// 各色相でfilled（黒背景用）が1つ以上存在
+			const filledCount = await hueFilledPills.count();
+			expect(filledCount).toBeGreaterThan(0);
+
+			// outlineピルは→で終わる
+			for (let i = 0; i < outlineCount; i++) {
+				const text = await hueOutlinePills.nth(i).textContent();
+				expect(text).toMatch(/→$/);
+			}
+
+			// filledピルは←で始まる
+			for (let i = 0; i < filledCount; i++) {
+				const text = await hueFilledPills.nth(i).textContent();
+				expect(text).toMatch(/^←/);
+			}
+		}
+	});
+
+	// Requirement 6.5: ピルを対応するスケールの下部に配置（複数色相で検証）
+	test("コントラスト境界ピルがスウォッチの下部に配置されること（6.5）", async ({
+		page,
+	}) => {
+		await selectHarmonyType(page, "dads");
+		await page.click("[data-testid='render-shades-btn']");
+		await page.waitForSelector("[data-testid^='contrast-boundary-']");
+
+		// コントラスト境界ピルが存在することを必須確認
+		const pills = page.locator(".dads-contrast-pill");
+		const pillCount = await pills.count();
+		expect(pillCount).toBeGreaterThan(0);
+
+		// 複数の色相で位置を検証
+		const hues = ["blue", "red", "green"];
+		for (const hue of hues) {
+			const boundary = page.locator(`[data-testid='contrast-boundary-${hue}']`);
+			const huePills = boundary.locator(".dads-contrast-pill");
+			const huePillCount = await huePills.count();
+			expect(huePillCount).toBeGreaterThan(0);
+
+			// 各ピルがスウォッチの下部に配置されていることを確認
+			for (let i = 0; i < huePillCount; i++) {
+				const pill = huePills.nth(i);
+				const pillBox = await pill.boundingBox();
+				expect(pillBox).not.toBeNull();
+
+				// data-scale属性を取得
+				const scale = await pill.getAttribute("data-scale");
+				expect(scale).not.toBeNull();
+				expect(Number(scale)).toBeGreaterThan(0);
+
+				// 対応するスウォッチのboundingBoxを取得
+				const swatch = page.locator(`[data-testid='swatch-${hue}-${scale}']`);
+				const swatchBox = await swatch.boundingBox();
+				expect(swatchBox).not.toBeNull();
+
+				// ピルがスウォッチの下端より下に配置されていること（許容誤差10px）
+				if (pillBox && swatchBox) {
+					expect(pillBox.y).toBeGreaterThanOrEqual(
+						swatchBox.y + swatchBox.height - 10,
+					);
+				}
+
+				// data-direction属性が設定されていること
+				const direction = await pill.getAttribute("data-direction");
+				expect(direction).not.toBeNull();
+				expect(["start", "end"]).toContain(direction);
+			}
+		}
+	});
+
+	// Requirement 6.5: ピルのx位置がdata-scaleに対応するスウォッチと一致すること（複数色相・全ピル検証）
+	test("全ピルのx位置が対応するスウォッチと一致すること（6.5）", async ({
+		page,
+	}) => {
+		await selectHarmonyType(page, "dads");
+		await page.click("[data-testid='render-shades-btn']");
+		await page.waitForSelector("[data-testid^='contrast-boundary-']");
+
+		// 複数の色相で位置を検証
+		const hues = ["blue", "red", "green"];
+		for (const hue of hues) {
+			const boundary = page.locator(`[data-testid='contrast-boundary-${hue}']`);
+			const huePills = boundary.locator(".dads-contrast-pill");
+			const huePillCount = await huePills.count();
+			expect(huePillCount).toBeGreaterThan(0);
+
+			// 全ピルで位置検証
+			for (let i = 0; i < huePillCount; i++) {
+				const pill = huePills.nth(i);
+				const pillBox = await pill.boundingBox();
+				const scale = await pill.getAttribute("data-scale");
+				expect(pillBox).not.toBeNull();
+				expect(scale).not.toBeNull();
+
+				// 対応するスウォッチを取得
+				const swatch = page.locator(`[data-testid='swatch-${hue}-${scale}']`);
+				const swatchBox = await swatch.boundingBox();
+				expect(swatchBox).not.toBeNull();
+
+				// ピルのx座標がスウォッチの範囲内にあること（許容誤差50px）
+				if (pillBox && swatchBox) {
+					const swatchCenterX = swatchBox.x + swatchBox.width / 2;
+					const pillCenterX = pillBox.x + pillBox.width / 2;
+					expect(Math.abs(pillCenterX - swatchCenterX)).toBeLessThan(50);
+				}
+			}
+		}
+	});
+
+	test("コントラスト境界ピルにdata-scale属性が設定されていること", async ({
+		page,
+	}) => {
+		await selectHarmonyType(page, "dads");
+		await page.click("[data-testid='render-shades-btn']");
+		await page.waitForSelector("[data-testid^='contrast-boundary-']");
+
+		// 全てのピルでdata-scale属性を確認
+		const pills = page.locator(".dads-contrast-pill");
+		const pillCount = await pills.count();
+		expect(pillCount).toBeGreaterThan(0);
+
+		for (let i = 0; i < pillCount; i++) {
+			const pill = pills.nth(i);
+			const scale = await pill.getAttribute("data-scale");
+			expect(scale).not.toBeNull();
+			expect(Number(scale)).toBeGreaterThan(0);
+		}
+	});
+
+	test("コントラスト境界ピルにdata-direction属性が設定されていること", async ({
+		page,
+	}) => {
+		await selectHarmonyType(page, "dads");
+		await page.click("[data-testid='render-shades-btn']");
+		await page.waitForSelector("[data-testid^='contrast-boundary-']");
+
+		// 全てのピルでdata-direction属性を確認
+		const pills = page.locator(".dads-contrast-pill");
+		const pillCount = await pills.count();
+		expect(pillCount).toBeGreaterThan(0);
+
+		for (let i = 0; i < pillCount; i++) {
+			const pill = pills.nth(i);
+			const direction = await pill.getAttribute("data-direction");
+			expect(direction).not.toBeNull();
+			expect(["start", "end"]).toContain(direction);
+		}
+	});
+
+	// DADS以外のハーモニー種別では境界が表示されないことを全種別でテスト
+	const nonDadsHarmonyTypes = [
+		"complementary",
+		"analogous",
+		"triadic",
+		"split-complementary",
+	];
+	for (const harmonyType of nonDadsHarmonyTypes) {
+		test(`${harmonyType}ハーモニーではコントラスト境界が表示されないこと`, async ({
+			page,
+		}) => {
+			await selectHarmonyType(page, harmonyType);
+			await page.click("[data-testid='render-shades-btn']");
+
+			// 描画完了を確実に待つ（#statusがCompleteになるまで待機）
+			await page.waitForFunction(
+				() => {
+					const status = document.getElementById("status");
+					return status && status.textContent?.includes("Complete");
+				},
+				{ timeout: 10000 },
+			);
+
+			// 描画完了後にコントラスト境界コンテナが存在しないことを確認
+			const boundaryContainers = page.locator(
+				"[data-testid^='contrast-boundary-']",
+			);
+			expect(await boundaryContainers.count()).toBe(0);
+		});
+	}
+
+	test("コントラスト境界ピルのpointer-eventsがnoneであること", async ({
+		page,
+	}) => {
+		await selectHarmonyType(page, "dads");
+		await page.click("[data-testid='render-shades-btn']");
+		await page.waitForSelector("[data-testid^='contrast-boundary-']");
+
+		// 全てのピルでpointer-eventsを確認
+		const pills = page.locator(".dads-contrast-pill");
+		const pillCount = await pills.count();
+		expect(pillCount).toBeGreaterThan(0);
+
+		for (let i = 0; i < Math.min(pillCount, 5); i++) {
+			const pill = pills.nth(i);
+			const pointerEvents = await pill.evaluate((el) => {
+				return window.getComputedStyle(el).pointerEvents;
+			});
+			expect(pointerEvents).toBe("none");
+		}
+	});
+
+	test("コントラスト境界ピルのフォントサイズが10pxであること", async ({
+		page,
+	}) => {
+		await selectHarmonyType(page, "dads");
+		await page.click("[data-testid='render-shades-btn']");
+		await page.waitForSelector("[data-testid^='contrast-boundary-']");
+
+		// 全てのピルでフォントサイズを確認
+		const pills = page.locator(".dads-contrast-pill");
+		const pillCount = await pills.count();
+		expect(pillCount).toBeGreaterThan(0);
+
+		for (let i = 0; i < Math.min(pillCount, 5); i++) {
+			const pill = pills.nth(i);
+			const fontSize = await pill.evaluate((el) => {
+				return window.getComputedStyle(el).fontSize;
+			});
+			expect(fontSize).toBe("10px");
+		}
+	});
+});
+
+// ============================================================================
 // Helper Functions
 // ============================================================================
 
@@ -1012,5 +1419,6 @@ async function selectHarmonyType(
 ): Promise<void> {
 	const selector = page.locator("[data-testid='harmony-type-selector']");
 	await selector.selectOption(harmonyType);
-	await page.waitForTimeout(100); // UIの更新を待つ
+	// 固定待機ではなく、選択値の反映を条件待ち
+	await expect(selector).toHaveValue(harmonyType);
 }

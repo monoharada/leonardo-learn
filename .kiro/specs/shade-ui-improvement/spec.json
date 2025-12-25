@@ -67,6 +67,12 @@
 			"final_verdict": "APPROVED",
 			"resolved_issues": 0,
 			"summary": "欄外ロール情報E2Eテスト実装完了。Requirements 3.1/3.2/3.4/3.5の全項目をカバーする9件のE2Eテストを追加。テストページにrenderRoleInfoBar/renderUnresolvedRolesBarを統合。欄外ロール完全表示・コネクタ線・水平配置・未解決ロールバー検証。E2E 34件、Unit 1383件全パス。"
+		},
+		"impl_11_4": {
+			"review_count": 5,
+			"final_verdict": "APPROVED",
+			"resolved_issues": 7,
+			"summary": "コントラスト境界E2Eテスト実装完了。Requirements 6.1/6.2/6.3/6.4/6.5の全項目をカバーする14件のE2Eテストを追加。全色相セクション動的走査、色相ごとのoutline/filledスタイル検証、スウォッチ下端基準の位置検証、非DADSハーモニー描画完了待機、selectHarmonyType条件待ち化。E2E 14件パス。"
 		}
 	}
 }

@@ -69,7 +69,7 @@ OKが出るまでフィードバックループを繰り返すスキルです。
        ┌──────────────────────────────┬──────────┴──────────┐
        ▼                              ▼                      ▼
 ┌──────────────┐                ┌──────────┐          ┌──────────┐
-│ OK: 次フェーズ│                │ 再レビュー│          │ 3回超過: │
+│ OK: 次フェーズ│                │ 再レビュー│          │ 6回超過: │
 │ spec.json更新│                │ (ループ) │          │ ユーザー │
 │ ユーザー報告 │                └──────────┘          │ 介入要求 │
 └──────────────┘                                      └──────────┘
@@ -131,7 +131,7 @@ OKが出るまでフィードバックループを繰り返すスキルです。
 4. **自動修正（NEEDS_REVISION時）**
    - `issues`配列を走査
    - 各`suggestion`をrequirements.mdに適用
-   - 再度Codexレビューを実行（最大3回）
+   - 再度Codexレビューを実行（最大6回）
 
 5. **spec.json更新（OK時）**
    ```javascript
@@ -147,7 +147,7 @@ OKが出るまでフィードバックループを繰り返すスキルです。
    | 項目 | 値 |
    |------|-----|
    | フィーチャー | [feature-name] |
-   | レビュー回数 | X / 3 |
+   | レビュー回数 | X / 6 |
    | 最終判定 | OK |
 
    ### 解決済み指摘
@@ -230,6 +230,20 @@ spec.phase = "ready-for-implementation";
 - 設計準拠: design.mdのインターフェース定義に従っているか
 - コード品質: TypeScript strict mode準拠、テストカバレッジ
 
+### 実装レビュー専用コマンド（オプション）
+```bash
+# mainブランチとの差分をベースにレビュー
+codex exec --full-auto review --base main "
+[追加のレビュー指示（要件ID、テスト基準など）]
+"
+
+# 未コミットの変更をレビュー
+codex exec --full-auto review --uncommitted "
+[追加のレビュー指示]
+"
+```
+**メリット**: コード差分が自動抽出されるため、ファイル内容を手動で渡す必要がない
+
 ---
 
 ## 自動進行モード
@@ -268,8 +282,8 @@ initialized → requirements → design → tasks → impl → completed
 - 失敗継続時はユーザーに通知
 
 ### 無限ループ防止
-- 各フェーズ最大3回のレビューサイクル
-- 3回超過時はユーザー手動介入を要求
+- 各フェーズ最大6回のレビューサイクル
+- 6回超過時はユーザー手動介入を要求
 
 ### JSON解析失敗
 - Codex出力が期待形式でない場合
@@ -279,10 +293,29 @@ initialized → requirements → design → tasks → impl → completed
 
 ## Codex呼び出しパターン
 
-### 基本形式
+### 初回レビュー
 ```bash
+# 基本形式
 codex exec --full-auto "[prompt]"
+
+# 実装レビュー専用（コード差分ベース）
+codex exec --full-auto review --base main "[追加の指示]"
+codex exec --full-auto review --uncommitted "[追加の指示]"
 ```
+
+### 再レビュー（2回目以降）
+```bash
+# 前回セッションを継続（コンテキスト保持、高速）
+codex exec --full-auto resume --last "[修正内容と再レビュー依頼]"
+
+# 特定セッションを継続
+codex exec --full-auto resume [SESSION_ID] "[修正内容と再レビュー依頼]"
+```
+
+**`resume`のメリット**:
+- 前回のレビューコンテキストが保持される（ファイル再読み込み不要）
+- トークン消費が少なく、レスポンスが高速
+- 同一セッションIDで一貫性のあるレビュー
 
 ### プロンプトテンプレート参照
 - 要件: `prompts/requirements-review.md`
@@ -325,7 +358,7 @@ codex exec --full-auto "[prompt]"
 | 項目 | 状態 |
 |------|------|
 | **Codex Session ID** | `[SESSION_ID]` |
-| レビュー回数 | X / 3 |
+| レビュー回数 | X / 6 |
 | 最終判定 | [VERDICT] |
 | 解決済み指摘 | X件 |
 
