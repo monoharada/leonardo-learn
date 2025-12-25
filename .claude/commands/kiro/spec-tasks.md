@@ -80,7 +80,7 @@ Generate implementation tasks for feature **$1** based on approved requirements 
 Provide brief summary in the language specified in spec.json:
 
 1. **Status**: Confirm tasks generated at `.kiro/specs/$1/tasks.md`
-2. **Task Summary**: 
+2. **Task Summary**:
    - Total: X major tasks, Y sub-tasks
    - All Z requirements covered
    - Average task size: 1-3 hours per sub-task
@@ -88,9 +88,12 @@ Provide brief summary in the language specified in spec.json:
    - ✅ All requirements mapped to tasks
    - ✅ Task dependencies verified
    - ✅ Testing tasks included
-4. **Next Action**: Review tasks and proceed when ready
+4. **Codex Review**: Invoke `/sdd-codex-review tasks $1` for quality assurance
+5. **Next Action**: Review tasks and proceed when ready
 
 **Format**: Concise (under 200 words)
+
+**CRITICAL**: After outputting the summary, you MUST use the Skill tool to invoke `sdd-codex-review` with args `tasks $1`.
 
 ## Safety & Fallback
 

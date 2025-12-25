@@ -13,6 +13,7 @@ argument-hint: <feature-name> [task-numbers]
   - Code passes all tests with no regressions
   - Tasks marked as completed in tasks.md
   - Implementation aligns with design and requirements
+  - **Codex review invoked and APPROVED** via `/sdd-codex-review impl`
 </background_information>
 
 <instructions>
@@ -83,8 +84,11 @@ Provide brief summary in the language specified in spec.json:
 
 1. **Tasks Executed**: Task numbers and test results
 2. **Status**: Completed tasks marked in tasks.md, remaining tasks count
+3. **Next Step**: Invoke `/sdd-codex-review impl $1` for Codex review
 
 **Format**: Concise (under 150 words)
+
+**CRITICAL**: After outputting the summary, you MUST use the Skill tool to invoke `sdd-codex-review` with args `impl $1`.
 
 ## Safety & Fallback
 
@@ -106,5 +110,15 @@ Provide brief summary in the language specified in spec.json:
 
 **Execute all pending**:
 - `/kiro:spec-impl $1` - All unchecked tasks
+
+### Post-Implementation: Codex Review
+
+**IMPORTANT**: After completing task implementation, you MUST invoke the Codex review skill:
+
+```
+/sdd-codex-review impl $1
+```
+
+This ensures all implementations are reviewed and approved before moving to the next task.
 
 think

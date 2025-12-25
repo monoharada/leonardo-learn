@@ -160,7 +160,8 @@
     <script type="module">
         import {applyOverlay, Color,
             createSemanticRoleMapper, getAllDadsChromatic, HarmonyType, loadDadsTokens, verifyContrast,
-            renderRoleInfoBar, renderUnresolvedRolesBar
+            renderRoleInfoBar, renderUnresolvedRolesBar,
+            calculateBoundaries, renderBoundaryPills
         } from '../dist/index.js';
 
         // DOM Elements
@@ -280,6 +281,8 @@
 
             // Task 11.3: 欄外ロール情報バー用のroleInfoItemsを収集
             const roleInfoItems = [];
+            // Task 11.4: scale→スウォッチ要素のマップ（コントラスト境界ピル用）
+            const scaleElements = new Map();
 
             for (const colorItem of colorScale.colors) {
                 const swatch = document.createElement('div');
@@ -326,6 +329,8 @@
                 }
 
                 scaleContainer.appendChild(swatch);
+                // Task 11.4: scaleElements Mapに登録
+                scaleElements.set(colorItem.scale, swatch);
             }
 
             section.appendChild(scaleContainer);
@@ -336,7 +341,20 @@
                 section.appendChild(roleInfoBar);
             }
 
+            // セクションをDOMに追加（コントラスト境界ピルの位置計算のため先に追加）
             container.appendChild(section);
+
+            // Task 11.4: コントラスト境界表示を追加
+            if (harmonyType === HarmonyType.DADS) {
+                const colorItems = colorScale.colors.map(item => ({
+                    scale: item.scale,
+                    hex: item.hex,
+                }));
+                const boundaries = calculateBoundaries(colorItems);
+                const boundaryContainer = renderBoundaryPills(boundaries, scaleElements);
+                boundaryContainer.dataset.testid = `contrast-boundary-${colorScale.hue}`;
+                section.appendChild(boundaryContainer);
+            }
         }
 
         /**

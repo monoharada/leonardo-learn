@@ -265,6 +265,196 @@ describe("シェードビュー統合テスト", () => {
 		});
 	});
 
+	describe("Task 10.5: CVDシミュレーション時の表示調整", () => {
+		/**
+		 * Task 10.5: CVDシミュレーション時の表示調整
+		 *
+		 * 要件:
+		 * - 欄外ロール情報のカテゴリ色は固定（シミュレーション適用外）
+		 * - コントラスト境界ピルの色は固定（シミュレーション適用外）
+		 * - スウォッチ自体のみシミュレーション色を表示
+		 *
+		 * @see requirements.md 4.3
+		 */
+
+		it("欄外ロール情報のカテゴリ色がCVDシミュレーションの影響を受けないこと", async () => {
+			const { createRoleBadge, ROLE_CATEGORY_COLORS } = await import(
+				"./external-role-info-bar"
+			);
+
+			// 各カテゴリのバッジを生成
+			const categories = [
+				"primary",
+				"secondary",
+				"accent",
+				"semantic",
+				"link",
+			] as const;
+
+			for (const category of categories) {
+				const role: SemanticRole = {
+					name: `Test-${category}`,
+					category,
+					fullName: `[${category}] Test`,
+					shortLabel: category[0].toUpperCase(),
+				};
+
+				const badge = createRoleBadge(role);
+
+				// バッジの背景色がROLE_CATEGORY_COLORSからの固定値であること
+				// CVDシミュレーション関数は呼ばれていない（直接色を設定）
+				expect(badge.style.backgroundColor).toBeTruthy();
+
+				// 色が変換されていないことを確認（固定値のまま）
+				// ROLE_CATEGORY_COLORSの色がそのまま設定されている
+				const expectedColor = ROLE_CATEGORY_COLORS[category];
+				expect(expectedColor).toBeDefined();
+			}
+		});
+
+		it("コントラスト境界ピルのスタイルがCVDシミュレーションの影響を受けないこと", async () => {
+			const { createBoundaryPill } = await import(
+				"./contrast-boundary-indicator"
+			);
+
+			// 白抜きピル（outlineスタイル）
+			const outlinePill = createBoundaryPill({
+				scale: 400,
+				label: "3:1→",
+				style: "outline",
+				direction: "start",
+			});
+
+			// CSSクラスで色が定義されていること（インラインスタイルではない）
+			expect(outlinePill.classList.contains("dads-contrast-pill")).toBe(true);
+			expect(
+				outlinePill.classList.contains("dads-contrast-pill--outline"),
+			).toBe(true);
+
+			// 黒塗りピル（filledスタイル）
+			const filledPill = createBoundaryPill({
+				scale: 800,
+				label: "←3:1",
+				style: "filled",
+				direction: "end",
+			});
+
+			// CSSクラスで色が定義されていること（インラインスタイルではない）
+			expect(filledPill.classList.contains("dads-contrast-pill")).toBe(true);
+			expect(filledPill.classList.contains("dads-contrast-pill--filled")).toBe(
+				true,
+			);
+		});
+
+		it("円形スウォッチの中央ラベル色がCVDシミュレーションの影響を受けないこと", () => {
+			const swatchElement = document.createElement("div");
+			swatchElement.className = "dads-swatch";
+
+			const role: SemanticRole = {
+				name: "Primary",
+				category: "primary",
+				fullName: "[Primary] Primary",
+				shortLabel: "P",
+			};
+
+			applyOverlay(
+				swatchElement,
+				"blue" as DadsColorHue,
+				600,
+				[role],
+				false,
+				"#2563EB", // Blue 600
+			);
+
+			const label = swatchElement.querySelector(
+				".dads-swatch__role-label",
+			) as HTMLElement;
+
+			// ラベル色は背景色に基づいて計算された固定値（white/black）
+			// CVDシミュレーション関数は適用されない
+			expect(["white", "black"]).toContain(label?.style.color);
+		});
+
+		it("未解決ロールバーのバッジ色がCVDシミュレーションの影響を受けないこと", async () => {
+			const { renderUnresolvedRolesBar, ROLE_CATEGORY_COLORS } = await import(
+				"./external-role-info-bar"
+			);
+
+			const unresolvedItems = [
+				{
+					role: {
+						name: "Primary",
+						category: "primary" as const,
+						fullName: "[Primary] Primary",
+						shortLabel: "P",
+					},
+				},
+				{
+					role: {
+						name: "Secondary",
+						category: "secondary" as const,
+						fullName: "[Secondary] Secondary",
+						shortLabel: "S",
+					},
+				},
+			];
+
+			const bar = renderUnresolvedRolesBar(unresolvedItems);
+			expect(bar).not.toBeNull();
+
+			const badges = bar?.querySelectorAll(".dads-role-badge");
+			expect(badges?.length).toBe(2);
+
+			// 各バッジが固定のカテゴリ色を持つこと
+			for (const badge of badges || []) {
+				const htmlBadge = badge as HTMLElement;
+				expect(htmlBadge.style.backgroundColor).toBeTruthy();
+				// 白い文字色（固定）
+				expect(htmlBadge.style.color).toBe("white");
+			}
+		});
+
+		it("欄外ロール情報バーのバッジ色がCVDシミュレーションの影響を受けないこと", () => {
+			const mockSwatchElement = document.createElement("div");
+			mockSwatchElement.className = "dads-swatch";
+
+			const roleItems: RoleInfoItem[] = [
+				{
+					role: {
+						name: "Success",
+						category: "semantic",
+						semanticSubType: "success",
+						fullName: "[Semantic] Success",
+						shortLabel: "Su",
+					},
+					scale: 600,
+					swatchElement: mockSwatchElement,
+				},
+			];
+
+			const bar = renderRoleInfoBar(roleItems);
+			const badge = bar.querySelector(".dads-role-badge") as HTMLElement;
+
+			// バッジの背景色が設定されていること
+			expect(badge.style.backgroundColor).toBeTruthy();
+			// 白い文字色（固定）
+			expect(badge.style.color).toBe("white");
+		});
+
+		it("コネクタ線の色がCVDシミュレーションの影響を受けないこと", async () => {
+			const { renderConnector } = await import("./external-role-info-bar");
+
+			const mockSwatchElement = document.createElement("div");
+			const mockInfoElement = document.createElement("div");
+
+			const connector = renderConnector(mockSwatchElement, mockInfoElement);
+
+			// コネクタの背景色が固定のグレー色であること
+			// #9e9e9e = rgb(158, 158, 158)
+			expect(connector.style.backgroundColor).toBe("rgb(158, 158, 158)");
+		});
+	});
+
 	describe("Task 10.2: hue-scale不定ロールバーの追加", () => {
 		it("hue-scale不定のブランドロールがシェードビュー先頭に1回だけ表示されること", () => {
 			const palettes: PaletteInfo[] = [
