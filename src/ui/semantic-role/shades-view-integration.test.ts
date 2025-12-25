@@ -263,4 +263,173 @@ describe("シェードビュー統合テスト", () => {
 			expect(label?.style.color).toBeTruthy();
 		});
 	});
+
+	describe("Task 10.2: hue-scale不定ロールバーの追加", () => {
+		it("hue-scale不定のブランドロールがシェードビュー先頭に1回だけ表示されること", () => {
+			const palettes: PaletteInfo[] = [
+				{ name: "Primary" }, // hue-scale特定不可
+				{ name: "Secondary" }, // hue-scale特定不可
+			];
+			const mapper = createSemanticRoleMapper(palettes, HarmonyType.DADS);
+			const unresolvedRoles = mapper.lookupUnresolvedBrandRoles();
+
+			// 未解決ロールが存在することを確認
+			expect(unresolvedRoles).toHaveLength(2);
+			expect(unresolvedRoles.map((r) => r.name)).toContain("Primary");
+			expect(unresolvedRoles.map((r) => r.name)).toContain("Secondary");
+		});
+
+		it("未解決ロールがない場合にバーが表示されないこと", () => {
+			// hue-scale特定可能なパレットのみ
+			const palettes: PaletteInfo[] = [
+				{ name: "Primary", baseChromaName: "Blue", step: 600 },
+			];
+			const mapper = createSemanticRoleMapper(palettes, HarmonyType.DADS);
+			const unresolvedRoles = mapper.lookupUnresolvedBrandRoles();
+
+			// 未解決ロールが空であること
+			expect(unresolvedRoles).toHaveLength(0);
+		});
+	});
+
+	describe("Task 10.2: DOM統合テスト - 未解決ロールバーの配置", () => {
+		/**
+		 * 注: renderShadesViewはdemo.ts内のプライベート関数であり、
+		 * DADSトークンの非同期読み込みなど複雑な依存があるため直接テスト困難。
+		 * 以下のテストはrenderShadesView内のロジックを再現してDOM操作を検証。
+		 * 実際のrenderShadesViewの統合検証はTask 11のE2Eテストで実施予定。
+		 * @see e2e/semantic-role-test-page.html
+		 */
+		it("未解決ロールバーがDOMに追加されること", async () => {
+			// external-role-info-barのrenderUnresolvedRolesBarをテスト
+			const { renderUnresolvedRolesBar } = await import(
+				"./external-role-info-bar"
+			);
+
+			const container = document.createElement("div");
+
+			// 説明セクション（renderShadesView内のinfoSection相当）
+			const infoSection = document.createElement("div");
+			infoSection.className = "dads-info-section";
+			container.appendChild(infoSection);
+
+			// 未解決ロールバーを追加（renderShadesView内のロジック相当）
+			const unresolvedRoles: SemanticRole[] = [
+				{
+					name: "Primary",
+					category: "primary",
+					fullName: "[Primary] Primary",
+					shortLabel: "P",
+				},
+				{
+					name: "Secondary",
+					category: "secondary",
+					fullName: "[Secondary] Secondary",
+					shortLabel: "S",
+				},
+			];
+			const unresolvedItems = unresolvedRoles.map((role) => ({ role }));
+			const unresolvedBar = renderUnresolvedRolesBar(unresolvedItems);
+			if (unresolvedBar) {
+				container.appendChild(unresolvedBar);
+			}
+
+			// 色相セクション（renderShadesView内のrenderDadsHueSection相当）
+			const hueSection = document.createElement("section");
+			hueSection.className = "dads-hue-section";
+			container.appendChild(hueSection);
+
+			// 検証: 未解決ロールバーが1件だけ存在すること
+			const unresolvedBars = container.querySelectorAll(
+				".dads-unresolved-roles-bar",
+			);
+			expect(unresolvedBars).toHaveLength(1);
+
+			// 検証: 未解決ロールバーが色相セクションより前に配置されていること
+			const children = Array.from(container.children);
+			const barIndex = children.findIndex((el) =>
+				el.classList.contains("dads-unresolved-roles-bar"),
+			);
+			const sectionIndex = children.findIndex((el) =>
+				el.classList.contains("dads-hue-section"),
+			);
+			expect(barIndex).toBeLessThan(sectionIndex);
+			expect(barIndex).toBeGreaterThan(0); // infoSectionの後
+
+			// 検証: バッジが2つ存在すること（Primary, Secondary）
+			const badges = container.querySelectorAll(".dads-role-badge");
+			expect(badges).toHaveLength(2);
+		});
+
+		it("未解決ロールがない場合はDOMにバーが追加されないこと", async () => {
+			const { renderUnresolvedRolesBar } = await import(
+				"./external-role-info-bar"
+			);
+
+			const container = document.createElement("div");
+
+			// 説明セクション
+			const infoSection = document.createElement("div");
+			infoSection.className = "dads-info-section";
+			container.appendChild(infoSection);
+
+			// 未解決ロールが空の場合
+			const unresolvedBar = renderUnresolvedRolesBar([]);
+			if (unresolvedBar) {
+				container.appendChild(unresolvedBar);
+			}
+
+			// 色相セクション
+			const hueSection = document.createElement("section");
+			hueSection.className = "dads-hue-section";
+			container.appendChild(hueSection);
+
+			// 検証: 未解決ロールバーが存在しないこと
+			const unresolvedBars = container.querySelectorAll(
+				".dads-unresolved-roles-bar",
+			);
+			expect(unresolvedBars).toHaveLength(0);
+		});
+
+		it("シェードビュー全体で1回のみ表示されること（複数色相セクションがあっても）", async () => {
+			const { renderUnresolvedRolesBar } = await import(
+				"./external-role-info-bar"
+			);
+
+			const container = document.createElement("div");
+
+			// 未解決ロールバーを1回だけ追加（renderShadesViewのロジック）
+			const unresolvedRoles: SemanticRole[] = [
+				{
+					name: "Primary",
+					category: "primary",
+					fullName: "[Primary] Primary",
+					shortLabel: "P",
+				},
+			];
+			const unresolvedBar = renderUnresolvedRolesBar(
+				unresolvedRoles.map((role) => ({ role })),
+			);
+			if (unresolvedBar) {
+				container.appendChild(unresolvedBar);
+			}
+
+			// 複数の色相セクションを追加
+			for (let i = 0; i < 3; i++) {
+				const hueSection = document.createElement("section");
+				hueSection.className = "dads-hue-section";
+				container.appendChild(hueSection);
+			}
+
+			// 検証: 未解決ロールバーは1件のみ（複数セクションがあっても）
+			const unresolvedBars = container.querySelectorAll(
+				".dads-unresolved-roles-bar",
+			);
+			expect(unresolvedBars).toHaveLength(1);
+
+			// 検証: 色相セクションは3件
+			const hueSections = container.querySelectorAll(".dads-hue-section");
+			expect(hueSections).toHaveLength(3);
+		});
+	});
 });

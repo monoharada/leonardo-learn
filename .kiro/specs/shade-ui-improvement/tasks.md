@@ -302,7 +302,7 @@
   - 統合テスト: ブランドロール（hue-scale特定可能）が該当DADSスウォッチで円形化されること
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 4.1, 4.2_
 
-- [ ] 10.2 renderShadesViewにhue-scale不定ロールバーを追加する
+- [x] 10.2 renderShadesViewにhue-scale不定ロールバーを追加する
   - **最初の色相セクションの前**にExternalRoleInfoBar.renderUnresolvedRolesBarを呼び出し
   - lookupUnresolvedBrandRoles()でhue-scale不定のブランドロールを取得
   - **シェードビュー全体で1回のみ表示**（各色相セクションでの繰り返し表示は行わない）

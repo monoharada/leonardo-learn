@@ -44,6 +44,10 @@ import {
 	showPaletteValidation,
 	snapToCudColor,
 } from "./cud-components";
+import {
+	renderUnresolvedRolesBar,
+	type UnresolvedRoleItem,
+} from "./semantic-role/external-role-info-bar";
 import { applyOverlay } from "./semantic-role/semantic-role-overlay";
 import {
 	type ContrastIntensity,
@@ -1868,6 +1872,21 @@ export const runDemo = () => {
 				</p>
 			`;
 			container.appendChild(infoSection);
+
+			// Task 10.2: hue-scale不定ブランドロールバーを最初の色相セクションの前に表示
+			// シェードビュー全体で1回のみ表示（各色相セクションでの繰り返し表示は行わない）
+			const unresolvedBrandRoles = roleMapper.lookupUnresolvedBrandRoles();
+			if (unresolvedBrandRoles.length > 0) {
+				const unresolvedItems: UnresolvedRoleItem[] = unresolvedBrandRoles.map(
+					(role) => ({
+						role,
+					}),
+				);
+				const unresolvedBar = renderUnresolvedRolesBar(unresolvedItems);
+				if (unresolvedBar) {
+					container.appendChild(unresolvedBar);
+				}
+			}
 
 			// 各色相のセクションを描画（Task 4.3: オーバーレイ適用のためにroleMapperを渡す）
 			for (const colorScale of chromaticScales) {
