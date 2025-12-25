@@ -93,6 +93,21 @@
             white-space: nowrap;
             border: 0;
         }
+
+        /* 円形スウォッチ（Task 11.1対応）
+         * components.cssと同じスタイルを明示的に定義
+         * - border-radius: 50%で円形化
+         * - 内部のラベル表示用に中央寄せ
+         */
+        .dads-swatch--circular {
+            border-radius: 50% !important;
+        }
+        .dads-swatch__role-label {
+            position: absolute;
+            font-weight: bold;
+            font-size: 14px;
+            z-index: 10;
+        }
     </style>
 </head>
 <body>
@@ -143,8 +158,9 @@
     </section>
 
     <script type="module">
-        import {applyOverlay, Color, 
-            createSemanticRoleMapper,getAllDadsChromatic, HarmonyType, loadDadsTokens, verifyContrast 
+        import {applyOverlay, Color,
+            createSemanticRoleMapper, getAllDadsChromatic, HarmonyType, loadDadsTokens, verifyContrast,
+            renderRoleInfoBar, renderUnresolvedRolesBar
         } from '../dist/index.js';
 
         // DOM Elements
@@ -188,9 +204,12 @@
                 const harmonyType = harmonyTypeMap[currentHarmonyType];
 
                 // Create palettes for brand roles
+                // Issue 5修正: 未解決ブランドロール（hue/scale特定不可）を発生させるため、
+                // 2つ目のSecondaryを追加（baseChromaName/step未指定）
                 const palettes = [
                     { name: 'Primary', baseChromaName: 'Blue', step: 600 },
                     { name: 'Secondary', baseChromaName: 'Purple', step: 500 },
+                    { name: 'Secondary' },  // 未解決ロール（baseChromaName/step未指定）
                 ];
 
                 // Generate role mapping
@@ -202,6 +221,19 @@
                 // Render brand section if DADS
                 if (harmonyType === HarmonyType.DADS) {
                     renderBrandSection(container, brandHex, 'Primary', roleMapper);
+                }
+
+                // Task 11.3: 未解決ロールバーを最初の色相セクションの前に表示
+                if (harmonyType === HarmonyType.DADS && roleMapper) {
+                    const unresolvedRoles = roleMapper.lookupUnresolvedBrandRoles();
+                    if (unresolvedRoles.length > 0) {
+                        const unresolvedBar = renderUnresolvedRolesBar(
+                            unresolvedRoles.map(role => ({ role }))
+                        );
+                        if (unresolvedBar) {
+                            container.appendChild(unresolvedBar);
+                        }
+                    }
                 }
 
                 // Render DADS color sections
@@ -246,6 +278,9 @@
             const scaleContainer = document.createElement('div');
             scaleContainer.className = 'scale-container';
 
+            // Task 11.3: 欄外ロール情報バー用のroleInfoItemsを収集
+            const roleInfoItems = [];
+
             for (const colorItem of colorScale.colors) {
                 const swatch = document.createElement('div');
                 swatch.className = 'dads-swatch';
@@ -278,6 +313,15 @@
                     const roles = roleMapper.lookupRoles(colorScale.hue, colorItem.scale);
                     if (roles.length > 0) {
                         applyOverlay(swatch, colorScale.hue, colorItem.scale, roles, false, colorItem.hex);
+
+                        // Task 11.3: 欄外ロール情報バー用のroleInfoItemを収集
+                        for (const role of roles) {
+                            roleInfoItems.push({
+                                role: role,
+                                scale: colorItem.scale,
+                                swatchElement: swatch,
+                            });
+                        }
                     }
                 }
 
@@ -285,6 +329,13 @@
             }
 
             section.appendChild(scaleContainer);
+
+            // Task 11.3: 欄外ロール情報バーを追加
+            if (roleInfoItems.length > 0 && harmonyType === HarmonyType.DADS) {
+                const roleInfoBar = renderRoleInfoBar(roleInfoItems);
+                section.appendChild(roleInfoBar);
+            }
+
             container.appendChild(section);
         }
 
