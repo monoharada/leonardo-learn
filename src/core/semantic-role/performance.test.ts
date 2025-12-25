@@ -5,6 +5,10 @@
  * - 10色相×13スケール（130シェード）のマッピング生成が200ms以内であること
  * - DOM追加によるレンダリングブロッキングがないこと
  *
+ * Task 11.5: パフォーマンステストを更新する
+ * - マッピング計算 + コントラスト境界計算が200ms以内であること
+ * - DOM追加（円形スウォッチ + 欄外情報 + 境界ピル）によるレンダリングブロッキングがないこと
+ *
  * Requirements: 5.1, 5.2
  */
 
@@ -12,6 +16,10 @@ import { JSDOM } from "jsdom";
 import { beforeAll, describe, expect, it } from "vitest";
 import { HarmonyType } from "@/core/harmony";
 import type { DadsColorHue } from "@/core/tokens/types";
+import {
+	type ColorItem,
+	calculateBoundaries,
+} from "./contrast-boundary-calculator";
 import {
 	createSemanticRoleMapper,
 	generateRoleMapping,
@@ -139,17 +147,175 @@ describe("パフォーマンステスト", () => {
 		});
 	});
 
+	describe("Task 11.5: コントラスト境界計算パフォーマンス", () => {
+		/**
+		 * 典型的なDADSカラースケール（13スケール）を生成
+		 * 明るい色から暗い色へのグラデーション
+		 */
+		function generateTypicalColorScale(hue: string): ColorItem[] {
+			// 実際のDADSカラースケールに近いHEX値を生成
+			// scale 50（最も明るい）からscale 1200（最も暗い）
+			const hexByScale: Record<number, string> = {
+				50: "#F8FAFC",
+				100: "#F1F5F9",
+				200: "#E2E8F0",
+				300: "#CBD5E1",
+				400: "#94A3B8",
+				500: "#64748B",
+				600: "#475569",
+				700: "#334155",
+				800: "#1E293B",
+				900: "#0F172A",
+				1000: "#0A1120",
+				1100: "#050810",
+				1200: "#020408",
+			};
+
+			return Object.entries(hexByScale).map(([scale, hex]) => ({
+				scale: Number.parseInt(scale, 10),
+				hex,
+			}));
+		}
+
+		it("10色相×13スケールのコントラスト境界計算が200ms以内であること", () => {
+			const hues: DadsColorHue[] = [
+				"blue",
+				"green",
+				"red",
+				"yellow",
+				"purple",
+				"orange",
+				"cyan",
+				"magenta",
+				"lime",
+				"light-blue",
+			];
+
+			// 各色相のカラースケールを生成
+			const colorScales = hues.map((hue) => generateTypicalColorScale(hue));
+
+			const iterations = 10;
+			const times: number[] = [];
+
+			for (let i = 0; i < iterations; i++) {
+				const startTime = performance.now();
+
+				// 10色相すべてのコントラスト境界を計算
+				for (const colors of colorScales) {
+					calculateBoundaries(colors);
+				}
+
+				const endTime = performance.now();
+				times.push(endTime - startTime);
+			}
+
+			const averageTime = times.reduce((sum, t) => sum + t, 0) / times.length;
+			const maxTime = Math.max(...times);
+
+			console.log(`コントラスト境界計算パフォーマンス:
+        - 平均時間: ${averageTime.toFixed(2)}ms
+        - 最大時間: ${maxTime.toFixed(2)}ms
+        - 色相数: ${hues.length}
+        - 要件: 200ms以内`);
+
+			expect(averageTime).toBeLessThan(200);
+			expect(maxTime).toBeLessThan(200);
+		});
+
+		it("マッピング生成 + コントラスト境界計算の合計が200ms以内であること", () => {
+			const palettes: PaletteInfo[] = [
+				{ name: "Primary", baseChromaName: "Blue", step: 600 },
+				{ name: "Secondary", baseChromaName: "Purple", step: 500 },
+			];
+
+			const hues: DadsColorHue[] = [
+				"blue",
+				"green",
+				"red",
+				"yellow",
+				"purple",
+				"orange",
+				"cyan",
+				"magenta",
+				"lime",
+				"light-blue",
+			];
+
+			// 各色相のカラースケールを生成
+			const colorScales = hues.map((hue) => generateTypicalColorScale(hue));
+
+			const iterations = 10;
+			const times: number[] = [];
+
+			for (let i = 0; i < iterations; i++) {
+				const startTime = performance.now();
+
+				// 1. マッピング生成
+				generateRoleMapping(palettes, HarmonyType.DADS);
+
+				// 2. 10色相すべてのコントラスト境界を計算
+				for (const colors of colorScales) {
+					calculateBoundaries(colors);
+				}
+
+				const endTime = performance.now();
+				times.push(endTime - startTime);
+			}
+
+			const averageTime = times.reduce((sum, t) => sum + t, 0) / times.length;
+			const maxTime = Math.max(...times);
+
+			console.log(`マッピング + 境界計算 合計パフォーマンス:
+        - 平均時間: ${averageTime.toFixed(2)}ms
+        - 最大時間: ${maxTime.toFixed(2)}ms
+        - 要件: 200ms以内 (Requirements 5.1)`);
+
+			// Requirements 5.1: マッピング計算 + コントラスト境界計算を200ms以内に完了
+			expect(averageTime).toBeLessThan(200);
+			expect(maxTime).toBeLessThan(200);
+		});
+
+		it("1000回のコントラスト境界計算が高速であること", () => {
+			const colors = generateTypicalColorScale("blue");
+
+			const iterations = 1000;
+			const startTime = performance.now();
+
+			for (let i = 0; i < iterations; i++) {
+				calculateBoundaries(colors);
+			}
+
+			const endTime = performance.now();
+			const totalTime = endTime - startTime;
+
+			console.log(`コントラスト境界計算 高頻度パフォーマンス:
+        - 1000回の計算: ${totalTime.toFixed(2)}ms
+        - 1回あたり: ${(totalTime / iterations).toFixed(3)}ms`);
+
+			// 1000回の計算が1秒以内
+			expect(totalTime).toBeLessThan(1000);
+		});
+	});
+
 	describe("Task 5.2: DOM操作パフォーマンス", () => {
 		/**
 		 * 注意: JSDOMはブラウザDOMより大幅に遅いため、
 		 * ユニットテストではDOM操作数と相対的なパフォーマンスを検証する。
 		 * 実際のブラウザでの200ms以内要件はE2Eテストで検証する。
+		 *
+		 * Requirements 5.2: DOM要素の追加を最小限に抑える
+		 * - 各コンポーネントで追加される子要素数を明示的に検証
 		 */
 		it("130シェードへのオーバーレイ適用がDOM要素を正しく生成すること", async () => {
 			// オーバーレイ適用関数をインポート
 			const { applyOverlay } = await import(
 				"@/ui/semantic-role/semantic-role-overlay"
 			);
+
+			// コンテナを作成してdocument.bodyに追加（レンダリングブロッキング検証用）
+			const container = document.createElement("div");
+			container.id = "test-overlay-container";
+			document.body.appendChild(container);
 
 			// 130個のスウォッチ要素を作成
 			const swatches: HTMLElement[] = [];
@@ -175,7 +341,11 @@ describe("パフォーマンステスト", () => {
 					swatch.className = "dads-swatch";
 					swatch.dataset.hue = hue;
 					swatch.dataset.scale = String(scale);
+					swatch.style.width = "50px";
+					swatch.style.height = "50px";
+					swatch.style.display = "inline-block";
 					swatch.setAttribute("title", `#AABBCC - Test ${hue} ${scale}`);
+					container.appendChild(swatch);
 					swatches.push(swatch);
 				}
 			}
@@ -205,6 +375,8 @@ describe("パフォーマンステスト", () => {
 					const scale = Number.parseInt(swatch.dataset.scale || "0", 10);
 					// Task 10.1: 新UI仕様でbackgroundColorを追加
 					applyOverlay(swatch, hue, scale, testRoles, false, "#AABBCC");
+					// レイアウト読み取りを強制してレンダリングブロッキングを検証
+					swatch.getBoundingClientRect();
 					appliedCount++;
 				}
 			}
@@ -231,12 +403,31 @@ describe("パフォーマンステスト", () => {
 
 			expect(circularCount).toBe(appliedCount);
 			expect(labelCount).toBe(appliedCount);
+
+			// Requirements 5.2: DOM要素の追加を最小限に抑える
+			// 各オーバーレイ付きスウォッチには2つの子要素が追加される
+			// - ラベル要素（.dads-swatch__role-label）
+			// - 説明要素（aria-describedby用の非表示要素）
+			for (const swatch of swatches) {
+				if (swatch.classList.contains("dads-swatch--circular")) {
+					// 子要素数を検証（ラベル + 説明要素）
+					expect(swatch.childElementCount).toBe(2);
+				}
+			}
+
+			// クリーンアップ
+			container.remove();
 		});
 
 		it("全スウォッチへのオーバーレイ適用で正しいDOM構造が生成されること（新UI）", async () => {
 			const { applyOverlay } = await import(
 				"@/ui/semantic-role/semantic-role-overlay"
 			);
+
+			// コンテナを作成してdocument.bodyに追加（レンダリングブロッキング検証用）
+			const container = document.createElement("div");
+			container.id = "test-small-overlay-container";
+			document.body.appendChild(container);
 
 			// 20個のスウォッチ要素を作成（JSDOMの制限を考慮して小規模に）
 			const swatches: HTMLElement[] = [];
@@ -249,7 +440,11 @@ describe("パフォーマンステスト", () => {
 					swatch.className = "dads-swatch";
 					swatch.dataset.hue = hue;
 					swatch.dataset.scale = String(scale);
+					swatch.style.width = "50px";
+					swatch.style.height = "50px";
+					swatch.style.display = "inline-block";
 					swatch.setAttribute("title", `#AABBCC - Test ${hue} ${scale}`);
+					container.appendChild(swatch);
 					swatches.push(swatch);
 				}
 			}
@@ -279,6 +474,8 @@ describe("パフォーマンステスト", () => {
 				const hue = swatch.dataset.hue as DadsColorHue;
 				const scale = Number.parseInt(swatch.dataset.scale || "0", 10);
 				applyOverlay(swatch, hue, scale, testRoles, false, "#AABBCC");
+				// レイアウト読み取りを強制してレンダリングブロッキングを検証
+				swatch.getBoundingClientRect();
 			}
 
 			const endTime = performance.now();
@@ -300,6 +497,9 @@ describe("パフォーマンステスト", () => {
 				// aria-describedbyが設定されていること
 				expect(swatch.getAttribute("aria-describedby")).not.toBeNull();
 			}
+
+			// クリーンアップ
+			container.remove();
 		});
 
 		it("DOM操作のパフォーマンスが概ね線形にスケールすること（新UI）", async () => {
@@ -324,11 +524,20 @@ describe("パフォーマンステスト", () => {
 			const times: number[] = [];
 
 			for (const size of sizes) {
+				// 各サイズごとにコンテナを作成
+				const container = document.createElement("div");
+				container.id = `test-scaling-container-${size}`;
+				document.body.appendChild(container);
+
 				const swatches: HTMLElement[] = [];
 				for (let i = 0; i < size; i++) {
 					const swatch = document.createElement("div");
 					swatch.className = "dads-swatch";
+					swatch.style.width = "50px";
+					swatch.style.height = "50px";
+					swatch.style.display = "inline-block";
 					swatch.setAttribute("title", `Test ${i}`);
+					container.appendChild(swatch);
 					swatches.push(swatch);
 				}
 
@@ -336,9 +545,14 @@ describe("パフォーマンステスト", () => {
 				for (const swatch of swatches) {
 					// Task 10.1: 新UI仕様でbackgroundColorを追加
 					applyOverlay(swatch, "blue", 600, testRoles, false, "#3B82F6");
+					// レイアウト読み取りを強制してレンダリングブロッキングを検証
+					swatch.getBoundingClientRect();
 				}
 				const endTime = performance.now();
 				times.push(endTime - startTime);
+
+				// クリーンアップ
+				container.remove();
 			}
 
 			console.log(`線形スケーリング検証:
@@ -362,6 +576,424 @@ describe("パフォーマンステスト", () => {
 			// JSDOMでは初期化オーバーヘッドがあるため、ある程度の変動は許容
 			expect(timePerElement2).toBeLessThan(timePerElement1 * 3); // 3倍以内
 			expect(timePerElement3).toBeLessThan(timePerElement1 * 3); // 3倍以内
+		});
+	});
+
+	describe("Task 11.5: 欄外情報 + 境界ピル DOM操作パフォーマンス", () => {
+		/**
+		 * Task 11.5: 新UIコンポーネント（欄外情報バー + 境界ピル）の
+		 * DOM操作がレンダリングブロッキングを起こさないことを検証
+		 *
+		 * Requirements 5.2: DOM要素の追加を最小限に抑える
+		 * - document.bodyへ追加してレイアウト読み取りを検証
+		 * - 子要素数を明示的に検証
+		 */
+		it("欄外ロール情報バー生成が高速であること", async () => {
+			const { renderRoleInfoBar } = await import(
+				"@/ui/semantic-role/external-role-info-bar"
+			);
+			type RoleInfoItemType =
+				import("@/ui/semantic-role/external-role-info-bar").RoleInfoItem;
+
+			// コンテナを作成してdocument.bodyに追加（レンダリングブロッキング検証用）
+			const container = document.createElement("div");
+			container.id = "test-role-info-container";
+			document.body.appendChild(container);
+
+			// スウォッチ要素を作成してコンテナに追加
+			const swatches: HTMLElement[] = [];
+			for (let i = 0; i < 20; i++) {
+				const swatch = document.createElement("div");
+				swatch.className = "dads-swatch";
+				swatch.style.width = "50px";
+				swatch.style.height = "50px";
+				swatch.style.display = "inline-block";
+				container.appendChild(swatch);
+				swatches.push(swatch);
+			}
+
+			// RoleInfoItemを作成
+			const roleItems: RoleInfoItemType[] = swatches.map((swatch, i) => ({
+				role: {
+					name: `Role${i}`,
+					category: i % 2 === 0 ? "primary" : "semantic",
+					fullName: `[Test] Role${i}`,
+					shortLabel: i % 2 === 0 ? "P" : "Su",
+				} as SemanticRole,
+				scale: (i + 1) * 100,
+				swatchElement: swatch,
+			}));
+
+			const iterations = 10;
+			const times: number[] = [];
+
+			for (let i = 0; i < iterations; i++) {
+				const startTime = performance.now();
+				const bar = renderRoleInfoBar(roleItems);
+				container.appendChild(bar);
+				// レイアウト読み取りを強制してレンダリングブロッキングを検証
+				bar.getBoundingClientRect();
+				const endTime = performance.now();
+				times.push(endTime - startTime);
+				// 次のイテレーションのためにバーを削除
+				bar.remove();
+			}
+
+			const averageTime = times.reduce((sum, t) => sum + t, 0) / times.length;
+
+			console.log(`欄外ロール情報バー生成パフォーマンス:
+        - アイテム数: ${roleItems.length}
+        - 平均時間: ${averageTime.toFixed(2)}ms
+        - 1アイテムあたり: ${(averageTime / roleItems.length).toFixed(3)}ms`);
+
+			// 20アイテムの処理が50ms以内
+			expect(averageTime).toBeLessThan(50);
+
+			// Requirements 5.2: DOM要素数を検証
+			const finalBar = renderRoleInfoBar(roleItems);
+			container.appendChild(finalBar);
+			// 欄外情報バーの子要素数を検証
+			// 各ロールに対して：情報要素（1つ）+ コネクタ（1つ）= 2つ
+			expect(finalBar.childElementCount).toBe(roleItems.length * 2);
+
+			// クリーンアップ
+			container.remove();
+		});
+
+		it("未解決ロールバー生成が高速であること", async () => {
+			const { renderUnresolvedRolesBar } = await import(
+				"@/ui/semantic-role/external-role-info-bar"
+			);
+			type UnresolvedRoleItemType =
+				import("@/ui/semantic-role/external-role-info-bar").UnresolvedRoleItem;
+
+			// コンテナを作成してdocument.bodyに追加（レンダリングブロッキング検証用）
+			const container = document.createElement("div");
+			container.id = "test-unresolved-container";
+			document.body.appendChild(container);
+
+			// 未解決ロールアイテムを作成
+			const unresolvedRoles: UnresolvedRoleItemType[] = [];
+			for (let i = 0; i < 10; i++) {
+				unresolvedRoles.push({
+					role: {
+						name: `UnresolvedRole${i}`,
+						category: i % 2 === 0 ? "primary" : "secondary",
+						fullName: `[Unresolved] Role${i}`,
+						shortLabel: i % 2 === 0 ? "P" : "S",
+					} as SemanticRole,
+				});
+			}
+
+			const iterations = 10;
+			const times: number[] = [];
+
+			for (let i = 0; i < iterations; i++) {
+				const startTime = performance.now();
+				const bar = renderUnresolvedRolesBar(unresolvedRoles);
+				container.appendChild(bar);
+				// レイアウト読み取りを強制してレンダリングブロッキングを検証
+				bar.getBoundingClientRect();
+				const endTime = performance.now();
+				times.push(endTime - startTime);
+				// 次のイテレーションのためにバーを削除
+				bar.remove();
+			}
+
+			const averageTime = times.reduce((sum, t) => sum + t, 0) / times.length;
+
+			console.log(`未解決ロールバー生成パフォーマンス:
+        - ロール数: ${unresolvedRoles.length}
+        - 平均時間: ${averageTime.toFixed(2)}ms`);
+
+			// 10ロールの処理が30ms以内
+			expect(averageTime).toBeLessThan(30);
+
+			// Requirements 5.2: DOM要素数を検証
+			const finalBar = renderUnresolvedRolesBar(unresolvedRoles);
+			container.appendChild(finalBar!);
+			// 未解決ロールバーの子要素数を検証
+			// 先頭ラベル（1つ）+ 各ロールのバッジ（n個）= 1 + n
+			expect(finalBar!.childElementCount).toBe(unresolvedRoles.length + 1);
+
+			// クリーンアップ
+			container.remove();
+		});
+
+		it("コントラスト境界ピル生成が高速であること", async () => {
+			const { renderBoundaryPills } = await import(
+				"@/ui/semantic-role/contrast-boundary-indicator"
+			);
+			const { calculateBoundaries: calcBoundaries } = await import(
+				"@/core/semantic-role/contrast-boundary-calculator"
+			);
+
+			// コンテナを作成してdocument.bodyに追加（レンダリングブロッキング検証用）
+			const container = document.createElement("div");
+			container.id = "test-boundary-container";
+			container.style.position = "relative";
+			document.body.appendChild(container);
+
+			// 典型的なカラースケールを生成
+			const colors: ColorItem[] = [
+				{ scale: 50, hex: "#F8FAFC" },
+				{ scale: 100, hex: "#F1F5F9" },
+				{ scale: 200, hex: "#E2E8F0" },
+				{ scale: 300, hex: "#CBD5E1" },
+				{ scale: 400, hex: "#94A3B8" },
+				{ scale: 500, hex: "#64748B" },
+				{ scale: 600, hex: "#475569" },
+				{ scale: 700, hex: "#334155" },
+				{ scale: 800, hex: "#1E293B" },
+				{ scale: 900, hex: "#0F172A" },
+				{ scale: 1000, hex: "#0A1120" },
+				{ scale: 1100, hex: "#050810" },
+				{ scale: 1200, hex: "#020408" },
+			];
+
+			// スウォッチ要素を作成してscaleElementsマップを構築（コンテナに追加）
+			const scaleElements = new Map<number, HTMLElement>();
+			for (const color of colors) {
+				const swatch = document.createElement("div");
+				swatch.className = "dads-swatch";
+				swatch.style.width = "50px";
+				swatch.style.height = "50px";
+				swatch.style.display = "inline-block";
+				swatch.style.position = "relative";
+				container.appendChild(swatch);
+				scaleElements.set(color.scale, swatch);
+			}
+
+			const boundaries = calcBoundaries(colors);
+
+			const iterations = 10;
+			const times: number[] = [];
+
+			for (let i = 0; i < iterations; i++) {
+				const startTime = performance.now();
+				const pillContainer = renderBoundaryPills(boundaries, scaleElements);
+				container.appendChild(pillContainer);
+				// レイアウト読み取りを強制してレンダリングブロッキングを検証
+				pillContainer.getBoundingClientRect();
+				const endTime = performance.now();
+				times.push(endTime - startTime);
+				// 次のイテレーションのためにピルコンテナを削除
+				pillContainer.remove();
+			}
+
+			const averageTime = times.reduce((sum, t) => sum + t, 0) / times.length;
+
+			console.log(`コントラスト境界ピル生成パフォーマンス:
+        - ピル数: 最大4個
+        - 平均時間: ${averageTime.toFixed(2)}ms`);
+
+			// 4ピルの処理が20ms以内
+			expect(averageTime).toBeLessThan(20);
+
+			// Requirements 5.2: DOM要素数を検証
+			const finalPillContainer = renderBoundaryPills(boundaries, scaleElements);
+			container.appendChild(finalPillContainer);
+			// コントラスト境界ピルは最大4個（白3:1, 白4.5:1, 黒4.5:1, 黒3:1）
+			expect(finalPillContainer.childElementCount).toBeLessThanOrEqual(4);
+
+			// クリーンアップ
+			container.remove();
+		});
+
+		it("全新UI要素（円形 + 欄外 + ピル）の統合DOM操作が高速であること", async () => {
+			const { applyOverlay } = await import(
+				"@/ui/semantic-role/semantic-role-overlay"
+			);
+			const { renderRoleInfoBar } = await import(
+				"@/ui/semantic-role/external-role-info-bar"
+			);
+			const { renderBoundaryPills } = await import(
+				"@/ui/semantic-role/contrast-boundary-indicator"
+			);
+			const { calculateBoundaries: calcBoundaries } = await import(
+				"@/core/semantic-role/contrast-boundary-calculator"
+			);
+
+			// 1色相分のセットアップ（13スケール）
+			const scales = [
+				50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200,
+			];
+
+			// カラーアイテム
+			const colors: ColorItem[] = [
+				{ scale: 50, hex: "#F8FAFC" },
+				{ scale: 100, hex: "#F1F5F9" },
+				{ scale: 200, hex: "#E2E8F0" },
+				{ scale: 300, hex: "#CBD5E1" },
+				{ scale: 400, hex: "#94A3B8" },
+				{ scale: 500, hex: "#64748B" },
+				{ scale: 600, hex: "#475569" },
+				{ scale: 700, hex: "#334155" },
+				{ scale: 800, hex: "#1E293B" },
+				{ scale: 900, hex: "#0F172A" },
+				{ scale: 1000, hex: "#0A1120" },
+				{ scale: 1100, hex: "#050810" },
+				{ scale: 1200, hex: "#020408" },
+			];
+
+			// ロールを持つスウォッチ（約15%）
+			const roleSwatchIndices = [2, 5, 8, 10]; // scale 200, 500, 800, 1000
+			const testRoles: SemanticRole[] = [
+				{
+					name: "Success",
+					category: "semantic",
+					fullName: "[Semantic] Success",
+					semanticSubType: "success",
+					shortLabel: "Su",
+				},
+			];
+
+			const iterations = 10;
+			const times: number[] = [];
+
+			for (let iter = 0; iter < iterations; iter++) {
+				// 各イテレーションで新しいDOMを作成（状態蓄積を防止）
+				const container = document.createElement("div");
+				container.id = `test-integration-container-${iter}`;
+				container.style.position = "relative";
+				document.body.appendChild(container);
+
+				const swatches: HTMLElement[] = [];
+				const scaleElements = new Map<number, HTMLElement>();
+
+				for (const scale of scales) {
+					const swatch = document.createElement("div");
+					swatch.className = "dads-swatch";
+					swatch.setAttribute("title", `#AABBCC - blue ${scale}`);
+					swatch.style.width = "50px";
+					swatch.style.height = "50px";
+					swatch.style.display = "inline-block";
+					container.appendChild(swatch);
+					swatches.push(swatch);
+					scaleElements.set(scale, swatch);
+				}
+
+				const startTime = performance.now();
+
+				// 1. 円形スウォッチへのオーバーレイ適用
+				const roleItems: Array<{
+					role: SemanticRole;
+					scale: number;
+					swatchElement: HTMLElement;
+				}> = [];
+				for (const idx of roleSwatchIndices) {
+					const swatch = swatches[idx];
+					const scale = scales[idx];
+					if (swatch && scale !== undefined) {
+						applyOverlay(swatch, "blue", scale, testRoles, false, "#64748B");
+						roleItems.push({
+							role: testRoles[0],
+							scale,
+							swatchElement: swatch,
+						});
+					}
+				}
+
+				// 2. 欄外情報バー生成
+				const infoBar = renderRoleInfoBar(roleItems);
+				container.appendChild(infoBar);
+
+				// 3. コントラスト境界計算 + ピル生成
+				const boundaries = calcBoundaries(colors);
+				const pillContainer = renderBoundaryPills(boundaries, scaleElements);
+				container.appendChild(pillContainer);
+
+				// レイアウト読み取りを強制してレンダリングブロッキングを検証
+				infoBar.getBoundingClientRect();
+				pillContainer.getBoundingClientRect();
+
+				const endTime = performance.now();
+				times.push(endTime - startTime);
+
+				// クリーンアップ（次のイテレーションのため）
+				container.remove();
+			}
+
+			const averageTime = times.reduce((sum, t) => sum + t, 0) / times.length;
+			const maxTime = Math.max(...times);
+
+			console.log(`全新UI要素 統合DOM操作パフォーマンス:
+        - スウォッチ数: ${scales.length}
+        - ロール割り当て数: ${roleSwatchIndices.length}
+        - 平均時間: ${averageTime.toFixed(2)}ms
+        - 最大時間: ${maxTime.toFixed(2)}ms
+        - 注: 1色相分のDOM操作。10色相では約10倍だがE2Eで200ms要件を検証`);
+
+			// 1色相分の処理が50ms以内（10色相で500ms以内の見込み）
+			// JSDOMはブラウザより遅いため、実際のE2Eでは200ms要件を満たす
+			expect(averageTime).toBeLessThan(50);
+
+			// Requirements 5.2: 最終的なDOM要素数を検証
+			// 新しいコンテナで検証用に一度だけ実行
+			const verifyContainer = document.createElement("div");
+			verifyContainer.id = "test-integration-verify";
+			verifyContainer.style.position = "relative";
+			document.body.appendChild(verifyContainer);
+
+			const verifySwatches: HTMLElement[] = [];
+			const verifyScaleElements = new Map<number, HTMLElement>();
+			for (const scale of scales) {
+				const swatch = document.createElement("div");
+				swatch.className = "dads-swatch";
+				swatch.setAttribute("title", `#AABBCC - blue ${scale}`);
+				swatch.style.width = "50px";
+				swatch.style.height = "50px";
+				swatch.style.display = "inline-block";
+				verifyContainer.appendChild(swatch);
+				verifySwatches.push(swatch);
+				verifyScaleElements.set(scale, swatch);
+			}
+
+			// オーバーレイ適用
+			const verifyRoleItems: Array<{
+				role: SemanticRole;
+				scale: number;
+				swatchElement: HTMLElement;
+			}> = [];
+			for (const idx of roleSwatchIndices) {
+				const swatch = verifySwatches[idx];
+				const scale = scales[idx];
+				if (swatch && scale !== undefined) {
+					applyOverlay(swatch, "blue", scale, testRoles, false, "#64748B");
+					verifyRoleItems.push({
+						role: testRoles[0],
+						scale,
+						swatchElement: swatch,
+					});
+				}
+			}
+
+			const verifyInfoBar = renderRoleInfoBar(verifyRoleItems);
+			verifyContainer.appendChild(verifyInfoBar);
+			const verifyBoundaries = calcBoundaries(colors);
+			const verifyPillContainer = renderBoundaryPills(
+				verifyBoundaries,
+				verifyScaleElements,
+			);
+			verifyContainer.appendChild(verifyPillContainer);
+
+			// DOM要素数の検証
+			// オーバーレイ付きスウォッチは各2つの子要素を持つ（ラベル + 説明要素）
+			for (const idx of roleSwatchIndices) {
+				const swatch = verifySwatches[idx];
+				if (swatch && swatch.classList.contains("dads-swatch--circular")) {
+					expect(swatch.childElementCount).toBe(2);
+				}
+			}
+			// 欄外情報バーの子要素数：各ロールに対して情報要素 + コネクタ = 2つ
+			expect(verifyInfoBar.childElementCount).toBe(
+				roleSwatchIndices.length * 2,
+			);
+			// コントラスト境界ピルは最大4個
+			expect(verifyPillContainer.childElementCount).toBeLessThanOrEqual(4);
+
+			// クリーンアップ
+			verifyContainer.remove();
 		});
 	});
 
