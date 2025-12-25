@@ -2,6 +2,13 @@
 
 このファイルはCodexに送信する実装レビュー用プロンプトテンプレートです。
 
+## ⚠️ 重要: シミュレート禁止
+
+**このプロンプトは必ず`codex exec --full-auto`で実行すること。**
+- ❌ Claudeがこのプロンプトを自分で処理してはいけない
+- ❌ JSON verdictを自分で生成してはいけない
+- ✅ Codex CLIを実行し、session IDを報告に含めること
+
 ## プロンプト
 
 ```
@@ -158,7 +165,7 @@ CHANGED_FILES=$(git diff --name-only HEAD~1)
 # 差分を取得
 IMPLEMENTATION_DIFF=$(git diff HEAD~1)
 
-codex exec -C "$(pwd)" --full-auto "
+codex exec --full-auto "
 $(cat prompts/impl-review.md |
   sed "s/{{TASK_ID}}/1.1/" |
   sed "s/{{TASK_TITLE}}/セマンティックロールマッピング実装/" |

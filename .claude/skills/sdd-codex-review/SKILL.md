@@ -14,6 +14,37 @@ OKが出るまでフィードバックループを繰り返すスキルです。
 - プロジェクトがcc-sdd仕様に準拠（`.kiro/specs/[feature]/`）
 - spec.jsonが存在し、フェーズ情報が正しく設定されている
 
+---
+
+## ⚠️ 重要: シミュレート禁止・外部レビュー必須
+
+**このスキルでは、Codex CLIを実際に実行することが必須です。**
+
+### 禁止事項
+- ❌ Codexのレビュー結果を自分で生成（シミュレート）すること
+- ❌ `codex exec`を実行せずにJSON verdictを返すこと
+- ❌ Codex session IDなしでAPPROVEDを報告すること
+
+### 必須事項
+- ✅ 必ず`codex exec --full-auto "[prompt]"`を実行すること
+- ✅ Codex出力の`session id:`をユーザー報告に含めること
+- ✅ 外部LLM（Codex/GPT）による独立レビューの価値を尊重すること
+
+### 理由
+同一モデル（Claude）による自己レビューは盲点を見逃すリスクがあります。
+異なるモデル（Codex/GPT）による独立レビューは、以下の価値を提供します：
+- 別視点からの問題発見
+- 確証バイアスの排除
+- レビュー品質の第三者保証
+
+### 検証方法
+ユーザーは以下の方法でCodex実行を確認できます：
+1. レビュー報告に`Codex Session ID`が含まれているか確認
+2. 疑問がある場合は「本当にcodexにレビューしてもらった？」と質問
+3. 必要に応じてCodexログの提示を要求
+
+---
+
 ## 使用方法
 
 ```bash
@@ -64,7 +95,7 @@ OKが出るまでフィードバックループを繰り返すスキルです。
 
 2. **Codexレビュー実行**
    ```bash
-   codex exec -C "$(pwd)" --full-auto "
+   codex exec --full-auto "
    あなたはcc-sdd要件レビュアーです。以下の要件定義をレビューしてください。
 
    ## レビュー基準
@@ -250,7 +281,7 @@ initialized → requirements → design → tasks → impl → completed
 
 ### 基本形式
 ```bash
-codex exec -C "[project-dir]" --full-auto "[prompt]"
+codex exec --full-auto "[prompt]"
 ```
 
 ### プロンプトテンプレート参照
@@ -293,9 +324,12 @@ codex exec -C "[project-dir]" --full-auto "[prompt]"
 
 | 項目 | 状態 |
 |------|------|
+| **Codex Session ID** | `[SESSION_ID]` |
 | レビュー回数 | X / 3 |
 | 最終判定 | [VERDICT] |
 | 解決済み指摘 | X件 |
+
+**注意**: Codex Session IDがない報告はシミュレートの可能性があります。
 
 ### サマリー
 [Codexからのsummary]

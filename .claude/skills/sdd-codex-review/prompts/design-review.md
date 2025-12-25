@@ -3,6 +3,13 @@
 このファイルはCodexに送信する設計レビュー用プロンプトテンプレートです。
 `.kiro/settings/rules/design-review.md`の基準に準拠しています。
 
+## ⚠️ 重要: シミュレート禁止
+
+**このプロンプトは必ず`codex exec --full-auto`で実行すること。**
+- ❌ Claudeがこのプロンプトを自分で処理してはいけない
+- ❌ JSON verdictを自分で生成してはいけない
+- ✅ Codex CLIを実行し、session IDを報告に含めること
+
 ## プロンプト
 
 ```
@@ -122,7 +129,7 @@
 # 要件IDを抽出
 REQ_IDS=$(grep -oE "^### [0-9]+\.[0-9]+" requirements.md | sed 's/### //' | tr '\n' ', ')
 
-codex exec -C "$(pwd)" --full-auto "
+codex exec --full-auto "
 $(cat prompts/design-review.md |
   sed "s/{{DESIGN_CONTENT}}/$(cat .kiro/specs/my-feature/design.md)/" |
   sed "s/{{REQUIREMENTS_CONTENT}}/$(cat .kiro/specs/my-feature/requirements.md)/" |

@@ -223,6 +223,6 @@ git add . && git commit -m "feat({{FEATURE_NAME}}): implementation complete"
 
 3. 手動でレビューを実行：
    \`\`\`bash
-   codex exec -C "$(pwd)" "レビュー依頼..."
+   codex exec --full-auto "レビュー依頼..."
    \`\`\`
 ```

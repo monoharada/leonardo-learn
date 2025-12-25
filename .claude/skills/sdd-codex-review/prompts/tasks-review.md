@@ -2,6 +2,13 @@
 
 このファイルはCodexに送信するタスク分解レビュー用プロンプトテンプレートです。
 
+## ⚠️ 重要: シミュレート禁止
+
+**このプロンプトは必ず`codex exec --full-auto`で実行すること。**
+- ❌ Claudeがこのプロンプトを自分で処理してはいけない
+- ❌ JSON verdictを自分で生成してはいけない
+- ✅ Codex CLIを実行し、session IDを報告に含めること
+
 ## プロンプト
 
 ```
@@ -130,7 +137,7 @@
 ## 使用例
 
 ```bash
-codex exec -C "$(pwd)" --full-auto "
+codex exec --full-auto "
 $(cat prompts/tasks-review.md |
   sed "s/{{TASKS_CONTENT}}/$(cat .kiro/specs/my-feature/tasks.md)/" |
   sed "s/{{DESIGN_CONTENT}}/$(cat .kiro/specs/my-feature/design.md)/" |

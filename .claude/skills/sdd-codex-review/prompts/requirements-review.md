@@ -2,6 +2,13 @@
 
 このファイルはCodexに送信する要件レビュー用プロンプトテンプレートです。
 
+## ⚠️ 重要: シミュレート禁止
+
+**このプロンプトは必ず`codex exec --full-auto`で実行すること。**
+- ❌ Claudeがこのプロンプトを自分で処理してはいけない
+- ❌ JSON verdictを自分で生成してはいけない
+- ✅ Codex CLIを実行し、session IDを報告に含めること
+
 ## プロンプト
 
 ```
@@ -88,7 +95,7 @@
 ## 使用例
 
 ```bash
-codex exec -C "$(pwd)" --full-auto "
+codex exec --full-auto "
 $(cat prompts/requirements-review.md | sed 's/{{REQUIREMENTS_CONTENT}}/$(cat .kiro/specs/my-feature/requirements.md)/')
 "
 ```
