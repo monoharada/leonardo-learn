@@ -79,6 +79,12 @@
 			"final_verdict": "APPROVED",
 			"resolved_issues": 4,
 			"summary": "パフォーマンステスト更新完了。全DOM操作テストでdocument.body追加+getBoundingClientRectによるレンダリングブロッキング検証。DOM要素数検証（childElementCount）追加。統合テストで各イテレーション毎に新規DOM作成。Requirements 5.1/5.2適合。Unit 14件全パス。"
+		},
+		"impl_11_6": {
+			"review_count": 6,
+			"final_verdict": "APPROVED",
+			"resolved_issues": 8,
+			"summary": "アクセシビリティE2Eテスト更新完了。aria-describedby全件検証、toHaveAccessibleDescription、Tab移動検証（nth(1).toBeFocused）、pointer-events:none検証、ブランドスウォッチARIA未設定検証、title属性からの全ロール抽出（改行/カンマ両対応）。Requirements 4.1適合。E2E 12件全パス。"
 		}
 	}
 }

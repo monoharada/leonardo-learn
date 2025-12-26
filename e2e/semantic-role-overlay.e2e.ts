@@ -1407,6 +1407,358 @@ test.describe("コントラスト境界表示", () => {
 });
 
 // ============================================================================
+// 7. アクセシビリティ専用テスト（Task 11.6）
+// Requirements: 4.1 (スクリーンリーダー対応、キーボード操作)
+// ============================================================================
+
+test.describe("アクセシビリティ専用テスト", () => {
+	// 円形スウォッチにaria-describedbyでロール情報が関連付けられること
+	test("円形スウォッチにaria-describedbyが設定され、対応する説明要素が存在すること", async ({
+		page,
+	}) => {
+		await selectHarmonyType(page, "dads");
+		await page.click("[data-testid='render-shades-btn']");
+		await page.waitForSelector("[data-testid^='swatch-']");
+
+		// 円形スウォッチ（ロール割り当てあり）を取得
+		const circularSwatches = page.locator(".dads-swatch--circular");
+		const circularCount = await circularSwatches.count();
+		expect(circularCount).toBeGreaterThan(0);
+
+		// 全ての円形スウォッチでaria-describedby属性を確認（全件検証）
+		for (let i = 0; i < circularCount; i++) {
+			const swatch = circularSwatches.nth(i);
+			const describedBy = await swatch.getAttribute("aria-describedby");
+
+			// aria-describedbyが設定されていること
+			expect(describedBy).not.toBeNull();
+			expect(describedBy).toMatch(/^swatch-[a-z-]+-\d+-desc$/);
+
+			// 対応する説明要素が存在すること
+			const descElement = page.locator(`#${describedBy}`);
+			await expect(descElement).toBeAttached();
+
+			// 説明要素にテキストコンテンツがあること
+			const descText = await descElement.textContent();
+			expect(descText).toContain("セマンティックロール");
+		}
+	});
+
+	test("hue-scale特定可能ブランドロールが該当DADSシェードのARIA説明にマージされること", async ({
+		page,
+	}) => {
+		await selectHarmonyType(page, "dads");
+		await page.click("[data-testid='render-shades-btn']");
+		await page.waitForSelector("[data-testid^='swatch-']");
+
+		// blue-600シェード（Primary設定がblue-600）のARIA説明を確認
+		const blueSwatch = page.locator("[data-testid='swatch-blue-600']");
+		await expect(blueSwatch).toBeVisible();
+
+		// aria-describedbyがDADSシェード形式であること（brand形式ではない）
+		const describedBy = await blueSwatch.getAttribute("aria-describedby");
+		expect(describedBy).toBe("swatch-blue-600-desc");
+
+		// 説明要素にPrimaryのロール情報が含まれること
+		const descElement = page.locator(`#${describedBy}`);
+		await expect(descElement).toBeAttached();
+
+		const descText = await descElement.textContent();
+		expect(descText).toContain("Primary");
+	});
+
+	test("hue-scale特定不可ブランドロールにはARIA IDが付与されないこと", async ({
+		page,
+	}) => {
+		await selectHarmonyType(page, "dads");
+		await page.click("[data-testid='render-shades-btn']");
+		await page.waitForSelector(".dads-unresolved-roles-bar");
+
+		// 未解決ロールバーが存在すること
+		const unresolvedBar = page.locator(".dads-unresolved-roles-bar");
+		await expect(unresolvedBar).toBeVisible();
+
+		// 未解決ロールバー内のバッジにaria-describedbyが設定されていないことを確認
+		const unresolvedBadges = unresolvedBar.locator(".dads-role-badge");
+		const badgeCount = await unresolvedBadges.count();
+		expect(badgeCount).toBeGreaterThan(0);
+
+		for (let i = 0; i < badgeCount; i++) {
+			const badge = unresolvedBadges.nth(i);
+			const describedBy = await badge.getAttribute("aria-describedby");
+			// hue-scale特定不可のためaria-describedbyは設定されない
+			expect(describedBy).toBeNull();
+		}
+
+		// ブランドスウォッチ自体にもaria-describedbyが設定されていないこと
+		const brandSwatch = page.locator("[data-testid='swatch-brand']");
+		const brandSwatchCount = await brandSwatch.count();
+		if (brandSwatchCount > 0) {
+			const brandDescribedBy =
+				await brandSwatch.getAttribute("aria-describedby");
+			// hue-scale特定不可のブランドスウォッチにはaria-describedbyを設定しない
+			expect(brandDescribedBy).toBeNull();
+		}
+
+		// swatch-brand-desc形式のIDを持つ要素が存在しないこと（廃止仕様）
+		const deprecatedDescElements = page.locator("[id^='swatch-brand-']");
+		expect(await deprecatedDescElements.count()).toBe(0);
+	});
+
+	test("スクリーンリーダー用の説明要素が視覚的に非表示であること（sr-only相当）", async ({
+		page,
+	}) => {
+		await selectHarmonyType(page, "dads");
+		await page.click("[data-testid='render-shades-btn']");
+		await page.waitForSelector("[data-testid^='swatch-']");
+
+		// aria-describedby対象の説明要素を取得
+		const greenSwatch = page.locator("[data-testid='swatch-green-600']");
+		const describedBy = await greenSwatch.getAttribute("aria-describedby");
+		expect(describedBy).not.toBeNull();
+
+		const descElement = page.locator(`#${describedBy}`);
+		await expect(descElement).toBeAttached();
+
+		// sr-only相当のスタイルが適用されていること
+		const descStyles = await descElement.evaluate((el) => {
+			const style = window.getComputedStyle(el);
+			return {
+				position: style.position,
+				width: style.width,
+				height: style.height,
+				overflow: style.overflow,
+				ariaHidden: el.getAttribute("aria-hidden"),
+				display: style.display,
+				visibility: style.visibility,
+			};
+		});
+
+		// 視覚的に非表示のスタイル確認
+		expect(descStyles.position).toBe("absolute");
+		expect(descStyles.width).toBe("1px");
+		expect(descStyles.height).toBe("1px");
+		expect(descStyles.overflow).toBe("hidden");
+
+		// アクセシビリティツリーから除外されていないことを確認
+		// aria-hidden="true"でないこと
+		expect(descStyles.ariaHidden).not.toBe("true");
+		// display:noneでないこと
+		expect(descStyles.display).not.toBe("none");
+		// visibility:hiddenでないこと
+		expect(descStyles.visibility).not.toBe("hidden");
+	});
+
+	test("円形スウォッチがアクセシビリティツリー上で説明を持つこと", async ({
+		page,
+	}) => {
+		await selectHarmonyType(page, "dads");
+		await page.click("[data-testid='render-shades-btn']");
+		await page.waitForSelector("[data-testid^='swatch-']");
+
+		// 円形スウォッチでアクセシブル説明を確認
+		const greenSwatch = page.locator("[data-testid='swatch-green-600']");
+		await expect(greenSwatch).toBeVisible();
+
+		// toHaveAccessibleDescriptionでアクセシビリティツリー上の説明を検証
+		await expect(greenSwatch).toHaveAccessibleDescription(
+			/セマンティックロール/,
+		);
+	});
+
+	test("説明要素のテキストがロール情報を正しく含むこと", async ({ page }) => {
+		await selectHarmonyType(page, "dads");
+		await page.click("[data-testid='render-shades-btn']");
+		await page.waitForSelector("[data-testid^='swatch-']");
+
+		// green-600シェード（Success-1ロールがある）の説明を確認
+		const greenSwatch = page.locator("[data-testid='swatch-green-600']");
+		const describedBy = await greenSwatch.getAttribute("aria-describedby");
+		expect(describedBy).not.toBeNull();
+
+		const descElement = page.locator(`#${describedBy}`);
+		const descText = await descElement.textContent();
+
+		// 正しいフォーマットであること
+		expect(descText).toContain("セマンティックロール:");
+		expect(descText).toContain("Success");
+	});
+
+	test("キーボード操作（Tab）で円形スウォッチ間を移動できること", async ({
+		page,
+	}) => {
+		await selectHarmonyType(page, "dads");
+		await page.click("[data-testid='render-shades-btn']");
+		await page.waitForSelector("[data-testid^='swatch-']");
+
+		// 円形スウォッチを取得
+		const circularSwatches = page.locator(".dads-swatch--circular");
+		const circularCount = await circularSwatches.count();
+		expect(circularCount).toBeGreaterThan(1); // 少なくとも2つ以上あること
+
+		// 最初の円形スウォッチにtabindex="0"が設定されていること
+		const firstCircular = circularSwatches.first();
+		const secondCircular = circularSwatches.nth(1);
+		const tabindex = await firstCircular.getAttribute("tabindex");
+		expect(tabindex).toBe("0");
+
+		// フォーカスして確認
+		await firstCircular.focus();
+		await expect(firstCircular).toBeFocused();
+
+		// Tabキーで次の円形スウォッチに移動
+		await page.keyboard.press("Tab");
+
+		// 次の円形スウォッチにフォーカスが移動したことを確認
+		await expect(firstCircular).not.toBeFocused();
+		await expect(secondCircular).toBeFocused();
+	});
+
+	test("全ての円形スウォッチにtabindex='0'が設定されていること", async ({
+		page,
+	}) => {
+		await selectHarmonyType(page, "dads");
+		await page.click("[data-testid='render-shades-btn']");
+		await page.waitForSelector("[data-testid^='swatch-']");
+
+		// 円形スウォッチを取得
+		const circularSwatches = page.locator(".dads-swatch--circular");
+		const circularCount = await circularSwatches.count();
+		expect(circularCount).toBeGreaterThan(0);
+
+		// 全ての円形スウォッチでtabindex確認
+		for (let i = 0; i < circularCount; i++) {
+			const swatch = circularSwatches.nth(i);
+			const tabindex = await swatch.getAttribute("tabindex");
+			expect(tabindex).toBe("0");
+		}
+	});
+
+	test("ロールなしのスウォッチにはtabindexが設定されないこと", async ({
+		page,
+	}) => {
+		await selectHarmonyType(page, "dads");
+		await page.click("[data-testid='render-shades-btn']");
+		await page.waitForSelector("[data-testid^='swatch-']");
+
+		// ロールなしのスウォッチ（円形でない）を取得
+		// green-50はロールがないのでテスト対象
+		const swatchWithoutRole = page.locator("[data-testid='swatch-green-50']");
+		await expect(swatchWithoutRole).toBeVisible();
+
+		// 円形でないことを確認
+		await expect(swatchWithoutRole).not.toHaveClass(/dads-swatch--circular/);
+
+		// tabindexが設定されていないことを確認
+		const tabindex = await swatchWithoutRole.getAttribute("tabindex");
+		expect(tabindex).toBeNull();
+	});
+
+	test("フォーカス時にツールチップ情報がアクセス可能であること", async ({
+		page,
+	}) => {
+		await selectHarmonyType(page, "dads");
+		await page.click("[data-testid='render-shades-btn']");
+		await page.waitForSelector("[data-testid^='swatch-']");
+
+		// green-600シェード（ロールあり）を確認
+		const greenSwatch = page.locator("[data-testid='swatch-green-600']");
+		await expect(greenSwatch).toBeVisible();
+
+		// title属性が設定されていること（ホバー/フォーカス時にツールチップとして表示）
+		const titleAttr = await greenSwatch.getAttribute("title");
+		expect(titleAttr).not.toBeNull();
+		expect(titleAttr).toContain("#"); // HEX情報
+		expect(titleAttr).toContain("セマンティックロール"); // ロール情報
+
+		// フォーカス可能であること
+		await greenSwatch.focus();
+		await expect(greenSwatch).toBeFocused();
+	});
+
+	test("ロールを持つ円形スウォッチのARIA説明に全ロール情報が含まれること", async ({
+		page,
+	}) => {
+		await selectHarmonyType(page, "dads");
+		await page.click("[data-testid='render-shades-btn']");
+		await page.waitForSelector("[data-testid^='swatch-']");
+
+		// 全ての円形スウォッチのARIA説明を検証
+		const circularSwatches = page.locator(".dads-swatch--circular");
+		const circularCount = await circularSwatches.count();
+		expect(circularCount).toBeGreaterThan(0);
+
+		// 各円形スウォッチでtitle属性のロール情報とARIA説明の一致を検証
+		for (let i = 0; i < circularCount; i++) {
+			const swatch = circularSwatches.nth(i);
+			const describedBy = await swatch.getAttribute("aria-describedby");
+			expect(describedBy).not.toBeNull();
+
+			// title属性からロール情報を取得
+			const titleAttr = await swatch.getAttribute("title");
+			expect(titleAttr).not.toBeNull();
+
+			// title属性から「セマンティックロール:」以降のロール名一覧を抽出
+			// 改行を含む場合があるため、[\s\S]で全文取得
+			const roleMatch = titleAttr?.match(/セマンティックロール:\s*([\s\S]+)/);
+			expect(roleMatch).not.toBeNull();
+			// 改行またはカンマで分割してロール名を抽出
+			const rolesFromTitle = roleMatch![1]
+				.split(/[,\n]/)
+				.map((r) => r.trim())
+				.filter((r) => r.length > 0);
+			expect(rolesFromTitle.length).toBeGreaterThan(0);
+
+			// ARIA説明にロール情報が含まれていること
+			const descElement = page.locator(`#${describedBy}`);
+			const descText = await descElement.textContent();
+			expect(descText).toContain("セマンティックロール:");
+
+			// title属性に含まれる全てのロール名がARIA説明にも含まれていることを検証
+			for (const roleName of rolesFromTitle) {
+				expect(descText).toContain(roleName);
+			}
+
+			// ロールラベルが表示されていることも確認
+			const roleLabel = swatch.locator(".dads-swatch__role-label");
+			const labelText = (await roleLabel.textContent())?.trim() ?? "";
+			expect(labelText.length).toBeGreaterThan(0);
+		}
+	});
+
+	test("円形スウォッチのロールラベルにpointer-events: noneが設定されていること", async ({
+		page,
+	}) => {
+		await selectHarmonyType(page, "dads");
+		await page.click("[data-testid='render-shades-btn']");
+		await page.waitForSelector("[data-testid^='swatch-']");
+
+		// 円形スウォッチのロールラベルを取得
+		const roleLabels = page.locator(".dads-swatch__role-label");
+		const labelCount = await roleLabels.count();
+		expect(labelCount).toBeGreaterThan(0);
+
+		// 全てのロールラベルでpointer-events: noneを確認
+		for (let i = 0; i < labelCount; i++) {
+			const label = roleLabels.nth(i);
+			const pointerEvents = await label.evaluate(
+				(el) => window.getComputedStyle(el).pointerEvents,
+			);
+			expect(pointerEvents).toBe("none");
+		}
+
+		// 円形スウォッチ自体はpointer-eventsが有効であること（ホバー/フォーカス可能）
+		const circularSwatches = page.locator(".dads-swatch--circular");
+		const firstSwatch = circularSwatches.first();
+		const swatchPointerEvents = await firstSwatch.evaluate(
+			(el) => window.getComputedStyle(el).pointerEvents,
+		);
+		// autoまたは空文字（デフォルト値）であること
+		expect(["auto", ""]).toContain(swatchPointerEvents);
+	});
+});
+
+// ============================================================================
 // Helper Functions
 // ============================================================================
 

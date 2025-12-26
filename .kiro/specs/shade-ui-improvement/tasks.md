@@ -395,10 +395,14 @@
   - Unit: 1396件パス（+7件追加）
   - _Requirements: 5.1, 5.2_
 
-- [ ] 11.6 アクセシビリティテストを更新する
-  - 円形スウォッチにaria-describedbyでロール情報が関連付けられること
+- [x] 11.6 アクセシビリティテストを更新する（**Codex APPROVED**）
+  - 円形スウォッチにaria-describedby全件検証（circularCountでループ）
   - **hue-scale特定可能ブランドロールが該当DADSシェードのARIA説明にマージされること**
-  - **hue-scale特定不可ブランドロールにはARIA IDが付与されないこと**
-  - スクリーンリーダーで円形スウォッチのロール情報が読み上げられること
-  - キーボード操作（Tab）で円形スウォッチ間を移動できること
+  - **hue-scale特定不可ブランドロールにはARIA IDが付与されないこと（ブランドスウォッチ自体も検証）**
+  - スクリーンリーダー読み上げ検証（toHaveAccessibleDescription + aria-hidden/display:none/visibility:hidden除外確認）
+  - キーボード操作（Tab）で次の円形スウォッチにフォーカス移動検証（nth(1).toBeFocused）
+  - pointer-events: none検証（ロールラベル）
+  - 全ロール情報検証（title属性から改行/カンマ両対応でロール抽出し、ARIA説明に全件含まれることを検証）
+  - E2Eテスト: 12件（アクセシビリティ専用テストスイート）
+  - Codexレビュー: 6回、解決済み指摘8件
   - _Requirements: 4.1_
