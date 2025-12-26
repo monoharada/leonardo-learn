@@ -47,8 +47,6 @@ import {
 } from "./cud-components";
 import { renderBoundaryPills } from "./semantic-role/contrast-boundary-indicator";
 import {
-	type RoleInfoItem,
-	renderRoleInfoBar,
 	renderUnresolvedRolesBar,
 	type UnresolvedRoleItem,
 } from "./semantic-role/external-role-info-bar";
@@ -1050,6 +1048,470 @@ export const runDemo = () => {
 		}
 	};
 
+	// --- Color Detail Modal Common Function ---
+	interface ColorDetailModalOptions {
+		stepColor: Color;
+		keyColor: Color;
+		index: number;
+		fixedScale: {
+			colors: Color[];
+			keyIndex: number;
+			hexValues?: string[]; // 元のHEX値（変換誤差回避用）
+		};
+		paletteInfo: {
+			name: string;
+			baseChromaName?: string;
+		};
+		readOnly?: boolean;
+		originalHex?: string; // クリックした色の元のHEX値
+	}
+
+	const openColorDetailModal = (options: ColorDetailModalOptions) => {
+		const {
+			stepColor,
+			keyColor,
+			index,
+			fixedScale,
+			paletteInfo,
+			readOnly = false,
+			originalHex,
+		} = options;
+
+		const dialog = document.getElementById(
+			"color-detail-dialog",
+		) as HTMLDialogElement;
+		if (!dialog) return;
+
+		// --- Elements ---
+		let scrubberCanvas = document.getElementById(
+			"tuner-scrubber",
+		) as HTMLCanvasElement;
+
+		// Clone canvas to remove old event listeners
+		if (scrubberCanvas) {
+			const newCanvas = scrubberCanvas.cloneNode(true) as HTMLCanvasElement;
+			scrubberCanvas.parentNode?.replaceChild(newCanvas, scrubberCanvas);
+			scrubberCanvas = newCanvas;
+		}
+
+		let currentColor = stepColor;
+		let isDraggingScrubber = false;
+		let selectedScaleIndex = index; // クリックした色のインデックスで初期化
+
+		// AbortController for event listener cleanup
+		const abortController = new AbortController();
+
+		// --- Infinite Hue Scrubber Logic ---
+		const drawScrubber = () => {
+			if (!scrubberCanvas) return;
+			const ctx = scrubberCanvas.getContext("2d");
+			if (!ctx) return;
+
+			const width = scrubberCanvas.width;
+			const height = scrubberCanvas.height;
+
+			const centerHue = keyColor.oklch?.h ?? 0;
+			const currentH = currentColor.oklch?.h ?? 0;
+
+			ctx.clearRect(0, 0, width, height);
+
+			const visibleRange = 30;
+			const pixelsPerDegree = width / visibleRange;
+
+			for (let x = 0; x < width; x++) {
+				const offsetPixels = x - width / 2;
+				const offsetDegrees = offsetPixels / pixelsPerDegree;
+				let hue = centerHue + offsetDegrees;
+
+				hue = hue % 360;
+				if (hue < 0) hue += 360;
+
+				const displayL = 0.65;
+				const displayC = 0.3;
+
+				const color = new Color(`oklch(${displayL} ${displayC} ${hue})`);
+				ctx.fillStyle = color.toCss();
+				ctx.fillRect(x, 0, 1, height);
+			}
+
+			let diff = currentH - centerHue;
+			if (diff > 180) diff -= 360;
+			if (diff < -180) diff += 360;
+
+			const handleX = width / 2 + diff * pixelsPerDegree;
+
+			if (handleX >= 0 && handleX <= width) {
+				ctx.beginPath();
+				ctx.moveTo(handleX, 0);
+				ctx.lineTo(handleX, height);
+				ctx.strokeStyle = "rgba(255, 255, 255, 0.9)";
+				ctx.lineWidth = 2;
+				ctx.stroke();
+
+				ctx.shadowColor = "rgba(0, 0, 0, 0.3)";
+				ctx.shadowBlur = 4;
+				ctx.shadowOffsetY = 2;
+
+				ctx.beginPath();
+				ctx.roundRect(handleX - 6, 4, 12, height - 8, 6);
+				ctx.fillStyle = "white";
+				ctx.fill();
+
+				ctx.shadowColor = "transparent";
+				ctx.shadowBlur = 0;
+				ctx.shadowOffsetY = 0;
+
+				const knobY = height / 2;
+				ctx.fillStyle = "#ccc";
+				ctx.fillRect(handleX - 1, knobY - 4, 2, 8);
+			}
+		};
+
+		const handleScrubberStart = (e: MouseEvent | TouchEvent) => {
+			if (readOnly) return;
+			isDraggingScrubber = true;
+			handleScrubberMove(e);
+			if (e.type === "touchstart") {
+				e.preventDefault();
+			}
+		};
+
+		const handleScrubberMove = (e: MouseEvent | TouchEvent) => {
+			if (!isDraggingScrubber || readOnly) return;
+
+			const touch =
+				"touches" in e &&
+				(e as TouchEvent).touches &&
+				(e as TouchEvent).touches.length > 0
+					? (e as TouchEvent).touches[0]
+					: null;
+			const clientX = touch ? touch.clientX : (e as MouseEvent).clientX;
+
+			const rect = scrubberCanvas.getBoundingClientRect();
+			const x = clientX - rect.left;
+			const width = rect.width;
+
+			const visibleRange = 30;
+			const pixelsPerDegree = width / visibleRange;
+			const centerHue = keyColor.oklch?.h ?? 0;
+
+			const offsetPixels = x - width / 2;
+			const offsetDegrees = offsetPixels / pixelsPerDegree;
+
+			let newHue = centerHue + offsetDegrees;
+			newHue = newHue % 360;
+			if (newHue < 0) newHue += 360;
+
+			const currentL = currentColor.oklch?.l ?? 0;
+			const currentC = currentColor.oklch?.c ?? 0;
+			const newColor = new Color(`oklch(${currentL} ${currentC} ${newHue})`);
+
+			updateDetail(newColor, -1);
+			// Note: drawScrubber() is called inside updateDetail()
+		};
+
+		const handleScrubberEnd = () => {
+			isDraggingScrubber = false;
+		};
+
+		const resizeScrubber = () => {
+			if (!scrubberCanvas) return;
+			const rect = scrubberCanvas.parentElement?.getBoundingClientRect();
+			if (rect && rect.width > 0) {
+				scrubberCanvas.width = rect.width;
+				scrubberCanvas.height = rect.height;
+				drawScrubber();
+			}
+		};
+
+		if (scrubberCanvas) {
+			const signal = abortController.signal;
+
+			scrubberCanvas.addEventListener("mousedown", handleScrubberStart, {
+				signal,
+			});
+			window.addEventListener("mousemove", handleScrubberMove, { signal });
+			window.addEventListener("mouseup", handleScrubberEnd, { signal });
+
+			scrubberCanvas.addEventListener("touchstart", handleScrubberStart, {
+				passive: false,
+				signal,
+			});
+			window.addEventListener("touchmove", handleScrubberMove, {
+				passive: false,
+				signal,
+			});
+			window.addEventListener("touchend", handleScrubberEnd, { signal });
+
+			window.addEventListener("resize", resizeScrubber, { signal });
+		}
+
+		// Cleanup on dialog close
+		dialog.addEventListener(
+			"close",
+			() => {
+				abortController.abort();
+			},
+			{ once: true },
+		);
+
+		const updateDetail = (
+			color: Color,
+			selectedIndex: number,
+			hexOverride?: string,
+		) => {
+			currentColor = color;
+			const colorL = color.oklch.l as number;
+
+			const detailSwatch = document.getElementById("detail-swatch");
+			const detailTokenName = document.getElementById("detail-token-name");
+			const detailHex = document.getElementById("detail-hex");
+			const detailLightness = document.getElementById("detail-lightness");
+			const detailChromaName = document.getElementById("detail-chroma-name");
+
+			const { keyIndex, hexValues } = fixedScale;
+			const tokenIndex = selectedIndex >= 0 ? selectedIndex : keyIndex;
+			const step = STEP_NAMES[tokenIndex] ?? 600;
+			const chromaNameLower = (
+				paletteInfo.baseChromaName ||
+				paletteInfo.name ||
+				"color"
+			)
+				.toLowerCase()
+				.replace(/\s+/g, "-");
+
+			if (detailSwatch) detailSwatch.style.backgroundColor = color.toCss();
+			if (detailTokenName)
+				detailTokenName.textContent = `${chromaNameLower}-${step}`;
+			// 元のHEX値を優先して使用（変換誤差回避）
+			const displayHex =
+				hexOverride ??
+				(hexValues && selectedIndex >= 0 ? hexValues[selectedIndex] : null) ??
+				color.toHex();
+			if (detailHex) detailHex.textContent = displayHex;
+			if (detailLightness)
+				detailLightness.textContent = `${Math.round(colorL * 100)}% L`;
+
+			if (detailChromaName) {
+				if (paletteInfo.baseChromaName && paletteInfo.name) {
+					detailChromaName.textContent = `${paletteInfo.baseChromaName} | ${paletteInfo.name}`;
+				} else if (paletteInfo.baseChromaName) {
+					detailChromaName.textContent = paletteInfo.baseChromaName;
+				} else {
+					detailChromaName.textContent = paletteInfo.name;
+				}
+			}
+
+			// Update "Set as key color" button
+			const setKeyColorBtn = document.getElementById(
+				"set-key-color-btn",
+			) as HTMLButtonElement;
+			if (setKeyColorBtn) {
+				if (readOnly) {
+					setKeyColorBtn.style.display = "none";
+				} else {
+					setKeyColorBtn.style.display = "";
+					const paletteName =
+						paletteInfo.name || paletteInfo.baseChromaName || "";
+					setKeyColorBtn.textContent = `${color.toHex()} を ${paletteName} のパレットの色に指定`;
+					setKeyColorBtn.onclick = () => {
+						const newKeyColors = [color.toHex()];
+
+						const syncPalette = (targetList: PaletteConfig[]) => {
+							const match = targetList.find(
+								(tp) =>
+									tp.name === paletteInfo.name ||
+									tp.baseChromaName === paletteInfo.baseChromaName,
+							);
+							if (match) {
+								match.keyColors = [...newKeyColors];
+							}
+						};
+						syncPalette(state.palettes);
+						syncPalette(state.shadesPalettes);
+
+						dialog.close();
+						renderMain();
+					};
+				}
+			}
+
+			const updateCard = (bgHex: string, prefix: string) => {
+				const bgColor = new Color(bgHex);
+				const wcag = verifyContrast(color, bgColor);
+				const apca = getAPCA(color, bgColor);
+				const ratioVal = Math.round(wcag.contrast * 100) / 100;
+				const lc = Math.round(apca);
+
+				const badge = document.getElementById(`detail-${prefix}-badge`);
+				const ratioEl = document.getElementById(`detail-${prefix}-ratio`);
+				const apcaEl = document.getElementById(`detail-${prefix}-apca`);
+				const preview = document.getElementById(`detail-${prefix}-preview`);
+				const previewLarge = document.getElementById(
+					`detail-${prefix}-preview-large`,
+				);
+				const failIcon = document.getElementById(`detail-${prefix}-fail-icon`);
+
+				if (ratioEl) ratioEl.textContent = `${ratioVal}`;
+				if (apcaEl) apcaEl.textContent = `${lc}`;
+
+				if (preview) {
+					preview.style.backgroundColor = color.toCss();
+					preview.style.color = bgHex;
+				}
+				if (previewLarge) {
+					previewLarge.style.backgroundColor = color.toCss();
+					previewLarge.style.color = bgHex;
+				}
+
+				if (badge) {
+					if (ratioVal >= 7.0) {
+						badge.textContent = "AAA";
+						badge.dataset.level = "success";
+						if (failIcon) failIcon.style.display = "none";
+					} else if (ratioVal >= 4.5) {
+						badge.textContent = "AA";
+						badge.dataset.level = "success";
+						if (failIcon) failIcon.style.display = "none";
+					} else if (ratioVal >= 3.0) {
+						badge.textContent = "Large Text";
+						badge.dataset.level = "warning";
+						if (failIcon) failIcon.style.display = "none";
+					} else {
+						badge.textContent = "Fail";
+						badge.dataset.level = "error";
+						if (failIcon) failIcon.style.display = "block";
+					}
+				}
+			};
+
+			const whiteContrastVal = verifyContrast(
+				color,
+				new Color("#ffffff"),
+			).contrast;
+			const blackContrastVal = verifyContrast(
+				color,
+				new Color("#000000"),
+			).contrast;
+
+			updateCard("#ffffff", "white");
+			updateCard("#000000", "black");
+
+			const whiteCard = document.getElementById(
+				"detail-white-card",
+			) as HTMLElement;
+			const blackCard = document.getElementById(
+				"detail-black-card",
+			) as HTMLElement;
+
+			if (whiteCard && blackCard) {
+				if (whiteContrastVal >= blackContrastVal) {
+					whiteCard.dataset.preferred = "true";
+					delete blackCard.dataset.preferred;
+				} else {
+					blackCard.dataset.preferred = "true";
+					delete whiteCard.dataset.preferred;
+				}
+			}
+
+			drawScrubber();
+
+			const miniScale = document.getElementById("detail-mini-scale");
+			if (miniScale) {
+				miniScale.innerHTML = "";
+				const { colors: scaleColors, keyIndex: originalKeyIndex } = fixedScale;
+
+				const currentHighlightIndex =
+					selectedScaleIndex >= 0 ? selectedScaleIndex : originalKeyIndex;
+
+				scaleColors.forEach((c, i) => {
+					const div = document.createElement("button");
+					div.type = "button";
+					div.className = "dads-mini-scale__item";
+					div.style.backgroundColor = c.toCss();
+					div.setAttribute("aria-label", `Color ${c.toHex()}`);
+
+					div.onclick = () => {
+						selectedScaleIndex = i;
+						updateDetail(c, i);
+					};
+
+					if (i === currentHighlightIndex) {
+						const check = document.createElement("div");
+						check.className = "dads-mini-scale__check";
+						check.textContent = "✓";
+						check.style.color =
+							c.contrast(new Color("#fff")) > 4.5 ? "white" : "black";
+						div.appendChild(check);
+					}
+
+					miniScale.appendChild(div);
+				});
+			}
+		};
+
+		// --- Reset & Save Logic ---
+		const resetBtn = document.getElementById("detail-reset-btn");
+		const saveBtn = document.getElementById("detail-save-btn");
+
+		if (resetBtn) {
+			if (readOnly) {
+				(resetBtn as HTMLElement).style.display = "none";
+			} else {
+				(resetBtn as HTMLElement).style.display = "";
+				resetBtn.onclick = () => {
+					currentColor = keyColor;
+					selectedScaleIndex = fixedScale.keyIndex;
+					updateDetail(currentColor, fixedScale.keyIndex);
+					// Note: drawScrubber() is called inside updateDetail()
+				};
+			}
+		}
+
+		if (saveBtn) {
+			if (readOnly) {
+				(saveBtn as HTMLElement).style.display = "none";
+			} else {
+				(saveBtn as HTMLElement).style.display = "";
+				saveBtn.onclick = () => {
+					const syncPalette = (targetList: PaletteConfig[]) => {
+						const match = targetList.find((other) => {
+							if (paletteInfo.baseChromaName && other.baseChromaName) {
+								return paletteInfo.baseChromaName === other.baseChromaName;
+							}
+							return paletteInfo.name === other.name;
+						});
+
+						if (match) {
+							match.keyColors = [currentColor.toHex()];
+						}
+					};
+
+					syncPalette(state.palettes);
+					syncPalette(state.shadesPalettes);
+
+					dialog.close();
+					renderMain();
+				};
+			}
+		}
+
+		// Hide scrubber in readOnly mode
+		const scrubberContainer = scrubberCanvas?.parentElement;
+		if (scrubberContainer && readOnly) {
+			scrubberContainer.style.display = "none";
+		} else if (scrubberContainer) {
+			scrubberContainer.style.display = "";
+		}
+
+		updateDetail(stepColor, index, originalHex);
+		dialog.showModal();
+
+		requestAnimationFrame(() => {
+			resizeScrubber();
+		});
+	};
+
 	const renderPaletteView = async (container: HTMLElement) => {
 		container.className = "dads-section";
 
@@ -1928,15 +2390,11 @@ export const runDemo = () => {
 		header.innerHTML = `
 			<span class="dads-section__heading-en">${colorScale.hueName.en}</span>
 			<span class="dads-section__heading-ja">(${colorScale.hueName.ja})</span>
-			<span class="dads-section__heading-lock" title="DADSプリミティブカラー">🔒</span>
 		`;
 		section.appendChild(header);
 
 		const scaleContainer = document.createElement("div");
 		scaleContainer.className = "dads-scale";
-
-		// Task 10.3: 欄外ロール情報バー用のRoleInfoItemを収集
-		const roleInfoItems: RoleInfoItem[] = [];
 
 		// Task 10.4: コントラスト境界表示用のscale→スウォッチ要素マップ
 		const scaleElements = new Map<number, HTMLElement>();
@@ -1986,18 +2444,45 @@ export const runDemo = () => {
 			);
 			swatch.style.cursor = "pointer";
 			swatch.onclick = () => {
-				navigator.clipboard.writeText(colorItem.hex).then(() => {
-					const originalText = hexLabel.textContent;
-					hexLabel.textContent = "Copied!";
-					setTimeout(() => {
-						hexLabel.textContent = originalText;
-					}, 1000);
+				const stepColor = new Color(colorItem.hex);
+
+				// colorScale.colorsは50→1200の順（明→暗）
+				// STEP_NAMESは1200→50の順（暗→明）なので逆順にする
+				const reversedColors = [...colorScale.colors].reverse();
+				const scaleColors = reversedColors.map((c) => new Color(c.hex));
+				const hexValues = reversedColors.map((c) => c.hex);
+
+				// クリックされた色のインデックスを計算（reverse後）
+				const originalIndex = colorScale.colors.findIndex(
+					(c) => c.scale === colorItem.scale,
+				);
+				const index =
+					originalIndex >= 0 ? colorScale.colors.length - 1 - originalIndex : 0;
+
+				// 代表色としてステップ600を使用（なければクリックした色）
+				const keyColorItem =
+					colorScale.colors.find((c) => c.scale === 600) || colorItem;
+				const keyColor = new Color(keyColorItem.hex);
+
+				openColorDetailModal({
+					stepColor,
+					keyColor,
+					index,
+					fixedScale: { colors: scaleColors, keyIndex: index, hexValues },
+					originalHex: colorItem.hex,
+					paletteInfo: {
+						name: colorScale.hueName.ja,
+						baseChromaName: colorScale.hueName.en,
+					},
+					readOnly: true,
 				});
 			};
 
 			// Task 4.3: セマンティックロールのオーバーレイを適用
 			// colorScale.hueはDadsColorHue型として直接使用
 			// lookupRolesはDADS+ブランド統合済みロールを返却（hue-scale特定可能なブランドロールを含む）
+			// セマンティックロールのオーバーレイ適用とロール名表示
+			const swatchToAppend: HTMLElement = swatch;
 			if (roleMapper) {
 				const roles = roleMapper.lookupRoles(
 					colorScale.hue as DadsColorHue,
@@ -2013,33 +2498,17 @@ export const runDemo = () => {
 						colorItem.hex,
 					);
 
-					// Task 10.3: 各ロールについてRoleInfoItemを収集
-					// hue-scale特定可能なブランドロールも含まれる（該当DADSスウォッチと連携）
-					for (const role of roles) {
-						roleInfoItems.push({
-							role,
-							scale: colorItem.scale,
-							swatchElement: swatch,
-						});
-					}
+					// 円形化の場合、ロール名は内部に表示済み（カタカナラベル）
 				}
 			}
 
-			scaleContainer.appendChild(swatch);
+			scaleContainer.appendChild(swatchToAppend);
 
 			// Task 10.4: スウォッチ要素をマップに追加（コントラスト境界表示用）
 			scaleElements.set(colorItem.scale, swatch);
 		}
 
 		section.appendChild(scaleContainer);
-
-		// Task 10.3: 欄外ロール情報バーを追加
-		// hue-scale特定可能なブランドロールも対象に含まれる（lookupRolesで統合済み）
-		// hue-scale特定不可ロールはTask 10.2で処理済みのため除外
-		if (roleInfoItems.length > 0) {
-			const roleInfoBar = renderRoleInfoBar(roleInfoItems);
-			section.appendChild(roleInfoBar);
-		}
 
 		// sectionをDOMに追加（コントラスト境界ピルの位置計算のため先に追加が必要）
 		container.appendChild(section);
@@ -2395,30 +2864,7 @@ export const runDemo = () => {
 				// Click to open detail popover
 				swatch.style.cursor = "pointer";
 				swatch.onclick = () => {
-					const dialog = document.getElementById(
-						"color-detail-dialog",
-					) as HTMLDialogElement;
-					if (!dialog) return;
-
-					// --- Elements ---
-					let scrubberCanvas = document.getElementById(
-						"tuner-scrubber",
-					) as HTMLCanvasElement;
-
-					// Clone canvas to remove old event listeners
-					if (scrubberCanvas) {
-						const newCanvas = scrubberCanvas.cloneNode(
-							true,
-						) as HTMLCanvasElement;
-						scrubberCanvas.parentNode?.replaceChild(newCanvas, scrubberCanvas);
-						scrubberCanvas = newCanvas;
-					}
-
-					let currentColor = stepColor;
-					let isDraggingScrubber = false;
-					let selectedScaleIndex = -1; // 選択されたスケールのインデックスを追跡
-
-					// stepColorで生成したスケールを固定（クリックしても変わらない）
+					// スケールを計算
 					const fixedScale = (() => {
 						const baseRatios = getContrastRatios(state.contrastIntensity);
 						const bgColor = new Color("#ffffff");
@@ -2451,415 +2897,15 @@ export const runDemo = () => {
 						return { colors: newColors, keyIndex: reversedKeyIndex };
 					})();
 
-					// --- Infinite Hue Scrubber Logic ---
-					const drawScrubber = () => {
-						if (!scrubberCanvas) return;
-						const ctx = scrubberCanvas.getContext("2d");
-						if (!ctx) return;
-
-						const width = scrubberCanvas.width;
-						const height = scrubberCanvas.height;
-
-						// Use initial hue as the center of the static background
-						const centerHue = keyColor.oklch?.h ?? 0;
-						const currentH = currentColor.oklch?.h ?? 0;
-
-						ctx.clearRect(0, 0, width, height);
-
-						// 1. Draw Static Background (Gradient)
-						// Range: +/- 15 degrees around centerHue (Total 30)
-						const visibleRange = 30;
-						const pixelsPerDegree = width / visibleRange;
-
-						for (let x = 0; x < width; x++) {
-							const offsetPixels = x - width / 2;
-							const offsetDegrees = offsetPixels / pixelsPerDegree;
-							let hue = centerHue + offsetDegrees;
-
-							// Normalize hue
-							hue = hue % 360;
-							if (hue < 0) hue += 360;
-
-							// Fixed vibrant L/C
-							const displayL = 0.65;
-							const displayC = 0.3;
-
-							const color = new Color(`oklch(${displayL} ${displayC} ${hue})`);
-							ctx.fillStyle = color.toCss();
-							ctx.fillRect(x, 0, 1, height);
-						}
-
-						// 2. Draw Moving Handle
-						// Calculate position based on currentHue relative to centerHue
-						let diff = currentH - centerHue;
-						// Handle wrap-around (e.g. 359 -> 1)
-						if (diff > 180) diff -= 360;
-						if (diff < -180) diff += 360;
-
-						const handleX = width / 2 + diff * pixelsPerDegree;
-
-						if (handleX >= 0 && handleX <= width) {
-							// Draw Handle Line
-							ctx.beginPath();
-							ctx.moveTo(handleX, 0);
-							ctx.lineTo(handleX, height);
-							ctx.strokeStyle = "rgba(255, 255, 255, 0.9)";
-							ctx.lineWidth = 2;
-							ctx.stroke();
-
-							// Draw Handle Knob (Premium Feel)
-							const knobY = height / 2;
-
-							// Outer Glow/Shadow
-							ctx.shadowColor = "rgba(0, 0, 0, 0.3)";
-							ctx.shadowBlur = 4;
-							ctx.shadowOffsetY = 2;
-
-							// Knob Body
-							ctx.beginPath();
-							ctx.roundRect(handleX - 6, 4, 12, height - 8, 6);
-							ctx.fillStyle = "white";
-							ctx.fill();
-
-							// Reset Shadow
-							ctx.shadowColor = "transparent";
-							ctx.shadowBlur = 0;
-							ctx.shadowOffsetY = 0;
-
-							// Inner Detail (Grip lines)
-							ctx.fillStyle = "#ccc";
-							ctx.fillRect(handleX - 1, knobY - 4, 2, 8);
-						}
-					};
-
-					// Handle Scrubber Interaction
-					const handleScrubberStart = (e: MouseEvent | TouchEvent) => {
-						isDraggingScrubber = true;
-						handleScrubberMove(e);
-
-						// Prevent scrolling on touch
-						if (e.type === "touchstart") {
-							e.preventDefault();
-						}
-					};
-
-					const handleScrubberMove = (e: MouseEvent | TouchEvent) => {
-						if (!isDraggingScrubber) return;
-
-						const touch =
-							"touches" in e &&
-							(e as TouchEvent).touches &&
-							(e as TouchEvent).touches.length > 0
-								? (e as TouchEvent).touches[0]
-								: null;
-						const clientX = touch ? touch.clientX : (e as MouseEvent).clientX;
-
-						// Calculate Hue based on X position
-						const rect = scrubberCanvas.getBoundingClientRect();
-						const x = clientX - rect.left;
-						const width = rect.width;
-
-						const visibleRange = 30;
-						const pixelsPerDegree = width / visibleRange;
-						const centerHue = keyColor.oklch?.h ?? 0;
-
-						const offsetPixels = x - width / 2;
-						const offsetDegrees = offsetPixels / pixelsPerDegree;
-
-						let newHue = centerHue + offsetDegrees;
-						newHue = newHue % 360;
-						if (newHue < 0) newHue += 360;
-
-						// Update Color (Keep L and C, only change H)
-						const currentL = currentColor.oklch?.l ?? 0;
-						const currentC = currentColor.oklch?.c ?? 0;
-						const newColor = new Color(
-							`oklch(${currentL} ${currentC} ${newHue})`,
-						);
-
-						updateDetail(newColor, -1); // -1 to indicate manual tuning
-						drawScrubber();
-					};
-
-					const handleScrubberEnd = () => {
-						isDraggingScrubber = false;
-					};
-
-					const resizeScrubber = () => {
-						if (!scrubberCanvas) return;
-						const rect = scrubberCanvas.parentElement?.getBoundingClientRect();
-						if (rect && rect.width > 0) {
-							scrubberCanvas.width = rect.width;
-							scrubberCanvas.height = rect.height;
-							drawScrubber();
-						}
-					};
-
-					if (scrubberCanvas) {
-						scrubberCanvas.addEventListener("mousedown", handleScrubberStart);
-						window.addEventListener("mousemove", handleScrubberMove);
-						window.addEventListener("mouseup", handleScrubberEnd);
-
-						scrubberCanvas.addEventListener("touchstart", handleScrubberStart, {
-							passive: false,
-						});
-						window.addEventListener("touchmove", handleScrubberMove, {
-							passive: false,
-						});
-						window.addEventListener("touchend", handleScrubberEnd);
-
-						window.addEventListener("resize", resizeScrubber);
-					}
-
-					// Helper to update detail panel with a specific color
-					const updateDetail = (color: Color, selectedIndex: number) => {
-						currentColor = color;
-						const colorL = color.oklch.l as number;
-
-						// Populate Basic Info
-						const detailSwatch = document.getElementById("detail-swatch");
-						const detailTokenName =
-							document.getElementById("detail-token-name");
-						const detailHex = document.getElementById("detail-hex");
-						const detailLightness = document.getElementById("detail-lightness");
-						const detailChromaName =
-							document.getElementById("detail-chroma-name");
-
-						// Calculate token name based on scale position
-						const { keyIndex } = fixedScale;
-						// Use selectedIndex if valid, otherwise use keyIndex
-						const tokenIndex = selectedIndex >= 0 ? selectedIndex : keyIndex;
-						const step = STEP_NAMES[tokenIndex] ?? 600;
-						const chromaNameLower = (p.baseChromaName || p.name || "color")
-							.toLowerCase()
-							.replace(/\s+/g, "-");
-
-						if (detailSwatch)
-							detailSwatch.style.backgroundColor = color.toCss();
-						if (detailTokenName)
-							detailTokenName.textContent = `${chromaNameLower}-${step}`;
-						if (detailHex) detailHex.textContent = color.toHex();
-						if (detailLightness)
-							detailLightness.textContent = `${Math.round(colorL * 100)}% L`;
-
-						// Update chroma name display
-						if (detailChromaName) {
-							if (p.baseChromaName && p.name) {
-								detailChromaName.textContent = `${p.baseChromaName} | ${p.name}`;
-							} else if (p.baseChromaName) {
-								detailChromaName.textContent = p.baseChromaName;
-							} else {
-								detailChromaName.textContent = p.name;
-							}
-						}
-
-						// Update "Set as key color" button
-						const setKeyColorBtn = document.getElementById(
-							"set-key-color-btn",
-						) as HTMLButtonElement;
-						if (setKeyColorBtn) {
-							const paletteName = p.name || p.baseChromaName || "";
-							setKeyColorBtn.textContent = `${color.toHex()} を ${paletteName} のパレットの色に指定`;
-							setKeyColorBtn.onclick = () => {
-								const newKeyColors = [color.toHex()];
-
-								// Sync both palettes and shadesPalettes
-								const syncPalette = (targetList: PaletteConfig[]) => {
-									const match = targetList.find(
-										(tp) =>
-											tp.name === p.name ||
-											tp.baseChromaName === p.baseChromaName,
-									);
-									if (match) {
-										match.keyColors = [...newKeyColors];
-									}
-								};
-								syncPalette(state.palettes);
-								syncPalette(state.shadesPalettes);
-
-								// Close dialog and re-render
-								dialog.close();
-								renderMain();
-							};
-						}
-
-						// Helper to update contrast card
-						const updateCard = (bgHex: string, prefix: string) => {
-							const bgColor = new Color(bgHex);
-							const wcag = verifyContrast(color, bgColor);
-							const apca = getAPCA(color, bgColor);
-							const ratioVal = Math.round(wcag.contrast * 100) / 100;
-							const lc = Math.round(apca);
-
-							const badge = document.getElementById(`detail-${prefix}-badge`);
-							const ratioEl = document.getElementById(`detail-${prefix}-ratio`);
-							const apcaEl = document.getElementById(`detail-${prefix}-apca`);
-							const preview = document.getElementById(
-								`detail-${prefix}-preview`,
-							);
-							const previewLarge = document.getElementById(
-								`detail-${prefix}-preview-large`,
-							);
-							const failIcon = document.getElementById(
-								`detail-${prefix}-fail-icon`,
-							);
-
-							if (ratioEl) ratioEl.textContent = `${ratioVal}`;
-							if (apcaEl) apcaEl.textContent = `${lc}`;
-
-							if (preview) {
-								preview.style.backgroundColor = color.toCss();
-								preview.style.color = bgHex;
-							}
-							if (previewLarge) {
-								previewLarge.style.backgroundColor = color.toCss();
-								previewLarge.style.color = bgHex;
-							}
-
-							if (badge) {
-								if (ratioVal >= 7.0) {
-									badge.textContent = "AAA";
-									badge.dataset.level = "success";
-									if (failIcon) failIcon.style.display = "none";
-								} else if (ratioVal >= 4.5) {
-									badge.textContent = "AA";
-									badge.dataset.level = "success";
-									if (failIcon) failIcon.style.display = "none";
-								} else if (ratioVal >= 3.0) {
-									badge.textContent = "Large Text";
-									badge.dataset.level = "warning";
-									if (failIcon) failIcon.style.display = "none";
-								} else {
-									badge.textContent = "Fail";
-									badge.dataset.level = "error";
-									if (failIcon) failIcon.style.display = "block";
-								}
-							}
-						};
-
-						// Calculate both contrasts for comparison
-						const whiteContrastVal = verifyContrast(
-							color,
-							new Color("#ffffff"),
-						).contrast;
-						const blackContrastVal = verifyContrast(
-							color,
-							new Color("#000000"),
-						).contrast;
-
-						updateCard("#ffffff", "white");
-						updateCard("#000000", "black");
-
-						// Highlight the better contrast card with data-preferred attribute
-						const whiteCard = document.getElementById(
-							"detail-white-card",
-						) as HTMLElement;
-						const blackCard = document.getElementById(
-							"detail-black-card",
-						) as HTMLElement;
-
-						if (whiteCard && blackCard) {
-							if (whiteContrastVal >= blackContrastVal) {
-								whiteCard.dataset.preferred = "true";
-								delete blackCard.dataset.preferred;
-							} else {
-								blackCard.dataset.preferred = "true";
-								delete whiteCard.dataset.preferred;
-							}
-						}
-
-						// Redraw scrubber
-						drawScrubber();
-
-						// Update Mini Scale（固定スケールを使用）
-						const miniScale = document.getElementById("detail-mini-scale");
-						if (miniScale) {
-							miniScale.innerHTML = "";
-							const { colors: scaleColors, keyIndex: originalKeyIndex } =
-								fixedScale;
-
-							// 現在選択されているインデックスを決定
-							const currentHighlightIndex =
-								selectedScaleIndex >= 0 ? selectedScaleIndex : originalKeyIndex;
-
-							scaleColors.forEach((c, i) => {
-								const div = document.createElement("button");
-								div.type = "button";
-								div.className = "dads-mini-scale__item";
-								div.style.backgroundColor = c.toCss();
-								div.setAttribute("aria-label", `Color ${c.toHex()}`);
-
-								// Add click handler
-								div.onclick = () => {
-									selectedScaleIndex = i;
-									updateDetail(c, i);
-								};
-
-								// Highlight current color
-								if (i === currentHighlightIndex) {
-									const check = document.createElement("div");
-									check.className = "dads-mini-scale__check";
-									check.textContent = "✓";
-									check.style.color =
-										c.contrast(new Color("#fff")) > 4.5 ? "white" : "black";
-									div.appendChild(check);
-								}
-
-								miniScale.appendChild(div);
-							});
-						}
-					};
-
-					// --- Reset & Save Logic ---
-					const resetBtn = document.getElementById("detail-reset-btn");
-					const saveBtn = document.getElementById("detail-save-btn");
-
-					if (resetBtn) {
-						resetBtn.onclick = () => {
-							currentColor = keyColor;
-							updateDetail(currentColor, reversedKeyColorIndex);
-							drawScrubber();
-						};
-					}
-
-					if (saveBtn) {
-						saveBtn.onclick = () => {
-							// Update Key Color
-							p.keyColors = [currentColor.toHex()];
-
-							// SYNC Logic: Update the corresponding palette in the other list
-							const syncPalette = (targetList: PaletteConfig[]) => {
-								const match = targetList.find((other) => {
-									// Match by baseChromaName if available (most reliable for system colors)
-									if (p.baseChromaName && other.baseChromaName) {
-										return p.baseChromaName === other.baseChromaName;
-									}
-									// Fallback to name match
-									return p.name === other.name;
-								});
-
-								if (match) {
-									match.keyColors = [currentColor.toHex()];
-								}
-							};
-
-							// Try syncing both ways to be safe (though p belongs to one)
-							syncPalette(state.palettes);
-							syncPalette(state.shadesPalettes);
-
-							dialog.close();
-							renderMain();
-						};
-					}
-
-					// Initial update with clicked color
-					updateDetail(stepColor, index);
-
-					dialog.showModal();
-
-					// Resize scrubber after modal is visible
-					requestAnimationFrame(() => {
-						resizeScrubber();
+					openColorDetailModal({
+						stepColor,
+						keyColor,
+						index,
+						fixedScale,
+						paletteInfo: {
+							name: p.name,
+							baseChromaName: p.baseChromaName,
+						},
 					});
 				};
 
