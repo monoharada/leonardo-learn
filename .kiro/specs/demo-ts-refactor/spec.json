@@ -37,6 +37,22 @@
 			"final_verdict": "APPROVED",
 			"resolved_issues": 4,
 			"session_id": "019b637d-e61b-7fc3-9f2a-1e9ab14da674"
+		},
+		"impl": {
+			"task_1_1": {
+				"review_count": 2,
+				"final_verdict": "APPROVED",
+				"resolved_issues": 1,
+				"note": "設計意図（demo.ts修正はタスク5.1）を補足し承認",
+				"session_id": "019b638e-8e65-7fe1-a86b-48152f26d307"
+			},
+			"task_1_2": {
+				"review_count": 2,
+				"final_verdict": "APPROVED",
+				"resolved_issues": 0,
+				"note": "設計意図（constants.ts作成のみ、demo.ts修正はTask 5.1）を補足し承認",
+				"session_id": "019b63a7-4d90-7c52-afd5-3cb085c1aa81"
+			}
 		}
 	}
 }

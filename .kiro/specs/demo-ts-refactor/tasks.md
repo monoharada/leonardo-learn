@@ -12,7 +12,7 @@ Task 1.1 (P) → Task 1.2 → Task 1.3 → Task 2.x, 3.x, 4.x → Task 5.1 → T
 
 State Layer（types.ts, constants.ts, state.ts）を作成し、他モジュールの基盤となる型定義・定数・状態管理を整備する。
 
-- [ ] 1.1 (P) 型定義モジュールを作成する
+- [x] 1.1 (P) 型定義モジュールを作成する
   - **依存**: なし（最初に着手可能）
   - demo機能で使用する全型定義（KeyColorWithStep, PaletteConfig, ViewMode等）を独立モジュールとして抽出
   - 外部型（HarmonyType, CVDType, ContrastIntensity等）の再エクスポートを整理
@@ -20,7 +20,7 @@ State Layer（types.ts, constants.ts, state.ts）を作成し、他モジュー�
   - TypeScript型チェックがエラーなく通ることを検証
   - _Requirements: 6.1, 6.3_
 
-- [ ] 1.2 定数モジュールを作成する
+- [x] 1.2 定数モジュールを作成する
   - **依存**: Task 1.1（型定義のインポートが必要）
   - HARMONY_TYPES配列を独立モジュールとして抽出
   - DEFAULT_STATEオブジェクト（初期状態のデフォルト値）を定義
