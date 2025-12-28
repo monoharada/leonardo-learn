@@ -201,11 +201,11 @@ test.describe("円形スウォッチ表示", () => {
 		// 円形スウォッチクラスが適用されていることを確認
 		await expect(linkSwatch).toHaveClass(/dads-swatch--circular/);
 
-		// 中央ラベルに「リンク」が表示されること
+		// 中央ラベルに「リンク Default」が表示されること（Link-Defaultの場合）
 		const roleLabel = linkSwatch.locator(".dads-swatch__role-label");
 		await expect(roleLabel).toBeVisible();
 		const labelText = await roleLabel.textContent();
-		expect(labelText).toBe("リンク");
+		expect(labelText).toBe("リンク Default");
 	});
 
 	test("Accentロール（アクセント）のラベルが表示される", async ({ page }) => {
