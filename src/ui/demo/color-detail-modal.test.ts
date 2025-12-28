@@ -239,10 +239,11 @@ describe("color-detail-modal module", () => {
 	});
 
 	describe("function signatures", () => {
-		it("openColorDetailModal should accept options parameter", async () => {
+		it("openColorDetailModal should accept options parameter and optional callback", async () => {
 			const { openColorDetailModal } = await import("./color-detail-modal");
-			// 関数のシグネチャを確認（引数1つ）
-			expect(openColorDetailModal.length).toBe(1);
+			// 関数のシグネチャを確認（引数2つ: options, onRenderMain?）
+			// Task 3.4c: onRenderMainコールバックを追加
+			expect(openColorDetailModal.length).toBe(2);
 		});
 	});
 
@@ -280,6 +281,223 @@ describe("color-detail-modal module", () => {
 			// 依存関係はコード内で直接確認
 			const module = await import("./color-detail-modal");
 			expect(module).toBeDefined();
+		});
+	});
+
+	describe("color sync and readOnly mode (Task 3.4c)", () => {
+		describe("updateDetail function", () => {
+			it("should export updateDetailConfig type via _testHelpers", async () => {
+				const { _testHelpers } = await import("./color-detail-modal");
+				expect(_testHelpers.createUpdateDetailHandler).toBeDefined();
+				expect(typeof _testHelpers.createUpdateDetailHandler).toBe("function");
+			});
+
+			it("createUpdateDetailHandler should return updateDetail function", async () => {
+				const { Color } = await import("@/core/color");
+				const { _testHelpers } = await import("./color-detail-modal");
+
+				const mockConfig = {
+					fixedScale: {
+						colors: [
+							new Color("#ff0000"),
+							new Color("#00ff00"),
+							new Color("#0000ff"),
+						],
+						keyIndex: 1,
+						hexValues: ["#ff0000", "#00ff00", "#0000ff"],
+					},
+					paletteInfo: {
+						name: "Test Palette",
+						baseChromaName: "Red",
+					},
+					readOnly: false,
+					keyColor: new Color("#ff0000"),
+					drawScrubber: () => {},
+					getCurrentColor: () => new Color("#ff0000"),
+					setCurrentColor: () => {},
+					onRenderMain: () => {},
+				};
+
+				const handler = _testHelpers.createUpdateDetailHandler(mockConfig);
+				expect(handler.updateDetail).toBeDefined();
+				expect(typeof handler.updateDetail).toBe("function");
+			});
+
+			it("updateDetail should calculate token name correctly", async () => {
+				const { Color } = await import("@/core/color");
+				const { _testHelpers } = await import("./color-detail-modal");
+
+				const result = _testHelpers.calculateTokenInfo(
+					new Color("#ff0000"),
+					5, // selectedIndex
+					{
+						name: "Test Palette",
+						baseChromaName: "Red",
+					},
+				);
+
+				expect(result.tokenName).toBe("red-700"); // STEP_NAMES[5] = 700
+				expect(result.chromaDisplayName).toBeDefined();
+			});
+		});
+
+		describe("syncPalette function", () => {
+			it("should export syncPalette function via _testHelpers", async () => {
+				const { _testHelpers } = await import("./color-detail-modal");
+				expect(_testHelpers.syncPalette).toBeDefined();
+				expect(typeof _testHelpers.syncPalette).toBe("function");
+			});
+
+			it("syncPalette should update matching palette keyColors by name", async () => {
+				const { Color } = await import("@/core/color");
+				const { _testHelpers } = await import("./color-detail-modal");
+
+				const palettes = [
+					{
+						id: "1",
+						name: "Blue",
+						keyColors: ["#0000ff"],
+						ratios: [],
+						harmony: "none" as const,
+					},
+					{
+						id: "2",
+						name: "Red",
+						keyColors: ["#ff0000"],
+						ratios: [],
+						harmony: "none" as const,
+					},
+				];
+
+				_testHelpers.syncPalette(palettes, "#00ff00", {
+					name: "Red",
+					baseChromaName: undefined,
+				});
+
+				expect(palettes[0].keyColors).toEqual(["#0000ff"]); // unchanged
+				expect(palettes[1].keyColors).toEqual(["#00ff00"]); // updated
+			});
+
+			it("syncPalette should update matching palette keyColors by baseChromaName", async () => {
+				const { _testHelpers } = await import("./color-detail-modal");
+
+				const palettes = [
+					{
+						id: "1",
+						name: "Blue Palette",
+						baseChromaName: "Blue",
+						keyColors: ["#0000ff"],
+						ratios: [],
+						harmony: "none" as const,
+					},
+					{
+						id: "2",
+						name: "Red Palette",
+						baseChromaName: "Red",
+						keyColors: ["#ff0000"],
+						ratios: [],
+						harmony: "none" as const,
+					},
+				];
+
+				_testHelpers.syncPalette(palettes, "#00ff00", {
+					name: "Red Palette",
+					baseChromaName: "Red",
+				});
+
+				expect(palettes[0].keyColors).toEqual(["#0000ff"]); // unchanged
+				expect(palettes[1].keyColors).toEqual(["#00ff00"]); // updated
+			});
+		});
+
+		describe("updateCard function", () => {
+			it("should export updateContrastCard function via _testHelpers", async () => {
+				const { _testHelpers } = await import("./color-detail-modal");
+				expect(_testHelpers.calculateContrastInfo).toBeDefined();
+				expect(typeof _testHelpers.calculateContrastInfo).toBe("function");
+			});
+
+			it("calculateContrastInfo should calculate WCAG and APCA values", async () => {
+				const { Color } = await import("@/core/color");
+				const { _testHelpers } = await import("./color-detail-modal");
+
+				const result = _testHelpers.calculateContrastInfo(
+					new Color("#000000"), // foreground
+					new Color("#ffffff"), // background
+				);
+
+				expect(result.ratio).toBeGreaterThanOrEqual(21); // black on white = 21:1
+				expect(result.apca).toBeDefined();
+				expect(typeof result.apca).toBe("number");
+			});
+
+			it("calculateContrastInfo should return correct badge level", async () => {
+				const { Color } = await import("@/core/color");
+				const { _testHelpers } = await import("./color-detail-modal");
+
+				// AAA level (ratio >= 7.0)
+				const aaaResult = _testHelpers.calculateContrastInfo(
+					new Color("#000000"),
+					new Color("#ffffff"),
+				);
+				expect(aaaResult.level).toBe("success");
+				expect(aaaResult.badgeText).toBe("AAA");
+
+				// Low contrast
+				const lowResult = _testHelpers.calculateContrastInfo(
+					new Color("#888888"),
+					new Color("#999999"),
+				);
+				expect(lowResult.level).toBe("error");
+				expect(lowResult.badgeText).toBe("Fail");
+			});
+		});
+
+		describe("readOnly mode", () => {
+			it("createUpdateDetailHandler should respect readOnly flag", async () => {
+				const { Color } = await import("@/core/color");
+				const { _testHelpers } = await import("./color-detail-modal");
+
+				const setKeyColorCalled = false;
+				const mockConfig = {
+					fixedScale: {
+						colors: [new Color("#ff0000")],
+						keyIndex: 0,
+						hexValues: ["#ff0000"],
+					},
+					paletteInfo: {
+						name: "Test",
+					},
+					readOnly: true,
+					keyColor: new Color("#ff0000"),
+					drawScrubber: () => {},
+					getCurrentColor: () => new Color("#ff0000"),
+					setCurrentColor: () => {},
+					onRenderMain: () => {},
+				};
+
+				const handler = _testHelpers.createUpdateDetailHandler(mockConfig);
+				expect(handler.isReadOnly()).toBe(true);
+			});
+
+			it("scrubber handlers should be disabled in readOnly mode", async () => {
+				const { Color } = await import("@/core/color");
+				const { _testHelpers } = await import("./color-detail-modal");
+
+				let colorChanged = false;
+				const handlers = _testHelpers.createScrubberHandlers({
+					keyColor: new Color("#ff0000"),
+					currentColor: new Color("#ff0000"),
+					readOnly: true,
+					onColorChange: () => {
+						colorChanged = true;
+					},
+				});
+
+				handlers.handleStart({} as MouseEvent);
+				expect(handlers.isDragging()).toBe(false);
+				expect(colorChanged).toBe(false);
+			});
 		});
 	});
 

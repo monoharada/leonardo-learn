@@ -12,8 +12,12 @@
  * Requirements: 4.1, 4.2, 4.3
  */
 
+import { getAPCA } from "@/accessibility/apca";
+import { verifyContrast } from "@/accessibility/wcag2";
 import { Color } from "@/core/color";
-import type { ColorDetailModalOptions } from "./types";
+import { STEP_NAMES } from "@/ui/style-constants";
+import { state } from "./state";
+import type { ColorDetailModalOptions, PaletteConfig } from "./types";
 
 /**
  * 最後に作成されたAbortController（テスト用）
@@ -296,6 +300,338 @@ function resizeScrubber(
 	}
 }
 
+// ============================================================
+// 色同期・詳細表示関連（Task 3.4c）
+// ============================================================
+
+/**
+ * パレット情報
+ */
+interface PaletteInfo {
+	name: string;
+	baseChromaName?: string;
+}
+
+/**
+ * トークン情報を計算する
+ */
+function calculateTokenInfo(
+	_color: Color,
+	selectedIndex: number,
+	paletteInfo: PaletteInfo,
+	keyIndex = 0,
+): {
+	tokenName: string;
+	step: number;
+	chromaDisplayName: string;
+} {
+	const tokenIndex = selectedIndex >= 0 ? selectedIndex : keyIndex;
+	const step = STEP_NAMES[tokenIndex] ?? 600;
+	const chromaNameLower = (
+		paletteInfo.baseChromaName ||
+		paletteInfo.name ||
+		"color"
+	)
+		.toLowerCase()
+		.replace(/\s+/g, "-");
+
+	let chromaDisplayName: string;
+	if (paletteInfo.baseChromaName && paletteInfo.name) {
+		chromaDisplayName = `${paletteInfo.baseChromaName} | ${paletteInfo.name}`;
+	} else if (paletteInfo.baseChromaName) {
+		chromaDisplayName = paletteInfo.baseChromaName;
+	} else {
+		chromaDisplayName = paletteInfo.name;
+	}
+
+	return {
+		tokenName: `${chromaNameLower}-${step}`,
+		step,
+		chromaDisplayName,
+	};
+}
+
+/**
+ * コントラスト情報を計算する
+ */
+function calculateContrastInfo(
+	foreground: Color,
+	background: Color,
+): {
+	ratio: number;
+	apca: number;
+	level: "success" | "warning" | "error";
+	badgeText: string;
+} {
+	const wcag = verifyContrast(foreground, background);
+	const apca = getAPCA(foreground, background);
+	const ratio = Math.round(wcag.contrast * 100) / 100;
+	const lc = Math.round(apca);
+
+	let level: "success" | "warning" | "error";
+	let badgeText: string;
+
+	if (ratio >= 7.0) {
+		level = "success";
+		badgeText = "AAA";
+	} else if (ratio >= 4.5) {
+		level = "success";
+		badgeText = "AA";
+	} else if (ratio >= 3.0) {
+		level = "warning";
+		badgeText = "Large Text";
+	} else {
+		level = "error";
+		badgeText = "Fail";
+	}
+
+	return {
+		ratio,
+		apca: lc,
+		level,
+		badgeText,
+	};
+}
+
+/**
+ * パレット配列内のマッチするパレットのkeyColorsを更新する
+ */
+function syncPalette(
+	palettes: PaletteConfig[],
+	newKeyColorHex: string,
+	paletteInfo: PaletteInfo,
+): void {
+	const match = palettes.find((other) => {
+		if (paletteInfo.baseChromaName && other.baseChromaName) {
+			return paletteInfo.baseChromaName === other.baseChromaName;
+		}
+		return paletteInfo.name === other.name;
+	});
+
+	if (match) {
+		match.keyColors = [newKeyColorHex];
+	}
+}
+
+/**
+ * updateDetailハンドラの設定
+ */
+interface UpdateDetailHandlerConfig {
+	fixedScale: {
+		colors: Color[];
+		keyIndex: number;
+		hexValues?: string[];
+	};
+	paletteInfo: PaletteInfo;
+	readOnly: boolean;
+	keyColor: Color;
+	drawScrubber: () => void;
+	getCurrentColor: () => Color;
+	setCurrentColor: (color: Color) => void;
+	onRenderMain: () => void;
+}
+
+/**
+ * updateDetailハンドラのインターフェース
+ */
+interface UpdateDetailHandler {
+	updateDetail: (
+		color: Color,
+		selectedIndex: number,
+		hexOverride?: string,
+	) => void;
+	getSelectedScaleIndex: () => number;
+	setSelectedScaleIndex: (index: number) => void;
+	isReadOnly: () => boolean;
+}
+
+/**
+ * updateDetailハンドラを作成する
+ */
+function createUpdateDetailHandler(
+	config: UpdateDetailHandlerConfig,
+): UpdateDetailHandler {
+	let selectedScaleIndex = config.fixedScale.keyIndex;
+
+	const updateDetail = (
+		color: Color,
+		selectedIndex: number,
+		hexOverride?: string,
+	): void => {
+		config.setCurrentColor(color);
+		const colorL = color.oklch.l as number;
+
+		const detailSwatch = document.getElementById("detail-swatch");
+		const detailTokenName = document.getElementById("detail-token-name");
+		const detailHex = document.getElementById("detail-hex");
+		const detailLightness = document.getElementById("detail-lightness");
+		const detailChromaName = document.getElementById("detail-chroma-name");
+
+		const { keyIndex, hexValues } = config.fixedScale;
+		const tokenInfo = calculateTokenInfo(
+			color,
+			selectedIndex,
+			config.paletteInfo,
+			keyIndex,
+		);
+
+		if (detailSwatch) detailSwatch.style.backgroundColor = color.toCss();
+		if (detailTokenName) detailTokenName.textContent = tokenInfo.tokenName;
+
+		// 元のHEX値を優先して使用（変換誤差回避）
+		const displayHex =
+			hexOverride ??
+			(hexValues && selectedIndex >= 0 ? hexValues[selectedIndex] : null) ??
+			color.toHex();
+		if (detailHex) detailHex.textContent = displayHex;
+		if (detailLightness) {
+			detailLightness.textContent = `${Math.round(colorL * 100)}% L`;
+		}
+		if (detailChromaName) {
+			detailChromaName.textContent = tokenInfo.chromaDisplayName;
+		}
+
+		// "Set as key color" button
+		const setKeyColorBtn = document.getElementById(
+			"set-key-color-btn",
+		) as HTMLButtonElement;
+		if (setKeyColorBtn) {
+			if (config.readOnly) {
+				setKeyColorBtn.style.display = "none";
+			} else {
+				setKeyColorBtn.style.display = "";
+				const paletteName =
+					config.paletteInfo.name || config.paletteInfo.baseChromaName || "";
+				setKeyColorBtn.textContent = `${color.toHex()} を ${paletteName} のパレットの色に指定`;
+				setKeyColorBtn.onclick = () => {
+					const newKeyColorHex = color.toHex();
+					syncPalette(state.palettes, newKeyColorHex, config.paletteInfo);
+					syncPalette(state.shadesPalettes, newKeyColorHex, config.paletteInfo);
+
+					const dialog = document.getElementById(
+						"color-detail-dialog",
+					) as HTMLDialogElement;
+					if (dialog) dialog.close();
+					config.onRenderMain();
+				};
+			}
+		}
+
+		// Contrast cards
+		updateContrastCard(color, "#ffffff", "white");
+		updateContrastCard(color, "#000000", "black");
+
+		// Preferred card highlighting
+		const whiteContrastVal = verifyContrast(
+			color,
+			new Color("#ffffff"),
+		).contrast;
+		const blackContrastVal = verifyContrast(
+			color,
+			new Color("#000000"),
+		).contrast;
+		const whiteCard = document.getElementById("detail-white-card");
+		const blackCard = document.getElementById("detail-black-card");
+
+		if (whiteCard && blackCard) {
+			if (whiteContrastVal >= blackContrastVal) {
+				whiteCard.dataset.preferred = "true";
+				delete blackCard.dataset.preferred;
+			} else {
+				blackCard.dataset.preferred = "true";
+				delete whiteCard.dataset.preferred;
+			}
+		}
+
+		// Redraw scrubber
+		config.drawScrubber();
+
+		// Mini scale
+		const miniScale = document.getElementById("detail-mini-scale");
+		if (miniScale) {
+			miniScale.innerHTML = "";
+			const { colors: scaleColors, keyIndex: originalKeyIndex } =
+				config.fixedScale;
+			const currentHighlightIndex =
+				selectedScaleIndex >= 0 ? selectedScaleIndex : originalKeyIndex;
+
+			scaleColors.forEach((c, i) => {
+				const div = document.createElement("button");
+				div.type = "button";
+				div.className = "dads-mini-scale__item";
+				div.style.backgroundColor = c.toCss();
+				div.setAttribute("aria-label", `Color ${c.toHex()}`);
+
+				div.onclick = () => {
+					selectedScaleIndex = i;
+					updateDetail(c, i);
+				};
+
+				if (i === currentHighlightIndex) {
+					const check = document.createElement("div");
+					check.className = "dads-mini-scale__check";
+					check.textContent = "✓";
+					check.style.color =
+						c.contrast(new Color("#fff")) > 4.5 ? "white" : "black";
+					div.appendChild(check);
+				}
+
+				miniScale.appendChild(div);
+			});
+		}
+	};
+
+	return {
+		updateDetail,
+		getSelectedScaleIndex: () => selectedScaleIndex,
+		setSelectedScaleIndex: (index: number) => {
+			selectedScaleIndex = index;
+		},
+		isReadOnly: () => config.readOnly,
+	};
+}
+
+/**
+ * コントラストカードを更新する
+ */
+function updateContrastCard(
+	foreground: Color,
+	bgHex: string,
+	prefix: string,
+): void {
+	const bgColor = new Color(bgHex);
+	const info = calculateContrastInfo(foreground, bgColor);
+
+	const badge = document.getElementById(`detail-${prefix}-badge`);
+	const ratioEl = document.getElementById(`detail-${prefix}-ratio`);
+	const apcaEl = document.getElementById(`detail-${prefix}-apca`);
+	const preview = document.getElementById(`detail-${prefix}-preview`);
+	const previewLarge = document.getElementById(
+		`detail-${prefix}-preview-large`,
+	);
+	const failIcon = document.getElementById(`detail-${prefix}-fail-icon`);
+
+	if (ratioEl) ratioEl.textContent = `${info.ratio}`;
+	if (apcaEl) apcaEl.textContent = `${info.apca}`;
+
+	if (preview) {
+		preview.style.backgroundColor = foreground.toCss();
+		preview.style.color = bgHex;
+	}
+	if (previewLarge) {
+		previewLarge.style.backgroundColor = foreground.toCss();
+		previewLarge.style.color = bgHex;
+	}
+
+	if (badge) {
+		badge.textContent = info.badgeText;
+		badge.dataset.level = info.level;
+		if (failIcon) {
+			failIcon.style.display = info.level === "error" ? "block" : "none";
+		}
+	}
+}
+
 /**
  * スクラバーのイベントリスナーを設定する
  */
@@ -337,9 +673,21 @@ function setupScrubberEventListeners(
  * 色詳細モーダルを開く
  *
  * @param options - モーダル表示オプション
+ * @param onRenderMain - メインビュー再描画コールバック（オプション）
  */
-export function openColorDetailModal(options: ColorDetailModalOptions): void {
-	const { stepColor, keyColor, readOnly = false } = options;
+export function openColorDetailModal(
+	options: ColorDetailModalOptions,
+	onRenderMain?: () => void,
+): void {
+	const {
+		stepColor,
+		keyColor,
+		index,
+		fixedScale,
+		paletteInfo,
+		readOnly = false,
+		originalHex,
+	} = options;
 
 	// ダイアログ要素を取得
 	const dialog = document.getElementById(
@@ -374,17 +722,28 @@ export function openColorDetailModal(options: ColorDetailModalOptions): void {
 		{ once: true },
 	);
 
-	// Task 3.4b: スクラバー機能の実装
-	// スクラバーハンドラを作成
+	// Task 3.4c: updateDetailハンドラを作成
+	const updateDetailHandler = createUpdateDetailHandler({
+		fixedScale,
+		paletteInfo,
+		readOnly,
+		keyColor,
+		drawScrubber: () => drawScrubber(scrubberCanvas, keyColor, currentColor),
+		getCurrentColor: () => currentColor,
+		setCurrentColor: (color: Color) => {
+			currentColor = color;
+		},
+		onRenderMain: onRenderMain ?? (() => {}),
+	});
+
+	// スクラバーハンドラを作成（Task 3.4c: updateDetail統合）
 	const scrubberHandlers = createScrubberHandlers({
 		keyColor,
 		currentColor,
 		readOnly,
 		onColorChange: (newColor: Color) => {
 			currentColor = newColor;
-			// NOTE: updateDetailはTask 3.4cで実装予定
-			// updateDetail(newColor, -1);
-			drawScrubber(scrubberCanvas, keyColor, newColor);
+			updateDetailHandler.updateDetail(newColor, -1);
 		},
 	});
 
@@ -399,10 +758,36 @@ export function openColorDetailModal(options: ColorDetailModalOptions): void {
 		);
 	}
 
-	// TODO: Task 3.4c - 色同期とreadOnlyモードの実装
-	// - updateDetail関数
-	// - syncPalette関数
-	// - readOnlyモードでの編集操作無効化
+	// Task 3.4c: Reset & Save ボタンのロジック
+	const resetBtn = document.getElementById("detail-reset-btn");
+	const saveBtn = document.getElementById("detail-save-btn");
+
+	if (resetBtn) {
+		if (readOnly) {
+			(resetBtn as HTMLElement).style.display = "none";
+		} else {
+			(resetBtn as HTMLElement).style.display = "";
+			resetBtn.onclick = () => {
+				currentColor = keyColor;
+				updateDetailHandler.setSelectedScaleIndex(fixedScale.keyIndex);
+				updateDetailHandler.updateDetail(currentColor, fixedScale.keyIndex);
+			};
+		}
+	}
+
+	if (saveBtn) {
+		if (readOnly) {
+			(saveBtn as HTMLElement).style.display = "none";
+		} else {
+			(saveBtn as HTMLElement).style.display = "";
+			saveBtn.onclick = () => {
+				syncPalette(state.palettes, currentColor.toHex(), paletteInfo);
+				syncPalette(state.shadesPalettes, currentColor.toHex(), paletteInfo);
+				dialog.close();
+				if (onRenderMain) onRenderMain();
+			};
+		}
+	}
 
 	// readOnlyモードの場合はスクラバーを非表示
 	const scrubberContainer = scrubberCanvas?.parentElement;
@@ -415,9 +800,13 @@ export function openColorDetailModal(options: ColorDetailModalOptions): void {
 	// モーダルを表示
 	dialog.showModal();
 
-	// モーダル表示後にスクラバーをリサイズして描画
+	// モーダル表示後に初期表示を設定
 	requestAnimationFrame(() => {
 		resizeScrubber(scrubberCanvas, keyColor, currentColor);
+		// Task 3.4c: 初期選択インデックスを設定してからupdateDetailを呼び出す
+		// これによりmini-scaleのハイライトが正しく表示される
+		updateDetailHandler.setSelectedScaleIndex(index);
+		updateDetailHandler.updateDetail(stepColor, index, originalHex);
 	});
 }
 
@@ -438,4 +827,10 @@ export const _testHelpers = {
 	calculateHueRange,
 	calculateHandlePosition,
 	calculateHueFromPosition,
+	// Task 3.4c: 色同期・詳細表示関連のテスト用ヘルパー
+	calculateTokenInfo,
+	calculateContrastInfo,
+	syncPalette,
+	createUpdateDetailHandler,
+	updateContrastCard,
 };

@@ -107,7 +107,7 @@ palette-generator, export-handlers, cvd-controls, color-detail-modalモジュー
   - キャンバス描画ロジックを移植
   - _Requirements: 4.1_
 
-- [ ] 3.4c 色詳細モーダル：色同期とreadOnlyモードを実装する
+- [x] 3.4c 色詳細モーダル：色同期とreadOnlyモードを実装する
   - **依存**: Task 3.4b
   - updateDetail関数と色同期ロジック（syncPalette, updateCard）を移植
   - readOnlyモードでの編集操作無効化を実装
