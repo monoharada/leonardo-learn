@@ -148,7 +148,7 @@ palette-generator, export-handlers, cvd-controls, color-detail-modalモジュー
   - @/accessibility/distinguishabilityとの連携を維持
   - _Requirements: 2.1, 2.2, 2.3, 2.4_
 
-- [ ] 4.5 ビューモジュールのre-exportを作成する
+- [x] 4.5 ビューモジュールのre-exportを作成する
   - **依存**: Task 4.1, 4.2, 4.3, 4.4
   - views/index.tsで全ビュー関数をre-export
   - 外部からのインポートを簡潔にする
