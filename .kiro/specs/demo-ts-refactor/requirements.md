@@ -36,7 +36,7 @@
 **Objective:** As a 開発者, I want グローバル状態管理を独立モジュールに分離したい, so that 状態の変更追跡とデバッグが容易になる
 
 #### Acceptance Criteria
-1. The system shall `state` オブジェクトと関連型定義を `src/ui/demo/state.ts` に抽出する
+1. The system shall `state` オブジェクトを `src/ui/demo/state.ts` に抽出する（型定義は `types.ts` に配置し、state.tsからインポートする）
 2. The system shall 状態アクセス用のヘルパー関数（`getActivePalette`, `parseKeyColor` 等）を状態モジュールに移動する
 3. The system shall 既存の `state` オブジェクト構造（`palettes`, `shadesPalettes`, `activeId`, `activeHarmonyIndex`, `contrastIntensity`, `lightnessDistribution`, `viewMode`, `cvdSimulation`, `selectedHarmonyConfig`, `cudMode`）を維持する
 4. When 状態モジュールをインポートしたとき, the system shall 既存のE2Eテストがすべてパスすることで挙動の同一性を検証する
@@ -73,9 +73,9 @@
 **Objective:** As a 開発者, I want 色詳細モーダルロジックを独立モジュールに分離したい, so that モーダルUIの修正・拡張が容易になる
 
 #### Acceptance Criteria
-1. The system shall `src/ui/demo/color-detail-modal.ts` に以下を抽出する:
-   - `ColorDetailModalOptions` インターフェース
-   - `openColorDetailModal` 関数
+1. The system shall 色詳細モーダル機能を以下のように分離する:
+   - `ColorDetailModalOptions` インターフェースは `src/ui/demo/types.ts` に配置（View→Feature間のコールバック型として共有層で定義）
+   - `openColorDetailModal` 関数は `src/ui/demo/color-detail-modal.ts` に配置
    - スクラバー関連ロジック（`drawScrubber`, `handleScrubberStart/Move/End`, `resizeScrubber`）
    - `updateDetail` 関数
 2. The system shall モーダル内の色同期ロジック（`syncPalette`, `updateCard`）を含める

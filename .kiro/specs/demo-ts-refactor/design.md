@@ -462,7 +462,7 @@ export function renderSidebar(
 
 **Dependencies**
 - Outbound: state.ts — getActivePalette (P0)
-- Outbound: palette-generator.ts — handleGenerate呼び出し (P1)
+- **Note**: palette-generator.tsへの依存は**コールバック経由で解決**（直接import禁止、Feature→Feature依存回避）。index.tsでonHarmonyChangeコールバックとして接続する。
 
 **Contracts**: Service [x]
 
