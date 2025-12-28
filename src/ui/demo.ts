@@ -47,6 +47,8 @@ import {
 } from "./cud-components";
 import { renderBoundaryPills } from "./semantic-role/contrast-boundary-indicator";
 import {
+	type RoleInfoItem,
+	renderRoleInfoBar,
 	renderUnresolvedRolesBar,
 	type UnresolvedRoleItem,
 } from "./semantic-role/external-role-info-bar";
@@ -2396,6 +2398,9 @@ export const runDemo = () => {
 		const scaleContainer = document.createElement("div");
 		scaleContainer.className = "dads-scale";
 
+		// Task 10.3: 欄外ロール情報バー用のRoleInfoItemを収集
+		const roleInfoItems: RoleInfoItem[] = [];
+
 		// Task 10.4: コントラスト境界表示用のscale→スウォッチ要素マップ
 		const scaleElements = new Map<number, HTMLElement>();
 
@@ -2498,7 +2503,15 @@ export const runDemo = () => {
 						colorItem.hex,
 					);
 
-					// 円形化の場合、ロール名は内部に表示済み（カタカナラベル）
+					// Task 10.3: 各ロールについてRoleInfoItemを収集
+					// hue-scale特定可能なブランドロールも含まれる（該当DADSスウォッチと連携）
+					for (const role of roles) {
+						roleInfoItems.push({
+							role,
+							scale: colorItem.scale,
+							swatchElement: swatch,
+						});
+					}
 				}
 			}
 
@@ -2509,6 +2522,14 @@ export const runDemo = () => {
 		}
 
 		section.appendChild(scaleContainer);
+
+		// Task 10.3: 欄外ロール情報バーを追加
+		// hue-scale特定可能なブランドロールも対象に含まれる（lookupRolesで統合済み）
+		// hue-scale特定不可ロールはTask 10.2で処理済みのため除外
+		if (roleInfoItems.length > 0) {
+			const roleInfoBar = renderRoleInfoBar(roleInfoItems);
+			section.appendChild(roleInfoBar);
+		}
 
 		// sectionをDOMに追加（コントラスト境界ピルの位置計算のため先に追加が必要）
 		container.appendChild(section);

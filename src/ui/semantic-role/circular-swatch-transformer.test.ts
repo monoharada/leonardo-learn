@@ -16,6 +16,7 @@ import {
 	ROLE_PRIORITY,
 	selectPriorityRole,
 	transformToCircle,
+	wrapCircularSwatchWithRoleName,
 } from "./circular-swatch-transformer";
 
 // JSDOMでdocumentをセットアップ
@@ -297,7 +298,7 @@ describe("CircularSwatchTransformer", () => {
 
 			const label = swatchElement.querySelector(".dads-swatch__role-label");
 			expect(label).not.toBeNull();
-			expect(label?.textContent).toBe("P");
+			expect(label?.textContent).toBe("プライマリ");
 		});
 
 		it("should set white text color for dark backgrounds", () => {
@@ -335,7 +336,7 @@ describe("CircularSwatchTransformer", () => {
 			expect(label?.style.color).toBe("black");
 		});
 
-		it("should display semantic subtype label for semantic roles", () => {
+		it("should display katakana label for semantic error role", () => {
 			const role: SemanticRole = {
 				name: "Error-1",
 				category: "semantic",
@@ -347,10 +348,10 @@ describe("CircularSwatchTransformer", () => {
 			transformToCircle(swatchElement, role, "#ff0000");
 
 			const label = swatchElement.querySelector(".dads-swatch__role-label");
-			expect(label?.textContent).toBe("E");
+			expect(label?.textContent).toBe("エラー");
 		});
 
-		it("should display warning label for warning semantic role", () => {
+		it("should display katakana label for warning semantic role", () => {
 			const role: SemanticRole = {
 				name: "Warning-1",
 				category: "semantic",
@@ -362,7 +363,7 @@ describe("CircularSwatchTransformer", () => {
 			transformToCircle(swatchElement, role, "#ffcc00");
 
 			const label = swatchElement.querySelector(".dads-swatch__role-label");
-			expect(label?.textContent).toBe("W");
+			expect(label?.textContent).toBe("ワーニング");
 		});
 
 		it("should not duplicate labels when called multiple times on same element", () => {
@@ -387,7 +388,7 @@ describe("CircularSwatchTransformer", () => {
 			).toBe(1);
 			expect(
 				swatchElement.querySelector(".dads-swatch__role-label")?.textContent,
-			).toBe("P");
+			).toBe("プライマリ");
 
 			// 2回目の適用（ラベルが重複せず更新されること）
 			transformToCircle(swatchElement, role2, "#8B5CF6");
@@ -396,13 +397,98 @@ describe("CircularSwatchTransformer", () => {
 			).toBe(1);
 			expect(
 				swatchElement.querySelector(".dads-swatch__role-label")?.textContent,
-			).toBe("S");
+			).toBe("セカンダリ");
 
 			// 3回目の適用も確認
 			transformToCircle(swatchElement, role1, "#3B82F6");
 			expect(
 				swatchElement.querySelectorAll(".dads-swatch__role-label").length,
 			).toBe(1);
+		});
+
+		it("should set color on scale/hex labels", () => {
+			const role: SemanticRole = {
+				name: "Primary",
+				category: "primary",
+				fullName: "[Primary] Primary",
+				shortLabel: "P",
+			};
+
+			// スケールラベルとHEXラベルを追加
+			const scaleLabel = document.createElement("span");
+			scaleLabel.className = "dads-swatch__scale";
+			swatchElement.appendChild(scaleLabel);
+
+			const hexLabel = document.createElement("span");
+			hexLabel.className = "dads-swatch__hex";
+			swatchElement.appendChild(hexLabel);
+
+			// 暗い背景色
+			transformToCircle(swatchElement, role, "#1a1a1a");
+
+			// scale/hexラベルの色が設定されていることを確認
+			expect(scaleLabel.style.color).toBe("white");
+			expect(hexLabel.style.color).toBe("white");
+		});
+	});
+
+	describe("wrapCircularSwatchWithRoleName", () => {
+		let swatchElement: HTMLElement;
+		let parentElement: HTMLElement;
+
+		beforeEach(() => {
+			parentElement = document.createElement("div");
+			swatchElement = document.createElement("div");
+			swatchElement.classList.add("dads-swatch", "dads-swatch--circular");
+			parentElement.appendChild(swatchElement);
+		});
+
+		it("should wrap swatch in a wrapper element", () => {
+			const role: SemanticRole = {
+				name: "Accent-Blue",
+				category: "accent",
+				fullName: "[Accent] Accent-Blue",
+				shortLabel: "A",
+			};
+
+			const wrapper = wrapCircularSwatchWithRoleName(swatchElement, role);
+
+			expect(wrapper.classList.contains("dads-swatch--circular-wrapper")).toBe(
+				true,
+			);
+			expect(wrapper.contains(swatchElement)).toBe(true);
+		});
+
+		it("should add role name label below swatch", () => {
+			const role: SemanticRole = {
+				name: "Link-Default",
+				category: "link",
+				fullName: "[Link] Link-Default",
+				shortLabel: "L",
+			};
+
+			const wrapper = wrapCircularSwatchWithRoleName(swatchElement, role);
+			const roleNameLabel = wrapper.querySelector(".dads-swatch__role-name");
+
+			expect(roleNameLabel).not.toBeNull();
+			expect(roleNameLabel?.textContent).toBe("Link-Default");
+			expect(roleNameLabel?.getAttribute("title")).toBe("[Link] Link-Default");
+		});
+
+		it("should insert wrapper at swatch position in parent", () => {
+			const role: SemanticRole = {
+				name: "Primary",
+				category: "primary",
+				fullName: "[Primary] Primary",
+				shortLabel: "P",
+			};
+
+			const wrapper = wrapCircularSwatchWithRoleName(swatchElement, role);
+
+			// wrapperはparentElementの子になっている
+			expect(parentElement.contains(wrapper)).toBe(true);
+			// swatchElementはwrapperの子になっている
+			expect(wrapper.contains(swatchElement)).toBe(true);
 		});
 	});
 });

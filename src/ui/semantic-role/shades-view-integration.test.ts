@@ -1025,9 +1025,10 @@ describe("シェードビュー統合テスト", () => {
 			const scaleElements = new Map<number, HTMLElement>();
 			const container = renderBoundaryPills(boundaries, scaleElements);
 
-			// 検証: コンテナは存在するが、ピルは空
+			// 検証: コンテナは存在し、2行構造（whiteRow, blackRow）があるが、ピルは空
 			expect(container.classList.contains("dads-contrast-boundary")).toBe(true);
-			expect(container.children).toHaveLength(0);
+			expect(container.children).toHaveLength(2); // 2行構造
+			expect(container.querySelectorAll(".dads-contrast-pill")).toHaveLength(0);
 		});
 
 		it("renderDadsHueSectionのロジック相当でコントラスト境界が生成されること", async () => {

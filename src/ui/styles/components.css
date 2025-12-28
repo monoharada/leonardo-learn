@@ -607,14 +607,17 @@
 	display: flex;
 	border-radius: var(--border-radius-8);
 	overflow: visible;
-	height: 80px; /* 固定高さ */
 }
 
 .dads-scale .dads-swatch {
 	flex: 1;
-	height: 100%;
 	min-width: 0;
-	aspect-ratio: auto; /* スケール内では高さ固定なのでaspect-ratio無効化 */
+	aspect-ratio: 1; /* 正方形で統一 */
+}
+
+/* 円形スウォッチは親と同サイズ（aspect-ratio: 1は継承） */
+.dads-scale .dads-swatch--circular {
+	box-sizing: border-box;
 }
 
 .dads-scale .dads-swatch[data-key-color="true"] {
@@ -1573,13 +1576,31 @@
 
 .dads-swatch--circular {
 	border-radius: 50%;
-	/* サイズは隣接する四角形スウォッチと同等を維持 */
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 4px;
+	padding: 8px;
 }
 
-/* 円形スウォッチ内のscaleラベル・hexラベルを非表示 */
-.dads-swatch--circular .dads-swatch__label,
-.dads-swatch--circular .dads-swatch__scale,
+/* 円形スウォッチ内のscale/hexラベルを表示 */
+.dads-swatch--circular .dads-swatch__scale {
+	display: block !important;
+	font-size: var(--font-size-14);
+	line-height: 1;
+}
+
 .dads-swatch--circular .dads-swatch__hex {
+	display: block !important;
+	font-size: var(--font-size-14);
+	font-weight: 400;
+	line-height: 1;
+	opacity: 0.9;
+}
+
+/* 汎用ラベルは非表示 */
+.dads-swatch--circular .dads-swatch__label {
 	display: none;
 }
 
@@ -1587,17 +1608,45 @@
 	display: none;
 }
 
-/* 中央ラベル（P/S/A/Su/E/W/L等） */
+/* ロールラベル（カタカナ表示: アクセント、リンク Default等）- 静的配置 */
 .dads-swatch__role-label {
-	position: absolute;
-	top: 50%;
-	left: 50%;
-	transform: translate(-50%, -50%);
-	font-size: 1rem;
-	font-weight: 700;
+	position: static;
+	transform: none;
+	font-size: var(--font-size-14);
+	font-weight: 600;
+	line-height: 1;
 	pointer-events: none;
 	z-index: 1;
+	white-space: nowrap;
 	/* color はインラインstyleで動的設定 */
+}
+
+/* 円形スウォッチ + ロール名のラッパー */
+.dads-scale .dads-swatch--circular-wrapper {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 4px;
+	flex: 1;
+	min-width: 0;
+}
+
+/* ラッパー内の円形スウォッチは幅100%で親に合わせる */
+.dads-swatch--circular-wrapper .dads-swatch--circular {
+	width: 100%;
+	flex: none;
+}
+
+/* ロール名ラベル */
+.dads-swatch__role-name {
+	font-size: 0.65rem;
+	font-weight: 500;
+	color: var(--color-neutral-solid-gray-700);
+	text-align: center;
+	white-space: nowrap;
+	max-width: 90px;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 /* ============================================
@@ -1671,9 +1720,18 @@
 
 .dads-contrast-boundary {
 	display: flex;
+	flex-direction: column;
+	position: relative;
+	height: 48px; /* 2行分: 24px × 2 */
+	margin-top: 4px;
+}
+
+/* 2段構造の行コンテナ */
+.dads-contrast-boundary__row {
 	position: relative;
 	height: 24px;
-	margin-top: 4px;
+	display: flex;
+	align-items: center;
 }
 
 /* 共通ピルスタイル */
@@ -1688,7 +1746,8 @@
 	padding: 2px 8px;
 	white-space: nowrap;
 	pointer-events: none;
-	/* left はインラインstyleで動的設定 */
+	transform: translateX(-50%);
+	/* left はインラインstyleで動的設定（スウォッチ中央に配置） */
 }
 
 /* 白抜きピル（白背景用） */

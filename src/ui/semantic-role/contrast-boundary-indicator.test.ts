@@ -359,9 +359,9 @@ describe("ContrastBoundaryIndicator", () => {
 				".dads-contrast-pill",
 			) as HTMLElement;
 
-			// JSDOM環境ではoffsetWidth/offsetLeftは0を返すため、transformが設定されていることを確認
+			// JSDOM環境ではoffsetWidth/offsetLeftは0を返すため、leftが設定されていることを確認
+			// 中央配置のため、width=0の場合はleft=0px
 			expect(pill.style.left).toBe("0px");
-			expect(pill.style.transform).toBe("translateX(-100%)");
 		});
 
 		it("should position pills correctly based on scaleElements (integration)", async () => {
@@ -389,11 +389,12 @@ describe("ContrastBoundaryIndicator", () => {
 				expect(htmlPill.style.left).not.toBe("");
 			}
 
-			// endディレクションのピルにはtransformが設定されていること
+			// endディレクションのピルも中央配置で位置が設定されていること
 			const endPills = container.querySelectorAll('[data-direction="end"]');
 			for (const pill of endPills) {
 				const htmlPill = pill as HTMLElement;
-				expect(htmlPill.style.transform).toBe("translateX(-100%)");
+				expect(htmlPill.style.left).toBeDefined();
+				expect(htmlPill.style.left).not.toBe("");
 			}
 		});
 
@@ -443,17 +444,17 @@ describe("ContrastBoundaryIndicator", () => {
 
 			expect(pills.length).toBe(2);
 
-			// 400の3:1ピルは基準点からの相対位置0px
+			// 400の3:1ピルは基準点からの中央位置 = 0 + 40/2 = 20px
 			const pill400 = container.querySelector(
 				'[data-scale="400"]',
 			) as HTMLElement;
-			expect(pill400.style.left).toBe("0px");
+			expect(pill400.style.left).toBe("20px");
 
-			// 500の4.5:1ピルは基準点から40px右
+			// 500の4.5:1ピルは基準点から中央位置 = 40 + 40/2 = 60px
 			const pill500 = container.querySelector(
 				'[data-scale="500"]',
 			) as HTMLElement;
-			expect(pill500.style.left).toBe("40px");
+			expect(pill500.style.left).toBe("60px");
 		});
 
 		it("should calculate end direction pill position correctly with width", async () => {
@@ -497,9 +498,64 @@ describe("ContrastBoundaryIndicator", () => {
 				".dads-contrast-pill",
 			) as HTMLElement;
 
-			// end方向: left = 200 + 40 = 240px (基準点0から)
-			expect(pill.style.left).toBe("240px");
-			expect(pill.style.transform).toBe("translateX(-100%)");
+			// end方向も中央配置: left = 200 + 40/2 = 220px (基準点0から)
+			expect(pill.style.left).toBe("220px");
+		});
+
+		it("should render pills in two-row structure (white on top, black on bottom)", async () => {
+			const { renderBoundaryPills } = await import(
+				"./contrast-boundary-indicator"
+			);
+
+			const boundaries = {
+				white3to1: 400,
+				white4_5to1: 500,
+				black4_5to1: 700,
+				black3to1: 800,
+			};
+
+			const container = renderBoundaryPills(boundaries, scaleElements);
+
+			// 2行構造を確認
+			const rows = container.querySelectorAll(".dads-contrast-boundary__row");
+			expect(rows.length).toBe(2);
+
+			// 上段（白背景用）にoutlineピルが配置されていること
+			const whiteRow = rows[0];
+			const whitePills = whiteRow?.querySelectorAll(
+				".dads-contrast-pill--outline",
+			);
+			expect(whitePills?.length).toBe(2);
+
+			// 下段（黒背景用）にfilledピルが配置されていること
+			const blackRow = rows[1];
+			const blackPills = blackRow?.querySelectorAll(
+				".dads-contrast-pill--filled",
+			);
+			expect(blackPills?.length).toBe(2);
+		});
+
+		it("should create two-row structure even when empty", async () => {
+			const { renderBoundaryPills } = await import(
+				"./contrast-boundary-indicator"
+			);
+
+			const boundaries = {
+				white3to1: null,
+				white4_5to1: null,
+				black4_5to1: null,
+				black3to1: null,
+			};
+
+			const container = renderBoundaryPills(boundaries, scaleElements);
+
+			// 2行構造が存在すること
+			const rows = container.querySelectorAll(".dads-contrast-boundary__row");
+			expect(rows.length).toBe(2);
+
+			// ピルは空
+			const pills = container.querySelectorAll(".dads-contrast-pill");
+			expect(pills.length).toBe(0);
 		});
 	});
 });

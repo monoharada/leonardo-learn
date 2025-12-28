@@ -277,7 +277,7 @@ describe("SemanticRoleOverlay", () => {
 
 			const label = swatchElement.querySelector(".dads-swatch__role-label");
 			expect(label).not.toBeNull();
-			expect(label?.textContent).toBe("P");
+			expect(label?.textContent).toBe("プライマリ");
 		});
 
 		it("【新UI】複数ロール時、優先度最高のロールラベルが表示されること", () => {
@@ -306,7 +306,7 @@ describe("SemanticRoleOverlay", () => {
 			);
 
 			const label = swatchElement.querySelector(".dads-swatch__role-label");
-			expect(label?.textContent).toBe("P"); // Primary > Link
+			expect(label?.textContent).toBe("プライマリ"); // Primary > Link
 		});
 
 		it("【新UI】明るい背景では黒文字ラベルになること", () => {
@@ -386,7 +386,7 @@ describe("SemanticRoleOverlay", () => {
 			);
 			const label = swatchElement.querySelector(".dads-swatch__role-label");
 			expect(label).not.toBeNull();
-			expect(label?.textContent).toBe("P");
+			expect(label?.textContent).toBe("プライマリ");
 		});
 	});
 

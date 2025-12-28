@@ -86,7 +86,7 @@ const BOUNDARY_PILL_DEFINITIONS: BoundaryPillDefinition[] = [
  * コントラスト境界ピルコンテナを生成
  *
  * ContrastBoundaryResultから4種類のピルを生成し、
- * 対応するscale位置に配置する。
+ * 白背景用を上段、黒背景用を下段に2行構造で配置する。
  *
  * @param boundaries - 境界計算結果
  * @param scaleElements - scale→DOM要素のマップ（位置参照用）
@@ -101,18 +101,31 @@ export function renderBoundaryPills(
 	const container = document.createElement("div");
 	container.className = "dads-contrast-boundary";
 
+	// 2行構造を作成
+	const whiteRow = document.createElement("div");
+	whiteRow.className = "dads-contrast-boundary__row";
+
+	const blackRow = document.createElement("div");
+	blackRow.className = "dads-contrast-boundary__row";
+
 	// 基準点となるスウォッチを取得（位置計算の基準）
 	// 最小scale値の要素を基準とすることで、視覚順とMapの挿入順に依存しない
 	const sortedScales = [...scaleElements.keys()].sort((a, b) => a - b);
 	if (sortedScales.length === 0) {
+		container.appendChild(whiteRow);
+		container.appendChild(blackRow);
 		return container;
 	}
 	const firstScale = sortedScales[0];
 	if (firstScale === undefined) {
+		container.appendChild(whiteRow);
+		container.appendChild(blackRow);
 		return container;
 	}
 	const referenceElement = scaleElements.get(firstScale);
 	if (!referenceElement) {
+		container.appendChild(whiteRow);
+		container.appendChild(blackRow);
 		return container;
 	}
 	const referenceRect = referenceElement.getBoundingClientRect();
@@ -143,18 +156,21 @@ export function renderBoundaryPills(
 		// ビューポート基準の座標を取得し、基準要素との差分で相対位置を算出
 		const swatchRect = swatchElement.getBoundingClientRect();
 		const relativeLeft = swatchRect.left - referenceRect.left;
+		// スウォッチ中央に配置
+		const centerX = relativeLeft + swatchRect.width / 2;
 
 		if (def.direction === "start") {
-			// 白背景ピル: 対応scaleの左端に配置
-			pill.style.left = `${relativeLeft}px`;
+			// 白背景ピル: 対応scaleの中央に配置 → 上段
+			pill.style.left = `${centerX}px`;
+			whiteRow.appendChild(pill);
 		} else {
-			// 黒背景ピル: 対応scaleの右端に配置
-			pill.style.left = `${relativeLeft + swatchRect.width}px`;
-			pill.style.transform = "translateX(-100%)";
+			// 黒背景ピル: 対応scaleの中央に配置 → 下段
+			pill.style.left = `${centerX}px`;
+			blackRow.appendChild(pill);
 		}
-
-		container.appendChild(pill);
 	}
 
+	container.appendChild(whiteRow);
+	container.appendChild(blackRow);
 	return container;
 }

@@ -45,6 +45,58 @@ const SEMANTIC_SUBTYPE_LABELS: Record<string, string> = {
 };
 
 /**
+ * カテゴリ別のカタカナ名マップ
+ * デザインシステム上の特徴として、役割名はカタカナで表示
+ */
+const CATEGORY_KATAKANA: Record<RoleCategory, string> = {
+	primary: "プライマリ",
+	secondary: "セカンダリ",
+	accent: "アクセント",
+	semantic: "", // semanticSubTypeで決定
+	link: "リンク",
+};
+
+/**
+ * semanticサブタイプ別のカタカナ名マップ
+ */
+const SEMANTIC_SUBTYPE_KATAKANA: Record<string, string> = {
+	success: "サクセス",
+	error: "エラー",
+	warning: "ワーニング",
+};
+
+/**
+ * ロールから表示用のカタカナラベルを取得
+ *
+ * @param role - セマンティックロール
+ * @returns カタカナラベル（例: "アクセント", "リンク Default"）
+ */
+export function getKatakanaLabel(role: SemanticRole): string {
+	// semanticカテゴリはサブタイプで決定
+	if (role.category === "semantic" && role.semanticSubType) {
+		return SEMANTIC_SUBTYPE_KATAKANA[role.semanticSubType] || "";
+	}
+
+	// カテゴリのカタカナ名を取得
+	const katakanaCategory = CATEGORY_KATAKANA[role.category] || "";
+
+	// アクセントカラーはカテゴリ名のみ（色名は不要）
+	if (role.category === "accent") {
+		return katakanaCategory;
+	}
+
+	// リンク等でバリアント名がある場合は追加（例: "リンク Default"）
+	// role.name形式: "Link-Default", "Primary" など
+	const parts = role.name.split("-");
+	if (parts.length > 1) {
+		const variant = parts.slice(1).join("-"); // "Default" etc
+		return `${katakanaCategory} ${variant}`;
+	}
+
+	return katakanaCategory;
+}
+
+/**
  * ロールから短縮ラベルを取得
  *
  * @param role - セマンティックロール
@@ -137,17 +189,64 @@ export function transformToCircle(
 		existingLabel.remove();
 	}
 
-	// 中央ラベル要素を生成
-	const label = document.createElement("span");
-	label.classList.add("dads-swatch__role-label");
-
-	// ラベルテキストを設定（role.shortLabelを直接使用、複数アクセントのA1/A2等に対応）
-	label.textContent = role.shortLabel;
-
 	// テキスト色を背景色に応じて設定
 	const textColor = getContrastTextColor(backgroundColor);
+
+	// カタカナロールラベル要素を生成（大きい1文字ラベルの代わり）
+	const label = document.createElement("span");
+	label.classList.add("dads-swatch__role-label");
+	label.textContent = getKatakanaLabel(role);
 	label.style.color = textColor;
 
-	// ラベルをスウォッチに追加
-	swatchElement.appendChild(label);
+	// ロールラベルを最初の子要素として挿入（scale/hexの前に配置）
+	const firstChild = swatchElement.firstChild;
+	if (firstChild) {
+		swatchElement.insertBefore(label, firstChild);
+	} else {
+		swatchElement.appendChild(label);
+	}
+
+	// scale/hexラベルのテキスト色も更新
+	const scaleLabel = swatchElement.querySelector(
+		".dads-swatch__scale",
+	) as HTMLElement | null;
+	const hexLabel = swatchElement.querySelector(
+		".dads-swatch__hex",
+	) as HTMLElement | null;
+
+	if (scaleLabel) scaleLabel.style.color = textColor;
+	if (hexLabel) hexLabel.style.color = textColor;
+}
+
+/**
+ * 円形スウォッチをラッパーで囲み、下にロール名を追加
+ *
+ * @param swatchElement - 対象のスウォッチDOM要素
+ * @param role - セマンティックロール
+ * @returns ラッパー要素
+ */
+export function wrapCircularSwatchWithRoleName(
+	swatchElement: HTMLElement,
+	role: SemanticRole,
+): HTMLElement {
+	const wrapper = document.createElement("div");
+	wrapper.className = "dads-swatch--circular-wrapper";
+
+	// スウォッチの位置にラッパーを挿入
+	const parent = swatchElement.parentNode;
+	if (parent) {
+		parent.insertBefore(wrapper, swatchElement);
+	}
+
+	// スウォッチをラッパーに移動
+	wrapper.appendChild(swatchElement);
+
+	// ロール名ラベルを追加
+	const roleNameLabel = document.createElement("span");
+	roleNameLabel.className = "dads-swatch__role-name";
+	roleNameLabel.textContent = role.name;
+	roleNameLabel.title = role.fullName;
+	wrapper.appendChild(roleNameLabel);
+
+	return wrapper;
 }

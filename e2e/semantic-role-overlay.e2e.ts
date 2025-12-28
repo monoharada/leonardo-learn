@@ -81,9 +81,9 @@ test.describe("円形スウォッチ表示", () => {
 		const roleLabel = greenSwatch.locator(".dads-swatch__role-label");
 		await expect(roleLabel).toBeVisible();
 
-		// ラベルにロール短縮名（Su = Success）が含まれていることを確認
+		// ラベルにロール名（カタカナ）が含まれていることを確認
 		const labelText = await roleLabel.textContent();
-		expect(labelText).toBe("Su");
+		expect(labelText).toBe("サクセス");
 	});
 
 	test("セマンティックロールがないシェードは四角形のままである", async ({
@@ -110,7 +110,7 @@ test.describe("円形スウォッチ表示", () => {
 	// Requirements: 2.1, 2.2, 2.4, 2.6
 	// ============================================================================
 
-	test("Primaryロール（P）のラベルが表示される", async ({ page }) => {
+	test("Primaryロール（プライマリ）のラベルが表示される", async ({ page }) => {
 		await selectHarmonyType(page, "dads");
 		await page.click("[data-testid='render-shades-btn']");
 		await page.waitForSelector("[data-testid^='swatch-']");
@@ -122,14 +122,16 @@ test.describe("円形スウォッチ表示", () => {
 		// 円形スウォッチクラスが適用されていることを確認
 		await expect(blueSwatch).toHaveClass(/dads-swatch--circular/);
 
-		// 中央ラベルに「P」が表示されること
+		// 中央ラベルに「プライマリ」が表示されること
 		const roleLabel = blueSwatch.locator(".dads-swatch__role-label");
 		await expect(roleLabel).toBeVisible();
 		const labelText = await roleLabel.textContent();
-		expect(labelText).toBe("P");
+		expect(labelText).toBe("プライマリ");
 	});
 
-	test("Secondaryロール（S）のラベルが表示される", async ({ page }) => {
+	test("Secondaryロール（セカンダリ）のラベルが表示される", async ({
+		page,
+	}) => {
 		await selectHarmonyType(page, "dads");
 		await page.click("[data-testid='render-shades-btn']");
 		await page.waitForSelector("[data-testid^='swatch-']");
@@ -141,14 +143,14 @@ test.describe("円形スウォッチ表示", () => {
 		// 円形スウォッチクラスが適用されていることを確認
 		await expect(purpleSwatch).toHaveClass(/dads-swatch--circular/);
 
-		// 中央ラベルに「S」が表示されること
+		// 中央ラベルに「セカンダリ」が表示されること
 		const roleLabel = purpleSwatch.locator(".dads-swatch__role-label");
 		await expect(roleLabel).toBeVisible();
 		const labelText = await roleLabel.textContent();
-		expect(labelText).toBe("S");
+		expect(labelText).toBe("セカンダリ");
 	});
 
-	test("Errorロール（E）のラベルが表示される", async ({ page }) => {
+	test("Errorロール（エラー）のラベルが表示される", async ({ page }) => {
 		await selectHarmonyType(page, "dads");
 		await page.click("[data-testid='render-shades-btn']");
 		await page.waitForSelector("[data-testid^='swatch-']");
@@ -160,14 +162,14 @@ test.describe("円形スウォッチ表示", () => {
 		// 円形スウォッチクラスが適用されていることを確認
 		await expect(redSwatch).toHaveClass(/dads-swatch--circular/);
 
-		// 中央ラベルに「E」が表示されること
+		// 中央ラベルに「エラー」が表示されること
 		const roleLabel = redSwatch.locator(".dads-swatch__role-label");
 		await expect(roleLabel).toBeVisible();
 		const labelText = await roleLabel.textContent();
-		expect(labelText).toBe("E");
+		expect(labelText).toBe("エラー");
 	});
 
-	test("Warningロール（W）のラベルが表示される", async ({ page }) => {
+	test("Warningロール（ワーニング）のラベルが表示される", async ({ page }) => {
 		await selectHarmonyType(page, "dads");
 		await page.click("[data-testid='render-shades-btn']");
 		await page.waitForSelector("[data-testid^='swatch-']");
@@ -180,14 +182,14 @@ test.describe("円形スウォッチ表示", () => {
 		// 円形スウォッチクラスが適用されていることを確認
 		await expect(yellowSwatch).toHaveClass(/dads-swatch--circular/);
 
-		// 中央ラベルに「W」が表示されること
+		// 中央ラベルに「ワーニング」が表示されること
 		const roleLabel = yellowSwatch.locator(".dads-swatch__role-label");
 		await expect(roleLabel).toBeVisible();
 		const labelText = await roleLabel.textContent();
-		expect(labelText).toBe("W");
+		expect(labelText).toBe("ワーニング");
 	});
 
-	test("Linkロール（L）のラベルが表示される", async ({ page }) => {
+	test("Linkロール（リンク）のラベルが表示される", async ({ page }) => {
 		await selectHarmonyType(page, "dads");
 		await page.click("[data-testid='render-shades-btn']");
 		await page.waitForSelector("[data-testid^='swatch-']");
@@ -199,14 +201,14 @@ test.describe("円形スウォッチ表示", () => {
 		// 円形スウォッチクラスが適用されていることを確認
 		await expect(linkSwatch).toHaveClass(/dads-swatch--circular/);
 
-		// 中央ラベルに「L」が表示されること
+		// 中央ラベルに「リンク」が表示されること
 		const roleLabel = linkSwatch.locator(".dads-swatch__role-label");
 		await expect(roleLabel).toBeVisible();
 		const labelText = await roleLabel.textContent();
-		expect(labelText).toBe("L");
+		expect(labelText).toBe("リンク");
 	});
 
-	test("Accentロール（A）のラベルが表示される", async ({ page }) => {
+	test("Accentロール（アクセント）のラベルが表示される", async ({ page }) => {
 		await selectHarmonyType(page, "dads");
 		await page.click("[data-testid='render-shades-btn']");
 		await page.waitForSelector("[data-testid^='swatch-']");
@@ -219,11 +221,11 @@ test.describe("円形スウォッチ表示", () => {
 		// 円形スウォッチクラスが適用されていることを確認
 		await expect(limeSwatch).toHaveClass(/dads-swatch--circular/);
 
-		// 中央ラベルに「A」が表示されること
+		// 中央ラベルに「アクセント」が表示されること
 		const roleLabel = limeSwatch.locator(".dads-swatch__role-label");
 		await expect(roleLabel).toBeVisible();
 		const labelText = await roleLabel.textContent();
-		expect(labelText).toBe("A");
+		expect(labelText).toBe("アクセント");
 	});
 
 	test("ラベル文字色が明るい背景では黒になる", async ({ page }) => {
@@ -272,7 +274,7 @@ test.describe("円形スウォッチ表示", () => {
 		await page.waitForSelector("[data-testid^='swatch-']");
 
 		// blue-600シェード（Primary + Link-Textロールが重複する可能性がある）
-		// Primaryの方が優先度が高いので「P」が表示される
+		// Primaryの方が優先度が高いので「プライマリ」が表示される
 		const blueSwatch = page.locator("[data-testid='swatch-blue-600']");
 		await expect(blueSwatch).toBeVisible();
 
@@ -280,8 +282,8 @@ test.describe("円形スウォッチ表示", () => {
 		await expect(roleLabel).toBeVisible();
 		const labelText = await roleLabel.textContent();
 
-		// Primary（P）が最優先で表示されること
-		expect(labelText).toBe("P");
+		// Primary（プライマリ）が最優先で表示されること
+		expect(labelText).toBe("プライマリ");
 	});
 
 	test("hue-scale特定可能なブランドロール（Primary）が該当DADSスウォッチで円形化される", async ({
@@ -412,11 +414,11 @@ test.describe("ブランドロール表示", () => {
 		// 円形スウォッチクラスが適用されていることを確認
 		await expect(blueSwatch).toHaveClass(/dads-swatch--circular/);
 
-		// 中央ラベルにPrimaryの短縮名「P」が表示されること
+		// 中央ラベルにPrimaryのカタカナ名「プライマリ」が表示されること
 		const roleLabel = blueSwatch.locator(".dads-swatch__role-label");
 		await expect(roleLabel).toBeVisible();
 		const labelText = await roleLabel.textContent();
-		expect(labelText).toBe("P");
+		expect(labelText).toBe("プライマリ");
 	});
 
 	test("hue-scale特定不可のブランドロールはシェードビュー先頭に未解決ロールバーで表示される", async ({
