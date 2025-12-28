@@ -1,7 +1,7 @@
 {
 	"feature_name": "demo-ts-refactor",
 	"created_at": "2025-12-28T02:08:06Z",
-	"updated_at": "2025-12-28T06:48:00Z",
+	"updated_at": "2025-12-28T13:08:00Z",
 	"language": "ja",
 	"phase": "ready-for-implementation",
 	"approvals": {
@@ -149,6 +149,13 @@
 				"resolved_issues": 0,
 				"session_id": "019b6503-a2b7-7073-837d-cd9c3e2e7698",
 				"note": "views/index.tsバレルファイル作成完了。設計抜粋と一致し全ビュー関数・関連型を漏れなく再エクスポート。index.test.tsでバレル動作検証も完備"
+			},
+			"task_5_1": {
+				"review_count": 1,
+				"final_verdict": "APPROVED",
+				"resolved_issues": 0,
+				"session_id": "019b6510-5d71-7681-ab47-498b8d1754ee",
+				"note": "runDemo関数・renderMain・コールバック接続実装完了(266行)。設計仕様準拠、循環依存なし、View→Featureコールバック経由接続確認。DOM操作テストはE2Eでカバー"
 			}
 		}
 	}

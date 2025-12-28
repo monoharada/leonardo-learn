@@ -158,7 +158,7 @@ palette-generator, export-handlers, cvd-controls, color-detail-modalモジュー
 
 index.tsを真のエントリポイントとして整理し、全モジュールを統合する。
 
-- [ ] 5.1 エントリポイントモジュールを作成する
+- [x] 5.1 エントリポイントモジュールを作成する
   - **依存**: Task 2.x, 3.x, 4.x（全Feature/Viewモジュールが必要）
   - runDemo関数を実装
   - 必須DOM要素の取得と存在確認（app, palette-list等）
