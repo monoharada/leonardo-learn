@@ -80,6 +80,27 @@
 				"resolved_issues": 0,
 				"note": "design.md通りの実装、コールバックパターンでpalette-generator依存回避、aria-pressed更新実装、DOM操作テストはE2Eでカバー",
 				"session_id": "019b63ec-cf32-7a10-b8be-4b44a7060971"
+			},
+			"task_3_1": {
+				"review_count": 1,
+				"final_verdict": "APPROVED",
+				"resolved_issues": 0,
+				"note": "設計意図補足で承認: demo.ts統合はTask 5.1、E2E検証はTask 6.3で実施。palette-generator.tsモジュール自体は設計インターフェース準拠",
+				"session_id": "019b63fc-d0de-7900-8d2d-ea660b6afbe8"
+			},
+			"task_3_2": {
+				"review_count": 1,
+				"final_verdict": "APPROVED",
+				"resolved_issues": 0,
+				"note": "設計通りの実装、getExportContentでupdateExportPreviewを機能的に置換、DOM操作テストはE2Eでカバー",
+				"session_id": "019b640c-0ec2-7bf2-b958-81092ba759f1"
+			},
+			"task_3_3": {
+				"review_count": 2,
+				"final_verdict": "APPROVED",
+				"resolved_issues": 4,
+				"note": "isValidCVDType型ガード追加、scoresByTypeフォールバック修正、内部ヘルパーsetButtonActiveState実装で依存方向ルール遵守、DOM操作テストはE2Eでカバー",
+				"session_id": "019b6420-e3de-7c31-b3b7-508140ece129"
 			}
 		}
 	}
