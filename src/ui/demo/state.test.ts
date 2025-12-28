@@ -5,13 +5,17 @@
  * Requirements: 1.1, 1.2, 1.3, 1.4
  */
 
-import { afterEach, describe, expect, it } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { HarmonyType } from "@/core/harmony";
 import { DEFAULT_STATE } from "./constants";
 import { getActivePalette, parseKeyColor, resetState, state } from "./state";
 import type { PaletteConfig } from "./types";
 
 describe("state module", () => {
+	beforeEach(() => {
+		resetState();
+	});
+
 	afterEach(() => {
 		resetState();
 	});
