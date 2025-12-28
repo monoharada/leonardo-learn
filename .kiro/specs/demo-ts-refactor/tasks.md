@@ -67,7 +67,7 @@ navigation, sidebar, editorモジュールを作成し、UI操作に関する機
 
 palette-generator, export-handlers, cvd-controls, color-detail-modalモジュールを作成する。
 
-- [ ] 3.1 パレット生成モジュールを作成する
+- [x] 3.1 パレット生成モジュールを作成する
   - **依存**: Task 1.3（state更新が必要）
   - handleGenerate関数を実装
   - ハーモニーパレット生成ロジックを移植
@@ -76,7 +76,7 @@ palette-generator, export-handlers, cvd-controls, color-detail-modalモジュー
   - @/core/harmonyとの連携を維持
   - _Requirements: 9.1, 9.2, 9.3_
 
-- [ ] 3.2 エクスポートハンドラモジュールを作成する
+- [x] 3.2 エクスポートハンドラモジュールを作成する
   - **依存**: Task 1.3（state参照が必要）
   - generateExportColors, downloadFile, updateExportPreview関数を実装
   - エクスポートダイアログの初期化ロジックを移植
@@ -84,7 +84,7 @@ palette-generator, export-handlers, cvd-controls, color-detail-modalモジュー
   - @/core/export/*との連携を維持
   - _Requirements: 3.1, 3.2, 3.3_
 
-- [ ] 3.3 CVD制御モジュールを作成する
+- [x] 3.3 CVD制御モジュールを作成する
   - **依存**: Task 1.3（state更新が必要）
   - applySimulation, generateKeyColors, updateCVDScoreDisplay関数を実装
   - CVDタイプボタンのイベントハンドラを設定
@@ -93,14 +93,14 @@ palette-generator, export-handlers, cvd-controls, color-detail-modalモジュー
   - @/accessibilityとの連携を維持
   - _Requirements: 5.1, 5.2, 5.3_
 
-- [ ] 3.4a 色詳細モーダル：基本構造を作成する
+- [x] 3.4a 色詳細モーダル：基本構造を作成する
   - **依存**: Task 1.1（ColorDetailModalOptions型が必要）, Task 1.3
   - openColorDetailModal関数のシグネチャとモーダル開閉ロジックを実装
   - types.tsのColorDetailModalOptions型を使用
   - AbortControllerによるイベントリスナーのクリーンアップ基盤を実装
   - _Requirements: 4.1_
 
-- [ ] 3.4b 色詳細モーダル：スクラバー機能を実装する
+- [x] 3.4b 色詳細モーダル：スクラバー機能を実装する
   - **依存**: Task 3.4a
   - drawScrubber関数を移植
   - handleScrubberStart/Move/End等のイベントハンドラを実装

@@ -101,6 +101,20 @@
 				"resolved_issues": 4,
 				"note": "isValidCVDType型ガード追加、scoresByTypeフォールバック修正、内部ヘルパーsetButtonActiveState実装で依存方向ルール遵守、DOM操作テストはE2Eでカバー",
 				"session_id": "019b6420-e3de-7c31-b3b7-508140ece129"
+			},
+			"task_3_4a": {
+				"review_count": 1,
+				"final_verdict": "APPROVED",
+				"resolved_issues": 0,
+				"note": "設計インターフェースに準拠、types.tsのみ依存、openColorDetailModalでモーダル表示とclose時のAbortController abort実装、DOM操作検証はE2E前提",
+				"session_id": "019b6431-7635-7a93-a5da-44431429dc57"
+			},
+			"task_3_4b": {
+				"review_count": 1,
+				"final_verdict": "APPROVED",
+				"resolved_issues": 0,
+				"note": "drawScrubber関数、createScrubberHandlers、resizeScrubber移植完了。AbortController連携設計準拠。DOM操作テストはE2Eでカバー",
+				"session_id": "019b643d-c584-74a0-a49c-1dfce410c34b"
 			}
 		}
 	}
