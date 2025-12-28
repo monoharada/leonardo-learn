@@ -33,6 +33,29 @@ export {
 	type JSONExportOptions,
 	type JSONExportResult,
 } from "./core/export/json-exporter";
+// Harmony Types
+export { HarmonyType } from "./core/harmony";
+// Contrast Boundary (Task 11.4 E2E test support)
+export {
+	CONTRAST_THRESHOLD,
+	type ColorItem,
+	type ContrastBoundaryResult,
+	calculateBoundaries,
+} from "./core/semantic-role/contrast-boundary-calculator";
+export type {
+	PaletteInfo,
+	SemanticRoleMapperService,
+} from "./core/semantic-role/role-mapper";
+// Semantic Role Components
+export { createSemanticRoleMapper } from "./core/semantic-role/role-mapper";
+export type { RoleCategory, SemanticRole } from "./core/semantic-role/types";
+// DADS Tokens and Data Provider (for E2E test pages)
+export {
+	type DadsColorScale,
+	getAllDadsChromatic,
+	loadDadsTokens,
+} from "./core/tokens/dads-data-provider";
+export type { DadsToken } from "./core/tokens/types";
 // UI Components
 export { runColorSystemDemo } from "./ui/color-system-demo";
 export {
@@ -85,6 +108,26 @@ export {
 	type ZoneBadgeConfig,
 	type ZoneInfo,
 } from "./ui/cud-components";
+export {
+	type BoundaryPillConfig,
+	createBoundaryPill,
+	renderBoundaryPills,
+} from "./ui/semantic-role/contrast-boundary-indicator";
+// External Role Info Bar (Task 11.3 E2E test support)
+export {
+	createRoleBadge,
+	createRoleInfoElement,
+	ROLE_CATEGORY_COLORS,
+	type RoleInfoItem,
+	renderConnector,
+	renderRoleInfoBar,
+	renderUnresolvedRolesBar,
+	type UnresolvedRoleItem,
+} from "./ui/semantic-role/external-role-info-bar";
+export {
+	applyOverlay,
+	mergeTooltipContent,
+} from "./ui/semantic-role/semantic-role-overlay";
 export * from "./utils";
 
 // バージョン情報

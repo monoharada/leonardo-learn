@@ -1,0 +1,90 @@
+{
+	"name": "shade-ui-improvement",
+	"description": "シェードUIでセマンティックカラーの割り当て状況を視覚化する機能",
+	"language": "ja",
+	"phase": "tasks-generated",
+	"created_at": "2025-12-23T06:00:00.000Z",
+	"updated_at": "2025-12-25T09:30:00.000Z",
+	"approvals": {
+		"requirements": {
+			"generated": true,
+			"approved": true
+		},
+		"design": {
+			"generated": true,
+			"approved": true
+		},
+		"tasks": {
+			"generated": true,
+			"approved": true
+		}
+	},
+	"codex_reviews": {
+		"impl_9_3": {
+			"review_count": 4,
+			"final_verdict": "APPROVED",
+			"resolved_issues": 3,
+			"summary": "getBoundingClientRect()による位置計算、最小scale基準点、モックテスト追加。全22テストパス。"
+		},
+		"impl_10_2": {
+			"review_count": 3,
+			"final_verdict": "APPROVED",
+			"resolved_issues": 1,
+			"summary": "DOM統合テスト追加。renderShadesView直接検証はTask 11のE2E前提。110テスト全パス。"
+		},
+		"impl_10_3": {
+			"review_count": 1,
+			"final_verdict": "APPROVED",
+			"resolved_issues": 0,
+			"summary": "Task 10.3仕様どおり各色相セクション直後に欄外ロール情報バー追加。RoleInfoItem収集、hue-scale特定可能ブランドロール含む。Requirements 3.1/3.2/3.4/3.5適合。1372テスト全パス。"
+		},
+		"impl_10_4": {
+			"review_count": 2,
+			"final_verdict": "APPROVED",
+			"resolved_issues": 1,
+			"summary": "renderDadsHueSectionにコントラスト境界表示を統合。DOM追加後にrenderBoundaryPills呼び出しに修正（getBoundingClientRect前提の位置計算安定化）。Requirements 6.1/6.5適合。1377テスト全パス。"
+		},
+		"impl_10_5": {
+			"review_count": 1,
+			"final_verdict": "APPROVED",
+			"resolved_issues": 0,
+			"summary": "CVDシミュレーション時の表示調整。欄外ロール情報はROLE_CATEGORY_COLORSから直接設定、コントラスト境界ピルはCSSクラス#333固定、スウォッチのみapplySimulation()で変換。6件のテスト追加。Requirements 4.3適合。1383テスト全パス。"
+		},
+		"impl_11_1": {
+			"review_count": 1,
+			"final_verdict": "APPROVED",
+			"resolved_issues": 0,
+			"summary": "旧E2Eテストを新UI仕様に更新完了。旧セレクタ（dot/badge）完全削除、新セレクタ（.dads-swatch--circular/.dads-swatch__role-label）に置換。円形スウォッチ/ラベル/アクセシビリティ/パフォーマンス検証を14テストでカバー。Requirements 2.1/2.2/4.1適合。E2E 14件全パス、Unit 1383件全パス。"
+		},
+		"impl_11_2": {
+			"review_count": 2,
+			"final_verdict": "APPROVED",
+			"resolved_issues": 2,
+			"summary": "円形スウォッチE2Eテスト追加完了。Accentラベル（A）テスト追加（lime-700使用）、明るい背景での黒テキスト検証強化（rgb(0,0,0)明示）。各カテゴリラベル（P/S/Su/E/W/A/L）、文字色自動調整、複数ロール優先表示、ブランドロール円形化を14件のテストでカバー。Requirements 2.1/2.2/2.3/2.4/2.6適合。E2E 14件パス（+1件追加）。"
+		},
+		"impl_11_3": {
+			"review_count": 1,
+			"final_verdict": "APPROVED",
+			"resolved_issues": 0,
+			"summary": "欄外ロール情報E2Eテスト実装完了。Requirements 3.1/3.2/3.4/3.5の全項目をカバーする9件のE2Eテストを追加。テストページにrenderRoleInfoBar/renderUnresolvedRolesBarを統合。欄外ロール完全表示・コネクタ線・水平配置・未解決ロールバー検証。E2E 34件、Unit 1383件全パス。"
+		},
+		"impl_11_4": {
+			"review_count": 5,
+			"final_verdict": "APPROVED",
+			"resolved_issues": 7,
+			"summary": "コントラスト境界E2Eテスト実装完了。Requirements 6.1/6.2/6.3/6.4/6.5の全項目をカバーする14件のE2Eテストを追加。全色相セクション動的走査、色相ごとのoutline/filledスタイル検証、スウォッチ下端基準の位置検証、非DADSハーモニー描画完了待機、selectHarmonyType条件待ち化。E2E 14件パス。"
+		},
+		"impl_11_5": {
+			"review_count": 3,
+			"final_verdict": "APPROVED",
+			"resolved_issues": 4,
+			"summary": "パフォーマンステスト更新完了。全DOM操作テストでdocument.body追加+getBoundingClientRectによるレンダリングブロッキング検証。DOM要素数検証（childElementCount）追加。統合テストで各イテレーション毎に新規DOM作成。Requirements 5.1/5.2適合。Unit 14件全パス。"
+		},
+		"impl_11_6": {
+			"review_count": 6,
+			"final_verdict": "APPROVED",
+			"resolved_issues": 8,
+			"summary": "アクセシビリティE2Eテスト更新完了。aria-describedby全件検証、toHaveAccessibleDescription、Tab移動検証（nth(1).toBeFocused）、pointer-events:none検証、ブランドスウォッチARIA未設定検証、title属性からの全ロール抽出（改行/カンマ両対応）。Requirements 4.1適合。E2E 12件全パス。"
+		}
+	}
+}

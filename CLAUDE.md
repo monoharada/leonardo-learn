@@ -1,45 +1,138 @@
-# AI-DLC and Spec-Driven Development
+# CLAUDE.md
 
-Kiro-style Spec Driven Development implementation on AI-DLC (AI Development Life Cycle)
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project Context
+## Project Overview
 
-### Paths
-- Steering: `.kiro/steering/`
-- Specs: `.kiro/specs/`
+**leonardo-learn** is an OKLCH color space-based design system color palette generator inspired by Adobe Leonardo. It generates accessible palettes from brand colors with WCAG compliance and CUD (Color Universal Design) support.
 
-### Steering vs Specification
+## Development Commands
 
-**Steering** (`.kiro/steering/`) - Guide AI with project-wide rules and context
-**Specs** (`.kiro/specs/`) - Formalize development process for individual features
+```bash
+# Install dependencies
+bun install
 
-### Active Specifications
-- Check `.kiro/specs/` for active specifications
-- Use `/kiro:spec-status [feature-name]` to check progress
+# Development (watch mode)
+bun run dev
 
-## Development Guidelines
-- Think in English, generate responses in Japanese. All Markdown content written to project files (e.g., requirements.md, design.md, tasks.md, research.md, validation reports) MUST be written in the target language configured for this specification (see spec.json.language).
+# Build (browser-targeted with minification)
+bun run build
 
-## Minimal Workflow
-- Phase 0 (optional): `/kiro:steering`, `/kiro:steering-custom`
-- Phase 1 (Specification):
-  - `/kiro:spec-init "description"`
-  - `/kiro:spec-requirements {feature}`
-  - `/kiro:validate-gap {feature}` (optional: for existing codebase)
-  - `/kiro:spec-design {feature} [-y]`
-  - `/kiro:validate-design {feature}` (optional: design review)
-  - `/kiro:spec-tasks {feature} [-y]`
-- Phase 2 (Implementation): `/kiro:spec-impl {feature} [tasks]`
-  - `/kiro:validate-impl {feature}` (optional: after implementation)
-- Progress check: `/kiro:spec-status {feature}` (use anytime)
+# Run all tests
+bun test
 
-## Development Rules
-- 3-phase approval workflow: Requirements → Design → Tasks → Implementation
-- Human review required each phase; use `-y` only for intentional fast-track
-- Keep steering current and verify alignment with `/kiro:spec-status`
-- Follow the user's instructions precisely, and within that scope act autonomously: gather the necessary context and complete the requested work end-to-end in this run, asking questions only when essential information is missing or the instructions are critically ambiguous.
+# Run single test file
+bun test src/core/cud/optimizer.test.ts
 
-## Steering Configuration
-- Load entire `.kiro/steering/` as project memory
-- Default files: `product.md`, `tech.md`, `structure.md`
-- Custom files are supported (managed via `/kiro:steering-custom`)
+# Watch mode for tests
+bun test --watch
+
+# Coverage (target: 90%+)
+bun test --coverage
+
+# Performance benchmarks (CI mode)
+cross-env CI_BENCH=1 bun test src/core/cud/performance.test.ts
+
+# E2E tests
+bun run test:e2e
+
+# Type check
+bun run type-check
+
+# Lint (Biome)
+bun run lint
+bun run lint:fix
+
+# Format
+bun run format
+
+# Full check (lint + format)
+bun run check
+```
+
+## Architecture
+
+### Three-Layer Design (Adobe Leonardo-inspired)
+1. **Theme Layer** (`src/core/theme.ts`): Manages multiple color definitions, theme coordination
+2. **Color/BackgroundColor Layer** (`src/core/color.ts`, `background.ts`): Individual color and scale definitions
+3. **Algorithm Layer** (`src/core/solver.ts`, `interpolation.ts`): Contrast calculation, binary search, spline interpolation
+
+### Dependency Direction
+```
+UI Layer (src/ui/) → Core Layer (src/core/) → Utils Layer (src/utils/)
+```
+Circular dependencies are prohibited.
+
+### Key Modules
+
+| Path | Purpose |
+|------|---------|
+| `src/core/` | Color generation algorithms, Theme/Color classes |
+| `src/core/cud/` | CUD optimization (optimizer, zone, snapper, harmony-score) |
+| `src/core/export/` | CSS, JSON, Tailwind, DTCG exporters |
+| `src/core/tokens/` | Design token system (DADS importer, semantic resolver) |
+| `src/accessibility/` | WCAG, APCA, CVD simulation |
+| `src/utils/` | OKLCH/OKLab color space operations |
+| `src/ui/` | Demo UI, CUD components |
+
+### CUD Optimization Algorithm (ADR-007)
+- **Greedy algorithm** for multi-objective optimization (CUD distance + harmony)
+- **3-zone classification**: Safe (ΔE ≤ 0.05), Warning (0.05 < ΔE ≤ 0.12), Off (ΔE > 0.12)
+- **Soft Snap**: OKLab linear interpolation with configurable return factor
+- Performance target: 20-color palette in <200ms
+
+## Code Standards
+
+### TypeScript
+- **Strict mode required** (all strict flags enabled in tsconfig.json)
+- `any` type prohibited - use `unknown` or proper type definitions
+- Path aliases: `@/` for `src/`, `@/core/*`, `@/utils/*`, `@/ui/*`
+
+### Formatting (Biome)
+- Tab indentation
+- Double quotes
+- Auto-organize imports
+
+### Test Placement
+Tests are co-located with source files:
+```
+src/core/cud/optimizer.ts
+src/core/cud/optimizer.test.ts
+```
+
+## Key Libraries
+
+- **culori.js**: OKLCH/OKLab color operations (only runtime dependency)
+- **apca-w3**: WCAG 3 APCA contrast calculation
+- **@digital-go-jp/design-tokens**: DADS token integration
+- **@material/material-color-utilities**: M3 color generation
+
+## Spec-Driven Development
+
+This project uses Kiro-style spec-driven development:
+- **Steering docs**: `.kiro/steering/` (product.md, tech.md, structure.md)
+- **Specifications**: `.kiro/specs/[feature-name]/`
+
+Key commands:
+- `/kiro:spec-status [feature]`: Check progress
+- `/kiro:spec-impl [feature] [tasks]`: Implement tasks
+
+### Codex Review Workflow (必須)
+
+**重要**: 各kiro:specフェーズ完了後、必ずCodexレビューを実行すること。
+
+```bash
+# 各フェーズ完了後にCodexレビューを実行
+/sdd-codex-review requirements [feature]  # kiro:spec-requirements後
+/sdd-codex-review design [feature]        # kiro:spec-design後
+/sdd-codex-review tasks [feature]         # kiro:spec-tasks後
+/sdd-codex-review impl [feature]          # kiro:spec-impl後
+```
+
+ワークフロー:
+1. `/kiro:spec-requirements [feature]` → `/sdd-codex-review requirements [feature]`
+2. `/kiro:spec-design [feature]` → `/sdd-codex-review design [feature]`
+3. `/kiro:spec-tasks [feature]` → `/sdd-codex-review tasks [feature]`
+4. `/kiro:spec-impl [feature] [task]` → `/sdd-codex-review impl [feature]`
+
+各フェーズでAPPROVEDを取得してから次へ進む。

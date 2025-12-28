@@ -62,12 +62,15 @@ Provide output in the language specified in spec.json with:
 
 1. **Generated Requirements Summary**: Brief overview of major requirement areas (3-5 bullets)
 2. **Document Status**: Confirm requirements.md updated and spec.json metadata updated
-3. **Next Steps**: Guide user on how to proceed (approve and continue, or modify)
+3. **Codex Review**: Invoke `/sdd-codex-review requirements $1` for quality assurance
+4. **Next Steps**: Guide user on how to proceed (approve and continue, or modify)
 
 **Format Requirements**:
 - Use Markdown headings for clarity
 - Include file paths in code blocks
 - Keep summary concise (under 300 words)
+
+**CRITICAL**: After outputting the summary, you MUST use the Skill tool to invoke `sdd-codex-review` with args `requirements $1`.
 
 ## Safety & Fallback
 

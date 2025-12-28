@@ -127,12 +127,15 @@ Provide brief summary in the language specified in spec.json:
 1. **Status**: Confirm design document generated at `.kiro/specs/$1/design.md`
 2. **Discovery Type**: Which discovery process was executed (full/light/minimal)
 3. **Key Findings**: 2-3 critical insights from `research.md` that shaped the design
-4. **Next Action**: Approval workflow guidance (see Safety & Fallback)
-5. **Research Log**: Confirm `research.md` updated with latest decisions
+4. **Codex Review**: Invoke `/sdd-codex-review design $1` for quality assurance
+5. **Next Action**: Approval workflow guidance (see Safety & Fallback)
+6. **Research Log**: Confirm `research.md` updated with latest decisions
 
 **Format**: Concise Markdown (under 200 words) - this is the command output, NOT the design document itself
 
 **Note**: The actual design document follows `.kiro/settings/templates/specs/design.md` structure.
+
+**CRITICAL**: After outputting the summary, you MUST use the Skill tool to invoke `sdd-codex-review` with args `design $1`.
 
 ## Safety & Fallback
 
