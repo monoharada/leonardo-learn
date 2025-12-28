@@ -47,7 +47,6 @@ describe("color-detail-modal module", () => {
 
 		describe("scrubber drawing logic", () => {
 			it("drawScrubber should calculate visible hue range correctly", async () => {
-				const { Color } = await import("@/core/color");
 				const { _testHelpers } = await import("./color-detail-modal");
 
 				// drawScrubberは内部でvisibleRange=30を使用
@@ -349,7 +348,6 @@ describe("color-detail-modal module", () => {
 			});
 
 			it("syncPalette should update matching palette keyColors by name", async () => {
-				const { Color } = await import("@/core/color");
 				const { _testHelpers } = await import("./color-detail-modal");
 
 				const palettes = [
@@ -458,7 +456,7 @@ describe("color-detail-modal module", () => {
 				const { Color } = await import("@/core/color");
 				const { _testHelpers } = await import("./color-detail-modal");
 
-				const setKeyColorCalled = false;
+				const _setKeyColorCalled = false;
 				const mockConfig = {
 					fixedScale: {
 						colors: [new Color("#ff0000")],
@@ -505,7 +503,9 @@ describe("color-detail-modal module", () => {
 		it("should accept valid ColorDetailModalOptions structure", async () => {
 			// 型互換性のテスト（コンパイル時チェック）
 			const { Color } = await import("@/core/color");
-			const { openColorDetailModal } = await import("./color-detail-modal");
+			const { openColorDetailModal: _openColorDetailModal } = await import(
+				"./color-detail-modal"
+			);
 
 			// 有効なオプションオブジェクトを作成できることを確認
 			// NOTE: 実際のDOM操作はE2Eテストでカバー

@@ -8,7 +8,6 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { Color } from "@/core/color";
 import {
 	downloadFile,
-	type ExportFormat,
 	generateExportColors,
 	getExportContent,
 } from "./export-handlers";

@@ -6,8 +6,8 @@
  * @module @/ui/demo/views/shades-view.test
  */
 
-import { beforeEach, describe, expect, it, mock, spyOn } from "bun:test";
-import { resetState, state } from "../state";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
+import { resetState } from "../state";
 import type { ShadesViewCallbacks } from "./shades-view";
 import { renderShadesView } from "./shades-view";
 

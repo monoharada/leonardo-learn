@@ -136,7 +136,7 @@ export async function renderShadesView(
 		}
 
 		// ブランドカラーセクション（Task 4.4: ブランドロール表示のためにroleMapperを渡す）
-		if (activePalette && activePalette.keyColors[0]) {
+		if (activePalette?.keyColors[0]) {
 			const { color: brandHex } = parseKeyColor(activePalette.keyColors[0]);
 			renderBrandColorSection(
 				container,

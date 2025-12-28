@@ -26,7 +26,9 @@ describe("palette-view module", () => {
 
 	describe("PaletteViewCallbacks interface", () => {
 		it("should accept callbacks with required properties", async () => {
-			const { renderPaletteView } = await import("./palette-view");
+			const { renderPaletteView: _renderPaletteView } = await import(
+				"./palette-view"
+			);
 
 			// 型チェック: コールバックの型が正しいことを確認
 			const callbacks = {
@@ -91,7 +93,7 @@ describe("palette-view module", () => {
 		it("should correctly categorize semantic palette names", async () => {
 			// 内部のgetSemanticCategory関数の動作を間接的に検証
 			// 実際のカテゴリ分類はrenderPaletteView内で行われる
-			const { state } = await import("../state");
+			const { state: _state } = await import("../state");
 
 			// テスト用のパレット名
 			const testNames = [

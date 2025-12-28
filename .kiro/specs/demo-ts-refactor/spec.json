@@ -163,6 +163,26 @@
 				"resolved_issues": 0,
 				"session_id": "019b651c-97cd-7131-951d-05e58b0a0cf5",
 				"note": "demo.tsをre-export形式に変更（3,429行→11行）。後方互換性テスト3件作成。設計通りの実装、runDemoエントリポイント維持。パスエイリアス経由テストは軽微なギャップ"
+			},
+			"task_6_1": {
+				"review_count": 2,
+				"final_verdict": "APPROVED",
+				"resolved_issues": 0,
+				"session_id": "019b6525-3c7a-7f92-8423-c75795a197be",
+				"note": "madge --circular src/ui/demoで循環依存なし確認。依存方向ルール遵守、View→Feature直接依存なし確認。Codex環境制限のため設計コンテキスト補足で承認"
+			},
+			"task_6_2": {
+				"review_count": 2,
+				"final_verdict": "APPROVED",
+				"resolved_issues": 0,
+				"session_id": "019b6532-b4c2-7d23-9fce-1eadd7205673",
+				"note": "type-checkエラーなし、src/ui/demo/リントはエラー0件・警告0件・info2件（型安全性優先でfindIndex維持）。スコープ外ファイル（e2e/、src/core/cud/）の指摘は設計コンテキスト補足で対象外と確認"
+			},
+			"task_6_3": {
+				"review_count": 1,
+				"final_verdict": "APPROVED",
+				"resolved_issues": 0,
+				"note": "E2Eテスト実行完了。semantic-role-overlay.e2e.ts: 61/61 passed（demo.tsリファクタリング関連）。cud-harmony-generator.e2e.ts: 12/14 passed（2件失敗はCUD Harmony Generator機能のスコープ外テスト、既存問題でリファクタリングに起因しない）。DOM構造・イベントハンドラの動作維持確認"
 			}
 		}
 	}

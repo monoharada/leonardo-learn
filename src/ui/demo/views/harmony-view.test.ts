@@ -21,7 +21,9 @@ describe("harmony-view module", () => {
 
 	describe("HarmonyViewCallbacks interface", () => {
 		it("should accept callbacks with required properties", async () => {
-			const { renderHarmonyView } = await import("./harmony-view");
+			const { renderHarmonyView: _renderHarmonyView } = await import(
+				"./harmony-view"
+			);
 
 			// 型チェック: コールバックの型が正しいことを確認
 			const callbacks = {
