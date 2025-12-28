@@ -1,0 +1,22 @@
+{
+	"name": "background-color-change",
+	"description": "カスタム背景色を選択し、リアルタイムでコントラスト再計算を行う機能",
+	"language": "ja",
+	"phase": "requirements-generated",
+	"created_at": "2025-12-23T06:00:00.000Z",
+	"updated_at": "2025-12-23T06:00:00.000Z",
+	"approvals": {
+		"requirements": {
+			"generated": true,
+			"approved": false
+		},
+		"design": {
+			"generated": false,
+			"approved": false
+		},
+		"tasks": {
+			"generated": false,
+			"approved": false
+		}
+	}
+}

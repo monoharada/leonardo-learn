@@ -1,0 +1,60 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - heading "CUD-aware Harmony Generator E2E Test" [level=1] [ref=e2]
+  - generic [ref=e3]:
+    - heading "1. CUDモードセレクター" [level=2] [ref=e4]
+    - generic [ref=e6]:
+      - generic [ref=e7]: CUD対応モード
+      - combobox [ref=e8] [cursor=pointer]:
+        - option "○ 通常モード"
+        - option "◐ ガイドモード"
+        - option "◉ ソフトスナップ" [selected]
+        - option "● CUD互換"
+      - paragraph [ref=e9]: 自動補正
+    - generic [ref=e10]:
+      - strong [ref=e11]: "現在のモード:"
+      - text: ◉ ソフトスナップ
+      - generic [ref=e12]: 完了
+  - generic [ref=e13]:
+    - heading "2. アンカーカラー設定" [level=2] [ref=e14]
+    - generic [ref=e15]:
+      - generic [ref=e16]: "ブランドカラー:"
+      - textbox "ブランドカラー:" [ref=e17] [cursor=pointer]: "#ff5500"
+      - textbox "#RRGGBB" [ref=e18]: "#FF5500"
+      - button "設定" [ref=e19] [cursor=pointer]
+    - generic [ref=e20]:
+      - strong [ref=e21]: "アンカー情報:"
+      - generic [ref=e22]: "{ \"originalHex\": \"#FF5500\", \"nearestCud\": { \"name\": \"赤\", \"hex\": \"#FF2800\", \"matchLevel\": \"near\", \"deltaE\": \"0.0552\" }, \"priority\": \"cud\", \"effectiveHex\": \"#FF2800\" }"
+  - generic [ref=e23]:
+    - heading "3. パレット入力" [level=2] [ref=e24]
+    - generic [ref=e25]:
+      - text: "カラーコード（カンマ区切り）:"
+      - textbox "カラーコード（カンマ区切り）:" [ref=e26]: "#FF5500,#0041FF,#35A16B,#FF0000"
+    - button "最適化実行" [ref=e27] [cursor=pointer]
+  - generic [ref=e28]:
+    - heading "4. プレビュー" [level=2] [ref=e29]
+    - generic [ref=e30]:
+      - generic [ref=e31]: "#ff4302"
+      - generic [ref=e32]: "#0041FF"
+      - generic [ref=e33]: "#35A16B"
+      - generic [ref=e34]: "#FF0000"
+    - generic [ref=e35]:
+      - generic "CUD距離が 0.055 減少しました" [ref=e36]: ΔE -0.055
+      - generic "スナップは適用されませんでした" [ref=e37]: 補正なし
+      - generic "スナップは適用されませんでした" [ref=e38]: 補正なし
+      - generic "スナップは適用されませんでした" [ref=e39]: 補正なし
+    - generic [ref=e40]:
+      - strong [ref=e41]: "最適化結果:"
+      - generic [ref=e42]: "{ \"mode\": \"soft\", \"cudComplianceRate\": 100, \"harmonyScore\": \"37.20\", \"objectiveValue\": \"0.3880\", \"processingTimeMs\": 0.5, \"palette\": [ { \"hex\": \"#ff4302\", \"zone\": \"warning\", \"snapped\": true, \"cudTarget\": \"赤\" }, { \"hex\": \"#0041FF\", \"zone\": \"safe\", \"snapped\": false, \"cudTarget\": \"青\" }, { \"hex\": \"#35A16B\", \"zone\": \"safe\", \"snapped\": false, \"cudTarget\": \"緑\" }, { \"hex\": \"#FF0000\", \"zone\": \"safe\", \"snapped\": false, \"cudTarget\": \"赤\" } ] }"
+  - generic [ref=e43]:
+    - heading "5. エクスポート" [level=2] [ref=e44]
+    - generic [ref=e45]:
+      - button "JSON出力" [ref=e46] [cursor=pointer]
+      - button "CSS出力" [active] [ref=e47] [cursor=pointer]
+    - textbox [ref=e48]: "[object Object]"
+    - generic [ref=e49]:
+      - strong [ref=e50]: "CUD検証サマリー:"
+      - generic [ref=e51]: "{ \"totalColors\": 4, \"zoneDistribution\": { \"safe\": 3, \"warning\": 1, \"off\": 0 }, \"errorCount\": 0, \"warningCount\": 1, \"isExportReady\": true, \"message\": \"1色が要確認（Warning Zone）です。\" }"
+```

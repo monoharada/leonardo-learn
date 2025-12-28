@@ -56,7 +56,7 @@ navigation, sidebar, editorモジュールを作成し、UI操作に関する機
   - 依存方向ルールに従い、setButtonActiveをモジュール内部で定義（style-constants依存を削除）
   - _Requirements: 7.1, 7.3_
 
-- [ ] 2.3 エディタモジュールを作成する
+- [x] 2.3 エディタモジュールを作成する
   - **依存**: Task 1.3（state参照が必要）
   - updateEditor関数を実装
   - ハーモニー選択ボタンのイベントハンドラを設定
