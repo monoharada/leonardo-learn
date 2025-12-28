@@ -156,6 +156,13 @@
 				"resolved_issues": 0,
 				"session_id": "019b6510-5d71-7681-ab47-498b8d1754ee",
 				"note": "runDemo関数・renderMain・コールバック接続実装完了(266行)。設計仕様準拠、循環依存なし、View→Featureコールバック経由接続確認。DOM操作テストはE2Eでカバー"
+			},
+			"task_5_2": {
+				"review_count": 1,
+				"final_verdict": "APPROVED",
+				"resolved_issues": 0,
+				"session_id": "019b651c-97cd-7131-951d-05e58b0a0cf5",
+				"note": "demo.tsをre-export形式に変更（3,429行→11行）。後方互換性テスト3件作成。設計通りの実装、runDemoエントリポイント維持。パスエイリアス経由テストは軽微なギャップ"
 			}
 		}
 	}

@@ -168,7 +168,7 @@ index.tsを真のエントリポイントとして整理し、全モジュール
   - 目標300行以下
   - _Requirements: 2.4, 10.1, 10.2, 10.3, 10.4, 10.5_
 
-- [ ] 5.2 後方互換性のためのre-exportを設定する
+- [x] 5.2 後方互換性のためのre-exportを設定する
   - **依存**: Task 5.1
   - 既存のsrc/ui/demo.tsをexport * from "./demo/index"に変更
   - runDemo関数のシグネチャを維持
