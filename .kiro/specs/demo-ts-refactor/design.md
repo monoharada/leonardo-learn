@@ -639,27 +639,29 @@ export async function renderPaletteView(
 ```typescript
 export async function renderShadesView(
   container: HTMLElement,
-  callbacks: {
-    onColorClick: (options: ColorDetailModalOptions) => void;  // コールバック経由
-  }
+  callbacks: ShadesViewCallbacks
 ): Promise<void>;
 
+// 内部関数（renderShadesViewから呼び出される）
+// 既存demo.tsの実装に合わせ、roleMapperを受け取る設計
 export function renderDadsHueSection(
   container: HTMLElement,
-  hue: DadsColorHue,
   colorScale: DadsColorScale,
-  callbacks: {
-    onColorClick: (options: ColorDetailModalOptions) => void;
-  }
+  roleMapper: SemanticRoleMapperService | undefined,
+  callbacks: ShadesViewCallbacks
 ): void;
 
 export function renderBrandColorSection(
   container: HTMLElement,
-  palette: PaletteConfig,
-  callbacks: {
-    onColorClick: (options: ColorDetailModalOptions) => void;
-  }
+  brandHex: string,
+  brandName: string,
+  roleMapper: SemanticRoleMapperService | undefined,
+  callbacks: ShadesViewCallbacks
 ): void;
+
+interface ShadesViewCallbacks {
+  onColorClick: (options: ColorDetailModalOptions) => void;
+}
 ```
 
 #### views/accessibility-view.ts
@@ -688,7 +690,8 @@ export function renderAccessibilityView(
 
 export function renderDistinguishabilityAnalysis(
   container: HTMLElement,
-  colors: Record<string, Color> | { name: string; color: Color }[]
+  colors: Record<string, Color> | { name: string; color: Color }[],
+  options?: { adjacentOnly?: boolean }  // キーカラー: false, シェード: true
 ): void;
 
 export function renderAdjacentShadesAnalysis(

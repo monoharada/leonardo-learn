@@ -117,7 +117,7 @@ palette-generator, export-handlers, cvd-controls, color-detail-modalモジュー
 
 各ビュー（Harmony, Palette, Shades, Accessibility）を独立モジュールとして作成する。
 
-- [ ] 4.1 ハーモニービューモジュールを作成する
+- [x] 4.1 ハーモニービューモジュールを作成する
   - **依存**: Task 1.1, 1.2, 1.3（型・定数・state参照が必要）
   - renderHarmonyView関数を実装
   - HARMONY_TYPES定数を使用してハーモニー選択UIを構築
@@ -126,7 +126,7 @@ palette-generator, export-handlers, cvd-controls, color-detail-modalモジュー
   - color-detail-modalへの直接importを避け、コールバック経由で接続
   - _Requirements: 2.1, 2.2, 2.3, 2.4_
 
-- [ ] 4.2 パレットビューモジュールを作成する
+- [x] 4.2 パレットビューモジュールを作成する
   - **依存**: Task 1.1, 1.3（型・state参照が必要）
   - renderPaletteView関数を実装（非同期）
   - パレット詳細画面のレンダリングロジックを移植
@@ -134,14 +134,14 @@ palette-generator, export-handlers, cvd-controls, color-detail-modalモジュー
   - @/core/tokens/dads-data-providerとの連携を維持
   - _Requirements: 2.1, 2.2, 2.3, 2.4_
 
-- [ ] 4.3 シェードビューモジュールを作成する
+- [x] 4.3 シェードビューモジュールを作成する
   - **依存**: Task 1.1, 1.3（型・state参照が必要）
   - renderShadesView, renderDadsHueSection, renderBrandColorSection関数を実装
   - シェード一覧画面のレンダリングロジックを移植
   - onColorClickコールバックを受け取る設計
   - _Requirements: 2.1, 2.2, 2.3, 2.4_
 
-- [ ] 4.4 アクセシビリティビューモジュールを作成する
+- [x] 4.4 アクセシビリティビューモジュールを作成する
   - **依存**: Task 1.1, 1.3（型・state参照が必要）
   - renderAccessibilityView, renderDistinguishabilityAnalysis, renderAdjacentShadesAnalysis関数を実装
   - applySimulationヘルパーをコールバック経由で受け取る設計（直接import禁止）
