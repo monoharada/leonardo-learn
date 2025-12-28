@@ -66,6 +66,13 @@
 				"resolved_issues": 3,
 				"note": "依存方向修正（style-constants削除）、Nullガード追加、公開API整理と設計仕様更新を実施し承認",
 				"session_id": "019b63cc-69cf-7712-8591-a52db61bce7c"
+			},
+			"task_2_2": {
+				"review_count": 1,
+				"final_verdict": "APPROVED",
+				"resolved_issues": 0,
+				"note": "設計通りの実装、依存方向ルール遵守、テストギャップは軽微（DOM操作はE2Eでカバー）",
+				"session_id": "019b63e5-5d6c-73f2-8219-e043b0e4a726"
 			}
 		}
 	}
