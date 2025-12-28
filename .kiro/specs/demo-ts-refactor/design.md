@@ -402,36 +402,20 @@ export function resetState(): void;
 
 ##### Service Interface
 ```typescript
-export interface NavigationService {
-  updateViewButtons(mode: ViewMode, onRenderMain: () => void): void;
-  announceViewChange(viewName: string): void;
-  setupNavigationHandlers(
-    elements: NavigationElements,
-    onRenderMain: () => void
-  ): void;
-}
+// 公開API（関数エクスポート）
+export function updateViewButtons(mode: ViewMode, onRenderMain: () => void): void;
+export function announceViewChange(viewName: string): void;
+export function setupNavigation(onRenderMain: () => void): void;
 
-// 必須要素（index.tsで検証済み、非null保証）
-interface NavigationRequiredElements {
-  harmonyViewEl: HTMLElement;  // 必須: ハーモニービューコンテナ
-  appEl: HTMLElement;          // 必須: メインアプリコンテナ
-}
-
-// オプション要素（存在しない場合は機能をスキップ）
-interface NavigationOptionalElements {
-  viewHarmonyBtn: HTMLElement | null;     // ボタンがなければハンドラ登録をスキップ
-  viewPaletteBtn: HTMLElement | null;
-  viewShadesBtn: HTMLElement | null;
-  viewAccessibilityBtn: HTMLElement | null;
-  liveRegionEl: HTMLElement | null;       // なければスクリーンリーダー通知をスキップ
-}
-
-type NavigationElements = NavigationRequiredElements & NavigationOptionalElements;
+// 内部型定義（エクスポートしない）
+// NavigationElements: 必須要素（harmonyViewEl, appEl）と任意要素を含む
+// 必須要素がない場合は関数が早期リターンする
 ```
 
 **Null取り扱い方針**:
-- `NavigationRequiredElements`: index.tsでガード済み、非null保証
-- `NavigationOptionalElements`: 各関数内で防御的に処理（`if (el) { ... }`）
+- **必須要素（harmonyViewEl, appEl）**: 関数内部でガード、存在しない場合は早期リターン
+- **オプション要素（ボタン類、liveRegion）**: 各関数内で防御的に処理（`if (el) { ... }`）
+- **DOM取得の責務**: navigation.ts内部で行い、外部から要素を渡す必要なし
 
 #### sidebar.ts
 

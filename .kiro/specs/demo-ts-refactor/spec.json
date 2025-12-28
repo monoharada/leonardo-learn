@@ -59,6 +59,13 @@
 				"resolved_issues": 2,
 				"note": "parseKeyColorの後方互換性修正、state初期値の単一ソース化を実施し承認",
 				"session_id": "019b63b1-b369-7a32-9db8-e1ebffc41a98"
+			},
+			"task_2_1": {
+				"review_count": 3,
+				"final_verdict": "APPROVED",
+				"resolved_issues": 3,
+				"note": "依存方向修正（style-constants削除）、Nullガード追加、公開API整理と設計仕様更新を実施し承認",
+				"session_id": "019b63cc-69cf-7712-8591-a52db61bce7c"
 			}
 		}
 	}

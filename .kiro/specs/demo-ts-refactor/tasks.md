@@ -39,7 +39,7 @@ State Layer（types.ts, constants.ts, state.ts）を作成し、他モジュー�
 
 navigation, sidebar, editorモジュールを作成し、UI操作に関する機能を分離する。
 
-- [ ] 2.1 ナビゲーションモジュールを作成する
+- [x] 2.1 ナビゲーションモジュールを作成する
   - **依存**: Task 1.3（state参照が必要）
   - updateViewButtons, announceViewChange関数を実装
   - ビュー切替ボタンのイベントハンドラを設定
