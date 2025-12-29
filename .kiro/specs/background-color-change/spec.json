@@ -2,21 +2,36 @@
 	"name": "background-color-change",
 	"description": "カスタム背景色を選択し、リアルタイムでコントラスト再計算を行う機能",
 	"language": "ja",
-	"phase": "requirements-generated",
+	"phase": "design-approved",
 	"created_at": "2025-12-23T06:00:00.000Z",
-	"updated_at": "2025-12-23T06:00:00.000Z",
+	"updated_at": "2025-12-29T13:31:00.000Z",
 	"approvals": {
 		"requirements": {
 			"generated": true,
-			"approved": false
+			"approved": true
 		},
 		"design": {
-			"generated": false,
-			"approved": false
+			"generated": true,
+			"approved": true
 		},
 		"tasks": {
 			"generated": false,
 			"approved": false
+		}
+	},
+	"codex_reviews": {
+		"requirements": {
+			"review_count": 2,
+			"final_verdict": "OK",
+			"session_id": "019b6846-5efa-7931-b126-8bf369b0c8d6",
+			"resolved_issues": 4
+		},
+		"design": {
+			"review_count": 3,
+			"final_verdict": "GO",
+			"session_id": "019b6850-b349-70a0-b155-191b727d4397",
+			"resolved_issues": 3,
+			"notes": "5.5/5.6 シェード画面背景色追従を追加、GO判定"
 		}
 	}
 }
