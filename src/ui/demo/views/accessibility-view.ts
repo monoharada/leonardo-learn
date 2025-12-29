@@ -231,6 +231,8 @@ export function renderAccessibilityView(
 	container: HTMLElement,
 	helpers: AccessibilityViewHelpers,
 ): void {
+	// コンテナをクリアして前のビューのDOMが残らないようにする
+	container.innerHTML = "";
 	container.className = "dads-section";
 
 	// パレットが生成されていない場合

@@ -25,12 +25,6 @@ import {
 } from "@/core/tokens/dads-data-provider";
 import type { DadsColorHue } from "@/core/tokens/types";
 import { renderBoundaryPills } from "@/ui/semantic-role/contrast-boundary-indicator";
-import {
-	type RoleInfoItem,
-	renderRoleInfoBar,
-	renderUnresolvedRolesBar,
-	type UnresolvedRoleItem,
-} from "@/ui/semantic-role/external-role-info-bar";
 import { applyOverlay } from "@/ui/semantic-role/semantic-role-overlay";
 import { getActivePalette, parseKeyColor, state } from "../state";
 import type { ColorDetailModalOptions, CVDType, HarmonyType } from "../types";
@@ -77,6 +71,8 @@ export async function renderShadesView(
 	container: HTMLElement,
 	callbacks: ShadesViewCallbacks,
 ): Promise<void> {
+	// コンテナをクリアして前のビューのDOMが残らないようにする
+	container.innerHTML = "";
 	container.className = "dads-section";
 
 	const loadingEl = document.createElement("div");
@@ -114,21 +110,6 @@ export async function renderShadesView(
 			</p>
 		`;
 		container.appendChild(infoSection);
-
-		// Task 10.2: hue-scale不定ブランドロールバーを最初の色相セクションの前に表示
-		// シェードビュー全体で1回のみ表示（各色相セクションでの繰り返し表示は行わない）
-		const unresolvedBrandRoles = roleMapper.lookupUnresolvedBrandRoles();
-		if (unresolvedBrandRoles.length > 0) {
-			const unresolvedItems: UnresolvedRoleItem[] = unresolvedBrandRoles.map(
-				(role) => ({
-					role,
-				}),
-			);
-			const unresolvedBar = renderUnresolvedRolesBar(unresolvedItems);
-			if (unresolvedBar) {
-				container.appendChild(unresolvedBar);
-			}
-		}
 
 		// 各色相のセクションを描画（Task 4.3: オーバーレイ適用のためにroleMapperを渡す）
 		for (const colorScale of chromaticScales) {
@@ -178,9 +159,6 @@ export function renderDadsHueSection(
 
 	const scaleContainer = document.createElement("div");
 	scaleContainer.className = "dads-scale";
-
-	// Task 10.3: 欄外ロール情報バー用のRoleInfoItemを収集
-	const roleInfoItems: RoleInfoItem[] = [];
 
 	// Task 10.4: コントラスト境界表示用のscale→スウォッチ要素マップ
 	const scaleElements = new Map<number, HTMLElement>();
@@ -282,16 +260,6 @@ export function renderDadsHueSection(
 					false,
 					colorItem.hex,
 				);
-
-				// Task 10.3: 各ロールについてRoleInfoItemを収集
-				// hue-scale特定可能なブランドロールも含まれる（該当DADSスウォッチと連携）
-				for (const role of roles) {
-					roleInfoItems.push({
-						role,
-						scale: colorItem.scale,
-						swatchElement: swatch,
-					});
-				}
 			}
 		}
 
@@ -302,14 +270,6 @@ export function renderDadsHueSection(
 	}
 
 	section.appendChild(scaleContainer);
-
-	// Task 10.3: 欄外ロール情報バーを追加
-	// hue-scale特定可能なブランドロールも対象に含まれる（lookupRolesで統合済み）
-	// hue-scale特定不可ロールはTask 10.2で処理済みのため除外
-	if (roleInfoItems.length > 0) {
-		const roleInfoBar = renderRoleInfoBar(roleInfoItems);
-		section.appendChild(roleInfoBar);
-	}
 
 	// sectionをDOMに追加（コントラスト境界ピルの位置計算のため先に追加が必要）
 	container.appendChild(section);

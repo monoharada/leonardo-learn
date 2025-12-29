@@ -138,6 +138,10 @@ export function runDemo(): void {
 
 		switch (state.viewMode) {
 			case "harmony":
+				// ハーモニービュー表示、app非表示
+				// NOTE: .dads-sectionのdisplay:flexがhidden属性を上書きするため、style.displayを直接操作
+				if (harmonyViewEl) harmonyViewEl.style.display = "";
+				if (app) app.style.display = "none";
 				// ハーモニービューはharmony-view要素に直接レンダリング
 				if (harmonyViewEl) {
 					renderHarmonyView(harmonyViewEl, keyColorHex, {
@@ -148,6 +152,10 @@ export function runDemo(): void {
 				break;
 
 			case "palette":
+				// ハーモニービュー非表示、app表示
+				// NOTE: .dads-sectionのdisplay:flexがhidden属性を上書きするため、style.displayを直接操作
+				if (harmonyViewEl) harmonyViewEl.style.display = "none";
+				if (app) app.style.display = "";
 				// 再レンダリング時のDOM重複を防ぐためコンテナをクリア
 				contentContainer.innerHTML = "";
 				renderPaletteView(contentContainer, {
@@ -156,6 +164,10 @@ export function runDemo(): void {
 				break;
 
 			case "shades":
+				// ハーモニービュー非表示、app表示
+				// NOTE: .dads-sectionのdisplay:flexがhidden属性を上書きするため、style.displayを直接操作
+				if (harmonyViewEl) harmonyViewEl.style.display = "none";
+				if (app) app.style.display = "";
 				// 再レンダリング時のDOM重複を防ぐためコンテナをクリア
 				contentContainer.innerHTML = "";
 				renderShadesView(contentContainer, {
@@ -164,6 +176,10 @@ export function runDemo(): void {
 				break;
 
 			case "accessibility":
+				// ハーモニービュー非表示、app表示
+				// NOTE: .dads-sectionのdisplay:flexがhidden属性を上書きするため、style.displayを直接操作
+				if (harmonyViewEl) harmonyViewEl.style.display = "none";
+				if (app) app.style.display = "";
 				// 再レンダリング時のDOM重複を防ぐためコンテナをクリア
 				contentContainer.innerHTML = "";
 				renderAccessibilityView(contentContainer, {
