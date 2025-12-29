@@ -2,14 +2,54 @@
  * 状態管理モジュールのテスト
  *
  * @module @/ui/demo/state.test
- * Requirements: 1.1, 1.2, 1.3, 1.4
+ * Requirements: 1.1, 1.2, 1.3, 1.4, 5.3, 5.4
  */
 
-import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import { HarmonyType } from "@/core/harmony";
 import { DEFAULT_STATE } from "./constants";
-import { getActivePalette, parseKeyColor, resetState, state } from "./state";
+import {
+	BACKGROUND_COLOR_STORAGE_KEY,
+	getActivePalette,
+	loadBackgroundColor,
+	parseKeyColor,
+	persistBackgroundColor,
+	resetState,
+	state,
+} from "./state";
 import type { ColorMode, PaletteConfig } from "./types";
+
+/**
+ * localStorageのモック実装
+ * Bun test環境ではlocalStorageが存在しないため
+ */
+function createLocalStorageMock() {
+	const store = new Map<string, string>();
+	return {
+		getItem: (key: string): string | null => store.get(key) ?? null,
+		setItem: (key: string, value: string): void => {
+			store.set(key, value);
+		},
+		removeItem: (key: string): void => {
+			store.delete(key);
+		},
+		clear: (): void => {
+			store.clear();
+		},
+		get length(): number {
+			return store.size;
+		},
+		key: (index: number): string | null => {
+			const keys = Array.from(store.keys());
+			return keys[index] ?? null;
+		},
+	};
+}
+
+// グローバルにlocalStorageモックを設定
+const localStorageMock = createLocalStorageMock();
+(globalThis as unknown as { localStorage: Storage }).localStorage =
+	localStorageMock as Storage;
 
 describe("state module", () => {
 	beforeEach(() => {
@@ -198,6 +238,147 @@ describe("state module", () => {
 			expect(result.color).toBe("#ff0000");
 			// Empty string is falsy, so step should be undefined
 			expect(result.step).toBeUndefined();
+		});
+	});
+
+	describe("BACKGROUND_COLOR_STORAGE_KEY", () => {
+		it("should be leonardo-backgroundColor", () => {
+			expect(BACKGROUND_COLOR_STORAGE_KEY).toBe("leonardo-backgroundColor");
+		});
+	});
+
+	describe("persistBackgroundColor", () => {
+		beforeEach(() => {
+			localStorage.clear();
+		});
+
+		afterEach(() => {
+			localStorage.clear();
+		});
+
+		it("should save backgroundColor and mode to localStorage as JSON", () => {
+			persistBackgroundColor("#18181b", "dark");
+
+			const stored = localStorage.getItem(BACKGROUND_COLOR_STORAGE_KEY);
+			expect(stored).not.toBeNull();
+
+			const parsed = JSON.parse(stored!);
+			expect(parsed.hex).toBe("#18181b");
+			expect(parsed.mode).toBe("dark");
+		});
+
+		it("should save light mode correctly", () => {
+			persistBackgroundColor("#ffffff", "light");
+
+			const stored = localStorage.getItem(BACKGROUND_COLOR_STORAGE_KEY);
+			const parsed = JSON.parse(stored!);
+			expect(parsed.hex).toBe("#ffffff");
+			expect(parsed.mode).toBe("light");
+		});
+
+		it("should overwrite previous value", () => {
+			persistBackgroundColor("#ffffff", "light");
+			persistBackgroundColor("#000000", "dark");
+
+			const stored = localStorage.getItem(BACKGROUND_COLOR_STORAGE_KEY);
+			const parsed = JSON.parse(stored!);
+			expect(parsed.hex).toBe("#000000");
+			expect(parsed.mode).toBe("dark");
+		});
+	});
+
+	describe("loadBackgroundColor", () => {
+		beforeEach(() => {
+			localStorage.clear();
+		});
+
+		afterEach(() => {
+			localStorage.clear();
+		});
+
+		it("should return default values when localStorage is empty", () => {
+			const result = loadBackgroundColor();
+			expect(result.hex).toBe("#ffffff");
+			expect(result.mode).toBe("light");
+		});
+
+		it("should restore valid values from localStorage", () => {
+			localStorage.setItem(
+				BACKGROUND_COLOR_STORAGE_KEY,
+				JSON.stringify({ hex: "#18181b", mode: "dark" }),
+			);
+
+			const result = loadBackgroundColor();
+			expect(result.hex).toBe("#18181b");
+			expect(result.mode).toBe("dark");
+		});
+
+		it("should return default values for invalid JSON", () => {
+			localStorage.setItem(BACKGROUND_COLOR_STORAGE_KEY, "invalid-json");
+
+			const result = loadBackgroundColor();
+			expect(result.hex).toBe("#ffffff");
+			expect(result.mode).toBe("light");
+		});
+
+		it("should return default values for invalid hex format", () => {
+			localStorage.setItem(
+				BACKGROUND_COLOR_STORAGE_KEY,
+				JSON.stringify({ hex: "not-a-hex", mode: "light" }),
+			);
+
+			const result = loadBackgroundColor();
+			expect(result.hex).toBe("#ffffff");
+			expect(result.mode).toBe("light");
+		});
+
+		it("should return default values for missing hex property", () => {
+			localStorage.setItem(
+				BACKGROUND_COLOR_STORAGE_KEY,
+				JSON.stringify({ mode: "dark" }),
+			);
+
+			const result = loadBackgroundColor();
+			expect(result.hex).toBe("#ffffff");
+			expect(result.mode).toBe("light");
+		});
+
+		it("should recalculate mode using determineColorMode when loading", () => {
+			// Store a dark color but with incorrect mode
+			localStorage.setItem(
+				BACKGROUND_COLOR_STORAGE_KEY,
+				JSON.stringify({ hex: "#000000", mode: "light" }),
+			);
+
+			const result = loadBackgroundColor();
+			// Mode should be recalculated based on hex value
+			expect(result.hex).toBe("#000000");
+			expect(result.mode).toBe("dark");
+		});
+
+		it("should recalculate mode for light color correctly", () => {
+			// Store a light color but with incorrect mode
+			localStorage.setItem(
+				BACKGROUND_COLOR_STORAGE_KEY,
+				JSON.stringify({ hex: "#ffffff", mode: "dark" }),
+			);
+
+			const result = loadBackgroundColor();
+			// Mode should be recalculated based on hex value
+			expect(result.hex).toBe("#ffffff");
+			expect(result.mode).toBe("light");
+		});
+
+		it("should handle 3-character hex format", () => {
+			localStorage.setItem(
+				BACKGROUND_COLOR_STORAGE_KEY,
+				JSON.stringify({ hex: "#fff", mode: "light" }),
+			);
+
+			const result = loadBackgroundColor();
+			// Should reject 3-char hex and return default
+			expect(result.hex).toBe("#ffffff");
+			expect(result.mode).toBe("light");
 		});
 	});
 });

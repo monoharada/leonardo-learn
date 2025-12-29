@@ -5,11 +5,120 @@
  * 状態アクセス用のヘルパー関数を提供する。
  *
  * @module @/ui/demo/state
- * Requirements: 1.1, 1.2, 1.3, 1.4
+ * Requirements: 1.1, 1.2, 1.3, 1.4, 5.3, 5.4
  */
 
+import { parse } from "culori";
 import { DEFAULT_STATE } from "./constants";
-import type { DemoState, KeyColorWithStep, PaletteConfig } from "./types";
+import type {
+	ColorMode,
+	DemoState,
+	KeyColorWithStep,
+	PaletteConfig,
+} from "./types";
+
+/**
+ * 背景色のlocalStorageキー
+ * @see Requirements: 5.3
+ */
+export const BACKGROUND_COLOR_STORAGE_KEY = "leonardo-backgroundColor";
+
+/**
+ * 背景色の永続化データ形式
+ */
+interface BackgroundColorData {
+	hex: string;
+	mode: ColorMode;
+}
+
+/**
+ * HEX形式のバリデーション
+ * @param hex 検証する文字列
+ * @returns 有効な6文字HEX形式の場合true
+ */
+function isValidHex(hex: string): boolean {
+	return /^#[0-9A-Fa-f]{6}$/.test(hex);
+}
+
+/**
+ * OKLCH明度からカラーモードを判定する
+ *
+ * OKLCH明度（L値）が0.5超ならlightモード、0.5以下ならdarkモード。
+ *
+ * @param hex HEX形式の色
+ * @returns カラーモード（light/dark）
+ * @see Requirements: 2.4, 2.5
+ */
+export function determineColorMode(hex: string): ColorMode {
+	const color = parse(hex);
+	if (!color) {
+		return "light";
+	}
+	// culoriのparseは任意の色形式を扱えるが、ここではOKLCH明度を計算
+	// 標準sRGBの輝度計算を使用（Y = 0.2126R + 0.7152G + 0.0722B）
+	const r = "r" in color ? (color.r as number) : 0;
+	const g = "g" in color ? (color.g as number) : 0;
+	const b = "b" in color ? (color.b as number) : 0;
+	const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+	return luminance > 0.5 ? "light" : "dark";
+}
+
+/**
+ * 背景色をlocalStorageに永続化する
+ *
+ * @param hex HEX形式の背景色
+ * @param mode カラーモード
+ * @see Requirements: 5.3
+ */
+export function persistBackgroundColor(hex: string, mode: ColorMode): void {
+	try {
+		const data: BackgroundColorData = { hex, mode };
+		localStorage.setItem(BACKGROUND_COLOR_STORAGE_KEY, JSON.stringify(data));
+	} catch {
+		// localStorageが利用できない場合は無視
+	}
+}
+
+/**
+ * localStorageから背景色を読み込む
+ *
+ * 保存されたHEX値を検証し、モードをdetermineColorModeで再計算する。
+ * 無効な値の場合はデフォルト値（#ffffff, light）を返す。
+ *
+ * @returns 背景色データ（hex, mode）
+ * @see Requirements: 5.3, 5.4
+ */
+export function loadBackgroundColor(): BackgroundColorData {
+	const defaultValue: BackgroundColorData = {
+		hex: DEFAULT_STATE.backgroundColor,
+		mode: DEFAULT_STATE.backgroundMode,
+	};
+
+	try {
+		const stored = localStorage.getItem(BACKGROUND_COLOR_STORAGE_KEY);
+		if (stored === null) {
+			return defaultValue;
+		}
+
+		const parsed = JSON.parse(stored) as Partial<BackgroundColorData>;
+
+		// hexプロパティの存在とフォーマットを検証
+		if (typeof parsed.hex !== "string" || !isValidHex(parsed.hex)) {
+			return defaultValue;
+		}
+
+		// モードをHEX値から再計算
+		const recalculatedMode = determineColorMode(parsed.hex);
+
+		return {
+			hex: parsed.hex,
+			mode: recalculatedMode,
+		};
+	} catch {
+		// JSON.parseエラーやlocalStorageエラー
+		return defaultValue;
+	}
+}
 
 /**
  * デモ機能のグローバル状態（シングルトン）

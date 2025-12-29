@@ -13,7 +13,7 @@
   - resetState()で背景色状態もリセットされるようにする
   - _Requirements: 5.1_
 
-- [ ] 1.2 背景色のlocalStorage永続化を実装する
+- [x] 1.2 背景色のlocalStorage永続化を実装する
   - 背景色とモードをJSON形式（{hex, mode}）でlocalStorageに保存
   - ページ読み込み時にlocalStorageから背景色を復元し、determineColorModeでモードを再計算
   - 無効な保存値の場合はデフォルト値（#ffffff）にフォールバック
