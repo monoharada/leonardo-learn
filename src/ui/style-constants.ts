@@ -2,7 +2,15 @@
  * スタイル関連の定数と型定義
  *
  * @module @/ui/style-constants
+ * Requirements: 6.1
  */
+
+/**
+ * 背景色のモード（light/dark）
+ * style-constants内でColorModeを使用するためローカル定義
+ * （循環依存回避）
+ */
+type ColorMode = "light" | "dark";
 
 export type ContrastIntensity = "subtle" | "moderate" | "strong" | "vivid";
 
@@ -69,4 +77,45 @@ export function setBadgeLevel(badge: HTMLElement, ratio: number): void {
  */
 export function getSwatchTextMode(lightness: number): "light" | "dark" {
 	return lightness > 0.5 ? "dark" : "light";
+}
+
+/**
+ * Requirements 6.1: テキスト色のモード切替定数
+ * lightモードでは黒テキスト（zinc-900）、darkモードでは白テキスト（zinc-100）
+ */
+export const FOREGROUND_COLORS: Record<ColorMode, string> = {
+	light: "#18181b", // zinc-900
+	dark: "#f4f4f5", // zinc-100
+} as const;
+
+/**
+ * Requirements 6.1: CSS変数名の定義
+ */
+export const CSS_VARIABLES = {
+	/** 前景色（テキスト色） */
+	fgPrimary: "--fg-primary",
+} as const;
+
+/**
+ * Requirements 6.1: 背景モードに応じたテキスト色を取得
+ *
+ * @param mode 背景色モード（light/dark）
+ * @returns テキスト色（HEX形式）
+ */
+export function getForegroundColor(mode: ColorMode): string {
+	return FOREGROUND_COLORS[mode];
+}
+
+/**
+ * Requirements 6.1: CSS変数（--fg-primary）を要素に適用してテキスト色を切替
+ *
+ * @param element CSS変数を適用する対象のHTML要素
+ * @param mode 背景色モード（light/dark）
+ */
+export function applyForegroundColor(
+	element: HTMLElement,
+	mode: ColorMode,
+): void {
+	const color = getForegroundColor(mode);
+	element.style.setProperty(CSS_VARIABLES.fgPrimary, color);
 }
