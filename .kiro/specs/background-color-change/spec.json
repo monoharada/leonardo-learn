@@ -2,9 +2,9 @@
 	"name": "background-color-change",
 	"description": "カスタム背景色を選択し、リアルタイムでコントラスト再計算を行う機能",
 	"language": "ja",
-	"phase": "design-approved",
+	"phase": "tasks-generated",
 	"created_at": "2025-12-23T06:00:00.000Z",
-	"updated_at": "2025-12-29T13:31:00.000Z",
+	"updated_at": "2025-12-29T14:15:00.000Z",
 	"approvals": {
 		"requirements": {
 			"generated": true,
@@ -15,7 +15,7 @@
 			"approved": true
 		},
 		"tasks": {
-			"generated": false,
+			"generated": true,
 			"approved": false
 		}
 	},
@@ -32,6 +32,13 @@
 			"session_id": "019b6850-b349-70a0-b155-191b727d4397",
 			"resolved_issues": 3,
 			"notes": "5.5/5.6 シェード画面背景色追従を追加、GO判定"
+		},
+		"tasks": {
+			"review_count": 1,
+			"final_verdict": "APPROVED",
+			"session_id": "019b6866-208c-7500-a4be-18912c756360",
+			"resolved_issues": 4,
+			"notes": "medium 2件（localStorage復元時モード再計算、統合テスト追加）、minor 2件を修正"
 		}
 	}
 }
