@@ -238,7 +238,7 @@ export function runDemo(): void {
 	);
 
 	// CVDコントロールのセットアップ
-	const cvdButtons = document.querySelectorAll(".cvd-type-buttons button");
+	const cvdButtons = document.querySelectorAll("#cvdTypeButtons button");
 	setupCVDControls(cvdButtons, () => {
 		updateCVDScoreDisplay();
 		renderMain();

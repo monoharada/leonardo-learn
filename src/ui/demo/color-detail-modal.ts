@@ -758,37 +758,6 @@ export function openColorDetailModal(
 		);
 	}
 
-	// Task 3.4c: Reset & Save ボタンのロジック
-	const resetBtn = document.getElementById("detail-reset-btn");
-	const saveBtn = document.getElementById("detail-save-btn");
-
-	if (resetBtn) {
-		if (readOnly) {
-			(resetBtn as HTMLElement).style.display = "none";
-		} else {
-			(resetBtn as HTMLElement).style.display = "";
-			resetBtn.onclick = () => {
-				currentColor = keyColor;
-				updateDetailHandler.setSelectedScaleIndex(fixedScale.keyIndex);
-				updateDetailHandler.updateDetail(currentColor, fixedScale.keyIndex);
-			};
-		}
-	}
-
-	if (saveBtn) {
-		if (readOnly) {
-			(saveBtn as HTMLElement).style.display = "none";
-		} else {
-			(saveBtn as HTMLElement).style.display = "";
-			saveBtn.onclick = () => {
-				syncPalette(state.palettes, currentColor.toHex(), paletteInfo);
-				syncPalette(state.shadesPalettes, currentColor.toHex(), paletteInfo);
-				dialog.close();
-				if (onRenderMain) onRenderMain();
-			};
-		}
-	}
-
 	// readOnlyモードの場合はスクラバーを非表示
 	const scrubberContainer = scrubberCanvas?.parentElement;
 	if (scrubberContainer && readOnly) {
