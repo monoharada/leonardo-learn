@@ -148,18 +148,24 @@ export function runDemo(): void {
 				break;
 
 			case "palette":
+				// 再レンダリング時のDOM重複を防ぐためコンテナをクリア
+				contentContainer.innerHTML = "";
 				renderPaletteView(contentContainer, {
 					onColorClick: handleColorClick,
-				});
+				}).catch(console.error);
 				break;
 
 			case "shades":
+				// 再レンダリング時のDOM重複を防ぐためコンテナをクリア
+				contentContainer.innerHTML = "";
 				renderShadesView(contentContainer, {
 					onColorClick: handleColorClick,
-				});
+				}).catch(console.error);
 				break;
 
 			case "accessibility":
+				// 再レンダリング時のDOM重複を防ぐためコンテナをクリア
+				contentContainer.innerHTML = "";
 				renderAccessibilityView(contentContainer, {
 					applySimulation,
 				});
