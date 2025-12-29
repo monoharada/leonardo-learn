@@ -5,7 +5,7 @@
  * カードクリック時はonColorClickコールバック経由でcolor-detail-modalと接続する。
  *
  * @module @/ui/demo/views/palette-view
- * Requirements: 2.1, 2.2, 2.3, 2.4
+ * Requirements: 1.1, 2.1, 2.2, 2.3, 2.4, 5.1
  */
 
 import { simulateCVD } from "@/accessibility/cvd-simulator";
@@ -23,7 +23,13 @@ import {
 	snapToCudColor,
 } from "@/ui/cud-components";
 import { getContrastRatios, STEP_NAMES } from "@/ui/style-constants";
-import { parseKeyColor, state } from "../state";
+import { createBackgroundColorSelector } from "../background-color-selector";
+import {
+	determineColorMode,
+	parseKeyColor,
+	persistBackgroundColor,
+	state,
+} from "../state";
 import type { ColorDetailModalOptions, CVDType, PaletteConfig } from "../types";
 
 /**
@@ -75,6 +81,8 @@ function getSemanticCategory(name: string): string {
 
 /**
  * 固定スケールを計算する
+ *
+ * Requirements: 5.1 - 背景色に対するコントラスト計算
  */
 function calculateFixedScale(
 	keyColor: Color,
@@ -89,7 +97,8 @@ function calculateFixedScale(
 } {
 	const isPrimary =
 		palette.name === "Primary" || palette.name?.startsWith("Primary");
-	const bgColor = new Color("#ffffff");
+	// Requirements: 5.1 - 背景色はstate.backgroundColorを使用
+	const bgColor = new Color(state.backgroundColor);
 
 	// Primaryはブランドカラー：シェードなしで単一色のみ返す
 	if (isPrimary) {
@@ -335,6 +344,8 @@ function createCudValidationPanel(): HTMLElement {
 /**
  * パレットビューをレンダリングする
  *
+ * Requirements: 1.1, 5.1 - パレットビューに背景色セレクターを統合する
+ *
  * @param container レンダリング先のコンテナ要素
  * @param callbacks コールバック関数
  */
@@ -371,6 +382,33 @@ export async function renderPaletteView(
 	// コンテナをクリア
 	container.innerHTML = "";
 
+	// Requirements: 1.1, 5.1 - 背景色セレクターをビュー上部に配置
+	const backgroundSelectorSection = document.createElement("section");
+	backgroundSelectorSection.className = "background-color-selector";
+	const backgroundSelector = createBackgroundColorSelector({
+		currentColor: state.backgroundColor,
+		onColorChange: (hex: string) => {
+			// state.backgroundColorを更新
+			state.backgroundColor = hex;
+			// Requirements: 5.1 - モードを自動判定
+			state.backgroundMode = determineColorMode(hex);
+			// Requirements: 5.1 - localStorageに永続化
+			persistBackgroundColor(hex, state.backgroundMode);
+			// コンテナの背景色を更新
+			container.style.backgroundColor = hex;
+			// 再レンダリング（コントラスト値更新のため）
+			// Note: 各スウォッチのコントラスト再計算はcalculateFixedScale, findColorForContrastで実行される
+			void renderPaletteView(container, callbacks).catch((err) => {
+				console.error("Failed to re-render palette view:", err);
+			});
+		},
+	});
+	backgroundSelectorSection.appendChild(backgroundSelector);
+	container.appendChild(backgroundSelectorSection);
+
+	// Requirements: 5.1 - 背景色変更時にコンテナの背景を更新
+	container.style.backgroundColor = state.backgroundColor;
+
 	// 各グループをレンダリング
 	for (const [category, palettes] of groupedPalettes) {
 		const section = document.createElement("section");
@@ -392,7 +430,8 @@ export async function renderPaletteView(
 
 			const { color: hex, step: definedStep } = parseKeyColor(keyColorInput);
 			const originalKeyColor = new Color(hex);
-			const bgColor = new Color("#ffffff");
+			// Requirements: 5.1 - 背景色はstate.backgroundColorを使用
+			const bgColor = new Color(state.backgroundColor);
 
 			let colors: Color[];
 			let keyColorIndex: number;

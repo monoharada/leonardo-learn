@@ -102,6 +102,13 @@
 			"session_id": "019b6987-6e36-7a51-866d-d1108f67b066",
 			"resolved_issues": 1,
 			"notes": "デバウンス処理実装完了。HEX/OKLCH入力に150msデバウンス、カラーピッカー即時更新。偽タイマーによる動作検証テスト追加。54テストケース。"
+		},
+		"impl_task_5_1": {
+			"review_count": 4,
+			"final_verdict": "APPROVED",
+			"session_id": "019b69f4-b36b-77e0-b6f1-e6857a6d9c14",
+			"resolved_issues": 2,
+			"notes": "パレットビュー背景色セレクター統合完了。仕様トレース更新（Req 3.1はTask 3.1で対応、5.1はUI統合のみ）。エラーハンドリング追加、デバッグログ削除。17テストケース。"
 		}
 	}
 }
