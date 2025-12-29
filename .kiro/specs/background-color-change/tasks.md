@@ -7,7 +7,7 @@
 ## Tasks
 
 - [ ] 1. 状態管理の拡張
-- [ ] 1.1 (P) 背景色状態をDemoStateに追加する
+- [x] 1.1 (P) 背景色状態をDemoStateに追加する
   - DemoStateにbackgroundColor（HEX形式）とbackgroundMode（light/dark）を追加
   - デフォルト値として#ffffff（白）とlightモードを設定
   - resetState()で背景色状態もリセットされるようにする

@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { HarmonyType } from "@/core/harmony";
 import { DEFAULT_STATE } from "./constants";
 import { getActivePalette, parseKeyColor, resetState, state } from "./state";
-import type { PaletteConfig } from "./types";
+import type { ColorMode, PaletteConfig } from "./types";
 
 describe("state module", () => {
 	beforeEach(() => {
@@ -34,6 +34,14 @@ describe("state module", () => {
 			expect(state.cudMode).toBe("guide");
 		});
 
+		it("should have default backgroundColor as #ffffff", () => {
+			expect(state.backgroundColor).toBe("#ffffff");
+		});
+
+		it("should have default backgroundMode as light", () => {
+			expect(state.backgroundMode).toBe("light");
+		});
+
 		it("should allow mutation of state properties", () => {
 			state.activeId = "test-id";
 			expect(state.activeId).toBe("test-id");
@@ -43,6 +51,16 @@ describe("state module", () => {
 
 			state.activeHarmonyIndex = 2;
 			expect(state.activeHarmonyIndex).toBe(2);
+		});
+
+		it("should allow mutation of backgroundColor", () => {
+			state.backgroundColor = "#000000";
+			expect(state.backgroundColor).toBe("#000000");
+		});
+
+		it("should allow mutation of backgroundMode", () => {
+			state.backgroundMode = "dark";
+			expect(state.backgroundMode).toBe("dark");
 		});
 	});
 
@@ -66,6 +84,19 @@ describe("state module", () => {
 			expect(state.activeId).toBe(DEFAULT_STATE.activeId);
 			expect(state.viewMode).toBe(DEFAULT_STATE.viewMode);
 			expect(state.palettes).toEqual([]);
+		});
+
+		it("should reset backgroundColor and backgroundMode to default values", () => {
+			// Modify background color state
+			state.backgroundColor = "#18181b";
+			state.backgroundMode = "dark";
+
+			// Reset
+			resetState();
+
+			// Verify reset to default values
+			expect(state.backgroundColor).toBe("#ffffff");
+			expect(state.backgroundMode).toBe("light");
 		});
 	});
 

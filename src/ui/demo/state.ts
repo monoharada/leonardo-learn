@@ -28,6 +28,8 @@ import type { DemoState, KeyColorWithStep, PaletteConfig } from "./types";
  * - cvdSimulation: CVDシミュレーションタイプ
  * - selectedHarmonyConfig: 選択されたハーモニー設定
  * - cudMode: CUD対応モード
+ * - backgroundColor: 背景色（HEX形式）
+ * - backgroundMode: 背景色モード（light/dark）
  */
 export const state: DemoState = {
 	palettes: [...DEFAULT_STATE.palettes],
@@ -40,6 +42,8 @@ export const state: DemoState = {
 	cvdSimulation: DEFAULT_STATE.cvdSimulation,
 	selectedHarmonyConfig: DEFAULT_STATE.selectedHarmonyConfig,
 	cudMode: DEFAULT_STATE.cudMode,
+	backgroundColor: DEFAULT_STATE.backgroundColor,
+	backgroundMode: DEFAULT_STATE.backgroundMode,
 };
 
 /**
@@ -90,4 +94,6 @@ export function resetState(): void {
 	state.cvdSimulation = DEFAULT_STATE.cvdSimulation;
 	state.selectedHarmonyConfig = DEFAULT_STATE.selectedHarmonyConfig;
 	state.cudMode = DEFAULT_STATE.cudMode;
+	state.backgroundColor = DEFAULT_STATE.backgroundColor;
+	state.backgroundMode = DEFAULT_STATE.backgroundMode;
 }

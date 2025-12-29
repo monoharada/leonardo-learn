@@ -141,5 +141,13 @@ describe("constants.ts", () => {
 		it("cudModeがguideであること", () => {
 			expect(DEFAULT_STATE.cudMode).toBe("guide");
 		});
+
+		it("backgroundColorが#ffffffであること", () => {
+			expect(DEFAULT_STATE.backgroundColor).toBe("#ffffff");
+		});
+
+		it("backgroundModeがlightであること", () => {
+			expect(DEFAULT_STATE.backgroundMode).toBe("light");
+		});
 	});
 });
