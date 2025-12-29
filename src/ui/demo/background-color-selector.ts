@@ -5,7 +5,7 @@
  * 背景色選択UIを集約するコンポーネント。
  *
  * @module @/ui/demo/background-color-selector
- * Requirements: 1.1, 1.2, 1.5, 1.6
+ * Requirements: 1.1, 1.2, 1.5, 1.6, 2.1, 2.2
  */
 
 import { validateBackgroundColor } from "./state";
@@ -24,6 +24,38 @@ export interface BackgroundColorSelectorProps {
 }
 
 /**
+ * カラーモード型
+ * @see design.md ColorMode
+ */
+export type ColorMode = "light" | "dark";
+
+/**
+ * プリセットカラー型
+ * @see design.md PresetColor
+ * Requirements: 2.1
+ */
+export interface PresetColor {
+	/** プリセット名 */
+	name: string;
+	/** HEX値 */
+	hex: string;
+	/** 対応するモード */
+	mode: ColorMode;
+}
+
+/**
+ * プリセット背景色の定義
+ * Requirements: 2.1, 2.2
+ * @see design.md PRESET_COLORS
+ */
+export const PRESET_COLORS: PresetColor[] = [
+	{ name: "White", hex: "#ffffff", mode: "light" },
+	{ name: "Light Gray", hex: "#f8fafc", mode: "light" },
+	{ name: "Dark Gray", hex: "#18181b", mode: "dark" },
+	{ name: "Black", hex: "#000000", mode: "dark" },
+];
+
+/**
  * ユニークIDを生成するカウンター
  */
 let idCounter = 0;
@@ -33,7 +65,7 @@ let idCounter = 0;
  *
  * @param props セレクターのプロパティ
  * @returns セレクターのDOM要素
- * @see Requirements: 1.1, 1.2, 1.5, 1.6
+ * @see Requirements: 1.1, 1.2, 1.5, 1.6, 2.1, 2.2
  */
 export function createBackgroundColorSelector(
 	props: BackgroundColorSelectorProps,
@@ -95,6 +127,34 @@ export function createBackgroundColorSelector(
 	errorArea.setAttribute("role", "alert");
 	errorArea.setAttribute("aria-live", "polite");
 	container.appendChild(errorArea);
+
+	// プリセットボタンコンテナを作成（Requirements 2.1, 2.2）
+	const presetsContainer = document.createElement("div");
+	presetsContainer.className = "background-color-selector__presets";
+
+	// 各プリセットのボタンを作成
+	for (const preset of PRESET_COLORS) {
+		const button = document.createElement("button");
+		button.type = "button";
+		button.className = "background-color-selector__preset-button";
+		button.style.backgroundColor = preset.hex;
+		button.setAttribute("aria-label", `Select ${preset.name} background`);
+		button.title = preset.name;
+
+		// クリックで即座に背景色を適用（Requirement 2.2）
+		button.addEventListener("click", () => {
+			colorInput.value = preset.hex;
+			hexInput.value = preset.hex;
+			updatePreview(preset.hex);
+			clearError();
+			lastValidColor = preset.hex;
+			onColorChange(preset.hex);
+		});
+
+		presetsContainer.appendChild(button);
+	}
+
+	container.appendChild(presetsContainer);
 
 	/**
 	 * プレビューとエラーを更新するヘルパー

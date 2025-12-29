@@ -2,7 +2,7 @@
  * 背景色セレクターコンポーネントのテスト
  *
  * @module @/ui/demo/background-color-selector.test
- * Requirements: 1.1, 1.2, 1.5, 1.6
+ * Requirements: 1.1, 1.2, 1.5, 1.6, 2.1, 2.2
  *
  * NOTE: DOM操作を伴うテストは主にE2Eテスト（Playwright）でカバー。
  * このファイルでは型とエクスポート、依存関係の確認を行う。
@@ -231,6 +231,155 @@ describe("BackgroundColorSelector module", () => {
 			// 無効入力時にカラーピッカーとプレビューを前の有効値で更新
 			expect(content).toContain("colorInput.value = lastValidColor");
 			expect(content).toContain("updatePreview(lastValidColor)");
+		});
+	});
+
+	/**
+	 * Task 4.2: プリセット背景色ボタン
+	 * Requirements: 2.1, 2.2
+	 */
+	describe("preset color buttons (Task 4.2)", () => {
+		it("should export PRESET_COLORS constant", async () => {
+			const { PRESET_COLORS } = await import("./background-color-selector");
+			expect(PRESET_COLORS).toBeDefined();
+			expect(Array.isArray(PRESET_COLORS)).toBe(true);
+		});
+
+		it("should define 4 preset colors", async () => {
+			const { PRESET_COLORS } = await import("./background-color-selector");
+			expect(PRESET_COLORS.length).toBe(4);
+		});
+
+		it("should include White preset (#ffffff)", async () => {
+			const { PRESET_COLORS } = await import("./background-color-selector");
+			const white = PRESET_COLORS.find(
+				(p: { hex: string }) => p.hex === "#ffffff",
+			);
+			expect(white).toBeDefined();
+			expect(white?.name).toBe("White");
+			expect(white?.mode).toBe("light");
+		});
+
+		it("should include Light Gray preset (#f8fafc)", async () => {
+			const { PRESET_COLORS } = await import("./background-color-selector");
+			const lightGray = PRESET_COLORS.find(
+				(p: { hex: string }) => p.hex === "#f8fafc",
+			);
+			expect(lightGray).toBeDefined();
+			expect(lightGray?.name).toBe("Light Gray");
+			expect(lightGray?.mode).toBe("light");
+		});
+
+		it("should include Dark Gray preset (#18181b)", async () => {
+			const { PRESET_COLORS } = await import("./background-color-selector");
+			const darkGray = PRESET_COLORS.find(
+				(p: { hex: string }) => p.hex === "#18181b",
+			);
+			expect(darkGray).toBeDefined();
+			expect(darkGray?.name).toBe("Dark Gray");
+			expect(darkGray?.mode).toBe("dark");
+		});
+
+		it("should include Black preset (#000000)", async () => {
+			const { PRESET_COLORS } = await import("./background-color-selector");
+			const black = PRESET_COLORS.find(
+				(p: { hex: string }) => p.hex === "#000000",
+			);
+			expect(black).toBeDefined();
+			expect(black?.name).toBe("Black");
+			expect(black?.mode).toBe("dark");
+		});
+
+		it("should export PresetColor type via PRESET_COLORS inference", async () => {
+			const { PRESET_COLORS } = await import("./background-color-selector");
+			// 型推論で各プリセットがname, hex, modeを持つことを確認
+			for (const preset of PRESET_COLORS) {
+				expect(typeof preset.name).toBe("string");
+				expect(typeof preset.hex).toBe("string");
+				expect(["light", "dark"]).toContain(preset.mode);
+			}
+		});
+
+		it("should create preset buttons container in DOM", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(
+				import.meta.dir,
+				"background-color-selector.ts",
+			);
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// プリセットボタンコンテナのクラス名
+			expect(content).toContain("background-color-selector__presets");
+		});
+
+		it("should create buttons for each preset", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(
+				import.meta.dir,
+				"background-color-selector.ts",
+			);
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// プリセットごとにボタンを作成するループ
+			expect(content).toContain("PRESET_COLORS");
+			expect(content).toContain("background-color-selector__preset-button");
+		});
+
+		it("should set button type to button for keyboard accessibility", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(
+				import.meta.dir,
+				"background-color-selector.ts",
+			);
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// ボタンタイプを明示的に設定（フォーム送信防止）
+			expect(content).toContain('type = "button"');
+		});
+
+		it("should include aria-label for preset buttons", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(
+				import.meta.dir,
+				"background-color-selector.ts",
+			);
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// aria-labelでプリセット名を設定
+			expect(content).toContain("aria-label");
+			expect(content).toContain("preset.name");
+		});
+
+		it("should add click handler to apply preset color", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(
+				import.meta.dir,
+				"background-color-selector.ts",
+			);
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// クリックハンドラーの追加
+			expect(content).toContain('addEventListener("click"');
+			expect(content).toContain("preset.hex");
+		});
+
+		it("should reference Requirements 2.1, 2.2 in JSDoc", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(
+				import.meta.dir,
+				"background-color-selector.ts",
+			);
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// Requirements 2.1, 2.2の参照
+			expect(content).toContain("2.1");
+			expect(content).toContain("2.2");
 		});
 	});
 });
