@@ -5,10 +5,44 @@
  * 背景色選択UIを集約するコンポーネント。
  *
  * @module @/ui/demo/background-color-selector
- * Requirements: 1.1, 1.2, 1.3, 1.5, 1.6, 2.1, 2.2
+ * Requirements: 1.1, 1.2, 1.3, 1.5, 1.6, 2.1, 2.2, 4.1, 4.2, 4.4
  */
 
 import { validateBackgroundColor } from "./state";
+
+/**
+ * デバウンス遅延時間（ミリ秒）
+ * Requirements: 4.2 - HEX入力時にデバウンス処理（150ms）を適用
+ */
+export const DEBOUNCE_DELAY_MS = 150;
+
+/**
+ * デバウンス関数
+ *
+ * 指定された遅延時間後に関数を実行する。
+ * 遅延中に再度呼び出された場合、タイマーをリセットする。
+ *
+ * Requirements: 4.2, 4.4
+ * @param fn 実行する関数
+ * @param delay 遅延時間（ミリ秒）
+ * @returns デバウンスされた関数
+ */
+export function debounce<T extends (...args: unknown[]) => void>(
+	fn: T,
+	delay: number,
+): (...args: Parameters<T>) => void {
+	let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+	return (...args: Parameters<T>): void => {
+		if (timeoutId !== null) {
+			clearTimeout(timeoutId);
+		}
+		timeoutId = setTimeout(() => {
+			fn(...args);
+			timeoutId = null;
+		}, delay);
+	};
+}
 
 /**
  * 背景色セレクターのプロパティ
@@ -276,12 +310,15 @@ export function createBackgroundColorSelector(
 		}
 	}
 
-	// OKLCH入力のイベントハンドラー
-	lInput.addEventListener("input", handleOklchInput);
-	cInput.addEventListener("input", handleOklchInput);
-	hInput.addEventListener("input", handleOklchInput);
+	// OKLCH入力のイベントハンドラー（デバウンス適用）
+	// Requirements: 4.2, 4.4 - デバウンス処理でシームレスに動作
+	const debouncedOklchInput = debounce(handleOklchInput, DEBOUNCE_DELAY_MS);
+	lInput.addEventListener("input", debouncedOklchInput);
+	cInput.addEventListener("input", debouncedOklchInput);
+	hInput.addEventListener("input", debouncedOklchInput);
 
-	// カラーピッカーのイベントハンドラー
+	// カラーピッカーのイベントハンドラー（リアルタイム更新、デバウンスなし）
+	// Requirements: 4.1 - カラーピッカーでの色選択時にリアルタイムでプレビューを更新
 	colorInput.addEventListener("input", () => {
 		const hex = colorInput.value;
 		hexInput.value = hex;
@@ -292,8 +329,8 @@ export function createBackgroundColorSelector(
 		onColorChange(hex);
 	});
 
-	// HEX入力のイベントハンドラー
-	hexInput.addEventListener("input", () => {
+	// HEX入力のバリデーション処理
+	function handleHexInput(): void {
 		const input = hexInput.value;
 		const result = validateBackgroundColor(input);
 
@@ -311,7 +348,12 @@ export function createBackgroundColorSelector(
 			colorInput.value = lastValidColor;
 			updatePreview(lastValidColor);
 		}
-	});
+	}
+
+	// HEX入力のイベントハンドラー（デバウンス適用）
+	// Requirements: 4.2 - HEX入力時にデバウンス処理（150ms）を適用し、入力完了後に更新
+	const debouncedHexInput = debounce(handleHexInput, DEBOUNCE_DELAY_MS);
+	hexInput.addEventListener("input", debouncedHexInput);
 
 	return container;
 }

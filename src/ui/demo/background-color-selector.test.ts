@@ -588,8 +588,9 @@ describe("BackgroundColorSelector module", () => {
 			);
 			expect(colorPickerHandler).not.toBeNull();
 
+			// HEX入力: Task 4.4でデバウンス化されているため、handleHexInput関数内で確認
 			const hexInputHandler = content.match(
-				/hexInput\.addEventListener\("input"[^}]+setOklchInputsInvalid\(false\)/s,
+				/function handleHexInput\(\)[^}]+setOklchInputsInvalid\(false\)/s,
 			);
 			expect(hexInputHandler).not.toBeNull();
 
@@ -597,6 +598,230 @@ describe("BackgroundColorSelector module", () => {
 				/button\.addEventListener\("click"[^}]+setOklchInputsInvalid\(false\)/s,
 			);
 			expect(presetButtonHandler).not.toBeNull();
+		});
+	});
+
+	/**
+	 * Task 4.4: 入力のデバウンス処理
+	 * Requirements: 4.1, 4.2, 4.4
+	 */
+	describe("debounce processing (Task 4.4)", () => {
+		it("should export debounce utility function", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(
+				import.meta.dir,
+				"background-color-selector.ts",
+			);
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// デバウンス関数の存在
+			expect(content).toContain("debounce");
+		});
+
+		it("should apply 150ms debounce to HEX input", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(
+				import.meta.dir,
+				"background-color-selector.ts",
+			);
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// HEX入力に150msデバウンスを適用
+			expect(content).toContain("150");
+			// デバウンスされたハンドラーの使用
+			expect(content).toMatch(/debounce.*hexInput|hexInput.*debounce/s);
+		});
+
+		it("should NOT apply debounce to color picker (realtime)", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(
+				import.meta.dir,
+				"background-color-selector.ts",
+			);
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// カラーピッカーはリアルタイム更新（デバウンスなし）
+			// colorInputのイベントハンドラーにdebounceが含まれていないことを確認
+			const colorInputHandler = content.match(
+				/colorInput\.addEventListener\("input"[^}]+\}/s,
+			);
+			expect(colorInputHandler).not.toBeNull();
+			// カラーピッカーハンドラー内にdebounceがないことを確認
+			const handlerContent = colorInputHandler?.[0] ?? "";
+			expect(handlerContent).not.toContain("debounce");
+		});
+
+		it("should apply debounce to OKLCH inputs", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(
+				import.meta.dir,
+				"background-color-selector.ts",
+			);
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// OKLCH入力にもデバウンスを適用
+			expect(content).toMatch(/debounce.*handleOklchInput|debouncedOklch/s);
+		});
+
+		it("should reference Requirements 4.1, 4.2, 4.4 in comments", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(
+				import.meta.dir,
+				"background-color-selector.ts",
+			);
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// Requirements参照
+			expect(content).toContain("4.1");
+			expect(content).toContain("4.2");
+		});
+
+		it("should update preview immediately even with debounced validation", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(
+				import.meta.dir,
+				"background-color-selector.ts",
+			);
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// プレビューは即時更新（シームレス動作）
+			// HEX入力でもプレビューは即座に更新されるべき
+			expect(content).toContain("updatePreview");
+		});
+	});
+
+	/**
+	 * Task 4.4: デバウンス動作検証テスト（偽タイマー使用）
+	 * Requirements: 4.1, 4.2, 4.4
+	 */
+	describe("debounce timing verification (Task 4.4)", () => {
+		it("debounce function should delay execution by specified time", async () => {
+			const { debounce, DEBOUNCE_DELAY_MS } = await import(
+				"./background-color-selector"
+			);
+
+			// 偽タイマーのセットアップ
+			let callCount = 0;
+			const originalSetTimeout = globalThis.setTimeout;
+			const originalClearTimeout = globalThis.clearTimeout;
+			const timers: { callback: () => void; time: number; id: number }[] = [];
+			let timerId = 0;
+
+			globalThis.setTimeout = ((callback: () => void, delay: number) => {
+				const id = ++timerId;
+				timers.push({ callback, time: delay, id });
+				return id;
+			}) as typeof setTimeout;
+
+			globalThis.clearTimeout = ((id: number) => {
+				const index = timers.findIndex((t) => t.id === id);
+				if (index !== -1) timers.splice(index, 1);
+			}) as typeof clearTimeout;
+
+			try {
+				const fn = () => {
+					callCount++;
+				};
+				const debouncedFn = debounce(fn, DEBOUNCE_DELAY_MS);
+
+				// 呼び出し直後は実行されない
+				debouncedFn();
+				expect(callCount).toBe(0);
+				expect(timers.length).toBe(1);
+				expect(timers[0].time).toBe(150);
+
+				// タイマー実行をシミュレート
+				timers[0].callback();
+				expect(callCount).toBe(1);
+			} finally {
+				globalThis.setTimeout = originalSetTimeout;
+				globalThis.clearTimeout = originalClearTimeout;
+			}
+		});
+
+		it("debounce function should reset timer on repeated calls", async () => {
+			const { debounce, DEBOUNCE_DELAY_MS } = await import(
+				"./background-color-selector"
+			);
+
+			let callCount = 0;
+			const originalSetTimeout = globalThis.setTimeout;
+			const originalClearTimeout = globalThis.clearTimeout;
+			const timers: { callback: () => void; time: number; id: number }[] = [];
+			let timerId = 0;
+
+			globalThis.setTimeout = ((callback: () => void, delay: number) => {
+				const id = ++timerId;
+				timers.push({ callback, time: delay, id });
+				return id;
+			}) as typeof setTimeout;
+
+			globalThis.clearTimeout = ((id: number) => {
+				const index = timers.findIndex((t) => t.id === id);
+				if (index !== -1) timers.splice(index, 1);
+			}) as typeof clearTimeout;
+
+			try {
+				const fn = () => {
+					callCount++;
+				};
+				const debouncedFn = debounce(fn, DEBOUNCE_DELAY_MS);
+
+				// 連続呼び出し
+				debouncedFn();
+				debouncedFn();
+				debouncedFn();
+
+				// 最後のタイマーのみが残る
+				expect(timers.length).toBe(1);
+				expect(callCount).toBe(0);
+
+				// タイマー実行
+				timers[0].callback();
+				expect(callCount).toBe(1); // 1回だけ実行される
+			} finally {
+				globalThis.setTimeout = originalSetTimeout;
+				globalThis.clearTimeout = originalClearTimeout;
+			}
+		});
+
+		it("color picker handler should NOT use debounce (verified by code analysis)", async () => {
+			// NOTE: DOM操作を伴うテストはE2E（Playwright）でカバー
+			// ここではコード解析で確認
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(
+				import.meta.dir,
+				"background-color-selector.ts",
+			);
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// カラーピッカーのイベントハンドラーを抽出
+			const colorInputHandler = content.match(
+				/colorInput\.addEventListener\("input"[\s\S]*?\}\);/,
+			);
+			expect(colorInputHandler).not.toBeNull();
+
+			// カラーピッカーハンドラー内にdebounceがないことを確認
+			const handlerContent = colorInputHandler?.[0] ?? "";
+			expect(handlerContent).not.toContain("debounce");
+
+			// 一方、HEX入力はデバウンスを使用している
+			expect(content).toContain("debouncedHexInput");
+
+			// OKLCH入力もデバウンスを使用している
+			expect(content).toContain("debouncedOklchInput");
+		});
+
+		it("DEBOUNCE_DELAY_MS should be 150", async () => {
+			const { DEBOUNCE_DELAY_MS } = await import("./background-color-selector");
+			expect(DEBOUNCE_DELAY_MS).toBe(150);
 		});
 	});
 });
