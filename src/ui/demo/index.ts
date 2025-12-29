@@ -187,6 +187,9 @@ export function runDemo(): void {
 				});
 				break;
 		}
+
+		// ビュー更新後にCVDスコア表示を更新
+		updateCVDScoreDisplay();
 	}
 
 	// ========================================
