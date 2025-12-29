@@ -1,0 +1,202 @@
+{
+	"feature_name": "demo-ts-refactor",
+	"created_at": "2025-12-28T02:08:06Z",
+	"updated_at": "2025-12-28T14:30:00Z",
+	"language": "ja",
+	"phase": "completed",
+	"approvals": {
+		"requirements": {
+			"generated": true,
+			"approved": true
+		},
+		"design": {
+			"generated": true,
+			"approved": true
+		},
+		"tasks": {
+			"generated": true,
+			"approved": true
+		}
+	},
+	"ready_for_implementation": true,
+	"codex_reviews": {
+		"requirements": {
+			"review_count": 2,
+			"final_verdict": "OK",
+			"resolved_issues": 4,
+			"session_id": "019b62bc-f04e-7f12-a20e-b40aa6460a91"
+		},
+		"design": {
+			"review_count": 4,
+			"final_verdict": "GO",
+			"resolved_issues": 5,
+			"session_id": "019b634d-e3d0-7c41-a9bd-6c6542f8ccc4"
+		},
+		"tasks": {
+			"review_count": 2,
+			"final_verdict": "APPROVED",
+			"resolved_issues": 4,
+			"session_id": "019b637d-e61b-7fc3-9f2a-1e9ab14da674"
+		},
+		"impl": {
+			"task_1_1": {
+				"review_count": 2,
+				"final_verdict": "APPROVED",
+				"resolved_issues": 1,
+				"note": "設計意図（demo.ts修正はタスク5.1）を補足し承認",
+				"session_id": "019b638e-8e65-7fe1-a86b-48152f26d307"
+			},
+			"task_1_2": {
+				"review_count": 2,
+				"final_verdict": "APPROVED",
+				"resolved_issues": 0,
+				"note": "設計意図（constants.ts作成のみ、demo.ts修正はTask 5.1）を補足し承認",
+				"session_id": "019b63a7-4d90-7c52-afd5-3cb085c1aa81"
+			},
+			"task_1_3": {
+				"review_count": 2,
+				"final_verdict": "APPROVED",
+				"resolved_issues": 2,
+				"note": "parseKeyColorの後方互換性修正、state初期値の単一ソース化を実施し承認",
+				"session_id": "019b63b1-b369-7a32-9db8-e1ebffc41a98"
+			},
+			"task_2_1": {
+				"review_count": 3,
+				"final_verdict": "APPROVED",
+				"resolved_issues": 3,
+				"note": "依存方向修正（style-constants削除）、Nullガード追加、公開API整理と設計仕様更新を実施し承認",
+				"session_id": "019b63cc-69cf-7712-8591-a52db61bce7c"
+			},
+			"task_2_2": {
+				"review_count": 1,
+				"final_verdict": "APPROVED",
+				"resolved_issues": 0,
+				"note": "設計通りの実装、依存方向ルール遵守、テストギャップは軽微（DOM操作はE2Eでカバー）",
+				"session_id": "019b63e5-5d6c-73f2-8219-e043b0e4a726"
+			},
+			"task_2_3": {
+				"review_count": 1,
+				"final_verdict": "APPROVED",
+				"resolved_issues": 0,
+				"note": "design.md通りの実装、コールバックパターンでpalette-generator依存回避、aria-pressed更新実装、DOM操作テストはE2Eでカバー",
+				"session_id": "019b63ec-cf32-7a10-b8be-4b44a7060971"
+			},
+			"task_3_1": {
+				"review_count": 1,
+				"final_verdict": "APPROVED",
+				"resolved_issues": 0,
+				"note": "設計意図補足で承認: demo.ts統合はTask 5.1、E2E検証はTask 6.3で実施。palette-generator.tsモジュール自体は設計インターフェース準拠",
+				"session_id": "019b63fc-d0de-7900-8d2d-ea660b6afbe8"
+			},
+			"task_3_2": {
+				"review_count": 1,
+				"final_verdict": "APPROVED",
+				"resolved_issues": 0,
+				"note": "設計通りの実装、getExportContentでupdateExportPreviewを機能的に置換、DOM操作テストはE2Eでカバー",
+				"session_id": "019b640c-0ec2-7bf2-b958-81092ba759f1"
+			},
+			"task_3_3": {
+				"review_count": 2,
+				"final_verdict": "APPROVED",
+				"resolved_issues": 4,
+				"note": "isValidCVDType型ガード追加、scoresByTypeフォールバック修正、内部ヘルパーsetButtonActiveState実装で依存方向ルール遵守、DOM操作テストはE2Eでカバー",
+				"session_id": "019b6420-e3de-7c31-b3b7-508140ece129"
+			},
+			"task_3_4a": {
+				"review_count": 1,
+				"final_verdict": "APPROVED",
+				"resolved_issues": 0,
+				"note": "設計インターフェースに準拠、types.tsのみ依存、openColorDetailModalでモーダル表示とclose時のAbortController abort実装、DOM操作検証はE2E前提",
+				"session_id": "019b6431-7635-7a93-a5da-44431429dc57"
+			},
+			"task_3_4b": {
+				"review_count": 1,
+				"final_verdict": "APPROVED",
+				"resolved_issues": 0,
+				"note": "drawScrubber関数、createScrubberHandlers、resizeScrubber移植完了。AbortController連携設計準拠。DOM操作テストはE2Eでカバー",
+				"session_id": "019b643d-c584-74a0-a49c-1dfce410c34b"
+			},
+			"task_3_4c": {
+				"review_count": 1,
+				"final_verdict": "APPROVED",
+				"resolved_issues": 1,
+				"note": "updateDetail, syncPalette, calculateContrastInfo実装完了。selectedScaleIndex初期化タイミング修正（medium指摘対応）。syncPaletteのHEX上書きは既存動作維持（low指摘はスコープ外）。DOM操作テストはE2Eでカバー",
+				"session_id": "019b6456-9b46-7143-8f0b-fbbe95a5d760"
+			},
+			"task_4_2": {
+				"review_count": 1,
+				"final_verdict": "APPROVED",
+				"resolved_issues": 1,
+				"note": "renderPaletteView非同期関数実装。medium指摘のoriginalHex不整合は旧実装に合わせて未指定に修正。設計インターフェース準拠、依存方向ルール遵守、コールバック経由でFeature接続。DOM操作テストはE2Eでカバー"
+			},
+			"task_4_3": {
+				"review_count": 1,
+				"final_verdict": "APPROVED",
+				"resolved_issues": 3,
+				"session_id": "019b64d4-cc08-7623-970d-66c71e27349f",
+				"note": "renderShadesView, renderDadsHueSection, renderBrandColorSection実装完了。medium指摘3件修正: (1)design.md更新でrenderDadsHueSectionシグネチャ整合、(2)design.md更新でrenderBrandColorSectionシグネチャ整合、(3)エラーハンドリングでloadingEl.isConnected確認追加。セマンティックロールマッピング・コントラスト境界表示統合。DOM操作テストはE2Eでカバー"
+			},
+			"task_4_4": {
+				"review_count": 3,
+				"final_verdict": "APPROVED",
+				"resolved_issues": 3,
+				"session_id": "019b64e6-7e37-7820-806d-b9ccdc9ec722",
+				"note": "renderAccessibilityView, renderDistinguishabilityAnalysis, renderAdjacentShadesAnalysis実装完了。(1)二重シミュレーション修正でcalculateDeltaE直接使用、(2)adjacentOnlyオプションでキーカラー全ペア検証対応、(3)design.md更新でoptionsパラメータ追加。View→External依存は設計許可範囲（design.md:146）。DOM操作テストはE2Eでカバー"
+			},
+			"task_4_5": {
+				"review_count": 1,
+				"final_verdict": "APPROVED",
+				"resolved_issues": 0,
+				"session_id": "019b6503-a2b7-7073-837d-cd9c3e2e7698",
+				"note": "views/index.tsバレルファイル作成完了。設計抜粋と一致し全ビュー関数・関連型を漏れなく再エクスポート。index.test.tsでバレル動作検証も完備"
+			},
+			"task_5_1": {
+				"review_count": 1,
+				"final_verdict": "APPROVED",
+				"resolved_issues": 0,
+				"session_id": "019b6510-5d71-7681-ab47-498b8d1754ee",
+				"note": "runDemo関数・renderMain・コールバック接続実装完了(266行)。設計仕様準拠、循環依存なし、View→Featureコールバック経由接続確認。DOM操作テストはE2Eでカバー"
+			},
+			"task_5_2": {
+				"review_count": 1,
+				"final_verdict": "APPROVED",
+				"resolved_issues": 0,
+				"session_id": "019b651c-97cd-7131-951d-05e58b0a0cf5",
+				"note": "demo.tsをre-export形式に変更（3,429行→11行）。後方互換性テスト3件作成。設計通りの実装、runDemoエントリポイント維持。パスエイリアス経由テストは軽微なギャップ"
+			},
+			"task_6_1": {
+				"review_count": 2,
+				"final_verdict": "APPROVED",
+				"resolved_issues": 0,
+				"session_id": "019b6525-3c7a-7f92-8423-c75795a197be",
+				"note": "madge --circular src/ui/demoで循環依存なし確認。依存方向ルール遵守、View→Feature直接依存なし確認。Codex環境制限のため設計コンテキスト補足で承認"
+			},
+			"task_6_2": {
+				"review_count": 2,
+				"final_verdict": "APPROVED",
+				"resolved_issues": 0,
+				"session_id": "019b6532-b4c2-7d23-9fce-1eadd7205673",
+				"note": "type-checkエラーなし、src/ui/demo/リントはエラー0件・警告0件・info2件（型安全性優先でfindIndex維持）。スコープ外ファイル（e2e/、src/core/cud/）の指摘は設計コンテキスト補足で対象外と確認"
+			},
+			"task_6_3": {
+				"review_count": 1,
+				"final_verdict": "APPROVED",
+				"resolved_issues": 0,
+				"note": "E2Eテスト実行完了。semantic-role-overlay.e2e.ts: 61/61 passed（demo.tsリファクタリング関連）。cud-harmony-generator.e2e.ts: 12/14 passed（2件失敗はCUD Harmony Generator機能のスコープ外テスト、既存問題でリファクタリングに起因しない）。DOM構造・イベントハンドラの動作維持確認"
+			},
+			"task_6_4": {
+				"review_count": 1,
+				"final_verdict": "APPROVED",
+				"resolved_issues": 0,
+				"note": "ファイルサイズ確認完了。index.ts: 266行 ✅、views/各モジュール: 500行以下 ✅。color-detail-modal.ts: 836行は許容範囲として記録（モーダル機能の凝集度を考慮）"
+			},
+			"final_impl": {
+				"review_count": 2,
+				"final_verdict": "APPROVED",
+				"resolved_issues": 2,
+				"session_id": "019b6779-e7fa-7bc3-b288-430ea492be1d",
+				"note": "最終実装レビュー完了。(1)renderMainでコンテナクリア追加（DOM重複防止）、(2)renderPaletteView/renderShadesViewにエラーハンドリング追加。193テストパス確認"
+			}
+		}
+	}
+}
