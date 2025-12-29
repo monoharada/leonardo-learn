@@ -5,14 +5,14 @@
  * 背景色選択UIを集約するコンポーネント。
  *
  * @module @/ui/demo/background-color-selector
- * Requirements: 1.1, 1.2, 1.5, 1.6, 2.1, 2.2
+ * Requirements: 1.1, 1.2, 1.3, 1.5, 1.6, 2.1, 2.2
  */
 
 import { validateBackgroundColor } from "./state";
 
 /**
  * 背景色セレクターのプロパティ
- * @see design.md BackgroundColorSelectorProps
+ * @see .kiro/specs/background-color-change/design.md BackgroundColorSelectorProps
  */
 export interface BackgroundColorSelectorProps {
 	/** 現在の背景色（HEX） */
@@ -25,13 +25,13 @@ export interface BackgroundColorSelectorProps {
 
 /**
  * カラーモード型
- * @see design.md ColorMode
+ * @see .kiro/specs/background-color-change/design.md ColorMode
  */
 export type ColorMode = "light" | "dark";
 
 /**
  * プリセットカラー型
- * @see design.md PresetColor
+ * @see .kiro/specs/background-color-change/design.md PresetColor
  * Requirements: 2.1
  */
 export interface PresetColor {
@@ -46,7 +46,7 @@ export interface PresetColor {
 /**
  * プリセット背景色の定義
  * Requirements: 2.1, 2.2
- * @see design.md PRESET_COLORS
+ * @see .kiro/specs/background-color-change/design.md PRESET_COLORS
  */
 export const PRESET_COLORS: PresetColor[] = [
 	{ name: "White", hex: "#ffffff", mode: "light" },
@@ -65,12 +65,12 @@ let idCounter = 0;
  *
  * @param props セレクターのプロパティ
  * @returns セレクターのDOM要素
- * @see Requirements: 1.1, 1.2, 1.5, 1.6, 2.1, 2.2
+ * @see Requirements: 1.1, 1.2, 1.3, 1.5, 1.6, 2.1, 2.2
  */
 export function createBackgroundColorSelector(
 	props: BackgroundColorSelectorProps,
 ): HTMLElement {
-	const { currentColor, onColorChange } = props;
+	const { currentColor, onColorChange, showAdvancedMode } = props;
 
 	// 最後の有効な色を追跡（Requirement 1.5: 前の有効な値を維持）
 	let lastValidColor = currentColor;
@@ -147,6 +147,7 @@ export function createBackgroundColorSelector(
 			hexInput.value = preset.hex;
 			updatePreview(preset.hex);
 			clearError();
+			setOklchInputsInvalid(false); // OKLCH入力のエラー状態も解除
 			lastValidColor = preset.hex;
 			onColorChange(preset.hex);
 		});
@@ -155,6 +156,69 @@ export function createBackgroundColorSelector(
 	}
 
 	container.appendChild(presetsContainer);
+
+	// 詳細モード（OKLCH入力）セクション（Requirement 1.3）
+	let advancedModeEnabled = showAdvancedMode ?? false;
+
+	// 詳細モード切替ボタン
+	const advancedToggle = document.createElement("button");
+	advancedToggle.type = "button";
+	advancedToggle.className = "background-color-selector__advanced-toggle";
+	advancedToggle.textContent = "Advanced Mode";
+	advancedToggle.setAttribute("aria-expanded", String(advancedModeEnabled));
+	advancedToggle.setAttribute("aria-controls", `${uniqueId}-oklch`);
+	container.appendChild(advancedToggle);
+
+	// OKLCH入力コンテナ
+	const oklchContainer = document.createElement("div");
+	oklchContainer.id = `${uniqueId}-oklch`;
+	oklchContainer.className = "background-color-selector__oklch-inputs";
+	oklchContainer.style.display = advancedModeEnabled ? "block" : "none";
+
+	// L入力フィールド（Lightness: 0.0-1.0）
+	const lInput = document.createElement("input");
+	lInput.type = "number";
+	lInput.step = "0.01";
+	lInput.min = "0";
+	lInput.max = "1";
+	lInput.className = "background-color-selector__oklch-l";
+	lInput.setAttribute("aria-label", "Lightness (0.0-1.0)");
+	lInput.setAttribute("aria-describedby", errorId);
+	lInput.placeholder = "L: 0.0-1.0";
+
+	// C入力フィールド（Chroma: 0.0-0.4）
+	const cInput = document.createElement("input");
+	cInput.type = "number";
+	cInput.step = "0.01";
+	cInput.min = "0";
+	cInput.max = "0.4";
+	cInput.className = "background-color-selector__oklch-c";
+	cInput.setAttribute("aria-label", "Chroma (0.0-0.4)");
+	cInput.setAttribute("aria-describedby", errorId);
+	cInput.placeholder = "C: 0.0-0.4";
+
+	// H入力フィールド（Hue: 0-360）
+	const hInput = document.createElement("input");
+	hInput.type = "number";
+	hInput.step = "1";
+	hInput.min = "0";
+	hInput.max = "360";
+	hInput.className = "background-color-selector__oklch-h";
+	hInput.setAttribute("aria-label", "Hue (0-360)");
+	hInput.setAttribute("aria-describedby", errorId);
+	hInput.placeholder = "H: 0-360";
+
+	oklchContainer.appendChild(lInput);
+	oklchContainer.appendChild(cInput);
+	oklchContainer.appendChild(hInput);
+	container.appendChild(oklchContainer);
+
+	// 詳細モード切替ハンドラー
+	advancedToggle.addEventListener("click", () => {
+		advancedModeEnabled = !advancedModeEnabled;
+		oklchContainer.style.display = advancedModeEnabled ? "block" : "none";
+		advancedToggle.setAttribute("aria-expanded", String(advancedModeEnabled));
+	});
 
 	/**
 	 * プレビューとエラーを更新するヘルパー
@@ -171,12 +235,59 @@ export function createBackgroundColorSelector(
 		errorArea.textContent = "";
 	}
 
+	/**
+	 * OKLCH入力のaria-invalid状態を設定
+	 */
+	function setOklchInputsInvalid(invalid: boolean): void {
+		const value = String(invalid);
+		lInput.setAttribute("aria-invalid", value);
+		cInput.setAttribute("aria-invalid", value);
+		hInput.setAttribute("aria-invalid", value);
+	}
+
+	/**
+	 * OKLCH入力からHEXに変換して更新
+	 */
+	function handleOklchInput(): void {
+		const l = lInput.value;
+		const c = cInput.value;
+		const h = hInput.value;
+
+		if (l === "" || c === "" || h === "") {
+			return; // 全フィールドが入力されるまで待つ
+		}
+
+		const oklchString = `oklch(${l} ${c} ${h})`;
+		const result = validateBackgroundColor(oklchString);
+
+		if (result.valid && result.hex) {
+			colorInput.value = result.hex;
+			hexInput.value = result.hex;
+			updatePreview(result.hex);
+			clearError();
+			setOklchInputsInvalid(false);
+			lastValidColor = result.hex;
+			onColorChange(result.hex);
+		} else if (result.error) {
+			showError(result.error);
+			setOklchInputsInvalid(true);
+			colorInput.value = lastValidColor;
+			updatePreview(lastValidColor);
+		}
+	}
+
+	// OKLCH入力のイベントハンドラー
+	lInput.addEventListener("input", handleOklchInput);
+	cInput.addEventListener("input", handleOklchInput);
+	hInput.addEventListener("input", handleOklchInput);
+
 	// カラーピッカーのイベントハンドラー
 	colorInput.addEventListener("input", () => {
 		const hex = colorInput.value;
 		hexInput.value = hex;
 		updatePreview(hex);
 		clearError();
+		setOklchInputsInvalid(false); // OKLCH入力のエラー状態も解除
 		lastValidColor = hex;
 		onColorChange(hex);
 	});
@@ -190,6 +301,7 @@ export function createBackgroundColorSelector(
 			colorInput.value = result.hex;
 			updatePreview(result.hex);
 			clearError();
+			setOklchInputsInvalid(false); // OKLCH入力のエラー状態も解除
 			lastValidColor = result.hex;
 			onColorChange(result.hex);
 		} else if (result.error) {

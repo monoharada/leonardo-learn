@@ -2,7 +2,7 @@
  * 背景色セレクターコンポーネントのテスト
  *
  * @module @/ui/demo/background-color-selector.test
- * Requirements: 1.1, 1.2, 1.5, 1.6, 2.1, 2.2
+ * Requirements: 1.1, 1.2, 1.3, 1.5, 1.6, 2.1, 2.2
  *
  * NOTE: DOM操作を伴うテストは主にE2Eテスト（Playwright）でカバー。
  * このファイルでは型とエクスポート、依存関係の確認を行う。
@@ -380,6 +380,223 @@ describe("BackgroundColorSelector module", () => {
 			// Requirements 2.1, 2.2の参照
 			expect(content).toContain("2.1");
 			expect(content).toContain("2.2");
+		});
+	});
+
+	/**
+	 * Task 4.3: 詳細モード（OKLCH入力）
+	 * Requirements: 1.3
+	 */
+	describe("advanced mode OKLCH input (Task 4.3)", () => {
+		it("should create advanced mode toggle button", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(
+				import.meta.dir,
+				"background-color-selector.ts",
+			);
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// 詳細モード切替ボタンのクラス名
+			expect(content).toContain("background-color-selector__advanced-toggle");
+		});
+
+		it("should create OKLCH input container", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(
+				import.meta.dir,
+				"background-color-selector.ts",
+			);
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// OKLCH入力コンテナのクラス名
+			expect(content).toContain("background-color-selector__oklch-inputs");
+		});
+
+		it("should create L/C/H individual input fields", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(
+				import.meta.dir,
+				"background-color-selector.ts",
+			);
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// L/C/H入力フィールドのクラス名
+			expect(content).toContain("background-color-selector__oklch-l");
+			expect(content).toContain("background-color-selector__oklch-c");
+			expect(content).toContain("background-color-selector__oklch-h");
+		});
+
+		it("should set initial display to none for OKLCH container", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(
+				import.meta.dir,
+				"background-color-selector.ts",
+			);
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// 初期状態OFF（非表示）- 三項演算子で設定
+			expect(content).toContain('advancedModeEnabled ? "block" : "none"');
+		});
+
+		it("should toggle OKLCH container visibility on button click", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(
+				import.meta.dir,
+				"background-color-selector.ts",
+			);
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// トグル処理（表示切替）
+			expect(content).toContain("advancedModeEnabled");
+			expect(content).toContain("block");
+		});
+
+		it("should include aria-label for OKLCH input fields", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(
+				import.meta.dir,
+				"background-color-selector.ts",
+			);
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// aria-label設定
+			expect(content).toContain("Lightness");
+			expect(content).toContain("Chroma");
+			expect(content).toContain("Hue");
+		});
+
+		it("should validate OKLCH input and update color", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(
+				import.meta.dir,
+				"background-color-selector.ts",
+			);
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// OKLCH入力時のバリデーション呼び出し
+			expect(content).toContain("validateBackgroundColor");
+			expect(content).toContain("oklch(");
+		});
+
+		it("should respect showAdvancedMode prop", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(
+				import.meta.dir,
+				"background-color-selector.ts",
+			);
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// props.showAdvancedModeの参照
+			expect(content).toContain("showAdvancedMode");
+		});
+
+		it("should reference Requirement 1.3 in JSDoc", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(
+				import.meta.dir,
+				"background-color-selector.ts",
+			);
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// Requirement 1.3の参照
+			expect(content).toContain("1.3");
+		});
+
+		it("should include aria-describedby on OKLCH inputs for error association", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(
+				import.meta.dir,
+				"background-color-selector.ts",
+			);
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// L/C/H入力にaria-describedbyが設定されている
+			const matches = content.match(
+				/lInput\.setAttribute\("aria-describedby"/g,
+			);
+			expect(matches).not.toBeNull();
+			expect(content).toContain('cInput.setAttribute("aria-describedby"');
+			expect(content).toContain('hInput.setAttribute("aria-describedby"');
+		});
+
+		it("should set aria-invalid on OKLCH validation failure", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(
+				import.meta.dir,
+				"background-color-selector.ts",
+			);
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// aria-invalidの設定関数が存在
+			expect(content).toContain("setOklchInputsInvalid");
+			expect(content).toContain('setAttribute("aria-invalid"');
+		});
+
+		it("should construct oklch string and call validateBackgroundColor", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(
+				import.meta.dir,
+				"background-color-selector.ts",
+			);
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// OKLCH文字列の構築とバリデーション呼び出し
+			expect(content).toContain("oklch(${l} ${c} ${h})");
+			expect(content).toContain("validateBackgroundColor(oklchString)");
+		});
+
+		it("should update preview and call onColorChange on valid OKLCH input", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(
+				import.meta.dir,
+				"background-color-selector.ts",
+			);
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// 有効なOKLCH入力時の処理
+			expect(content).toContain("result.valid && result.hex");
+			expect(content).toContain("updatePreview(result.hex)");
+			expect(content).toContain("onColorChange(result.hex)");
+		});
+
+		it("should clear OKLCH aria-invalid via other input paths", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(
+				import.meta.dir,
+				"background-color-selector.ts",
+			);
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// カラーピッカー、HEX入力、プリセットボタンでもaria-invalidを解除
+			// 各入力経路でsetOklchInputsInvalid(false)が呼ばれることを確認
+			const colorPickerHandler = content.match(
+				/colorInput\.addEventListener\("input"[^}]+setOklchInputsInvalid\(false\)/s,
+			);
+			expect(colorPickerHandler).not.toBeNull();
+
+			const hexInputHandler = content.match(
+				/hexInput\.addEventListener\("input"[^}]+setOklchInputsInvalid\(false\)/s,
+			);
+			expect(hexInputHandler).not.toBeNull();
+
+			const presetButtonHandler = content.match(
+				/button\.addEventListener\("click"[^}]+setOklchInputsInvalid\(false\)/s,
+			);
+			expect(presetButtonHandler).not.toBeNull();
 		});
 	});
 });
