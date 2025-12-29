@@ -51,6 +51,19 @@ export type LightnessDistribution = "linear" | "easeIn" | "easeOut";
 export type ColorMode = "light" | "dark";
 
 /**
+ * 背景色入力のバリデーション結果
+ * @see Requirements: 1.4, 1.5
+ */
+export interface BackgroundColorValidationResult {
+	/** バリデーション成功フラグ */
+	valid: boolean;
+	/** エラーメッセージ（valid=false時） */
+	error?: string;
+	/** 変換されたHEX値（valid=true時） */
+	hex?: string;
+}
+
+/**
  * ビューモード
  */
 export type ViewMode = "harmony" | "palette" | "shades" | "accessibility";

@@ -53,6 +53,20 @@
 			"session_id": "019b6918-a07c-7961-924b-f44c9d7c23fd",
 			"resolved_issues": 0,
 			"notes": "localStorage永続化関数の実装完了。後続タスクで呼び出し統合予定。"
+		},
+		"impl_task_2_1": {
+			"review_count": 2,
+			"final_verdict": "APPROVED",
+			"session_id": "019b6927-8d5a-71f0-ba91-0cc40ae09ed3",
+			"resolved_issues": 1,
+			"notes": "OKLCHベースのdetermineColorMode実装完了。テスト記述不整合を修正。"
+		},
+		"impl_task_2_2": {
+			"review_count": 2,
+			"final_verdict": "APPROVED",
+			"session_id": "019b693b-163a-7f21-958e-c30101e29b29",
+			"resolved_issues": 0,
+			"notes": "validateBackgroundColor関数の実装完了。HEX/OKLCHバリデーション、28件のテストカバレッジ。設計上の責務分離を確認しAPPROVED。"
 		}
 	}
 }

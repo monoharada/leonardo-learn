@@ -8,9 +8,10 @@
  * Requirements: 1.1, 1.2, 1.3, 1.4, 5.3, 5.4
  */
 
-import { parse } from "culori";
+import { formatHex, oklch, parse } from "culori";
 import { DEFAULT_STATE } from "./constants";
 import type {
+	BackgroundColorValidationResult,
 	ColorMode,
 	DemoState,
 	KeyColorWithStep,
@@ -41,26 +42,126 @@ function isValidHex(hex: string): boolean {
 }
 
 /**
+ * OKLCH形式の正規表現パターン
+ * oklch(L C H) 形式をマッチ（スペース区切り）
+ */
+const OKLCH_PATTERN = /^oklch\(\s*(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s*\)$/i;
+
+/**
+ * OKLCH値の範囲制約
+ */
+const OKLCH_CONSTRAINTS = {
+	L: { min: 0, max: 1 },
+	C: { min: 0, max: 0.4 },
+	H: { min: 0, max: 360 },
+} as const;
+
+/**
+ * 背景色入力のバリデーション
+ *
+ * HEX形式（#RRGGBB）またはOKLCH形式（oklch(L C H)）を検証し、
+ * 有効な場合はHEX値に正規化して返す。
+ *
+ * @param input 入力文字列（HEXまたはOKLCH形式）
+ * @returns バリデーション結果
+ * @see Requirements: 1.4, 1.5
+ */
+export function validateBackgroundColor(
+	input: string,
+): BackgroundColorValidationResult {
+	// 空文字チェック
+	if (!input || input.trim() === "") {
+		return { valid: false, error: "Color input is required" };
+	}
+
+	const trimmed = input.trim();
+
+	// HEX形式のチェック
+	if (trimmed.startsWith("#")) {
+		if (isValidHex(trimmed)) {
+			return { valid: true, hex: trimmed.toLowerCase() };
+		}
+		return {
+			valid: false,
+			error: "Invalid HEX format. Use #RRGGBB (6 hex digits)",
+		};
+	}
+
+	// OKLCH形式のチェック
+	const oklchMatch = trimmed.match(OKLCH_PATTERN);
+	if (oklchMatch && oklchMatch[1] && oklchMatch[2] && oklchMatch[3]) {
+		const l = Number.parseFloat(oklchMatch[1]);
+		const c = Number.parseFloat(oklchMatch[2]);
+		const h = Number.parseFloat(oklchMatch[3]);
+
+		// NaNチェック
+		if (Number.isNaN(l) || Number.isNaN(c) || Number.isNaN(h)) {
+			return { valid: false, error: "OKLCH values must be valid numbers" };
+		}
+
+		// 範囲チェック
+		if (l < OKLCH_CONSTRAINTS.L.min || l > OKLCH_CONSTRAINTS.L.max) {
+			return {
+				valid: false,
+				error: `L value must be between ${OKLCH_CONSTRAINTS.L.min} and ${OKLCH_CONSTRAINTS.L.max}`,
+			};
+		}
+		if (c < OKLCH_CONSTRAINTS.C.min || c > OKLCH_CONSTRAINTS.C.max) {
+			return {
+				valid: false,
+				error: `C value must be between ${OKLCH_CONSTRAINTS.C.min} and ${OKLCH_CONSTRAINTS.C.max}`,
+			};
+		}
+		if (h < OKLCH_CONSTRAINTS.H.min || h > OKLCH_CONSTRAINTS.H.max) {
+			return {
+				valid: false,
+				error: `H value must be between ${OKLCH_CONSTRAINTS.H.min} and ${OKLCH_CONSTRAINTS.H.max}`,
+			};
+		}
+
+		// culori.jsでOKLCH→HEXに変換
+		const color = parse(trimmed);
+		if (!color) {
+			return { valid: false, error: "Failed to parse OKLCH color" };
+		}
+
+		const hex = formatHex(color);
+		if (!hex) {
+			return { valid: false, error: "Failed to convert OKLCH to HEX" };
+		}
+
+		return { valid: true, hex: hex.toLowerCase() };
+	}
+
+	// どちらの形式でもない場合
+	return {
+		valid: false,
+		error: "Invalid color format. Use #RRGGBB or oklch(L C H)",
+	};
+}
+
+/**
  * OKLCH明度からカラーモードを判定する
  *
- * OKLCH明度（L値）が0.5超ならlightモード、0.5以下ならdarkモード。
+ * culori.jsのoklch()関数を使用してHEXをOKLCH（D65白色点準拠）に変換し、
+ * L値が0.5超ならlightモード、0.5以下ならdarkモードを判定する。
  *
  * @param hex HEX形式の色
  * @returns カラーモード（light/dark）
- * @see Requirements: 2.4, 2.5
+ * @see Requirements: 2.3, 2.4, 2.5
  */
 export function determineColorMode(hex: string): ColorMode {
 	const color = parse(hex);
 	if (!color) {
 		return "light";
 	}
-	// culoriのparseは任意の色形式を扱えるが、ここではOKLCH明度を計算
-	// 標準sRGBの輝度計算を使用（Y = 0.2126R + 0.7152G + 0.0722B）
-	const r = "r" in color ? (color.r as number) : 0;
-	const g = "g" in color ? (color.g as number) : 0;
-	const b = "b" in color ? (color.b as number) : 0;
-	const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-	return luminance > 0.5 ? "light" : "dark";
+	// culori.jsのoklch()でOKLCH色空間に変換（CSS Color 4 / D65白色点準拠）
+	const oklchColor = oklch(color);
+	if (!oklchColor) {
+		return "light";
+	}
+	// L > 0.5 → light, L ≤ 0.5 → dark
+	return oklchColor.l > 0.5 ? "light" : "dark";
 }
 
 /**
