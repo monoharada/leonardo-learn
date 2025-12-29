@@ -5,7 +5,7 @@
  * CVDシミュレーションによる色の識別性確認と、CUDパレット検証を表示する。
  *
  * @module @/ui/demo/views/accessibility-view
- * Requirements: 2.1, 2.2, 2.3, 2.4
+ * Requirements: 2.1, 2.2, 2.3, 2.4, 5.2, 5.5
  */
 
 import {
@@ -234,6 +234,10 @@ export function renderAccessibilityView(
 	// コンテナをクリアして前のビューのDOMが残らないようにする
 	container.innerHTML = "";
 	container.className = "dads-section";
+
+	// Requirements 5.2, 5.5: 画面間での背景色同期
+	// DemoStateの背景色をコンテナに適用（パレット/シェードビューと同期）
+	container.style.backgroundColor = state.backgroundColor;
 
 	// パレットが生成されていない場合
 	if (state.palettes.length === 0) {
