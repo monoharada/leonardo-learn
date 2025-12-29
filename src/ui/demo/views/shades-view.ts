@@ -6,7 +6,7 @@
  * カードクリック時はonColorClickコールバック経由でcolor-detail-modalと接続する。
  *
  * @module @/ui/demo/views/shades-view
- * Requirements: 2.1, 2.2, 2.3, 2.4, 5.5, 5.6
+ * Requirements: 2.1, 2.2, 2.3, 2.4, 5.5, 5.6, 6.3, 6.4
  */
 
 import { simulateCVD } from "@/accessibility/cvd-simulator";
@@ -26,6 +26,7 @@ import {
 import type { DadsColorHue } from "@/core/tokens/types";
 import { renderBoundaryPills } from "@/ui/semantic-role/contrast-boundary-indicator";
 import { applyOverlay } from "@/ui/semantic-role/semantic-role-overlay";
+import { applySwatchBorder } from "@/ui/style-constants";
 import { createBackgroundColorSelector } from "../background-color-selector";
 import {
 	determineColorMode,
@@ -214,6 +215,13 @@ export function renderDadsHueSection(
 		const originalColor = new Color(colorItem.hex);
 		const displayColor = applySimulation(originalColor);
 		swatch.style.backgroundColor = displayColor.toCss();
+		// Requirements: 6.3, 6.4 - モード対応ボーダーと低コントラスト強調
+		applySwatchBorder(
+			swatch,
+			colorItem.hex,
+			state.backgroundColor,
+			state.backgroundMode,
+		);
 
 		const whiteContrast = verifyContrast(
 			originalColor,
@@ -358,6 +366,13 @@ export function renderBrandColorSection(
 	const originalColor = new Color(brandHex);
 	const displayColor = applySimulation(originalColor);
 	swatch.style.backgroundColor = displayColor.toCss();
+	// Requirements: 6.3, 6.4 - ブランドスウォッチのモード対応ボーダー
+	applySwatchBorder(
+		swatch,
+		brandHex,
+		state.backgroundColor,
+		state.backgroundMode,
+	);
 
 	const whiteContrast = verifyContrast(
 		originalColor,

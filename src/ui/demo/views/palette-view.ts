@@ -5,7 +5,7 @@
  * カードクリック時はonColorClickコールバック経由でcolor-detail-modalと接続する。
  *
  * @module @/ui/demo/views/palette-view
- * Requirements: 1.1, 2.1, 2.2, 2.3, 2.4, 5.1
+ * Requirements: 1.1, 2.1, 2.2, 2.3, 2.4, 5.1, 6.3, 6.4
  */
 
 import { simulateCVD } from "@/accessibility/cvd-simulator";
@@ -22,7 +22,11 @@ import {
 	showPaletteValidation,
 	snapToCudColor,
 } from "@/ui/cud-components";
-import { getContrastRatios, STEP_NAMES } from "@/ui/style-constants";
+import {
+	applySwatchBorder,
+	getContrastRatios,
+	STEP_NAMES,
+} from "@/ui/style-constants";
 import { createBackgroundColorSelector } from "../background-color-selector";
 import {
 	determineColorMode,
@@ -198,9 +202,16 @@ function createPaletteCard(
 	const displayColor = applySimulation(new Color(displayHex));
 
 	// スウォッチ
+	// Requirements: 6.3, 6.4 - モード対応ボーダーと低コントラスト強調
 	const swatch = document.createElement("div");
 	swatch.className = "dads-card__swatch";
 	swatch.style.backgroundColor = displayColor.toCss();
+	applySwatchBorder(
+		swatch,
+		displayHex,
+		state.backgroundColor,
+		state.backgroundMode,
+	);
 
 	// 情報セクション
 	const info = document.createElement("div");

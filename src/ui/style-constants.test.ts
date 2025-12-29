@@ -380,4 +380,225 @@ describe("style-constants", () => {
 			expect(mockElement.style.borderColor).toBe(BADGE_COLORS.fail.dark.border);
 		});
 	});
+
+	/**
+	 * Task 6.3: スウォッチボーダーのモード対応と低コントラスト強調を実装する
+	 * Requirements: 6.3 - スウォッチボーダー色をモードに応じて調整
+	 */
+	describe("BORDER_COLORS constant (Task 6.3)", () => {
+		it("should be exported as a constant", async () => {
+			const { BORDER_COLORS } = await import("./style-constants");
+			expect(BORDER_COLORS).toBeDefined();
+		});
+
+		it("should have light and dark mode colors", async () => {
+			const { BORDER_COLORS } = await import("./style-constants");
+			expect(BORDER_COLORS.light).toBeDefined();
+			expect(BORDER_COLORS.dark).toBeDefined();
+		});
+
+		it("should have normal and emphasized border styles for each mode", async () => {
+			const { BORDER_COLORS } = await import("./style-constants");
+			for (const mode of ["light", "dark"] as const) {
+				expect(BORDER_COLORS[mode].normal).toBeDefined();
+				expect(BORDER_COLORS[mode].emphasized).toBeDefined();
+			}
+		});
+
+		it("should have correct light mode normal border per design.md", async () => {
+			const { BORDER_COLORS } = await import("./style-constants");
+			expect(BORDER_COLORS.light.normal.border).toBe("1px solid #e4e4e7"); // zinc-200
+		});
+
+		it("should have correct dark mode normal border per design.md", async () => {
+			const { BORDER_COLORS } = await import("./style-constants");
+			expect(BORDER_COLORS.dark.normal.border).toBe("1px solid #3f3f46"); // zinc-700
+		});
+
+		it("should have correct light mode emphasized border per design.md", async () => {
+			const { BORDER_COLORS } = await import("./style-constants");
+			expect(BORDER_COLORS.light.emphasized.border).toBe("2px solid #71717a"); // zinc-500
+			expect(BORDER_COLORS.light.emphasized.boxShadow).toBe(
+				"0 0 0 1px rgba(0,0,0,0.1)",
+			);
+		});
+
+		it("should have correct dark mode emphasized border per design.md", async () => {
+			const { BORDER_COLORS } = await import("./style-constants");
+			expect(BORDER_COLORS.dark.emphasized.border).toBe("2px solid #a1a1aa"); // zinc-400
+			expect(BORDER_COLORS.dark.emphasized.boxShadow).toBe(
+				"0 0 0 1px rgba(255,255,255,0.1)",
+			);
+		});
+	});
+
+	/**
+	 * Task 6.3: SwatchBorderStyle型
+	 * Requirements: 6.3, 6.4 - ボーダースタイルの型定義
+	 */
+	describe("SwatchBorderStyle type (Task 6.3)", () => {
+		it("should export SwatchBorderStyle type with border and optional boxShadow", async () => {
+			const { BORDER_COLORS } = await import("./style-constants");
+			const normalStyle = BORDER_COLORS.light.normal;
+			const emphasizedStyle = BORDER_COLORS.light.emphasized;
+
+			// Type check - normal has border only
+			const _border: string = normalStyle.border;
+			expect(_border).toBeDefined();
+
+			// Type check - emphasized has both border and boxShadow
+			const _emphasizedBorder: string = emphasizedStyle.border;
+			const _boxShadow: string = emphasizedStyle.boxShadow;
+			expect(_emphasizedBorder).toBeDefined();
+			expect(_boxShadow).toBeDefined();
+		});
+	});
+
+	/**
+	 * Task 6.3: LOW_CONTRAST_THRESHOLD定数
+	 * Requirements: 6.4 - 低コントラスト閾値
+	 */
+	describe("LOW_CONTRAST_THRESHOLD constant (Task 6.3)", () => {
+		it("should be exported as 1.5", async () => {
+			const { LOW_CONTRAST_THRESHOLD } = await import("./style-constants");
+			expect(LOW_CONTRAST_THRESHOLD).toBe(1.5);
+		});
+	});
+
+	/**
+	 * Task 6.3: getSwatchBorderStyle関数
+	 * Requirements: 6.3, 6.4 - スウォッチボーダースタイルを取得
+	 */
+	describe("getSwatchBorderStyle function (Task 6.3)", () => {
+		it("should be exported and callable", async () => {
+			const { getSwatchBorderStyle } = await import("./style-constants");
+			expect(typeof getSwatchBorderStyle).toBe("function");
+		});
+
+		it("should return normal border for high contrast in light mode", async () => {
+			const { getSwatchBorderStyle, BORDER_COLORS } = await import(
+				"./style-constants"
+			);
+			// 黒スウォッチ on 白背景 → 高コントラスト (21:1)
+			const result = getSwatchBorderStyle("#000000", "#ffffff", "light");
+			expect(result.border).toBe(BORDER_COLORS.light.normal.border);
+			expect(result.boxShadow).toBeUndefined();
+		});
+
+		it("should return normal border for high contrast in dark mode", async () => {
+			const { getSwatchBorderStyle, BORDER_COLORS } = await import(
+				"./style-constants"
+			);
+			// 白スウォッチ on 黒背景 → 高コントラスト (21:1)
+			const result = getSwatchBorderStyle("#ffffff", "#000000", "dark");
+			expect(result.border).toBe(BORDER_COLORS.dark.normal.border);
+			expect(result.boxShadow).toBeUndefined();
+		});
+
+		it("should return emphasized border for low contrast (<1.5) in light mode", async () => {
+			const { getSwatchBorderStyle, BORDER_COLORS } = await import(
+				"./style-constants"
+			);
+			// 白スウォッチ on 白背景 → 低コントラスト (1:1)
+			const result = getSwatchBorderStyle("#ffffff", "#ffffff", "light");
+			expect(result.border).toBe(BORDER_COLORS.light.emphasized.border);
+			expect(result.boxShadow).toBe(BORDER_COLORS.light.emphasized.boxShadow);
+		});
+
+		it("should return emphasized border for low contrast (<1.5) in dark mode", async () => {
+			const { getSwatchBorderStyle, BORDER_COLORS } = await import(
+				"./style-constants"
+			);
+			// 黒スウォッチ on 黒背景 → 低コントラスト (1:1)
+			const result = getSwatchBorderStyle("#000000", "#000000", "dark");
+			expect(result.border).toBe(BORDER_COLORS.dark.emphasized.border);
+			expect(result.boxShadow).toBe(BORDER_COLORS.dark.emphasized.boxShadow);
+		});
+
+		it("should return emphasized border for contrast exactly at threshold", async () => {
+			const { getSwatchBorderStyle, BORDER_COLORS } = await import(
+				"./style-constants"
+			);
+			// グレースウォッチ on 白背景 → 約1.4のコントラスト
+			// #f5f5f5 vs #ffffff ≈ 1.08
+			const result = getSwatchBorderStyle("#f5f5f5", "#ffffff", "light");
+			expect(result.border).toBe(BORDER_COLORS.light.emphasized.border);
+			expect(result.boxShadow).toBe(BORDER_COLORS.light.emphasized.boxShadow);
+		});
+
+		it("should return normal border for contrast above threshold", async () => {
+			const { getSwatchBorderStyle, BORDER_COLORS } = await import(
+				"./style-constants"
+			);
+			// 薄いグレー on 白背景でコントラスト比が1.5以上
+			// #999999 vs #ffffff ≈ 2.85
+			const result = getSwatchBorderStyle("#999999", "#ffffff", "light");
+			expect(result.border).toBe(BORDER_COLORS.light.normal.border);
+			expect(result.boxShadow).toBeUndefined();
+		});
+	});
+
+	/**
+	 * Task 6.3: applySwatchBorder関数
+	 * Requirements: 6.3, 6.4 - スウォッチ要素にボーダースタイルを適用
+	 */
+	describe("applySwatchBorder function (Task 6.3)", () => {
+		it("should be exported and callable", async () => {
+			const { applySwatchBorder } = await import("./style-constants");
+			expect(typeof applySwatchBorder).toBe("function");
+		});
+
+		it("should apply normal border style to element", async () => {
+			const { applySwatchBorder } = await import("./style-constants");
+
+			const mockElement = {
+				style: {
+					border: "",
+					boxShadow: "",
+				},
+			} as unknown as HTMLElement;
+
+			// 高コントラスト: 黒 on 白
+			applySwatchBorder(mockElement, "#000000", "#ffffff", "light");
+
+			expect(mockElement.style.border).toBe("1px solid #e4e4e7");
+			// boxShadowは設定されないか空文字
+		});
+
+		it("should apply emphasized border style with boxShadow to element", async () => {
+			const { applySwatchBorder } = await import("./style-constants");
+
+			const mockElement = {
+				style: {
+					border: "",
+					boxShadow: "",
+				},
+			} as unknown as HTMLElement;
+
+			// 低コントラスト: 白 on 白
+			applySwatchBorder(mockElement, "#ffffff", "#ffffff", "light");
+
+			expect(mockElement.style.border).toBe("2px solid #71717a");
+			expect(mockElement.style.boxShadow).toBe("0 0 0 1px rgba(0,0,0,0.1)");
+		});
+
+		it("should apply dark mode emphasized border correctly", async () => {
+			const { applySwatchBorder } = await import("./style-constants");
+
+			const mockElement = {
+				style: {
+					border: "",
+					boxShadow: "",
+				},
+			} as unknown as HTMLElement;
+
+			// 低コントラスト: 黒 on 黒
+			applySwatchBorder(mockElement, "#000000", "#000000", "dark");
+
+			expect(mockElement.style.border).toBe("2px solid #a1a1aa");
+			expect(mockElement.style.boxShadow).toBe(
+				"0 0 0 1px rgba(255,255,255,0.1)",
+			);
+		});
+	});
 });

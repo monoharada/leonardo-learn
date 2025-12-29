@@ -252,4 +252,41 @@ describe("shades-view", () => {
 			expect(content).toContain("state.backgroundColor");
 		});
 	});
+
+	/**
+	 * Task 6.3: スウォッチボーダーのモード対応と低コントラスト強調を実装する
+	 * Requirements: 6.3, 6.4
+	 */
+	describe("swatch border integration (Task 6.3)", () => {
+		it("should import applySwatchBorder from style-constants module", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(import.meta.dir, "shades-view.ts");
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// applySwatchBorderのインポート
+			expect(content).toContain("applySwatchBorder");
+		});
+
+		it("should apply swatch border based on background color and mode", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(import.meta.dir, "shades-view.ts");
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// state.backgroundModeを使用してボーダーを適用
+			expect(content).toContain("state.backgroundMode");
+		});
+
+		it("should reference Requirements 6.3, 6.4 in comments", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(import.meta.dir, "shades-view.ts");
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// Requirementsの参照
+			expect(content).toContain("6.3");
+			expect(content).toContain("6.4");
+		});
+	});
 });

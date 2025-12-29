@@ -2,8 +2,10 @@
  * スタイル関連の定数と型定義
  *
  * @module @/ui/style-constants
- * Requirements: 6.1, 6.2
+ * Requirements: 6.1, 6.2, 6.3, 6.4
  */
+
+import { wcagContrast } from "culori";
 
 /**
  * 背景色のモード（light/dark）
@@ -191,4 +193,109 @@ export function applyBadgeColors(
 	element.style.backgroundColor = colors.background;
 	element.style.color = colors.text;
 	element.style.borderColor = colors.border;
+}
+
+/**
+ * Requirements 6.3, 6.4: スウォッチボーダースタイルの型定義
+ */
+export interface SwatchBorderStyle {
+	border: string;
+	boxShadow?: string;
+}
+
+/**
+ * Requirements 6.3: ボーダー配色スキームの型定義
+ */
+export interface BorderColorScheme {
+	border: string;
+}
+
+/**
+ * Requirements 6.3: ボーダー強調スタイルの型定義
+ */
+export interface BorderEmphasizedScheme extends BorderColorScheme {
+	boxShadow: string;
+}
+
+/**
+ * Requirements 6.4: 低コントラスト閾値
+ * 背景色とスウォッチ色のコントラスト比がこの値未満の場合、強調ボーダーを適用
+ */
+export const LOW_CONTRAST_THRESHOLD = 1.5;
+
+/**
+ * Requirements 6.3, 6.4: スウォッチボーダーの配色定義
+ * design.md仕様に準拠
+ */
+export const BORDER_COLORS: Record<
+	ColorMode,
+	{ normal: BorderColorScheme; emphasized: BorderEmphasizedScheme }
+> = {
+	light: {
+		normal: {
+			border: "1px solid #e4e4e7", // zinc-200
+		},
+		emphasized: {
+			border: "2px solid #71717a", // zinc-500
+			boxShadow: "0 0 0 1px rgba(0,0,0,0.1)",
+		},
+	},
+	dark: {
+		normal: {
+			border: "1px solid #3f3f46", // zinc-700
+		},
+		emphasized: {
+			border: "2px solid #a1a1aa", // zinc-400
+			boxShadow: "0 0 0 1px rgba(255,255,255,0.1)",
+		},
+	},
+} as const;
+
+/**
+ * Requirements 6.3, 6.4: スウォッチのボーダースタイルを取得
+ * 背景色とのコントラスト比に応じて通常/強調ボーダーを返す
+ *
+ * @param swatchHex スウォッチの色（HEX形式）
+ * @param backgroundHex 背景色（HEX形式）
+ * @param mode 背景色モード（light/dark）
+ * @returns ボーダースタイル（border, boxShadow?）
+ */
+export function getSwatchBorderStyle(
+	swatchHex: string,
+	backgroundHex: string,
+	mode: ColorMode,
+): SwatchBorderStyle {
+	const contrast = wcagContrast(swatchHex, backgroundHex);
+
+	if (contrast < LOW_CONTRAST_THRESHOLD) {
+		// 低コントラスト時: 強調ボーダー + シャドウ
+		return {
+			border: BORDER_COLORS[mode].emphasized.border,
+			boxShadow: BORDER_COLORS[mode].emphasized.boxShadow,
+		};
+	}
+
+	// 通常時
+	return {
+		border: BORDER_COLORS[mode].normal.border,
+	};
+}
+
+/**
+ * Requirements 6.3, 6.4: スウォッチ要素にボーダースタイルを適用
+ *
+ * @param element スウォッチのHTML要素
+ * @param swatchHex スウォッチの色（HEX形式）
+ * @param backgroundHex 背景色（HEX形式）
+ * @param mode 背景色モード（light/dark）
+ */
+export function applySwatchBorder(
+	element: HTMLElement,
+	swatchHex: string,
+	backgroundHex: string,
+	mode: ColorMode,
+): void {
+	const style = getSwatchBorderStyle(swatchHex, backgroundHex, mode);
+	element.style.border = style.border;
+	element.style.boxShadow = style.boxShadow ?? "";
 }
