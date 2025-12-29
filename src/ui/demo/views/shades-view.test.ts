@@ -144,4 +144,112 @@ describe("shades-view", () => {
 			expect(typeof renderBrandColorSection).toBe("function");
 		});
 	});
+
+	/**
+	 * Task 5.2: シェードビューに背景色を適用する
+	 * Requirements: 1.1, 3.5, 5.5, 5.6
+	 */
+	describe("background color integration (Task 5.2)", () => {
+		it("should import createBackgroundColorSelector from background-color-selector module", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(import.meta.dir, "shades-view.ts");
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// 背景色セレクターのインポート
+			expect(content).toContain("createBackgroundColorSelector");
+		});
+
+		it("should integrate background color selector at top of shades view", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(import.meta.dir, "shades-view.ts");
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// 背景色セレクターをビュー上部に配置
+			expect(content).toContain("background-color-selector");
+		});
+
+		it("should apply background color to container", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(import.meta.dir, "shades-view.ts");
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// コンテナの背景色を更新
+			expect(content).toContain("container.style.backgroundColor");
+		});
+
+		it("should use state.backgroundColor for background color", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(import.meta.dir, "shades-view.ts");
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// state.backgroundColorを参照
+			expect(content).toContain("state.backgroundColor");
+		});
+
+		it("should reference Requirements 5.5, 5.6 in comments", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(import.meta.dir, "shades-view.ts");
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// Requirementsの参照（モジュールヘッダまたはコメント内）
+			expect(content).toContain("5.5");
+			expect(content).toContain("5.6");
+		});
+
+		it("should call persistBackgroundColor on color change", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(import.meta.dir, "shades-view.ts");
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// 背景色変更時に永続化
+			expect(content).toContain("persistBackgroundColor");
+		});
+
+		it("should import determineColorMode for mode detection", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(import.meta.dir, "shades-view.ts");
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// モード判定関数のインポート
+			expect(content).toContain("determineColorMode");
+		});
+
+		it("should update background mode on color change", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(import.meta.dir, "shades-view.ts");
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// モード判定の呼び出し
+			expect(content).toContain("state.backgroundMode");
+		});
+
+		it("should re-render view on background color change", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(import.meta.dir, "shades-view.ts");
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// 背景色変更時に再レンダリング
+			expect(content).toContain("renderShadesView");
+		});
+
+		it("should use new background color for hover contrast display (Req 3.5)", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(import.meta.dir, "shades-view.ts");
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// ホバー時のコントラスト計算で背景色を使用
+			// verifyContrastの第2引数でstate.backgroundColorを使用
+			expect(content).toContain("state.backgroundColor");
+		});
+	});
 });

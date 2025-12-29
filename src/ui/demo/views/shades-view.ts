@@ -6,7 +6,7 @@
  * カードクリック時はonColorClickコールバック経由でcolor-detail-modalと接続する。
  *
  * @module @/ui/demo/views/shades-view
- * Requirements: 2.1, 2.2, 2.3, 2.4
+ * Requirements: 2.1, 2.2, 2.3, 2.4, 5.5, 5.6
  */
 
 import { simulateCVD } from "@/accessibility/cvd-simulator";
@@ -26,7 +26,14 @@ import {
 import type { DadsColorHue } from "@/core/tokens/types";
 import { renderBoundaryPills } from "@/ui/semantic-role/contrast-boundary-indicator";
 import { applyOverlay } from "@/ui/semantic-role/semantic-role-overlay";
-import { getActivePalette, parseKeyColor, state } from "../state";
+import { createBackgroundColorSelector } from "../background-color-selector";
+import {
+	determineColorMode,
+	getActivePalette,
+	parseKeyColor,
+	persistBackgroundColor,
+	state,
+} from "../state";
 import type { ColorDetailModalOptions, CVDType, HarmonyType } from "../types";
 
 /**
@@ -64,6 +71,8 @@ function applySimulation(color: Color): Color {
 /**
  * シェードビューをレンダリングする
  *
+ * Requirements: 1.1, 5.5, 5.6 - シェードビューに背景色セレクターを統合する
+ *
  * @param container レンダリング先のコンテナ要素
  * @param callbacks コールバック関数
  */
@@ -75,6 +84,33 @@ export async function renderShadesView(
 	container.innerHTML = "";
 	container.className = "dads-section";
 
+	// Requirements: 5.5, 5.6 - 背景色をコンテナに適用
+	container.style.backgroundColor = state.backgroundColor;
+
+	// Requirements: 1.1, 5.5 - 背景色セレクターをビュー上部に配置
+	const backgroundSelectorSection = document.createElement("section");
+	backgroundSelectorSection.className = "background-color-selector";
+	const backgroundSelector = createBackgroundColorSelector({
+		currentColor: state.backgroundColor,
+		onColorChange: (hex: string) => {
+			// state.backgroundColorを更新
+			state.backgroundColor = hex;
+			// Requirements: 5.5 - モードを自動判定
+			state.backgroundMode = determineColorMode(hex);
+			// Requirements: 5.5 - localStorageに永続化
+			persistBackgroundColor(hex, state.backgroundMode);
+			// コンテナの背景色を更新
+			container.style.backgroundColor = hex;
+			// 再レンダリング（コントラスト値更新のため）
+			// Note: 各スウォッチのコントラスト再計算はrenderDadsHueSectionで実行される
+			void renderShadesView(container, callbacks).catch((err) => {
+				console.error("Failed to re-render shades view:", err);
+			});
+		},
+	});
+	backgroundSelectorSection.appendChild(backgroundSelector);
+	container.appendChild(backgroundSelectorSection);
+
 	const loadingEl = document.createElement("div");
 	loadingEl.className = "dads-loading";
 	loadingEl.textContent = "DADSカラーを読み込み中...";
@@ -83,7 +119,10 @@ export async function renderShadesView(
 	try {
 		const dadsTokens = await loadDadsTokens();
 		const chromaticScales = getAllDadsChromatic(dadsTokens);
-		container.removeChild(loadingEl);
+		// 再レンダー競合対策: loadingElが既に削除されている可能性があるため存在確認
+		if (loadingEl.isConnected) {
+			container.removeChild(loadingEl);
+		}
 
 		// Task 4.2: ロールマッピング生成
 		// state.shadesPalettesからPaletteInfo形式に変換
