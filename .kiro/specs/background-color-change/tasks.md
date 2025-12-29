@@ -97,7 +97,7 @@
   - CSS変数（--fg-primary）を活用
   - _Requirements: 6.1_
 
-- [ ] 6.2 (P) コントラストバッジのモード対応を実装する
+- [x] 6.2 (P) コントラストバッジのモード対応を実装する
   - AAA/AA/L/failバッジの背景色・テキスト色・ボーダー色をモードに応じて切替
   - design.mdのBADGE_COLORS定義に従う
   - _Requirements: 6.2_

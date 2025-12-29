@@ -181,4 +181,203 @@ describe("style-constants", () => {
 			expect(setPropertyCalls[0].value).toBe(FOREGROUND_COLORS.dark);
 		});
 	});
+
+	/**
+	 * Task 6.2: コントラストバッジのモード対応を実装する
+	 * Requirements: 6.2 - AAA/AA/L/failバッジの背景色・テキスト色・ボーダー色をモードに応じて切替
+	 */
+	describe("BADGE_COLORS constant (Task 6.2)", () => {
+		it("should be exported as a constant", async () => {
+			const { BADGE_COLORS } = await import("./style-constants");
+			expect(BADGE_COLORS).toBeDefined();
+		});
+
+		it("should have AAA, AA, L, fail keys", async () => {
+			const { BADGE_COLORS } = await import("./style-constants");
+			expect(BADGE_COLORS.AAA).toBeDefined();
+			expect(BADGE_COLORS.AA).toBeDefined();
+			expect(BADGE_COLORS.L).toBeDefined();
+			expect(BADGE_COLORS.fail).toBeDefined();
+		});
+
+		it("should have light and dark modes for each level", async () => {
+			const { BADGE_COLORS } = await import("./style-constants");
+			for (const level of ["AAA", "AA", "L", "fail"] as const) {
+				expect(BADGE_COLORS[level].light).toBeDefined();
+				expect(BADGE_COLORS[level].dark).toBeDefined();
+			}
+		});
+
+		it("should have background, text, and border for each mode", async () => {
+			const { BADGE_COLORS } = await import("./style-constants");
+			for (const level of ["AAA", "AA", "L", "fail"] as const) {
+				for (const mode of ["light", "dark"] as const) {
+					expect(BADGE_COLORS[level][mode].background).toBeDefined();
+					expect(BADGE_COLORS[level][mode].text).toBeDefined();
+					expect(BADGE_COLORS[level][mode].border).toBeDefined();
+				}
+			}
+		});
+
+		it("should have correct AAA light mode colors per design.md", async () => {
+			const { BADGE_COLORS } = await import("./style-constants");
+			expect(BADGE_COLORS.AAA.light.background).toBe("#dcfce7");
+			expect(BADGE_COLORS.AAA.light.text).toBe("#166534");
+			expect(BADGE_COLORS.AAA.light.border).toBe("#86efac");
+		});
+
+		it("should have correct AAA dark mode colors per design.md", async () => {
+			const { BADGE_COLORS } = await import("./style-constants");
+			expect(BADGE_COLORS.AAA.dark.background).toBe("#14532d");
+			expect(BADGE_COLORS.AAA.dark.text).toBe("#bbf7d0");
+			expect(BADGE_COLORS.AAA.dark.border).toBe("#22c55e");
+		});
+
+		it("should have correct AA light mode colors per design.md", async () => {
+			const { BADGE_COLORS } = await import("./style-constants");
+			expect(BADGE_COLORS.AA.light.background).toBe("#dbeafe");
+			expect(BADGE_COLORS.AA.light.text).toBe("#1e40af");
+			expect(BADGE_COLORS.AA.light.border).toBe("#93c5fd");
+		});
+
+		it("should have correct AA dark mode colors per design.md", async () => {
+			const { BADGE_COLORS } = await import("./style-constants");
+			expect(BADGE_COLORS.AA.dark.background).toBe("#1e3a5f");
+			expect(BADGE_COLORS.AA.dark.text).toBe("#bfdbfe");
+			expect(BADGE_COLORS.AA.dark.border).toBe("#3b82f6");
+		});
+
+		it("should have correct L light mode colors per design.md", async () => {
+			const { BADGE_COLORS } = await import("./style-constants");
+			expect(BADGE_COLORS.L.light.background).toBe("#fef3c7");
+			expect(BADGE_COLORS.L.light.text).toBe("#92400e");
+			expect(BADGE_COLORS.L.light.border).toBe("#fcd34d");
+		});
+
+		it("should have correct L dark mode colors per design.md", async () => {
+			const { BADGE_COLORS } = await import("./style-constants");
+			expect(BADGE_COLORS.L.dark.background).toBe("#78350f");
+			expect(BADGE_COLORS.L.dark.text).toBe("#fde68a");
+			expect(BADGE_COLORS.L.dark.border).toBe("#f59e0b");
+		});
+
+		it("should have correct fail light mode colors per design.md", async () => {
+			const { BADGE_COLORS } = await import("./style-constants");
+			expect(BADGE_COLORS.fail.light.background).toBe("#fee2e2");
+			expect(BADGE_COLORS.fail.light.text).toBe("#991b1b");
+			expect(BADGE_COLORS.fail.light.border).toBe("#fca5a5");
+		});
+
+		it("should have correct fail dark mode colors per design.md", async () => {
+			const { BADGE_COLORS } = await import("./style-constants");
+			expect(BADGE_COLORS.fail.dark.background).toBe("#7f1d1d");
+			expect(BADGE_COLORS.fail.dark.text).toBe("#fecaca");
+			expect(BADGE_COLORS.fail.dark.border).toBe("#ef4444");
+		});
+	});
+
+	describe("BadgeColorScheme type (Task 6.2)", () => {
+		it("should export BadgeColorScheme type", async () => {
+			// Type check - if this compiles, the type exists
+			const { BADGE_COLORS } = await import("./style-constants");
+			const scheme = BADGE_COLORS.AAA.light;
+			const _bg: string = scheme.background;
+			const _text: string = scheme.text;
+			const _border: string = scheme.border;
+			expect(_bg).toBeDefined();
+			expect(_text).toBeDefined();
+			expect(_border).toBeDefined();
+		});
+	});
+
+	describe("ContrastLevel type (Task 6.2)", () => {
+		it("should export ContrastLevel type covering AAA, AA, L, fail", async () => {
+			const { BADGE_COLORS } = await import("./style-constants");
+			// Type check - all ContrastLevel values should be valid keys
+			const levels: Array<"AAA" | "AA" | "L" | "fail"> = [
+				"AAA",
+				"AA",
+				"L",
+				"fail",
+			];
+			for (const level of levels) {
+				expect(BADGE_COLORS[level]).toBeDefined();
+			}
+		});
+	});
+
+	describe("getBadgeColors function (Task 6.2)", () => {
+		it("should be exported and callable", async () => {
+			const { getBadgeColors } = await import("./style-constants");
+			expect(typeof getBadgeColors).toBe("function");
+		});
+
+		it("should return correct colors for AAA level in light mode", async () => {
+			const { getBadgeColors, BADGE_COLORS } = await import(
+				"./style-constants"
+			);
+			const colors = getBadgeColors("AAA", "light");
+			expect(colors).toEqual(BADGE_COLORS.AAA.light);
+		});
+
+		it("should return correct colors for fail level in dark mode", async () => {
+			const { getBadgeColors, BADGE_COLORS } = await import(
+				"./style-constants"
+			);
+			const colors = getBadgeColors("fail", "dark");
+			expect(colors).toEqual(BADGE_COLORS.fail.dark);
+		});
+	});
+
+	describe("applyBadgeColors function (Task 6.2)", () => {
+		it("should be exported and callable", async () => {
+			const { applyBadgeColors } = await import("./style-constants");
+			expect(typeof applyBadgeColors).toBe("function");
+		});
+
+		it("should apply background, text, and border colors to badge element", async () => {
+			const { applyBadgeColors, BADGE_COLORS } = await import(
+				"./style-constants"
+			);
+
+			const mockStyle: Record<string, string> = {};
+			const mockElement = {
+				style: {
+					backgroundColor: "",
+					color: "",
+					borderColor: "",
+				},
+			} as unknown as HTMLElement;
+
+			applyBadgeColors(mockElement, "AAA", "light");
+
+			expect(mockElement.style.backgroundColor).toBe(
+				BADGE_COLORS.AAA.light.background,
+			);
+			expect(mockElement.style.color).toBe(BADGE_COLORS.AAA.light.text);
+			expect(mockElement.style.borderColor).toBe(BADGE_COLORS.AAA.light.border);
+		});
+
+		it("should apply dark mode colors correctly", async () => {
+			const { applyBadgeColors, BADGE_COLORS } = await import(
+				"./style-constants"
+			);
+
+			const mockElement = {
+				style: {
+					backgroundColor: "",
+					color: "",
+					borderColor: "",
+				},
+			} as unknown as HTMLElement;
+
+			applyBadgeColors(mockElement, "fail", "dark");
+
+			expect(mockElement.style.backgroundColor).toBe(
+				BADGE_COLORS.fail.dark.background,
+			);
+			expect(mockElement.style.color).toBe(BADGE_COLORS.fail.dark.text);
+			expect(mockElement.style.borderColor).toBe(BADGE_COLORS.fail.dark.border);
+		});
+	});
 });
