@@ -117,7 +117,7 @@
   - persistBackgroundColor/loadBackgroundColor: localStorage操作
   - _Requirements: 1.4, 2.4, 3.3_
 
-- [ ] 7.2 パフォーマンステストを実施する
+- [x] 7.2 パフォーマンステストを実施する
   - 20色パレットのコントラスト再計算が200ms以内であることを確認
   - デバウンス処理が正しく機能することを確認
   - _Requirements: 4.3_
