@@ -149,7 +149,10 @@ export function renderBoundaryPills(
 		return container;
 	}
 	const referenceElement = scaleElements.get(firstScale);
-	if (!referenceElement) {
+	if (
+		!referenceElement ||
+		typeof referenceElement.getBoundingClientRect !== "function"
+	) {
 		container.appendChild(whiteRow);
 		container.appendChild(blackRow);
 		return container;

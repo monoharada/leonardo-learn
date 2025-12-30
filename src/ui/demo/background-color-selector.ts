@@ -9,6 +9,7 @@
  */
 
 import { validateBackgroundColor } from "./state";
+import type { ColorMode } from "./types";
 
 /**
  * デバウンス遅延時間（ミリ秒）
@@ -57,11 +58,6 @@ export interface BackgroundColorSelectorProps {
 	/** ダーク背景色変更時のコールバック */
 	onDarkColorChange: (hex: string) => void;
 }
-
-/**
- * カラーモード型
- */
-export type ColorMode = "light" | "dark";
 
 /**
  * プリセットカラー型
