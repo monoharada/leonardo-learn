@@ -109,7 +109,7 @@
   - _Requirements: 6.3, 6.4_
 
 - [ ] 7. テストとパフォーマンス検証
-- [ ] 7.1 ユニットテストを作成する
+- [x] 7.1 ユニットテストを作成する
   - validateBackgroundColor: HEX/OKLCH形式バリデーション
   - determineColorMode: L値境界ケース（0.49, 0.50, 0.51）
   - getContrastLevel: AAA/AA/L/fail判定境界
