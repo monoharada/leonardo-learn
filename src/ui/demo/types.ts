@@ -99,10 +99,10 @@ export interface DemoState {
 	cvdSimulation: CVDSimulationType;
 	selectedHarmonyConfig: HarmonyTypeConfig | null;
 	cudMode: CudCompatibilityMode;
-	/** 背景色（HEX形式、例: #ffffff） */
-	backgroundColor: string;
-	/** 背景色モード（light/dark） */
-	backgroundMode: ColorMode;
+	/** ライト背景色（HEX形式、デフォルト: #ffffff） */
+	lightBackgroundColor: string;
+	/** ダーク背景色（HEX形式、デフォルト: #000000） */
+	darkBackgroundColor: string;
 }
 
 /**

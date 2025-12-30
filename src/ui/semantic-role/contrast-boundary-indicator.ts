@@ -1,7 +1,7 @@
 /**
  * ContrastBoundaryIndicator - コントラスト比境界ピル表示
  *
- * 白/黒背景に対するコントラスト比境界をピルで視覚化する
+ * ライト/ダーク背景に対するコントラスト比境界をピルで視覚化する
  *
  * Requirements: 6.1, 6.4, 6.5
  */
@@ -18,7 +18,7 @@ export interface BoundaryPillConfig {
 	label: string;
 	/** スタイル種別 */
 	style: "outline" | "filled";
-	/** 方向（白背景はstart、黒背景はend） */
+	/** 方向（ライト背景はstart、ダーク背景はend） */
 	direction: "start" | "end";
 }
 
@@ -29,7 +29,7 @@ export interface BoundaryPillConfig {
  * @returns ピル要素
  *
  * スタイル:
- * - 白抜き（outline）: border: 1px solid #333, background: transparent, color: #333
+ * - 白抜き（outline）: border: 1px solid #333, background: white, color: #333
  * - 黒塗り（filled）: border: none, background: #333, color: white
  * - 共通: border-radius: 9999px, font-size: 10px, padding: 2px 8px
  *
@@ -46,7 +46,7 @@ export function createBoundaryPill(
 	// スタイル別クラス
 	if (config.style === "outline") {
 		pill.classList.add("dads-contrast-pill--outline");
-	} else {
+	} else if (config.style === "filled") {
 		pill.classList.add("dads-contrast-pill--filled");
 	}
 
@@ -68,25 +68,51 @@ interface BoundaryPillDefinition {
 	label: string;
 	style: "outline" | "filled";
 	direction: "start" | "end";
+	/** ピルを配置する行 */
+	row: "white" | "black";
 }
 
 /**
  * 4種類の境界ピル定義
- * - 白背景: 3:1→, 4.5:1→ (outline, start)
- * - 黒背景: ←4.5:1, ←3:1 (filled, end)
+ * - ライト背景: 3:1→, 4.5:1→ (outline, start)
+ * - ダーク背景: ←4.5:1, ←3:1 (filled, end)
  */
 const BOUNDARY_PILL_DEFINITIONS: BoundaryPillDefinition[] = [
-	{ key: "white3to1", label: "3:1→", style: "outline", direction: "start" },
-	{ key: "white4_5to1", label: "4.5:1→", style: "outline", direction: "start" },
-	{ key: "black4_5to1", label: "←4.5:1", style: "filled", direction: "end" },
-	{ key: "black3to1", label: "←3:1", style: "filled", direction: "end" },
+	{
+		key: "white3to1",
+		label: "3:1→",
+		style: "outline",
+		direction: "start",
+		row: "white",
+	},
+	{
+		key: "white4_5to1",
+		label: "4.5:1→",
+		style: "outline",
+		direction: "start",
+		row: "white",
+	},
+	{
+		key: "black4_5to1",
+		label: "←4.5:1",
+		style: "filled",
+		direction: "end",
+		row: "black",
+	},
+	{
+		key: "black3to1",
+		label: "←3:1",
+		style: "filled",
+		direction: "end",
+		row: "black",
+	},
 ];
 
 /**
  * コントラスト境界ピルコンテナを生成
  *
  * ContrastBoundaryResultから4種類のピルを生成し、
- * 白背景用を上段、黒背景用を下段に2行構造で配置する。
+ * ライト背景用を上段、ダーク背景用を下段に2行構造で配置する。
  *
  * @param boundaries - 境界計算結果
  * @param scaleElements - scale→DOM要素のマップ（位置参照用）
@@ -158,14 +184,12 @@ export function renderBoundaryPills(
 		const relativeLeft = swatchRect.left - referenceRect.left;
 		// スウォッチ中央に配置
 		const centerX = relativeLeft + swatchRect.width / 2;
+		pill.style.left = `${centerX}px`;
 
-		if (def.direction === "start") {
-			// 白背景ピル: 対応scaleの中央に配置 → 上段
-			pill.style.left = `${centerX}px`;
+		// 行に応じて配置
+		if (def.row === "white") {
 			whiteRow.appendChild(pill);
 		} else {
-			// 黒背景ピル: 対応scaleの中央に配置 → 下段
-			pill.style.left = `${centerX}px`;
 			blackRow.appendChild(pill);
 		}
 	}

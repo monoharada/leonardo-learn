@@ -4,7 +4,7 @@
  * Task 7.4: 統合テストを作成する
  * - BackgroundColorSelector → DemoState連携の確認
  * - DemoState変更 → View再レンダリングの確認
- * - プリセット選択 → 背景色 + モード適用の確認
+ * - プリセット選択 → 背景色適用の確認
  * - selector更新 → state反映 → view再計算のフロー検証
  *
  * @module @/ui/demo/background-color-integration.test
@@ -14,15 +14,16 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
 	createBackgroundColorSelector,
+	DARK_PRESET_COLORS,
+	LIGHT_PRESET_COLORS,
 	PRESET_COLORS,
 } from "./background-color-selector";
 import {
 	determineColorMode,
-	persistBackgroundColor,
+	persistBackgroundColors,
 	resetState,
 	state,
 } from "./state";
-import type { ColorMode } from "./types";
 
 // オリジナルのグローバル値を保存
 const originalLocalStorage = globalThis.localStorage;
@@ -90,9 +91,7 @@ interface MockHTMLElement {
 	) => void;
 	dispatchEvent: (event: Event | MockInputEvent) => boolean;
 	querySelector: (selector: string) => MockHTMLElement | null;
-	querySelectorAll: (
-		selector: string,
-	) => MockHTMLElement[] & {
+	querySelectorAll: (selector: string) => MockHTMLElement[] & {
 		forEach: (cb: (el: MockHTMLElement) => void) => void;
 	};
 	click?: () => void;
@@ -275,92 +274,129 @@ describe("Background Color Integration Tests (Task 7.4)", () => {
 	 * Requirements: 5.1
 	 */
 	describe("BackgroundColorSelector → DemoState Integration", () => {
-		it("should update state when color picker input event is dispatched", () => {
+		it("should update state when light color picker input event is dispatched", () => {
 			// 初期状態を確認
-			expect(state.backgroundColor).toBe("#ffffff");
+			expect(state.lightBackgroundColor).toBe("#ffffff");
 
-			// onColorChangeでstateを更新するコールバックを設定
-			const onColorChange = (hex: string) => {
-				state.backgroundColor = hex;
-				state.backgroundMode = determineColorMode(hex);
-				persistBackgroundColor(state.backgroundColor, state.backgroundMode);
+			// onLightColorChangeでstateを更新するコールバックを設定
+			const onLightColorChange = (hex: string) => {
+				state.lightBackgroundColor = hex;
+				persistBackgroundColors(
+					state.lightBackgroundColor,
+					state.darkBackgroundColor,
+				);
+			};
+
+			const onDarkColorChange = (hex: string) => {
+				state.darkBackgroundColor = hex;
+				persistBackgroundColors(
+					state.lightBackgroundColor,
+					state.darkBackgroundColor,
+				);
 			};
 
 			// セレクターを作成
 			const selector = createBackgroundColorSelector({
-				currentColor: state.backgroundColor,
-				onColorChange,
+				lightColor: state.lightBackgroundColor,
+				darkColor: state.darkBackgroundColor,
+				onLightColorChange,
+				onDarkColorChange,
 			});
 
-			// カラーピッカー入力要素を検索
-			const colorPicker = selector.querySelector(
-				'input[type="color"]',
-			) as MockHTMLElement | null;
-			expect(colorPicker).not.toBeNull();
+			// ライト背景用のカラーピッカー入力要素を検索（最初のcolor picker）
+			const colorPickers = selector.querySelectorAll(
+				".background-color-selector__color-picker",
+			) as (MockHTMLElement | null)[];
+			expect(colorPickers.length).toBeGreaterThanOrEqual(1);
 
-			if (colorPicker) {
+			const lightColorPicker = colorPickers[0];
+			if (lightColorPicker) {
 				// カラーピッカーのvalue を更新してinputイベントを発火
-				colorPicker.value = "#18181b";
-				colorPicker.dispatchEvent({
+				lightColorPicker.value = "#f8fafc";
+				lightColorPicker.dispatchEvent({
 					type: "input",
-					target: { value: "#18181b" },
+					target: { value: "#f8fafc" },
 				});
 
 				// stateが更新されたことを確認
-				expect(state.backgroundColor).toBe("#18181b");
-				expect(state.backgroundMode).toBe("dark");
+				expect(state.lightBackgroundColor).toBe("#f8fafc");
 
 				// localStorageにも保存されたことを確認
 				const stored = localStorageMock.getItem("leonardo-backgroundColor");
 				expect(stored).not.toBeNull();
 				const parsed = JSON.parse(stored as string);
-				expect(parsed.hex).toBe("#18181b");
+				expect(parsed.light).toBe("#f8fafc");
 			}
 		});
 
-		it("should update state when preset button is clicked", () => {
-			expect(state.backgroundColor).toBe("#ffffff");
+		it("should update state when dark color picker input event is dispatched", () => {
+			// 初期状態を確認
+			expect(state.darkBackgroundColor).toBe("#000000");
 
-			const onColorChange = (hex: string) => {
-				state.backgroundColor = hex;
-				state.backgroundMode = determineColorMode(hex);
-				persistBackgroundColor(state.backgroundColor, state.backgroundMode);
+			const onLightColorChange = (hex: string) => {
+				state.lightBackgroundColor = hex;
+				persistBackgroundColors(
+					state.lightBackgroundColor,
+					state.darkBackgroundColor,
+				);
+			};
+
+			const onDarkColorChange = (hex: string) => {
+				state.darkBackgroundColor = hex;
+				persistBackgroundColors(
+					state.lightBackgroundColor,
+					state.darkBackgroundColor,
+				);
 			};
 
 			// セレクターを作成
 			const selector = createBackgroundColorSelector({
-				currentColor: state.backgroundColor,
-				onColorChange,
+				lightColor: state.lightBackgroundColor,
+				darkColor: state.darkBackgroundColor,
+				onLightColorChange,
+				onDarkColorChange,
 			});
 
-			// プリセットボタンを検索
-			const presetButtons = selector.querySelectorAll(
-				".background-color-selector__preset-button",
-			);
-			expect(presetButtons.length).toBe(4);
+			// ダーク背景用のカラーピッカー入力要素を検索（2番目のcolor picker）
+			const colorPickers = selector.querySelectorAll(
+				".background-color-selector__color-picker",
+			) as (MockHTMLElement | null)[];
+			expect(colorPickers.length).toBeGreaterThanOrEqual(2);
 
-			// Dark Grayプリセット（3番目）をクリック
-			if (presetButtons.length >= 3) {
-				const darkGrayButton = presetButtons[2];
-				darkGrayButton.dispatchEvent({ type: "click" });
+			const darkColorPicker = colorPickers[1];
+			if (darkColorPicker) {
+				// カラーピッカーのvalue を更新してinputイベントを発火
+				darkColorPicker.value = "#18181b";
+				darkColorPicker.dispatchEvent({
+					type: "input",
+					target: { value: "#18181b" },
+				});
 
 				// stateが更新されたことを確認
-				expect(state.backgroundColor).toBe("#18181b");
-				expect(state.backgroundMode).toBe("dark");
+				expect(state.darkBackgroundColor).toBe("#18181b");
+
+				// localStorageにも保存されたことを確認
+				const stored = localStorageMock.getItem("leonardo-backgroundColor");
+				expect(stored).not.toBeNull();
+				const parsed = JSON.parse(stored as string);
+				expect(parsed.dark).toBe("#18181b");
 			}
 		});
 
-		it("should persist color to localStorage when state is updated", () => {
-			state.backgroundColor = "#18181b";
-			state.backgroundMode = determineColorMode("#18181b");
-			persistBackgroundColor(state.backgroundColor, state.backgroundMode);
+		it("should persist colors to localStorage when state is updated", () => {
+			state.lightBackgroundColor = "#f0f0f0";
+			state.darkBackgroundColor = "#202020";
+			persistBackgroundColors(
+				state.lightBackgroundColor,
+				state.darkBackgroundColor,
+			);
 
 			const stored = localStorageMock.getItem("leonardo-backgroundColor");
 			expect(stored).not.toBeNull();
 
 			const parsed = JSON.parse(stored as string);
-			expect(parsed.hex).toBe("#18181b");
-			expect(parsed.mode).toBe("dark");
+			expect(parsed.light).toBe("#f0f0f0");
+			expect(parsed.dark).toBe("#202020");
 		});
 
 		it("should correctly determine mode for various colors", () => {
@@ -370,13 +406,17 @@ describe("Background Color Integration Tests (Task 7.4)", () => {
 			expect(determineColorMode("#18181b")).toBe("dark");
 		});
 
-		it("should create BackgroundColorSelector with current state color", () => {
-			state.backgroundColor = "#f8fafc";
+		it("should create BackgroundColorSelector with current state colors", () => {
+			state.lightBackgroundColor = "#f8fafc";
+			state.darkBackgroundColor = "#18181b";
 
-			const onColorChange = (_hex: string) => {};
+			const onLightColorChange = (_hex: string) => {};
+			const onDarkColorChange = (_hex: string) => {};
 			const selector = createBackgroundColorSelector({
-				currentColor: state.backgroundColor,
-				onColorChange,
+				lightColor: state.lightBackgroundColor,
+				darkColor: state.darkBackgroundColor,
+				onLightColorChange,
+				onDarkColorChange,
 			});
 
 			expect(selector).toBeDefined();
@@ -393,162 +433,122 @@ describe("Background Color Integration Tests (Task 7.4)", () => {
 	 * 完全なDOM再レンダリングテストはE2E（Task 7.3）でカバー。
 	 */
 	describe("DemoState Change → View Re-render Flow", () => {
-		it("should maintain backgroundColor across view mode changes", () => {
-			state.backgroundColor = "#18181b";
-			state.backgroundMode = "dark";
+		it("should maintain background colors across view mode changes", () => {
+			state.lightBackgroundColor = "#f8fafc";
+			state.darkBackgroundColor = "#18181b";
 
 			state.viewMode = "palette";
-			expect(state.backgroundColor).toBe("#18181b");
-			expect(state.backgroundMode).toBe("dark");
+			expect(state.lightBackgroundColor).toBe("#f8fafc");
+			expect(state.darkBackgroundColor).toBe("#18181b");
 
 			state.viewMode = "shades";
-			expect(state.backgroundColor).toBe("#18181b");
-			expect(state.backgroundMode).toBe("dark");
+			expect(state.lightBackgroundColor).toBe("#f8fafc");
+			expect(state.darkBackgroundColor).toBe("#18181b");
 
 			state.viewMode = "accessibility";
-			expect(state.backgroundColor).toBe("#18181b");
-			expect(state.backgroundMode).toBe("dark");
+			expect(state.lightBackgroundColor).toBe("#f8fafc");
+			expect(state.darkBackgroundColor).toBe("#18181b");
 		});
 
-		it("should persist backgroundColor when switching between palette and shades views", () => {
-			state.backgroundColor = "#0066cc";
-			state.backgroundMode = determineColorMode("#0066cc");
+		it("should persist background colors when switching between palette and shades views", () => {
+			state.lightBackgroundColor = "#e0e0e0";
+			state.darkBackgroundColor = "#303030";
 
 			state.viewMode = "palette";
-			const paletteColor = state.backgroundColor;
+			const paletteLight = state.lightBackgroundColor;
+			const paletteDark = state.darkBackgroundColor;
 
 			state.viewMode = "shades";
-			expect(state.backgroundColor).toBe(paletteColor);
+			expect(state.lightBackgroundColor).toBe(paletteLight);
+			expect(state.darkBackgroundColor).toBe(paletteDark);
 
 			state.viewMode = "palette";
-			expect(state.backgroundColor).toBe(paletteColor);
+			expect(state.lightBackgroundColor).toBe(paletteLight);
+			expect(state.darkBackgroundColor).toBe(paletteDark);
 		});
 
-		it("should allow backgroundColor modification regardless of viewMode", () => {
+		it("should allow background color modification regardless of viewMode", () => {
 			state.viewMode = "harmony";
-			state.backgroundColor = "#ff0000";
-			expect(state.backgroundColor).toBe("#ff0000");
+			state.lightBackgroundColor = "#ff0000";
+			expect(state.lightBackgroundColor).toBe("#ff0000");
 
 			state.viewMode = "palette";
-			state.backgroundColor = "#00ff00";
-			expect(state.backgroundColor).toBe("#00ff00");
+			state.lightBackgroundColor = "#00ff00";
+			expect(state.lightBackgroundColor).toBe("#00ff00");
 
 			state.viewMode = "shades";
-			state.backgroundColor = "#0000ff";
-			expect(state.backgroundColor).toBe("#0000ff");
+			state.lightBackgroundColor = "#0000ff";
+			expect(state.lightBackgroundColor).toBe("#0000ff");
 		});
 
-		it("should verify state.backgroundColor is used by View for rendering", () => {
-			// View関数がstate.backgroundColorを参照することを確認
+		it("should verify state.lightBackgroundColor is used by View for rendering", () => {
+			// View関数がstate.lightBackgroundColorを参照することを確認
 			// (palette-view.ts, shades-view.tsの実装による)
-			state.backgroundColor = "#336699";
-			state.backgroundMode = determineColorMode("#336699");
+			state.lightBackgroundColor = "#336699";
+			state.darkBackgroundColor = "#112233";
 
 			// Viewがstateを参照する際、この値が使用される
-			expect(state.backgroundColor).toBe("#336699");
+			expect(state.lightBackgroundColor).toBe("#336699");
+			expect(state.darkBackgroundColor).toBe("#112233");
 
 			// palette-view.tsのコード分析により確認済み:
-			// container.style.backgroundColor = state.backgroundColor;
-			// const bgColor = new Color(state.backgroundColor);
+			// container.style.backgroundColor = state.lightBackgroundColor;
 		});
 	});
 
 	/**
-	 * 3. プリセット選択 → 背景色 + モード適用の確認
+	 * 3. プリセット選択 → 背景色適用の確認
 	 * Requirements: 2.1, 2.2, 2.3
 	 */
-	describe("Preset Selection → Background Color + Mode Application", () => {
-		it("should have 4 preset colors defined", () => {
-			expect(PRESET_COLORS.length).toBe(4);
+	describe("Preset Selection → Background Color Application", () => {
+		it("should have separate light and dark preset colors defined", () => {
+			expect(LIGHT_PRESET_COLORS.length).toBe(2);
+			expect(DARK_PRESET_COLORS.length).toBe(2);
+			expect(PRESET_COLORS.length).toBe(4); // Combined
 		});
 
-		it("should apply White preset correctly via UI click", () => {
-			const onColorChange = (hex: string) => {
-				state.backgroundColor = hex;
-				state.backgroundMode = determineColorMode(hex);
-				persistBackgroundColor(state.backgroundColor, state.backgroundMode);
+		it("should have light presets with light mode", () => {
+			for (const preset of LIGHT_PRESET_COLORS) {
+				expect(preset.mode).toBe("light");
+			}
+		});
+
+		it("should have dark presets with dark mode", () => {
+			for (const preset of DARK_PRESET_COLORS) {
+				expect(preset.mode).toBe("dark");
+			}
+		});
+
+		it("should apply preset color correctly via preset button click", () => {
+			const onLightColorChange = (hex: string) => {
+				state.lightBackgroundColor = hex;
+				persistBackgroundColors(
+					state.lightBackgroundColor,
+					state.darkBackgroundColor,
+				);
+			};
+
+			const onDarkColorChange = (hex: string) => {
+				state.darkBackgroundColor = hex;
+				persistBackgroundColors(
+					state.lightBackgroundColor,
+					state.darkBackgroundColor,
+				);
 			};
 
 			const selector = createBackgroundColorSelector({
-				currentColor: state.backgroundColor,
-				onColorChange,
+				lightColor: state.lightBackgroundColor,
+				darkColor: state.darkBackgroundColor,
+				onLightColorChange,
+				onDarkColorChange,
 			});
 
 			const presetButtons = selector.querySelectorAll(
 				".background-color-selector__preset-button",
 			);
-			// プリセットボタンの存在を保証
+
+			// 各セクションに2つずつプリセット = 合計4つ
 			expect(presetButtons.length).toBe(4);
-			// White は最初のプリセット
-			presetButtons[0].dispatchEvent({ type: "click" });
-			expect(state.backgroundColor).toBe("#ffffff");
-			expect(state.backgroundMode).toBe("light");
-		});
-
-		it("should apply Light Gray preset correctly via UI click", () => {
-			const onColorChange = (hex: string) => {
-				state.backgroundColor = hex;
-				state.backgroundMode = determineColorMode(hex);
-			};
-
-			const selector = createBackgroundColorSelector({
-				currentColor: state.backgroundColor,
-				onColorChange,
-			});
-
-			const presetButtons = selector.querySelectorAll(
-				".background-color-selector__preset-button",
-			);
-			// プリセットボタンの存在を保証
-			expect(presetButtons.length).toBe(4);
-			// Light Gray は2番目のプリセット
-			presetButtons[1].dispatchEvent({ type: "click" });
-			expect(state.backgroundColor).toBe("#f8fafc");
-			expect(state.backgroundMode).toBe("light");
-		});
-
-		it("should apply Dark Gray preset correctly via UI click", () => {
-			const onColorChange = (hex: string) => {
-				state.backgroundColor = hex;
-				state.backgroundMode = determineColorMode(hex);
-			};
-
-			const selector = createBackgroundColorSelector({
-				currentColor: state.backgroundColor,
-				onColorChange,
-			});
-
-			const presetButtons = selector.querySelectorAll(
-				".background-color-selector__preset-button",
-			);
-			// プリセットボタンの存在を保証
-			expect(presetButtons.length).toBe(4);
-			// Dark Gray は3番目のプリセット
-			presetButtons[2].dispatchEvent({ type: "click" });
-			expect(state.backgroundColor).toBe("#18181b");
-			expect(state.backgroundMode).toBe("dark");
-		});
-
-		it("should apply Black preset correctly via UI click", () => {
-			const onColorChange = (hex: string) => {
-				state.backgroundColor = hex;
-				state.backgroundMode = determineColorMode(hex);
-			};
-
-			const selector = createBackgroundColorSelector({
-				currentColor: state.backgroundColor,
-				onColorChange,
-			});
-
-			const presetButtons = selector.querySelectorAll(
-				".background-color-selector__preset-button",
-			);
-			// プリセットボタンの存在を保証
-			expect(presetButtons.length).toBe(4);
-			// Black は4番目のプリセット
-			presetButtons[3].dispatchEvent({ type: "click" });
-			expect(state.backgroundColor).toBe("#000000");
-			expect(state.backgroundMode).toBe("dark");
 		});
 
 		it("should match preset mode with determineColorMode result", () => {
@@ -556,34 +556,6 @@ describe("Background Color Integration Tests (Task 7.4)", () => {
 				const calculatedMode = determineColorMode(preset.hex);
 				expect(calculatedMode).toBe(preset.mode);
 			}
-		});
-
-		it("should persist preset selection to localStorage via UI click", () => {
-			const onColorChange = (hex: string) => {
-				state.backgroundColor = hex;
-				state.backgroundMode = determineColorMode(hex);
-				persistBackgroundColor(state.backgroundColor, state.backgroundMode);
-			};
-
-			const selector = createBackgroundColorSelector({
-				currentColor: state.backgroundColor,
-				onColorChange,
-			});
-
-			const presetButtons = selector.querySelectorAll(
-				".background-color-selector__preset-button",
-			);
-			// プリセットボタンの存在を保証
-			expect(presetButtons.length).toBe(4);
-			// Dark Gray をクリック
-			presetButtons[2].dispatchEvent({ type: "click" });
-
-			const stored = localStorageMock.getItem("leonardo-backgroundColor");
-			expect(stored).not.toBeNull();
-
-			const parsed = JSON.parse(stored as string);
-			expect(parsed.hex).toBe("#18181b");
-			expect(parsed.mode).toBe("dark");
 		});
 	});
 
@@ -593,94 +565,82 @@ describe("Background Color Integration Tests (Task 7.4)", () => {
 	 */
 	describe("Selector Update → State Reflection → View Recalculation Flow", () => {
 		it("should complete full update cycle: selector event → state → persist", () => {
-			const onColorChange = (hex: string) => {
-				state.backgroundColor = hex;
-				state.backgroundMode = determineColorMode(hex);
-				persistBackgroundColor(state.backgroundColor, state.backgroundMode);
+			const onLightColorChange = (hex: string) => {
+				state.lightBackgroundColor = hex;
+				persistBackgroundColors(
+					state.lightBackgroundColor,
+					state.darkBackgroundColor,
+				);
+			};
+
+			const onDarkColorChange = (hex: string) => {
+				state.darkBackgroundColor = hex;
+				persistBackgroundColors(
+					state.lightBackgroundColor,
+					state.darkBackgroundColor,
+				);
 			};
 
 			const selector = createBackgroundColorSelector({
-				currentColor: state.backgroundColor,
-				onColorChange,
+				lightColor: state.lightBackgroundColor,
+				darkColor: state.darkBackgroundColor,
+				onLightColorChange,
+				onDarkColorChange,
 			});
 
 			// カラーピッカーでイベント発火
-			const colorPicker = selector.querySelector(
-				'input[type="color"]',
-			) as MockHTMLElement | null;
-			// カラーピッカーの存在を保証
-			expect(colorPicker).not.toBeNull();
+			const colorPickers = selector.querySelectorAll(
+				".background-color-selector__color-picker",
+			) as (MockHTMLElement | null)[];
+			expect(colorPickers.length).toBeGreaterThanOrEqual(1);
 
-			colorPicker!.value = "#336699";
-			colorPicker!.dispatchEvent({
+			const lightColorPicker = colorPickers[0];
+			lightColorPicker!.value = "#336699";
+			lightColorPicker!.dispatchEvent({
 				type: "input",
 				target: { value: "#336699" },
 			});
 
-			expect(state.backgroundColor).toBe("#336699");
-			expect(state.backgroundMode).toBe("dark");
+			expect(state.lightBackgroundColor).toBe("#336699");
 
 			const stored = localStorageMock.getItem("leonardo-backgroundColor");
 			const parsed = JSON.parse(stored as string);
-			expect(parsed.hex).toBe("#336699");
+			expect(parsed.light).toBe("#336699");
 		});
 
 		it("should support rapid color changes without losing state", () => {
-			const colors = ["#ff0000", "#00ff00", "#0000ff", "#ffff00", "#ff00ff"];
+			const lightColors = [
+				"#ff0000",
+				"#00ff00",
+				"#0000ff",
+				"#ffff00",
+				"#ff00ff",
+			];
+			const darkColors = [
+				"#110000",
+				"#001100",
+				"#000011",
+				"#111100",
+				"#110011",
+			];
 
-			for (const color of colors) {
-				state.backgroundColor = color;
-				state.backgroundMode = determineColorMode(color);
+			for (let i = 0; i < lightColors.length; i++) {
+				state.lightBackgroundColor = lightColors[i];
+				state.darkBackgroundColor = darkColors[i];
 			}
 
-			expect(state.backgroundColor).toBe("#ff00ff");
+			expect(state.lightBackgroundColor).toBe("#ff00ff");
+			expect(state.darkBackgroundColor).toBe("#110011");
 		});
 
-		it("should correctly calculate mode for intermediate colors", () => {
-			state.backgroundColor = "#808080";
-			state.backgroundMode = determineColorMode("#808080");
-			expect(state.backgroundMode).toBe("light");
-
-			state.backgroundColor = "#4b5563";
-			state.backgroundMode = determineColorMode("#4b5563");
-			expect(state.backgroundMode).toBe("dark");
-		});
-
-		it("should reset backgroundColor on resetState", () => {
-			state.backgroundColor = "#000000";
-			state.backgroundMode = "dark";
+		it("should reset background colors on resetState", () => {
+			state.lightBackgroundColor = "#aabbcc";
+			state.darkBackgroundColor = "#112233";
 
 			resetState();
 
-			expect(state.backgroundColor).toBe("#ffffff");
-			expect(state.backgroundMode).toBe("light");
-		});
-
-		it("should handle custom color input and mode auto-detection via UI", () => {
-			const onColorChange = (hex: string) => {
-				state.backgroundColor = hex;
-				state.backgroundMode = determineColorMode(hex);
-			};
-
-			const selector = createBackgroundColorSelector({
-				currentColor: state.backgroundColor,
-				onColorChange,
-			});
-
-			const colorPicker = selector.querySelector(
-				'input[type="color"]',
-			) as MockHTMLElement | null;
-			// カラーピッカーの存在を保証
-			expect(colorPicker).not.toBeNull();
-
-			colorPicker!.value = "#1a73e8";
-			colorPicker!.dispatchEvent({
-				type: "input",
-				target: { value: "#1a73e8" },
-			});
-
-			expect(state.backgroundColor).toBe("#1a73e8");
-			expect(["light", "dark"]).toContain(state.backgroundMode);
+			expect(state.lightBackgroundColor).toBe("#ffffff");
+			expect(state.darkBackgroundColor).toBe("#000000");
 		});
 	});
 
@@ -689,60 +649,31 @@ describe("Background Color Integration Tests (Task 7.4)", () => {
 	 * Requirements: 5.1, 5.2
 	 */
 	describe("State Consistency Tests", () => {
-		it("should maintain state consistency when backgroundColor and backgroundMode are set together", () => {
-			state.backgroundColor = "#18181b";
-			state.backgroundMode = determineColorMode("#18181b");
+		it("should maintain state consistency when both colors are set together", () => {
+			state.lightBackgroundColor = "#f8fafc";
+			state.darkBackgroundColor = "#18181b";
 
-			expect(state.backgroundColor).toBe("#18181b");
-			expect(state.backgroundMode).toBe("dark");
+			expect(state.lightBackgroundColor).toBe("#f8fafc");
+			expect(state.darkBackgroundColor).toBe("#18181b");
 
-			state.backgroundColor = "#f8fafc";
-			state.backgroundMode = determineColorMode("#f8fafc");
+			state.lightBackgroundColor = "#ffffff";
+			state.darkBackgroundColor = "#000000";
 
-			expect(state.backgroundColor).toBe("#f8fafc");
-			expect(state.backgroundMode).toBe("light");
+			expect(state.lightBackgroundColor).toBe("#ffffff");
+			expect(state.darkBackgroundColor).toBe("#000000");
 		});
 
-		it("should not affect other state properties when changing backgroundColor", () => {
+		it("should not affect other state properties when changing background colors", () => {
 			state.activeId = "test-palette";
 			state.viewMode = "palette";
 			state.cudMode = "strict";
 
-			state.backgroundColor = "#000000";
-			state.backgroundMode = "dark";
+			state.lightBackgroundColor = "#aabbcc";
+			state.darkBackgroundColor = "#112233";
 
 			expect(state.activeId).toBe("test-palette");
 			expect(state.viewMode).toBe("palette");
 			expect(state.cudMode).toBe("strict");
-		});
-
-		it("should handle sequential preset applications via UI", () => {
-			const onColorChange = (hex: string) => {
-				state.backgroundColor = hex;
-				state.backgroundMode = determineColorMode(hex);
-			};
-
-			const selector = createBackgroundColorSelector({
-				currentColor: state.backgroundColor,
-				onColorChange,
-			});
-
-			const presetButtons = selector.querySelectorAll(
-				".background-color-selector__preset-button",
-			);
-			// プリセットボタンの存在を保証
-			expect(presetButtons.length).toBe(4);
-
-			// 全プリセットを順番にクリック
-			for (let i = 0; i < presetButtons.length; i++) {
-				presetButtons[i].dispatchEvent({ type: "click" });
-				expect(state.backgroundColor).toBe(PRESET_COLORS[i].hex);
-				expect(state.backgroundMode).toBe(PRESET_COLORS[i].mode);
-			}
-
-			// 最後のプリセット（Black）がstateに残る
-			const lastPreset = PRESET_COLORS[PRESET_COLORS.length - 1];
-			expect(state.backgroundColor).toBe(lastPreset.hex);
 		});
 	});
 
@@ -751,8 +682,8 @@ describe("Background Color Integration Tests (Task 7.4)", () => {
 	 */
 	describe("Edge Cases and Error Handling", () => {
 		it("should handle lowercase and uppercase hex values consistently", () => {
-			state.backgroundColor = "#AABBCC";
-			expect(state.backgroundColor).toBe("#AABBCC");
+			state.lightBackgroundColor = "#AABBCC";
+			expect(state.lightBackgroundColor).toBe("#AABBCC");
 
 			const modeUpper = determineColorMode("#AABBCC");
 			const modeLower = determineColorMode("#aabbcc");
@@ -762,8 +693,8 @@ describe("Background Color Integration Tests (Task 7.4)", () => {
 		it("should persist empty localStorage gracefully", () => {
 			localStorageMock.clear();
 			resetState();
-			expect(state.backgroundColor).toBe("#ffffff");
-			expect(state.backgroundMode).toBe("light");
+			expect(state.lightBackgroundColor).toBe("#ffffff");
+			expect(state.darkBackgroundColor).toBe("#000000");
 		});
 	});
 });

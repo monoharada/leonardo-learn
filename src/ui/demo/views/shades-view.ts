@@ -32,7 +32,7 @@ import {
 	determineColorMode,
 	getActivePalette,
 	parseKeyColor,
-	persistBackgroundColor,
+	persistBackgroundColors,
 	state,
 } from "../state";
 import type { ColorDetailModalOptions, CVDType, HarmonyType } from "../types";
@@ -85,25 +85,39 @@ export async function renderShadesView(
 	container.innerHTML = "";
 	container.className = "dads-section";
 
-	// Requirements: 5.5, 5.6 - 背景色をコンテナに適用
-	container.style.backgroundColor = state.backgroundColor;
+	// Requirements: 5.5, 5.6 - ライト背景色をコンテナに適用
+	container.style.backgroundColor = state.lightBackgroundColor;
 
 	// Requirements: 1.1, 5.5 - 背景色セレクターをビュー上部に配置
 	const backgroundSelectorSection = document.createElement("section");
 	backgroundSelectorSection.className = "background-color-selector";
 	const backgroundSelector = createBackgroundColorSelector({
-		currentColor: state.backgroundColor,
-		onColorChange: (hex: string) => {
-			// state.backgroundColorを更新
-			state.backgroundColor = hex;
-			// Requirements: 5.5 - モードを自動判定
-			state.backgroundMode = determineColorMode(hex);
+		lightColor: state.lightBackgroundColor,
+		darkColor: state.darkBackgroundColor,
+		onLightColorChange: (hex: string) => {
+			// ライト背景色を更新
+			state.lightBackgroundColor = hex;
 			// Requirements: 5.5 - localStorageに永続化
-			persistBackgroundColor(hex, state.backgroundMode);
+			persistBackgroundColors(
+				state.lightBackgroundColor,
+				state.darkBackgroundColor,
+			);
 			// コンテナの背景色を更新
 			container.style.backgroundColor = hex;
 			// 再レンダリング（コントラスト値更新のため）
-			// Note: 各スウォッチのコントラスト再計算はrenderDadsHueSectionで実行される
+			void renderShadesView(container, callbacks).catch((err) => {
+				console.error("Failed to re-render shades view:", err);
+			});
+		},
+		onDarkColorChange: (hex: string) => {
+			// ダーク背景色を更新
+			state.darkBackgroundColor = hex;
+			// Requirements: 5.5 - localStorageに永続化
+			persistBackgroundColors(
+				state.lightBackgroundColor,
+				state.darkBackgroundColor,
+			);
+			// 再レンダリング（コントラスト境界の更新のため）
 			void renderShadesView(container, callbacks).catch((err) => {
 				console.error("Failed to re-render shades view:", err);
 			});
@@ -216,11 +230,12 @@ export function renderDadsHueSection(
 		const displayColor = applySimulation(originalColor);
 		swatch.style.backgroundColor = displayColor.toCss();
 		// Requirements: 6.3, 6.4 - モード対応ボーダーと低コントラスト強調
+		const backgroundMode = determineColorMode(state.lightBackgroundColor);
 		applySwatchBorder(
 			swatch,
 			colorItem.hex,
-			state.backgroundColor,
-			state.backgroundMode,
+			state.lightBackgroundColor,
+			backgroundMode,
 		);
 
 		const whiteContrast = verifyContrast(
@@ -328,7 +343,12 @@ export function renderDadsHueSection(
 		scale: item.scale,
 		hex: item.hex,
 	}));
-	const boundaries = calculateBoundaries(colorItems);
+	// ライト/ダーク背景色を渡してコントラスト境界を計算
+	const boundaries = calculateBoundaries(
+		colorItems,
+		state.lightBackgroundColor,
+		state.darkBackgroundColor,
+	);
 	const boundaryContainer = renderBoundaryPills(boundaries, scaleElements);
 	section.appendChild(boundaryContainer);
 }
@@ -367,11 +387,12 @@ export function renderBrandColorSection(
 	const displayColor = applySimulation(originalColor);
 	swatch.style.backgroundColor = displayColor.toCss();
 	// Requirements: 6.3, 6.4 - ブランドスウォッチのモード対応ボーダー
+	const backgroundMode = determineColorMode(state.lightBackgroundColor);
 	applySwatchBorder(
 		swatch,
 		brandHex,
-		state.backgroundColor,
-		state.backgroundMode,
+		state.lightBackgroundColor,
+		backgroundMode,
 	);
 
 	const whiteContrast = verifyContrast(

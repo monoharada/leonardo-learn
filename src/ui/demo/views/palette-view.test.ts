@@ -171,14 +171,14 @@ describe("palette-view module", () => {
 			expect(content).toContain("backgroundColor");
 		});
 
-		it("should use state.backgroundColor for contrast calculations", async () => {
+		it("should use state.lightBackgroundColor for contrast calculations", async () => {
 			const fs = await import("node:fs");
 			const path = await import("node:path");
 			const filePath = path.join(import.meta.dir, "palette-view.ts");
 			const content = fs.readFileSync(filePath, "utf-8");
 
-			// state.backgroundColorを参照
-			expect(content).toContain("state.backgroundColor");
+			// state.lightBackgroundColorを参照
+			expect(content).toContain("state.lightBackgroundColor");
 		});
 
 		it("should reference Requirements 1.1, 5.1 in comments", async () => {
@@ -233,8 +233,8 @@ describe("palette-view module", () => {
 			const filePath = path.join(import.meta.dir, "palette-view.ts");
 			const content = fs.readFileSync(filePath, "utf-8");
 
-			// state.backgroundModeを使用してボーダーを適用
-			expect(content).toContain("state.backgroundMode");
+			// determineColorModeを使用してモードを判定しボーダーを適用
+			expect(content).toContain("determineColorMode");
 		});
 
 		it("should reference Requirements 6.3, 6.4 in comments", async () => {

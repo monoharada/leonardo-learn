@@ -31,7 +31,7 @@ import { createBackgroundColorSelector } from "../background-color-selector";
 import {
 	determineColorMode,
 	parseKeyColor,
-	persistBackgroundColor,
+	persistBackgroundColors,
 	state,
 } from "../state";
 import type { ColorDetailModalOptions, CVDType, PaletteConfig } from "../types";
@@ -101,8 +101,8 @@ function calculateFixedScale(
 } {
 	const isPrimary =
 		palette.name === "Primary" || palette.name?.startsWith("Primary");
-	// Requirements: 5.1 - 背景色はstate.backgroundColorを使用
-	const bgColor = new Color(state.backgroundColor);
+	// Requirements: 5.1 - ライト背景色を使用
+	const bgColor = new Color(state.lightBackgroundColor);
 
 	// Primaryはブランドカラー：シェードなしで単一色のみ返す
 	if (isPrimary) {
@@ -206,11 +206,12 @@ function createPaletteCard(
 	const swatch = document.createElement("div");
 	swatch.className = "dads-card__swatch";
 	swatch.style.backgroundColor = displayColor.toCss();
+	const backgroundMode = determineColorMode(state.lightBackgroundColor);
 	applySwatchBorder(
 		swatch,
 		displayHex,
-		state.backgroundColor,
-		state.backgroundMode,
+		state.lightBackgroundColor,
+		backgroundMode,
 	);
 
 	// 情報セクション
@@ -397,18 +398,32 @@ export async function renderPaletteView(
 	const backgroundSelectorSection = document.createElement("section");
 	backgroundSelectorSection.className = "background-color-selector";
 	const backgroundSelector = createBackgroundColorSelector({
-		currentColor: state.backgroundColor,
-		onColorChange: (hex: string) => {
-			// state.backgroundColorを更新
-			state.backgroundColor = hex;
-			// Requirements: 5.1 - モードを自動判定
-			state.backgroundMode = determineColorMode(hex);
+		lightColor: state.lightBackgroundColor,
+		darkColor: state.darkBackgroundColor,
+		onLightColorChange: (hex: string) => {
+			// ライト背景色を更新
+			state.lightBackgroundColor = hex;
 			// Requirements: 5.1 - localStorageに永続化
-			persistBackgroundColor(hex, state.backgroundMode);
+			persistBackgroundColors(
+				state.lightBackgroundColor,
+				state.darkBackgroundColor,
+			);
 			// コンテナの背景色を更新
 			container.style.backgroundColor = hex;
 			// 再レンダリング（コントラスト値更新のため）
-			// Note: 各スウォッチのコントラスト再計算はcalculateFixedScale, findColorForContrastで実行される
+			void renderPaletteView(container, callbacks).catch((err) => {
+				console.error("Failed to re-render palette view:", err);
+			});
+		},
+		onDarkColorChange: (hex: string) => {
+			// ダーク背景色を更新
+			state.darkBackgroundColor = hex;
+			// Requirements: 5.1 - localStorageに永続化
+			persistBackgroundColors(
+				state.lightBackgroundColor,
+				state.darkBackgroundColor,
+			);
+			// 再レンダリング（コントラスト値更新のため）
 			void renderPaletteView(container, callbacks).catch((err) => {
 				console.error("Failed to re-render palette view:", err);
 			});
@@ -417,8 +432,8 @@ export async function renderPaletteView(
 	backgroundSelectorSection.appendChild(backgroundSelector);
 	container.appendChild(backgroundSelectorSection);
 
-	// Requirements: 5.1 - 背景色変更時にコンテナの背景を更新
-	container.style.backgroundColor = state.backgroundColor;
+	// Requirements: 5.1 - ライト背景色をコンテナの背景に設定
+	container.style.backgroundColor = state.lightBackgroundColor;
 
 	// 各グループをレンダリング
 	for (const [category, palettes] of groupedPalettes) {
@@ -441,8 +456,8 @@ export async function renderPaletteView(
 
 			const { color: hex, step: definedStep } = parseKeyColor(keyColorInput);
 			const originalKeyColor = new Color(hex);
-			// Requirements: 5.1 - 背景色はstate.backgroundColorを使用
-			const bgColor = new Color(state.backgroundColor);
+			// Requirements: 5.1 - ライト背景色を使用
+			const bgColor = new Color(state.lightBackgroundColor);
 
 			let colors: Color[];
 			let keyColorIndex: number;

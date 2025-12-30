@@ -25,11 +25,11 @@ import type {
 export const BACKGROUND_COLOR_STORAGE_KEY = "leonardo-backgroundColor";
 
 /**
- * 背景色の永続化データ形式
+ * 背景色の永続化データ形式（ライト/ダーク両方）
  */
-interface BackgroundColorData {
-	hex: string;
-	mode: ColorMode;
+interface BackgroundColorsData {
+	light: string;
+	dark: string;
 }
 
 /**
@@ -167,13 +167,16 @@ export function determineColorMode(hex: string): ColorMode {
 /**
  * 背景色をlocalStorageに永続化する
  *
- * @param hex HEX形式の背景色
- * @param mode カラーモード
+ * @param lightHex ライト背景色（HEX形式）
+ * @param darkHex ダーク背景色（HEX形式）
  * @see Requirements: 5.3
  */
-export function persistBackgroundColor(hex: string, mode: ColorMode): void {
+export function persistBackgroundColors(
+	lightHex: string,
+	darkHex: string,
+): void {
 	try {
-		const data: BackgroundColorData = { hex, mode };
+		const data: BackgroundColorsData = { light: lightHex, dark: darkHex };
 		localStorage.setItem(BACKGROUND_COLOR_STORAGE_KEY, JSON.stringify(data));
 	} catch {
 		// localStorageが利用できない場合は無視
@@ -183,16 +186,15 @@ export function persistBackgroundColor(hex: string, mode: ColorMode): void {
 /**
  * localStorageから背景色を読み込む
  *
- * 保存されたHEX値を検証し、モードをdetermineColorModeで再計算する。
- * 無効な値の場合はデフォルト値（#ffffff, light）を返す。
+ * 保存されたHEX値を検証し、無効な値の場合はデフォルト値を返す。
  *
- * @returns 背景色データ（hex, mode）
+ * @returns 背景色データ（light, dark）
  * @see Requirements: 5.3, 5.4
  */
-export function loadBackgroundColor(): BackgroundColorData {
-	const defaultValue: BackgroundColorData = {
-		hex: DEFAULT_STATE.backgroundColor,
-		mode: DEFAULT_STATE.backgroundMode,
+export function loadBackgroundColors(): BackgroundColorsData {
+	const defaultValue: BackgroundColorsData = {
+		light: DEFAULT_STATE.lightBackgroundColor,
+		dark: DEFAULT_STATE.darkBackgroundColor,
 	};
 
 	try {
@@ -201,20 +203,39 @@ export function loadBackgroundColor(): BackgroundColorData {
 			return defaultValue;
 		}
 
-		const parsed = JSON.parse(stored) as Partial<BackgroundColorData>;
+		const parsed = JSON.parse(stored) as Record<string, unknown>;
 
-		// hexプロパティの存在とフォーマットを検証
-		if (typeof parsed.hex !== "string" || !isValidHex(parsed.hex)) {
-			return defaultValue;
+		// 新形式 {light, dark} の場合（片方のみでも対応）
+		if ("light" in parsed || "dark" in parsed) {
+			const light =
+				typeof parsed.light === "string" && isValidHex(parsed.light)
+					? parsed.light
+					: defaultValue.light;
+			const dark =
+				typeof parsed.dark === "string" && isValidHex(parsed.dark)
+					? parsed.dark
+					: defaultValue.dark;
+			return { light, dark };
 		}
 
-		// モードをHEX値から再計算
-		const recalculatedMode = determineColorMode(parsed.hex);
+		// 旧形式 {hex, mode} からの移行
+		if (
+			"hex" in parsed &&
+			typeof parsed.hex === "string" &&
+			isValidHex(parsed.hex)
+		) {
+			const hex = parsed.hex;
+			const mode = parsed.mode === "dark" ? "dark" : "light";
+			// 旧形式: hexをmodeに応じてlight/darkに割り当て
+			if (mode === "light") {
+				// ライトモードの背景色として保存されていた
+				return { light: hex, dark: defaultValue.dark };
+			}
+			// ダークモードの背景色として保存されていた
+			return { light: defaultValue.light, dark: hex };
+		}
 
-		return {
-			hex: parsed.hex,
-			mode: recalculatedMode,
-		};
+		return defaultValue;
 	} catch {
 		// JSON.parseエラーやlocalStorageエラー
 		return defaultValue;
@@ -238,8 +259,8 @@ export function loadBackgroundColor(): BackgroundColorData {
  * - cvdSimulation: CVDシミュレーションタイプ
  * - selectedHarmonyConfig: 選択されたハーモニー設定
  * - cudMode: CUD対応モード
- * - backgroundColor: 背景色（HEX形式）
- * - backgroundMode: 背景色モード（light/dark）
+ * - lightBackgroundColor: ライト背景色（HEX形式、デフォルト: #ffffff）
+ * - darkBackgroundColor: ダーク背景色（HEX形式、デフォルト: #000000）
  */
 export const state: DemoState = {
 	palettes: [...DEFAULT_STATE.palettes],
@@ -252,8 +273,8 @@ export const state: DemoState = {
 	cvdSimulation: DEFAULT_STATE.cvdSimulation,
 	selectedHarmonyConfig: DEFAULT_STATE.selectedHarmonyConfig,
 	cudMode: DEFAULT_STATE.cudMode,
-	backgroundColor: DEFAULT_STATE.backgroundColor,
-	backgroundMode: DEFAULT_STATE.backgroundMode,
+	lightBackgroundColor: DEFAULT_STATE.lightBackgroundColor,
+	darkBackgroundColor: DEFAULT_STATE.darkBackgroundColor,
 };
 
 /**
@@ -304,6 +325,6 @@ export function resetState(): void {
 	state.cvdSimulation = DEFAULT_STATE.cvdSimulation;
 	state.selectedHarmonyConfig = DEFAULT_STATE.selectedHarmonyConfig;
 	state.cudMode = DEFAULT_STATE.cudMode;
-	state.backgroundColor = DEFAULT_STATE.backgroundColor;
-	state.backgroundMode = DEFAULT_STATE.backgroundMode;
+	state.lightBackgroundColor = DEFAULT_STATE.lightBackgroundColor;
+	state.darkBackgroundColor = DEFAULT_STATE.darkBackgroundColor;
 }

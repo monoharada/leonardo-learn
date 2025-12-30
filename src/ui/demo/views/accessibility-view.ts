@@ -236,8 +236,8 @@ export function renderAccessibilityView(
 	container.className = "dads-section";
 
 	// Requirements 5.2, 5.5: 画面間での背景色同期
-	// DemoStateの背景色をコンテナに適用（パレット/シェードビューと同期）
-	container.style.backgroundColor = state.backgroundColor;
+	// DemoStateのライト背景色をコンテナに適用（パレット/シェードビューと同期）
+	container.style.backgroundColor = state.lightBackgroundColor;
 
 	// パレットが生成されていない場合
 	if (state.palettes.length === 0) {

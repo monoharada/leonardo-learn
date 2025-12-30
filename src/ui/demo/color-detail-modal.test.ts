@@ -449,6 +449,40 @@ describe("color-detail-modal module", () => {
 				expect(lowResult.level).toBe("error");
 				expect(lowResult.badgeText).toBe("Fail");
 			});
+
+			it("calculateContrastInfo should work with custom background colors", async () => {
+				const { Color } = await import("@/core/color");
+				const { _testHelpers } = await import("./color-detail-modal");
+
+				// Test with dark gray background (#18181b)
+				const darkBgResult = _testHelpers.calculateContrastInfo(
+					new Color("#ffffff"), // foreground: white
+					new Color("#18181b"), // background: dark gray
+				);
+				expect(darkBgResult.ratio).toBeGreaterThan(15); // High contrast
+				expect(darkBgResult.level).toBe("success");
+				expect(darkBgResult.badgeText).toBe("AAA");
+
+				// Test with light gray background (#f8fafc)
+				const lightBgResult = _testHelpers.calculateContrastInfo(
+					new Color("#000000"), // foreground: black
+					new Color("#f8fafc"), // background: light gray
+				);
+				expect(lightBgResult.ratio).toBeGreaterThan(15); // High contrast
+				expect(lightBgResult.level).toBe("success");
+				expect(lightBgResult.badgeText).toBe("AAA");
+			});
+
+			it("updateContrastCard should be callable with custom background hex", async () => {
+				const { _testHelpers } = await import("./color-detail-modal");
+
+				// Verify updateContrastCard function exists
+				expect(_testHelpers.updateContrastCard).toBeDefined();
+				expect(typeof _testHelpers.updateContrastCard).toBe("function");
+
+				// The function signature: (foreground: Color, bgHex: string, prefix: string)
+				// It uses DOM operations, so full testing is done in E2E
+			});
 		});
 
 		describe("readOnly mode", () => {

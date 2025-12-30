@@ -213,14 +213,14 @@ describe("accessibility-view", () => {
 	 * Requirements: 5.2, 5.5
 	 */
 	describe("background color synchronization (Task 5.3)", () => {
-		it("should use state.backgroundColor for container background", async () => {
+		it("should use state.lightBackgroundColor for container background", async () => {
 			const fs = await import("node:fs");
 			const path = await import("node:path");
 			const filePath = path.join(import.meta.dir, "accessibility-view.ts");
 			const content = fs.readFileSync(filePath, "utf-8");
 
-			// state.backgroundColorを参照してコンテナ背景色を設定
-			expect(content).toContain("state.backgroundColor");
+			// state.lightBackgroundColorを参照してコンテナ背景色を設定
+			expect(content).toContain("state.lightBackgroundColor");
 		});
 
 		it("should apply background color to container element", async () => {

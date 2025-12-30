@@ -180,14 +180,14 @@ describe("shades-view", () => {
 			expect(content).toContain("container.style.backgroundColor");
 		});
 
-		it("should use state.backgroundColor for background color", async () => {
+		it("should use state.lightBackgroundColor for background color", async () => {
 			const fs = await import("node:fs");
 			const path = await import("node:path");
 			const filePath = path.join(import.meta.dir, "shades-view.ts");
 			const content = fs.readFileSync(filePath, "utf-8");
 
-			// state.backgroundColorを参照
-			expect(content).toContain("state.backgroundColor");
+			// state.lightBackgroundColorを参照
+			expect(content).toContain("state.lightBackgroundColor");
 		});
 
 		it("should reference Requirements 5.5, 5.6 in comments", async () => {
@@ -221,14 +221,14 @@ describe("shades-view", () => {
 			expect(content).toContain("determineColorMode");
 		});
 
-		it("should update background mode on color change", async () => {
+		it("should use determineColorMode for mode detection", async () => {
 			const fs = await import("node:fs");
 			const path = await import("node:path");
 			const filePath = path.join(import.meta.dir, "shades-view.ts");
 			const content = fs.readFileSync(filePath, "utf-8");
 
-			// モード判定の呼び出し
-			expect(content).toContain("state.backgroundMode");
+			// determineColorModeでモードを判定
+			expect(content).toContain("determineColorMode");
 		});
 
 		it("should re-render view on background color change", async () => {
@@ -248,8 +248,8 @@ describe("shades-view", () => {
 			const content = fs.readFileSync(filePath, "utf-8");
 
 			// ホバー時のコントラスト計算で背景色を使用
-			// verifyContrastの第2引数でstate.backgroundColorを使用
-			expect(content).toContain("state.backgroundColor");
+			// verifyContrastの第2引数でstate.lightBackgroundColorを使用
+			expect(content).toContain("state.lightBackgroundColor");
 		});
 	});
 
@@ -274,8 +274,8 @@ describe("shades-view", () => {
 			const filePath = path.join(import.meta.dir, "shades-view.ts");
 			const content = fs.readFileSync(filePath, "utf-8");
 
-			// state.backgroundModeを使用してボーダーを適用
-			expect(content).toContain("state.backgroundMode");
+			// determineColorModeを使用してモードを判定しボーダーを適用
+			expect(content).toContain("determineColorMode");
 		});
 
 		it("should reference Requirements 6.3, 6.4 in comments", async () => {

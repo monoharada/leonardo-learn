@@ -516,18 +516,18 @@ describe("ContrastBoundaryIndicator", () => {
 
 			const container = renderBoundaryPills(boundaries, scaleElements);
 
-			// 2行構造を確認
+			// 2行構造を確認（ライト背景、ダーク背景）
 			const rows = container.querySelectorAll(".dads-contrast-boundary__row");
 			expect(rows.length).toBe(2);
 
-			// 上段（白背景用）にoutlineピルが配置されていること
+			// 上段（ライト背景用）にoutlineピルが配置されていること
 			const whiteRow = rows[0];
 			const whitePills = whiteRow?.querySelectorAll(
 				".dads-contrast-pill--outline",
 			);
 			expect(whitePills?.length).toBe(2);
 
-			// 下段（黒背景用）にfilledピルが配置されていること
+			// 下段（ダーク背景用）にfilledピルが配置されていること
 			const blackRow = rows[1];
 			const blackPills = blackRow?.querySelectorAll(
 				".dads-contrast-pill--filled",
@@ -549,7 +549,7 @@ describe("ContrastBoundaryIndicator", () => {
 
 			const container = renderBoundaryPills(boundaries, scaleElements);
 
-			// 2行構造が存在すること
+			// 2行構造が存在すること（ライト背景、ダーク背景）
 			const rows = container.querySelectorAll(".dads-contrast-boundary__row");
 			expect(rows.length).toBe(2);
 

@@ -97,6 +97,6 @@ export const DEFAULT_STATE: DemoState = {
 	cvdSimulation: "normal",
 	selectedHarmonyConfig: null,
 	cudMode: "guide",
-	backgroundColor: "#ffffff",
-	backgroundMode: "light",
+	lightBackgroundColor: "#ffffff",
+	darkBackgroundColor: "#000000",
 };

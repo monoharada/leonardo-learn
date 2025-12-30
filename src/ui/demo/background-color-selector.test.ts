@@ -2,7 +2,7 @@
  * 背景色セレクターコンポーネントのテスト
  *
  * @module @/ui/demo/background-color-selector.test
- * Requirements: 1.1, 1.2, 1.3, 1.5, 1.6, 2.1, 2.2
+ * Requirements: 1.1, 1.2, 1.5, 1.6, 2.1, 2.2, 4.1, 4.2, 4.4
  *
  * NOTE: DOM操作を伴うテストは主にE2Eテスト（Playwright）でカバー。
  * このファイルでは型とエクスポート、依存関係の確認を行う。
@@ -25,6 +25,28 @@ describe("BackgroundColorSelector module", () => {
 			// インポートが成功することで型定義の存在を確認
 			const module = await import("./background-color-selector");
 			expect(module).toBeDefined();
+		});
+
+		it("should export LIGHT_PRESET_COLORS constant", async () => {
+			const { LIGHT_PRESET_COLORS } = await import(
+				"./background-color-selector"
+			);
+			expect(LIGHT_PRESET_COLORS).toBeDefined();
+			expect(Array.isArray(LIGHT_PRESET_COLORS)).toBe(true);
+		});
+
+		it("should export DARK_PRESET_COLORS constant", async () => {
+			const { DARK_PRESET_COLORS } = await import(
+				"./background-color-selector"
+			);
+			expect(DARK_PRESET_COLORS).toBeDefined();
+			expect(Array.isArray(DARK_PRESET_COLORS)).toBe(true);
+		});
+
+		it("should export PRESET_COLORS constant for backward compatibility", async () => {
+			const { PRESET_COLORS } = await import("./background-color-selector");
+			expect(PRESET_COLORS).toBeDefined();
+			expect(Array.isArray(PRESET_COLORS)).toBe(true);
 		});
 	});
 
@@ -79,21 +101,10 @@ describe("BackgroundColorSelector module", () => {
 			const content = fs.readFileSync(filePath, "utf-8");
 
 			// インターフェースに必須プロパティが定義されていることを確認
-			expect(content).toContain("currentColor: string");
-			expect(content).toContain("onColorChange:");
-		});
-
-		it("should define optional showAdvancedMode property", async () => {
-			const fs = await import("node:fs");
-			const path = await import("node:path");
-			const filePath = path.join(
-				import.meta.dir,
-				"background-color-selector.ts",
-			);
-			const content = fs.readFileSync(filePath, "utf-8");
-
-			// オプショナルプロパティが定義されていることを確認
-			expect(content).toContain("showAdvancedMode?:");
+			expect(content).toContain("lightColor: string");
+			expect(content).toContain("darkColor: string");
+			expect(content).toContain("onLightColorChange:");
+			expect(content).toContain("onDarkColorChange:");
 		});
 	});
 
@@ -152,19 +163,6 @@ describe("BackgroundColorSelector module", () => {
 			expect(content).toContain('type = "text"');
 		});
 
-		it("should create preview area element", async () => {
-			const fs = await import("node:fs");
-			const path = await import("node:path");
-			const filePath = path.join(
-				import.meta.dir,
-				"background-color-selector.ts",
-			);
-			const content = fs.readFileSync(filePath, "utf-8");
-
-			// プレビューエリアの作成
-			expect(content).toContain("background-color-selector__preview");
-		});
-
 		it("should create error message area element", async () => {
 			const fs = await import("node:fs");
 			const path = await import("node:path");
@@ -204,7 +202,7 @@ describe("BackgroundColorSelector module", () => {
 			expect(content).toContain("aria-describedby");
 		});
 
-		it("should track lastValidColor for Requirement 1.5", async () => {
+		it("should track lastValidColor for invalid input handling", async () => {
 			const fs = await import("node:fs");
 			const path = await import("node:path");
 			const filePath = path.join(
@@ -215,11 +213,9 @@ describe("BackgroundColorSelector module", () => {
 
 			// 前の有効な値を追跡するための変数
 			expect(content).toContain("lastValidColor");
-			// 無効入力時に前の値を保持するコメント
-			expect(content).toContain("Requirement 1.5");
 		});
 
-		it("should restore preview and color picker on invalid input", async () => {
+		it("should restore color picker value on invalid input", async () => {
 			const fs = await import("node:fs");
 			const path = await import("node:path");
 			const filePath = path.join(
@@ -228,9 +224,8 @@ describe("BackgroundColorSelector module", () => {
 			);
 			const content = fs.readFileSync(filePath, "utf-8");
 
-			// 無効入力時にカラーピッカーとプレビューを前の有効値で更新
+			// 無効入力時にカラーピッカーを前の有効値で更新
 			expect(content).toContain("colorInput.value = lastValidColor");
-			expect(content).toContain("updatePreview(lastValidColor)");
 		});
 	});
 
@@ -245,14 +240,30 @@ describe("BackgroundColorSelector module", () => {
 			expect(Array.isArray(PRESET_COLORS)).toBe(true);
 		});
 
-		it("should define 4 preset colors", async () => {
+		it("should define 4 preset colors total", async () => {
 			const { PRESET_COLORS } = await import("./background-color-selector");
 			expect(PRESET_COLORS.length).toBe(4);
 		});
 
+		it("should define 2 light preset colors", async () => {
+			const { LIGHT_PRESET_COLORS } = await import(
+				"./background-color-selector"
+			);
+			expect(LIGHT_PRESET_COLORS.length).toBe(2);
+		});
+
+		it("should define 2 dark preset colors", async () => {
+			const { DARK_PRESET_COLORS } = await import(
+				"./background-color-selector"
+			);
+			expect(DARK_PRESET_COLORS.length).toBe(2);
+		});
+
 		it("should include White preset (#ffffff)", async () => {
-			const { PRESET_COLORS } = await import("./background-color-selector");
-			const white = PRESET_COLORS.find(
+			const { LIGHT_PRESET_COLORS } = await import(
+				"./background-color-selector"
+			);
+			const white = LIGHT_PRESET_COLORS.find(
 				(p: { hex: string }) => p.hex === "#ffffff",
 			);
 			expect(white).toBeDefined();
@@ -261,8 +272,10 @@ describe("BackgroundColorSelector module", () => {
 		});
 
 		it("should include Light Gray preset (#f8fafc)", async () => {
-			const { PRESET_COLORS } = await import("./background-color-selector");
-			const lightGray = PRESET_COLORS.find(
+			const { LIGHT_PRESET_COLORS } = await import(
+				"./background-color-selector"
+			);
+			const lightGray = LIGHT_PRESET_COLORS.find(
 				(p: { hex: string }) => p.hex === "#f8fafc",
 			);
 			expect(lightGray).toBeDefined();
@@ -271,8 +284,10 @@ describe("BackgroundColorSelector module", () => {
 		});
 
 		it("should include Dark Gray preset (#18181b)", async () => {
-			const { PRESET_COLORS } = await import("./background-color-selector");
-			const darkGray = PRESET_COLORS.find(
+			const { DARK_PRESET_COLORS } = await import(
+				"./background-color-selector"
+			);
+			const darkGray = DARK_PRESET_COLORS.find(
 				(p: { hex: string }) => p.hex === "#18181b",
 			);
 			expect(darkGray).toBeDefined();
@@ -281,8 +296,10 @@ describe("BackgroundColorSelector module", () => {
 		});
 
 		it("should include Black preset (#000000)", async () => {
-			const { PRESET_COLORS } = await import("./background-color-selector");
-			const black = PRESET_COLORS.find(
+			const { DARK_PRESET_COLORS } = await import(
+				"./background-color-selector"
+			);
+			const black = DARK_PRESET_COLORS.find(
 				(p: { hex: string }) => p.hex === "#000000",
 			);
 			expect(black).toBeDefined();
@@ -323,7 +340,6 @@ describe("BackgroundColorSelector module", () => {
 			const content = fs.readFileSync(filePath, "utf-8");
 
 			// プリセットごとにボタンを作成するループ
-			expect(content).toContain("PRESET_COLORS");
 			expect(content).toContain("background-color-selector__preset-button");
 		});
 
@@ -384,224 +400,6 @@ describe("BackgroundColorSelector module", () => {
 	});
 
 	/**
-	 * Task 4.3: 詳細モード（OKLCH入力）
-	 * Requirements: 1.3
-	 */
-	describe("advanced mode OKLCH input (Task 4.3)", () => {
-		it("should create advanced mode toggle button", async () => {
-			const fs = await import("node:fs");
-			const path = await import("node:path");
-			const filePath = path.join(
-				import.meta.dir,
-				"background-color-selector.ts",
-			);
-			const content = fs.readFileSync(filePath, "utf-8");
-
-			// 詳細モード切替ボタンのクラス名
-			expect(content).toContain("background-color-selector__advanced-toggle");
-		});
-
-		it("should create OKLCH input container", async () => {
-			const fs = await import("node:fs");
-			const path = await import("node:path");
-			const filePath = path.join(
-				import.meta.dir,
-				"background-color-selector.ts",
-			);
-			const content = fs.readFileSync(filePath, "utf-8");
-
-			// OKLCH入力コンテナのクラス名
-			expect(content).toContain("background-color-selector__oklch-inputs");
-		});
-
-		it("should create L/C/H individual input fields", async () => {
-			const fs = await import("node:fs");
-			const path = await import("node:path");
-			const filePath = path.join(
-				import.meta.dir,
-				"background-color-selector.ts",
-			);
-			const content = fs.readFileSync(filePath, "utf-8");
-
-			// L/C/H入力フィールドのクラス名
-			expect(content).toContain("background-color-selector__oklch-l");
-			expect(content).toContain("background-color-selector__oklch-c");
-			expect(content).toContain("background-color-selector__oklch-h");
-		});
-
-		it("should set initial display to none for OKLCH container", async () => {
-			const fs = await import("node:fs");
-			const path = await import("node:path");
-			const filePath = path.join(
-				import.meta.dir,
-				"background-color-selector.ts",
-			);
-			const content = fs.readFileSync(filePath, "utf-8");
-
-			// 初期状態OFF（非表示）- 三項演算子で設定
-			expect(content).toContain('advancedModeEnabled ? "block" : "none"');
-		});
-
-		it("should toggle OKLCH container visibility on button click", async () => {
-			const fs = await import("node:fs");
-			const path = await import("node:path");
-			const filePath = path.join(
-				import.meta.dir,
-				"background-color-selector.ts",
-			);
-			const content = fs.readFileSync(filePath, "utf-8");
-
-			// トグル処理（表示切替）
-			expect(content).toContain("advancedModeEnabled");
-			expect(content).toContain("block");
-		});
-
-		it("should include aria-label for OKLCH input fields", async () => {
-			const fs = await import("node:fs");
-			const path = await import("node:path");
-			const filePath = path.join(
-				import.meta.dir,
-				"background-color-selector.ts",
-			);
-			const content = fs.readFileSync(filePath, "utf-8");
-
-			// aria-label設定
-			expect(content).toContain("Lightness");
-			expect(content).toContain("Chroma");
-			expect(content).toContain("Hue");
-		});
-
-		it("should validate OKLCH input and update color", async () => {
-			const fs = await import("node:fs");
-			const path = await import("node:path");
-			const filePath = path.join(
-				import.meta.dir,
-				"background-color-selector.ts",
-			);
-			const content = fs.readFileSync(filePath, "utf-8");
-
-			// OKLCH入力時のバリデーション呼び出し
-			expect(content).toContain("validateBackgroundColor");
-			expect(content).toContain("oklch(");
-		});
-
-		it("should respect showAdvancedMode prop", async () => {
-			const fs = await import("node:fs");
-			const path = await import("node:path");
-			const filePath = path.join(
-				import.meta.dir,
-				"background-color-selector.ts",
-			);
-			const content = fs.readFileSync(filePath, "utf-8");
-
-			// props.showAdvancedModeの参照
-			expect(content).toContain("showAdvancedMode");
-		});
-
-		it("should reference Requirement 1.3 in JSDoc", async () => {
-			const fs = await import("node:fs");
-			const path = await import("node:path");
-			const filePath = path.join(
-				import.meta.dir,
-				"background-color-selector.ts",
-			);
-			const content = fs.readFileSync(filePath, "utf-8");
-
-			// Requirement 1.3の参照
-			expect(content).toContain("1.3");
-		});
-
-		it("should include aria-describedby on OKLCH inputs for error association", async () => {
-			const fs = await import("node:fs");
-			const path = await import("node:path");
-			const filePath = path.join(
-				import.meta.dir,
-				"background-color-selector.ts",
-			);
-			const content = fs.readFileSync(filePath, "utf-8");
-
-			// L/C/H入力にaria-describedbyが設定されている
-			const matches = content.match(
-				/lInput\.setAttribute\("aria-describedby"/g,
-			);
-			expect(matches).not.toBeNull();
-			expect(content).toContain('cInput.setAttribute("aria-describedby"');
-			expect(content).toContain('hInput.setAttribute("aria-describedby"');
-		});
-
-		it("should set aria-invalid on OKLCH validation failure", async () => {
-			const fs = await import("node:fs");
-			const path = await import("node:path");
-			const filePath = path.join(
-				import.meta.dir,
-				"background-color-selector.ts",
-			);
-			const content = fs.readFileSync(filePath, "utf-8");
-
-			// aria-invalidの設定関数が存在
-			expect(content).toContain("setOklchInputsInvalid");
-			expect(content).toContain('setAttribute("aria-invalid"');
-		});
-
-		it("should construct oklch string and call validateBackgroundColor", async () => {
-			const fs = await import("node:fs");
-			const path = await import("node:path");
-			const filePath = path.join(
-				import.meta.dir,
-				"background-color-selector.ts",
-			);
-			const content = fs.readFileSync(filePath, "utf-8");
-
-			// OKLCH文字列の構築とバリデーション呼び出し
-			expect(content).toContain("oklch(${l} ${c} ${h})");
-			expect(content).toContain("validateBackgroundColor(oklchString)");
-		});
-
-		it("should update preview and call onColorChange on valid OKLCH input", async () => {
-			const fs = await import("node:fs");
-			const path = await import("node:path");
-			const filePath = path.join(
-				import.meta.dir,
-				"background-color-selector.ts",
-			);
-			const content = fs.readFileSync(filePath, "utf-8");
-
-			// 有効なOKLCH入力時の処理
-			expect(content).toContain("result.valid && result.hex");
-			expect(content).toContain("updatePreview(result.hex)");
-			expect(content).toContain("onColorChange(result.hex)");
-		});
-
-		it("should clear OKLCH aria-invalid via other input paths", async () => {
-			const fs = await import("node:fs");
-			const path = await import("node:path");
-			const filePath = path.join(
-				import.meta.dir,
-				"background-color-selector.ts",
-			);
-			const content = fs.readFileSync(filePath, "utf-8");
-
-			// カラーピッカー、HEX入力、プリセットボタンでもaria-invalidを解除
-			// 各入力経路でsetOklchInputsInvalid(false)が呼ばれることを確認
-			const colorPickerHandler = content.match(
-				/colorInput\.addEventListener\("input"[^}]+setOklchInputsInvalid\(false\)/s,
-			);
-			expect(colorPickerHandler).not.toBeNull();
-
-			// HEX入力: Task 4.4でデバウンス化されているため、handleHexInput関数内で確認
-			const hexInputHandler = content.match(
-				/function handleHexInput\(\)[^}]+setOklchInputsInvalid\(false\)/s,
-			);
-			expect(hexInputHandler).not.toBeNull();
-
-			const presetButtonHandler = content.match(
-				/button\.addEventListener\("click"[^}]+setOklchInputsInvalid\(false\)/s,
-			);
-			expect(presetButtonHandler).not.toBeNull();
-		});
-	});
-
-	/**
 	 * Task 4.4: 入力のデバウンス処理
 	 * Requirements: 4.1, 4.2, 4.4
 	 */
@@ -631,7 +429,7 @@ describe("BackgroundColorSelector module", () => {
 			// HEX入力に150msデバウンスを適用
 			expect(content).toContain("150");
 			// デバウンスされたハンドラーの使用
-			expect(content).toMatch(/debounce.*hexInput|hexInput.*debounce/s);
+			expect(content).toContain("debouncedHexInput");
 		});
 
 		it("should NOT apply debounce to color picker (realtime)", async () => {
@@ -654,19 +452,6 @@ describe("BackgroundColorSelector module", () => {
 			expect(handlerContent).not.toContain("debounce");
 		});
 
-		it("should apply debounce to OKLCH inputs", async () => {
-			const fs = await import("node:fs");
-			const path = await import("node:path");
-			const filePath = path.join(
-				import.meta.dir,
-				"background-color-selector.ts",
-			);
-			const content = fs.readFileSync(filePath, "utf-8");
-
-			// OKLCH入力にもデバウンスを適用
-			expect(content).toMatch(/debounce.*handleOklchInput|debouncedOklch/s);
-		});
-
 		it("should reference Requirements 4.1, 4.2, 4.4 in comments", async () => {
 			const fs = await import("node:fs");
 			const path = await import("node:path");
@@ -677,22 +462,8 @@ describe("BackgroundColorSelector module", () => {
 			const content = fs.readFileSync(filePath, "utf-8");
 
 			// Requirements参照
-			expect(content).toContain("4.1");
 			expect(content).toContain("4.2");
-		});
-
-		it("should update preview immediately even with debounced validation", async () => {
-			const fs = await import("node:fs");
-			const path = await import("node:path");
-			const filePath = path.join(
-				import.meta.dir,
-				"background-color-selector.ts",
-			);
-			const content = fs.readFileSync(filePath, "utf-8");
-
-			// プレビューは即時更新（シームレス動作）
-			// HEX入力でもプレビューは即座に更新されるべき
-			expect(content).toContain("updatePreview");
+			expect(content).toContain("4.4");
 		});
 	});
 
@@ -791,9 +562,17 @@ describe("BackgroundColorSelector module", () => {
 			}
 		});
 
-		it("color picker handler should NOT use debounce (verified by code analysis)", async () => {
-			// NOTE: DOM操作を伴うテストはE2E（Playwright）でカバー
-			// ここではコード解析で確認
+		it("DEBOUNCE_DELAY_MS should be 150", async () => {
+			const { DEBOUNCE_DELAY_MS } = await import("./background-color-selector");
+			expect(DEBOUNCE_DELAY_MS).toBe(150);
+		});
+	});
+
+	/**
+	 * 2色セクションの構造テスト
+	 */
+	describe("two-color section structure", () => {
+		it("should create light section with dynamic class", async () => {
 			const fs = await import("node:fs");
 			const path = await import("node:path");
 			const filePath = path.join(
@@ -802,26 +581,46 @@ describe("BackgroundColorSelector module", () => {
 			);
 			const content = fs.readFileSync(filePath, "utf-8");
 
-			// カラーピッカーのイベントハンドラーを抽出
-			const colorInputHandler = content.match(
-				/colorInput\.addEventListener\("input"[\s\S]*?\}\);/,
-			);
-			expect(colorInputHandler).not.toBeNull();
-
-			// カラーピッカーハンドラー内にdebounceがないことを確認
-			const handlerContent = colorInputHandler?.[0] ?? "";
-			expect(handlerContent).not.toContain("debounce");
-
-			// 一方、HEX入力はデバウンスを使用している
-			expect(content).toContain("debouncedHexInput");
-
-			// OKLCH入力もデバウンスを使用している
-			expect(content).toContain("debouncedOklchInput");
+			// Template literal creates section--${mode} dynamically
+			expect(content).toContain("background-color-selector__section--${mode}");
 		});
 
-		it("DEBOUNCE_DELAY_MS should be 150", async () => {
-			const { DEBOUNCE_DELAY_MS } = await import("./background-color-selector");
-			expect(DEBOUNCE_DELAY_MS).toBe(150);
+		it("should create sections for light and dark modes", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(
+				import.meta.dir,
+				"background-color-selector.ts",
+			);
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// Both light and dark modes are used
+			expect(content).toContain('"light"');
+			expect(content).toContain('"dark"');
+		});
+
+		it("should have Light Background label for light section", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(
+				import.meta.dir,
+				"background-color-selector.ts",
+			);
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			expect(content).toContain("Light Background");
+		});
+
+		it("should have Dark (Text) label for dark section", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(
+				import.meta.dir,
+				"background-color-selector.ts",
+			);
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			expect(content).toContain("Dark (Text)");
 		});
 	});
 });

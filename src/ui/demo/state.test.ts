@@ -5,21 +5,21 @@
  * Requirements: 1.1, 1.2, 1.3, 1.4, 5.3, 5.4
  */
 
-import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { HarmonyType } from "@/core/harmony";
 import { DEFAULT_STATE } from "./constants";
 import {
 	BACKGROUND_COLOR_STORAGE_KEY,
 	determineColorMode,
 	getActivePalette,
-	loadBackgroundColor,
+	loadBackgroundColors,
 	parseKeyColor,
-	persistBackgroundColor,
+	persistBackgroundColors,
 	resetState,
 	state,
 	validateBackgroundColor,
 } from "./state";
-import type { ColorMode, PaletteConfig } from "./types";
+import type { PaletteConfig } from "./types";
 
 /**
  * localStorageのモック実装
@@ -76,12 +76,12 @@ describe("state module", () => {
 			expect(state.cudMode).toBe("guide");
 		});
 
-		it("should have default backgroundColor as #ffffff", () => {
-			expect(state.backgroundColor).toBe("#ffffff");
+		it("should have default lightBackgroundColor as #ffffff", () => {
+			expect(state.lightBackgroundColor).toBe("#ffffff");
 		});
 
-		it("should have default backgroundMode as light", () => {
-			expect(state.backgroundMode).toBe("light");
+		it("should have default darkBackgroundColor as #000000", () => {
+			expect(state.darkBackgroundColor).toBe("#000000");
 		});
 
 		it("should allow mutation of state properties", () => {
@@ -95,14 +95,14 @@ describe("state module", () => {
 			expect(state.activeHarmonyIndex).toBe(2);
 		});
 
-		it("should allow mutation of backgroundColor", () => {
-			state.backgroundColor = "#000000";
-			expect(state.backgroundColor).toBe("#000000");
+		it("should allow mutation of lightBackgroundColor", () => {
+			state.lightBackgroundColor = "#f8fafc";
+			expect(state.lightBackgroundColor).toBe("#f8fafc");
 		});
 
-		it("should allow mutation of backgroundMode", () => {
-			state.backgroundMode = "dark";
-			expect(state.backgroundMode).toBe("dark");
+		it("should allow mutation of darkBackgroundColor", () => {
+			state.darkBackgroundColor = "#18181b";
+			expect(state.darkBackgroundColor).toBe("#18181b");
 		});
 	});
 
@@ -128,17 +128,17 @@ describe("state module", () => {
 			expect(state.palettes).toEqual([]);
 		});
 
-		it("should reset backgroundColor and backgroundMode to default values", () => {
+		it("should reset lightBackgroundColor and darkBackgroundColor to default values", () => {
 			// Modify background color state
-			state.backgroundColor = "#18181b";
-			state.backgroundMode = "dark";
+			state.lightBackgroundColor = "#f8fafc";
+			state.darkBackgroundColor = "#18181b";
 
 			// Reset
 			resetState();
 
 			// Verify reset to default values
-			expect(state.backgroundColor).toBe("#ffffff");
-			expect(state.backgroundMode).toBe("light");
+			expect(state.lightBackgroundColor).toBe("#ffffff");
+			expect(state.darkBackgroundColor).toBe("#000000");
 		});
 	});
 
@@ -557,7 +557,7 @@ describe("state module", () => {
 		});
 	});
 
-	describe("persistBackgroundColor", () => {
+	describe("persistBackgroundColors", () => {
 		beforeEach(() => {
 			localStorage.clear();
 		});
@@ -566,38 +566,38 @@ describe("state module", () => {
 			localStorage.clear();
 		});
 
-		it("should save backgroundColor and mode to localStorage as JSON", () => {
-			persistBackgroundColor("#18181b", "dark");
+		it("should save light and dark colors to localStorage as JSON", () => {
+			persistBackgroundColors("#f8fafc", "#18181b");
 
 			const stored = localStorage.getItem(BACKGROUND_COLOR_STORAGE_KEY);
 			expect(stored).not.toBeNull();
 
 			const parsed = JSON.parse(stored!);
-			expect(parsed.hex).toBe("#18181b");
-			expect(parsed.mode).toBe("dark");
+			expect(parsed.light).toBe("#f8fafc");
+			expect(parsed.dark).toBe("#18181b");
 		});
 
-		it("should save light mode correctly", () => {
-			persistBackgroundColor("#ffffff", "light");
+		it("should save default values correctly", () => {
+			persistBackgroundColors("#ffffff", "#000000");
 
 			const stored = localStorage.getItem(BACKGROUND_COLOR_STORAGE_KEY);
 			const parsed = JSON.parse(stored!);
-			expect(parsed.hex).toBe("#ffffff");
-			expect(parsed.mode).toBe("light");
+			expect(parsed.light).toBe("#ffffff");
+			expect(parsed.dark).toBe("#000000");
 		});
 
 		it("should overwrite previous value", () => {
-			persistBackgroundColor("#ffffff", "light");
-			persistBackgroundColor("#000000", "dark");
+			persistBackgroundColors("#ffffff", "#000000");
+			persistBackgroundColors("#f8fafc", "#18181b");
 
 			const stored = localStorage.getItem(BACKGROUND_COLOR_STORAGE_KEY);
 			const parsed = JSON.parse(stored!);
-			expect(parsed.hex).toBe("#000000");
-			expect(parsed.mode).toBe("dark");
+			expect(parsed.light).toBe("#f8fafc");
+			expect(parsed.dark).toBe("#18181b");
 		});
 	});
 
-	describe("loadBackgroundColor", () => {
+	describe("loadBackgroundColors", () => {
 		beforeEach(() => {
 			localStorage.clear();
 		});
@@ -607,88 +607,73 @@ describe("state module", () => {
 		});
 
 		it("should return default values when localStorage is empty", () => {
-			const result = loadBackgroundColor();
-			expect(result.hex).toBe("#ffffff");
-			expect(result.mode).toBe("light");
+			const result = loadBackgroundColors();
+			expect(result.light).toBe("#ffffff");
+			expect(result.dark).toBe("#000000");
 		});
 
 		it("should restore valid values from localStorage", () => {
 			localStorage.setItem(
 				BACKGROUND_COLOR_STORAGE_KEY,
-				JSON.stringify({ hex: "#18181b", mode: "dark" }),
+				JSON.stringify({ light: "#f8fafc", dark: "#18181b" }),
 			);
 
-			const result = loadBackgroundColor();
-			expect(result.hex).toBe("#18181b");
-			expect(result.mode).toBe("dark");
+			const result = loadBackgroundColors();
+			expect(result.light).toBe("#f8fafc");
+			expect(result.dark).toBe("#18181b");
 		});
 
 		it("should return default values for invalid JSON", () => {
 			localStorage.setItem(BACKGROUND_COLOR_STORAGE_KEY, "invalid-json");
 
-			const result = loadBackgroundColor();
-			expect(result.hex).toBe("#ffffff");
-			expect(result.mode).toBe("light");
+			const result = loadBackgroundColors();
+			expect(result.light).toBe("#ffffff");
+			expect(result.dark).toBe("#000000");
 		});
 
 		it("should return default values for invalid hex format", () => {
 			localStorage.setItem(
 				BACKGROUND_COLOR_STORAGE_KEY,
-				JSON.stringify({ hex: "not-a-hex", mode: "light" }),
+				JSON.stringify({ light: "not-a-hex", dark: "#18181b" }),
 			);
 
-			const result = loadBackgroundColor();
-			expect(result.hex).toBe("#ffffff");
-			expect(result.mode).toBe("light");
+			const result = loadBackgroundColors();
+			expect(result.light).toBe("#ffffff");
+			expect(result.dark).toBe("#18181b");
 		});
 
-		it("should return default values for missing hex property", () => {
+		it("should return default values for missing light property", () => {
 			localStorage.setItem(
 				BACKGROUND_COLOR_STORAGE_KEY,
-				JSON.stringify({ mode: "dark" }),
+				JSON.stringify({ dark: "#18181b" }),
 			);
 
-			const result = loadBackgroundColor();
-			expect(result.hex).toBe("#ffffff");
-			expect(result.mode).toBe("light");
+			const result = loadBackgroundColors();
+			expect(result.light).toBe("#ffffff");
+			expect(result.dark).toBe("#18181b");
 		});
 
-		it("should recalculate mode using determineColorMode when loading", () => {
-			// Store a dark color but with incorrect mode
+		it("should return default values for missing dark property", () => {
 			localStorage.setItem(
 				BACKGROUND_COLOR_STORAGE_KEY,
-				JSON.stringify({ hex: "#000000", mode: "light" }),
+				JSON.stringify({ light: "#f8fafc" }),
 			);
 
-			const result = loadBackgroundColor();
-			// Mode should be recalculated based on hex value
-			expect(result.hex).toBe("#000000");
-			expect(result.mode).toBe("dark");
-		});
-
-		it("should recalculate mode for light color correctly", () => {
-			// Store a light color but with incorrect mode
-			localStorage.setItem(
-				BACKGROUND_COLOR_STORAGE_KEY,
-				JSON.stringify({ hex: "#ffffff", mode: "dark" }),
-			);
-
-			const result = loadBackgroundColor();
-			// Mode should be recalculated based on hex value
-			expect(result.hex).toBe("#ffffff");
-			expect(result.mode).toBe("light");
+			const result = loadBackgroundColors();
+			expect(result.light).toBe("#f8fafc");
+			expect(result.dark).toBe("#000000");
 		});
 
 		it("should handle 3-character hex format", () => {
 			localStorage.setItem(
 				BACKGROUND_COLOR_STORAGE_KEY,
-				JSON.stringify({ hex: "#fff", mode: "light" }),
+				JSON.stringify({ light: "#fff", dark: "#000" }),
 			);
 
-			const result = loadBackgroundColor();
+			const result = loadBackgroundColors();
 			// Should reject 3-char hex and return default
-			expect(result.hex).toBe("#ffffff");
-			expect(result.mode).toBe("light");
+			expect(result.light).toBe("#ffffff");
+			expect(result.dark).toBe("#000000");
 		});
 	});
 });

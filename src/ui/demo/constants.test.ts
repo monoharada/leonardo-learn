@@ -142,12 +142,12 @@ describe("constants.ts", () => {
 			expect(DEFAULT_STATE.cudMode).toBe("guide");
 		});
 
-		it("backgroundColorが#ffffffであること", () => {
-			expect(DEFAULT_STATE.backgroundColor).toBe("#ffffff");
+		it("lightBackgroundColorが#ffffffであること", () => {
+			expect(DEFAULT_STATE.lightBackgroundColor).toBe("#ffffff");
 		});
 
-		it("backgroundModeがlightであること", () => {
-			expect(DEFAULT_STATE.backgroundMode).toBe("light");
+		it("darkBackgroundColorが#000000であること", () => {
+			expect(DEFAULT_STATE.darkBackgroundColor).toBe("#000000");
 		});
 	});
 });
