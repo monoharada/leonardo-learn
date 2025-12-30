@@ -129,7 +129,7 @@
   - ビュー切替後、背景色が維持されることを確認
   - _Requirements: 4.1, 4.2, 5.2, 5.3_
 
-- [ ] 7.4 統合テストを作成する
+- [x] 7.4 統合テストを作成する
   - BackgroundColorSelector → DemoState連携の確認
   - DemoState変更 → View再レンダリングの確認
   - プリセット選択 → 背景色 + モード適用の確認
