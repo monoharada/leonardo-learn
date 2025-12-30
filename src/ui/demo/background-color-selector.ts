@@ -1,0 +1,261 @@
+/**
+ * 背景色セレクターコンポーネント
+ *
+ * ライト背景色とダーク背景色（テキスト色）の2色を管理する。
+ * ライト背景色がメイン、ダーク背景色はコントラスト確認用の補助的な役割。
+ *
+ * @module @/ui/demo/background-color-selector
+ * Requirements: 1.1, 1.2, 1.3, 1.5, 1.6, 2.1, 2.2, 4.1, 4.2, 4.4
+ */
+
+import { validateBackgroundColor } from "./state";
+import type { ColorMode } from "./types";
+
+/**
+ * デバウンス遅延時間（ミリ秒）
+ * Requirements: 4.2 - HEX入力時にデバウンス処理（150ms）を適用
+ */
+export const DEBOUNCE_DELAY_MS = 150;
+
+/**
+ * デバウンス関数
+ *
+ * 指定された遅延時間後に関数を実行する。
+ * 遅延中に再度呼び出された場合、タイマーをリセットする。
+ *
+ * Requirements: 4.2, 4.4
+ * @param fn 実行する関数
+ * @param delay 遅延時間（ミリ秒）
+ * @returns デバウンスされた関数
+ */
+export function debounce<T extends (...args: unknown[]) => void>(
+	fn: T,
+	delay: number,
+): (...args: Parameters<T>) => void {
+	let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+	return (...args: Parameters<T>): void => {
+		if (timeoutId !== null) {
+			clearTimeout(timeoutId);
+		}
+		timeoutId = setTimeout(() => {
+			fn(...args);
+			timeoutId = null;
+		}, delay);
+	};
+}
+
+/**
+ * 背景色セレクターのプロパティ
+ */
+export interface BackgroundColorSelectorProps {
+	/** ライト背景色（HEX） */
+	lightColor: string;
+	/** ダーク背景色（HEX） */
+	darkColor: string;
+	/** ライト背景色変更時のコールバック */
+	onLightColorChange: (hex: string) => void;
+	/** ダーク背景色変更時のコールバック */
+	onDarkColorChange: (hex: string) => void;
+}
+
+/**
+ * プリセットカラー型
+ * Requirements: 2.1
+ */
+export interface PresetColor {
+	/** プリセット名 */
+	name: string;
+	/** HEX値 */
+	hex: string;
+	/** 対応するモード */
+	mode: ColorMode;
+}
+
+/**
+ * ライト背景色用プリセット
+ */
+export const LIGHT_PRESET_COLORS: PresetColor[] = [
+	{ name: "White", hex: "#ffffff", mode: "light" },
+	{ name: "Light Gray", hex: "#f8fafc", mode: "light" },
+];
+
+/**
+ * ダーク背景色用プリセット
+ */
+export const DARK_PRESET_COLORS: PresetColor[] = [
+	{ name: "Dark Gray", hex: "#18181b", mode: "dark" },
+	{ name: "Black", hex: "#000000", mode: "dark" },
+];
+
+/**
+ * 後方互換性のためのプリセット配列
+ * @deprecated lightとdark別々のプリセットを使用してください
+ */
+export const PRESET_COLORS: PresetColor[] = [
+	...LIGHT_PRESET_COLORS,
+	...DARK_PRESET_COLORS,
+];
+
+/**
+ * ユニークIDを生成するカウンター
+ */
+let idCounter = 0;
+
+/**
+ * 単色セクションを作成する
+ */
+function createColorSection(
+	mode: "light" | "dark",
+	currentColor: string,
+	presets: PresetColor[],
+	onColorChange: (hex: string) => void,
+	uniqueId: string,
+): HTMLElement {
+	const section = document.createElement("div");
+	section.className = `background-color-selector__section background-color-selector__section--${mode}`;
+
+	// ラベル
+	const label = document.createElement("label");
+	label.className = "background-color-selector__label";
+	label.textContent = mode === "light" ? "Light Background" : "Dark (Text)";
+	section.appendChild(label);
+
+	// 入力コンテナ
+	const inputContainer = document.createElement("div");
+	inputContainer.className = "background-color-selector__inputs";
+
+	// カラーピッカー
+	const colorInput = document.createElement("input");
+	colorInput.type = "color";
+	colorInput.value = currentColor;
+	colorInput.className = "background-color-selector__color-picker";
+	colorInput.setAttribute("aria-label", `Pick ${mode} background color`);
+
+	// HEX入力
+	const errorId = `${uniqueId}-${mode}-error`;
+	const hexInput = document.createElement("input");
+	hexInput.type = "text";
+	hexInput.value = currentColor;
+	hexInput.className = "background-color-selector__hex-input";
+	hexInput.setAttribute(
+		"aria-label",
+		`Enter ${mode} background color in HEX format`,
+	);
+	hexInput.setAttribute("aria-describedby", errorId);
+	hexInput.placeholder = mode === "light" ? "#ffffff" : "#000000";
+
+	inputContainer.appendChild(colorInput);
+	inputContainer.appendChild(hexInput);
+	section.appendChild(inputContainer);
+
+	// エラーエリア
+	const errorArea = document.createElement("div");
+	errorArea.className = "background-color-selector__error";
+	errorArea.id = errorId;
+	errorArea.setAttribute("role", "alert");
+	errorArea.setAttribute("aria-live", "polite");
+	section.appendChild(errorArea);
+
+	// プリセットボタン
+	const presetsContainer = document.createElement("div");
+	presetsContainer.className = "background-color-selector__presets";
+
+	let lastValidColor = currentColor;
+
+	function updateInputs(hex: string): void {
+		colorInput.value = hex;
+		hexInput.value = hex;
+		lastValidColor = hex;
+		errorArea.textContent = "";
+		onColorChange(hex);
+	}
+
+	for (const preset of presets) {
+		const button = document.createElement("button");
+		button.type = "button";
+		button.className = "background-color-selector__preset-button";
+		button.style.backgroundColor = preset.hex;
+		button.setAttribute("aria-label", `Select ${preset.name}`);
+		button.title = preset.name;
+
+		button.addEventListener("click", () => {
+			updateInputs(preset.hex);
+		});
+
+		presetsContainer.appendChild(button);
+	}
+
+	section.appendChild(presetsContainer);
+
+	// カラーピッカーのイベント
+	colorInput.addEventListener("input", () => {
+		const hex = colorInput.value;
+		hexInput.value = hex;
+		lastValidColor = hex;
+		errorArea.textContent = "";
+		onColorChange(hex);
+	});
+
+	// HEX入力のイベント（デバウンス付き）
+	function handleHexInput(): void {
+		const input = hexInput.value;
+		const result = validateBackgroundColor(input);
+
+		if (result.valid && result.hex) {
+			colorInput.value = result.hex;
+			errorArea.textContent = "";
+			lastValidColor = result.hex;
+			onColorChange(result.hex);
+		} else if (result.error) {
+			errorArea.textContent = result.error;
+			colorInput.value = lastValidColor;
+		}
+	}
+
+	const debouncedHexInput = debounce(handleHexInput, DEBOUNCE_DELAY_MS);
+	hexInput.addEventListener("input", debouncedHexInput);
+
+	return section;
+}
+
+/**
+ * 背景色セレクターコンポーネントを作成する
+ *
+ * @param props セレクターのプロパティ
+ * @returns セレクターのDOM要素
+ */
+export function createBackgroundColorSelector(
+	props: BackgroundColorSelectorProps,
+): HTMLElement {
+	const { lightColor, darkColor, onLightColorChange, onDarkColorChange } =
+		props;
+
+	const uniqueId = `bg-selector-${++idCounter}`;
+
+	// メインコンテナ
+	const container = document.createElement("div");
+	container.className = "background-color-selector";
+
+	// ライト背景セクション（メイン）
+	const lightSection = createColorSection(
+		"light",
+		lightColor,
+		LIGHT_PRESET_COLORS,
+		onLightColorChange,
+		uniqueId,
+	);
+	container.appendChild(lightSection);
+
+	// ダーク背景セクション（補助）
+	const darkSection = createColorSection(
+		"dark",
+		darkColor,
+		DARK_PRESET_COLORS,
+		onDarkColorChange,
+		uniqueId,
+	);
+	container.appendChild(darkSection);
+
+	return container;
+}

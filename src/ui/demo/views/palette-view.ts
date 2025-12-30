@@ -5,7 +5,7 @@
  * カードクリック時はonColorClickコールバック経由でcolor-detail-modalと接続する。
  *
  * @module @/ui/demo/views/palette-view
- * Requirements: 2.1, 2.2, 2.3, 2.4
+ * Requirements: 1.1, 2.1, 2.2, 2.3, 2.4, 5.1, 6.3, 6.4
  */
 
 import { simulateCVD } from "@/accessibility/cvd-simulator";
@@ -22,8 +22,18 @@ import {
 	showPaletteValidation,
 	snapToCudColor,
 } from "@/ui/cud-components";
-import { getContrastRatios, STEP_NAMES } from "@/ui/style-constants";
-import { parseKeyColor, state } from "../state";
+import {
+	applySwatchBorder,
+	getContrastRatios,
+	STEP_NAMES,
+} from "@/ui/style-constants";
+import { createBackgroundColorSelector } from "../background-color-selector";
+import {
+	determineColorMode,
+	parseKeyColor,
+	persistBackgroundColors,
+	state,
+} from "../state";
 import type { ColorDetailModalOptions, CVDType, PaletteConfig } from "../types";
 
 /**
@@ -75,6 +85,8 @@ function getSemanticCategory(name: string): string {
 
 /**
  * 固定スケールを計算する
+ *
+ * Requirements: 5.1 - 背景色に対するコントラスト計算
  */
 function calculateFixedScale(
 	keyColor: Color,
@@ -89,7 +101,8 @@ function calculateFixedScale(
 } {
 	const isPrimary =
 		palette.name === "Primary" || palette.name?.startsWith("Primary");
-	const bgColor = new Color("#ffffff");
+	// Requirements: 5.1 - ライト背景色を使用
+	const bgColor = new Color(state.lightBackgroundColor);
 
 	// Primaryはブランドカラー：シェードなしで単一色のみ返す
 	if (isPrimary) {
@@ -189,9 +202,17 @@ function createPaletteCard(
 	const displayColor = applySimulation(new Color(displayHex));
 
 	// スウォッチ
+	// Requirements: 6.3, 6.4 - モード対応ボーダーと低コントラスト強調
 	const swatch = document.createElement("div");
 	swatch.className = "dads-card__swatch";
 	swatch.style.backgroundColor = displayColor.toCss();
+	const backgroundMode = determineColorMode(state.lightBackgroundColor);
+	applySwatchBorder(
+		swatch,
+		displayHex,
+		state.lightBackgroundColor,
+		backgroundMode,
+	);
 
 	// 情報セクション
 	const info = document.createElement("div");
@@ -335,6 +356,8 @@ function createCudValidationPanel(): HTMLElement {
 /**
  * パレットビューをレンダリングする
  *
+ * Requirements: 1.1, 5.1 - パレットビューに背景色セレクターを統合する
+ *
  * @param container レンダリング先のコンテナ要素
  * @param callbacks コールバック関数
  */
@@ -371,6 +394,47 @@ export async function renderPaletteView(
 	// コンテナをクリア
 	container.innerHTML = "";
 
+	// Requirements: 1.1, 5.1 - 背景色セレクターをビュー上部に配置
+	const backgroundSelectorSection = document.createElement("section");
+	backgroundSelectorSection.className = "background-color-selector";
+	const backgroundSelector = createBackgroundColorSelector({
+		lightColor: state.lightBackgroundColor,
+		darkColor: state.darkBackgroundColor,
+		onLightColorChange: (hex: string) => {
+			// ライト背景色を更新
+			state.lightBackgroundColor = hex;
+			// Requirements: 5.1 - localStorageに永続化
+			persistBackgroundColors(
+				state.lightBackgroundColor,
+				state.darkBackgroundColor,
+			);
+			// コンテナの背景色を更新
+			container.style.backgroundColor = hex;
+			// 再レンダリング（コントラスト値更新のため）
+			void renderPaletteView(container, callbacks).catch((err) => {
+				console.error("Failed to re-render palette view:", err);
+			});
+		},
+		onDarkColorChange: (hex: string) => {
+			// ダーク背景色を更新
+			state.darkBackgroundColor = hex;
+			// Requirements: 5.1 - localStorageに永続化
+			persistBackgroundColors(
+				state.lightBackgroundColor,
+				state.darkBackgroundColor,
+			);
+			// 再レンダリング（コントラスト値更新のため）
+			void renderPaletteView(container, callbacks).catch((err) => {
+				console.error("Failed to re-render palette view:", err);
+			});
+		},
+	});
+	backgroundSelectorSection.appendChild(backgroundSelector);
+	container.appendChild(backgroundSelectorSection);
+
+	// Requirements: 5.1 - ライト背景色をコンテナの背景に設定
+	container.style.backgroundColor = state.lightBackgroundColor;
+
 	// 各グループをレンダリング
 	for (const [category, palettes] of groupedPalettes) {
 		const section = document.createElement("section");
@@ -392,7 +456,8 @@ export async function renderPaletteView(
 
 			const { color: hex, step: definedStep } = parseKeyColor(keyColorInput);
 			const originalKeyColor = new Color(hex);
-			const bgColor = new Color("#ffffff");
+			// Requirements: 5.1 - ライト背景色を使用
+			const bgColor = new Color(state.lightBackgroundColor);
 
 			let colors: Color[];
 			let keyColorIndex: number;

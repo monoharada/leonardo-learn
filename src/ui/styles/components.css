@@ -772,6 +772,45 @@
 	color: #ff8a80;
 }
 
+/* Custom background color card - background is set via JavaScript */
+.dads-contrast-card[data-bg="custom"] {
+	border: 1px solid var(--color-neutral-solid-gray-400);
+}
+
+/* Light mode text colors for custom background */
+.dads-contrast-card[data-bg="custom"][data-mode="light"] .dads-contrast-card__label {
+	color: var(--color-neutral-solid-gray-600);
+}
+
+.dads-contrast-card[data-bg="custom"][data-mode="light"] .dads-contrast-card__ratio {
+	color: var(--color-neutral-solid-gray-900);
+}
+
+.dads-contrast-card[data-bg="custom"][data-mode="light"] .dads-contrast-card__unit {
+	color: var(--color-neutral-solid-gray-400);
+}
+
+.dads-contrast-card[data-bg="custom"][data-mode="light"] .dads-contrast-card__fail {
+	color: var(--color-semantic-error-1);
+}
+
+/* Dark mode text colors for custom background */
+.dads-contrast-card[data-bg="custom"][data-mode="dark"] .dads-contrast-card__label {
+	color: var(--color-neutral-solid-gray-400);
+}
+
+.dads-contrast-card[data-bg="custom"][data-mode="dark"] .dads-contrast-card__ratio {
+	color: white;
+}
+
+.dads-contrast-card[data-bg="custom"][data-mode="dark"] .dads-contrast-card__unit {
+	color: var(--color-neutral-solid-gray-600);
+}
+
+.dads-contrast-card[data-bg="custom"][data-mode="dark"] .dads-contrast-card__fail {
+	color: #ff8a80;
+}
+
 /* ============================================
  * Scrubber Component (Hue Tuner)
  * ============================================ */
@@ -1753,7 +1792,7 @@
 /* 白抜きピル（白背景用） */
 .dads-contrast-pill--outline {
 	border: 1px solid #333;
-	background: transparent;
+	background: white;
 	color: #333;
 }
 
@@ -1763,3 +1802,4 @@
 	background: #333;
 	color: white;
 }
+

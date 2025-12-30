@@ -131,11 +131,15 @@ describe("types.ts", () => {
 				cvdSimulation: "normal",
 				selectedHarmonyConfig: null,
 				cudMode: "guide",
+				lightBackgroundColor: "#ffffff",
+				darkBackgroundColor: "#000000",
 			};
 			expect(state.palettes).toEqual([]);
 			expect(state.activeId).toBe("");
 			expect(state.viewMode).toBe("harmony");
 			expect(state.cudMode).toBe("guide");
+			expect(state.lightBackgroundColor).toBe("#ffffff");
+			expect(state.darkBackgroundColor).toBe("#000000");
 		});
 	});
 

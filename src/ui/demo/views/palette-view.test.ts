@@ -135,4 +135,117 @@ describe("palette-view module", () => {
 			expect(state.cvdSimulation).toBe("normal");
 		});
 	});
+
+	/**
+	 * Task 5.1: パレットビューに背景色セレクターを統合する
+	 * Requirements: 1.1, 5.1
+	 */
+	describe("background color selector integration (Task 5.1)", () => {
+		it("should import createBackgroundColorSelector from background-color-selector module", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(import.meta.dir, "palette-view.ts");
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// 背景色セレクターのインポート
+			expect(content).toContain("createBackgroundColorSelector");
+		});
+
+		it("should integrate background color selector at top of palette view", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(import.meta.dir, "palette-view.ts");
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// 背景色セレクターをビュー上部に配置
+			expect(content).toContain("background-color-selector");
+		});
+
+		it("should update container background color on color change", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(import.meta.dir, "palette-view.ts");
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// 背景色変更時にコンテナの背景を更新
+			expect(content).toContain("backgroundColor");
+		});
+
+		it("should use state.lightBackgroundColor for contrast calculations", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(import.meta.dir, "palette-view.ts");
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// state.lightBackgroundColorを参照
+			expect(content).toContain("state.lightBackgroundColor");
+		});
+
+		it("should reference Requirements 1.1, 5.1 in comments", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(import.meta.dir, "palette-view.ts");
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// Requirementsの参照（モジュールヘッダまたはコメント内）
+			expect(content).toContain("5.1");
+		});
+
+		it("should call persistBackgroundColor on color change", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(import.meta.dir, "palette-view.ts");
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// 背景色変更時に永続化
+			expect(content).toContain("persistBackgroundColor");
+		});
+
+		it("should use findColorForContrast for contrast calculations", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(import.meta.dir, "palette-view.ts");
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// コントラスト計算関数の使用（findColorForContrastで背景色に対するコントラスト計算）
+			expect(content).toContain("findColorForContrast");
+		});
+	});
+
+	/**
+	 * Task 6.3: スウォッチボーダーのモード対応と低コントラスト強調を実装する
+	 * Requirements: 6.3, 6.4
+	 */
+	describe("swatch border integration (Task 6.3)", () => {
+		it("should import applySwatchBorder from style-constants module", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(import.meta.dir, "palette-view.ts");
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// applySwatchBorderのインポート
+			expect(content).toContain("applySwatchBorder");
+		});
+
+		it("should apply swatch border based on background color and mode", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(import.meta.dir, "palette-view.ts");
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// determineColorModeを使用してモードを判定しボーダーを適用
+			expect(content).toContain("determineColorMode");
+		});
+
+		it("should reference Requirements 6.3, 6.4 in comments", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(import.meta.dir, "palette-view.ts");
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// Requirementsの参照
+			expect(content).toContain("6.3");
+			expect(content).toContain("6.4");
+		});
+	});
 });

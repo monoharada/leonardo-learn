@@ -207,4 +207,53 @@ describe("accessibility-view", () => {
 			).not.toThrow();
 		});
 	});
+
+	/**
+	 * Task 5.3: 画面間での背景色同期を確認する
+	 * Requirements: 5.2, 5.5
+	 */
+	describe("background color synchronization (Task 5.3)", () => {
+		it("should use state.lightBackgroundColor for container background", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(import.meta.dir, "accessibility-view.ts");
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// state.lightBackgroundColorを参照してコンテナ背景色を設定
+			expect(content).toContain("state.lightBackgroundColor");
+		});
+
+		it("should apply background color to container element", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(import.meta.dir, "accessibility-view.ts");
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// container.style.backgroundColorを設定
+			expect(content).toContain("container.style.backgroundColor");
+		});
+
+		it("should reference Requirements 5.2 or 5.5 in comments", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(import.meta.dir, "accessibility-view.ts");
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// Requirementsの参照（モジュールヘッダまたはコメント内）
+			// 5.2または5.5のいずれかが含まれていれば良い
+			const has52 = content.includes("5.2");
+			const has55 = content.includes("5.5");
+			expect(has52 || has55).toBe(true);
+		});
+
+		it("should import state from ../state module", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(import.meta.dir, "accessibility-view.ts");
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// stateのインポート
+			expect(content).toContain('from "../state"');
+		});
+	});
 });

@@ -1027,7 +1027,7 @@ describe("シェードビュー統合テスト", () => {
 
 			// 検証: コンテナは存在し、2行構造（whiteRow, blackRow）があるが、ピルは空
 			expect(container.classList.contains("dads-contrast-boundary")).toBe(true);
-			expect(container.children).toHaveLength(2); // 2行構造
+			expect(container.children).toHaveLength(2); // 2行構造（ライト、ダーク）
 			expect(container.querySelectorAll(".dads-contrast-pill")).toHaveLength(0);
 		});
 

@@ -45,6 +45,25 @@ export interface PaletteConfig {
 export type LightnessDistribution = "linear" | "easeIn" | "easeOut";
 
 /**
+ * 背景色のモード（light/dark）
+ * OKLCH明度（L値）で自動判定: L > 0.5 → light, L ≤ 0.5 → dark
+ */
+export type ColorMode = "light" | "dark";
+
+/**
+ * 背景色入力のバリデーション結果
+ * @see Requirements: 1.4, 1.5
+ */
+export interface BackgroundColorValidationResult {
+	/** バリデーション成功フラグ */
+	valid: boolean;
+	/** エラーメッセージ（valid=false時） */
+	error?: string;
+	/** 変換されたHEX値（valid=true時） */
+	hex?: string;
+}
+
+/**
  * ビューモード
  */
 export type ViewMode = "harmony" | "palette" | "shades" | "accessibility";
@@ -80,6 +99,10 @@ export interface DemoState {
 	cvdSimulation: CVDSimulationType;
 	selectedHarmonyConfig: HarmonyTypeConfig | null;
 	cudMode: CudCompatibilityMode;
+	/** ライト背景色（HEX形式、デフォルト: #ffffff） */
+	lightBackgroundColor: string;
+	/** ダーク背景色（HEX形式、デフォルト: #000000） */
+	darkBackgroundColor: string;
 }
 
 /**
