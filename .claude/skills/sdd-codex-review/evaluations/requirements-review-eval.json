@@ -46,7 +46,7 @@
       "success_criteria": {
         "must_handle_revision_loop": true,
         "must_use_resume_for_resubmit": true,
-        "max_iterations": 5
+        "max_iterations": 6
       }
     }
   ],

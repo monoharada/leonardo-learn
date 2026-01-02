@@ -269,7 +269,7 @@ Codexレビュー APPROVED AND e2e_required = true AND e2e_evidence.status = "pe
 .context/e2e-evidence/
 └── [feature-name]/
     └── [section-id]/
-        ├── recording.webm          # 画面録画（必須）
+        ├── *.webm                   # 画面録画（必須・ファイル名は任意）
         ├── step-01-initial.png
         ├── step-02-action.png
         └── step-03-complete.png
