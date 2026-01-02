@@ -9,8 +9,8 @@ implフェーズでは、変更規模に応じてレビュー戦略を自動選�
 ### 判定コマンド
 
 ```bash
-git diff HEAD --stat
-git diff HEAD --name-status --find-renames
+git diff main..HEAD --stat
+git diff main..HEAD --name-status --find-renames
 ```
 
 ### 規模基準

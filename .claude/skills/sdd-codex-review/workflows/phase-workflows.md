@@ -250,9 +250,12 @@ tasks.mdの`##`見出しでセクションを定義：
 ### 完了判定ロジック
 
 1. tasks.mdから`##`見出しを検出してセクション境界を特定
-2. 各タスクの`**Creates:**`/`**Modifies:**`からファイル一覧を抽出
-3. 全ファイルが存在するか確認
-4. 全ファイル存在 = セクション完了
+2. **完了判定（優先順位）**:
+   - **方式1（推奨）**: `tasks_completed`フラグ - `spec.json`の`section_tracking.sections[id].tasks_completed[taskId]`が全てtrue
+   - **方式2（フォールバック）**: `tasks_completed`未設定の場合のみ:
+     - `**Creates:**`ファイルは存在確認
+     - `**Modifies:**`ファイルは変更検出（`git diff main..HEAD`）
+3. 全タスク完了 = セクション完了
 
 ### Codex呼び出し
 

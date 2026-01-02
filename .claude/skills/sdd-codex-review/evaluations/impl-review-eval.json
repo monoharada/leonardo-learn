@@ -56,7 +56,7 @@
       },
       "expected_behavior": [
         "Applies fix from Codex suggestion",
-        "Runs npm test / npx jest",
+        "Runs bun test",
         "Detects test failure",
         "Attempts to fix test issue",
         "Retries test (max 2 consecutive failures)",
