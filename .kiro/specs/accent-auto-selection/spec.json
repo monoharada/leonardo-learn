@@ -34,7 +34,8 @@
 			"2": {
 				"name": "エラーハンドリングの実装",
 				"status": "completed",
-				"reviewed": false,
+				"reviewed": true,
+				"codex_session_id": "019b7e82-3139-7bb3-9f95-942cde2acf50",
 				"tasks_completed": {
 					"2.1": true,
 					"2.2": true,
