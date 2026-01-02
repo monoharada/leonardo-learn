@@ -92,21 +92,23 @@
   - **依存**: 2.2（エラーコード定義後）
   - _Requirements: 7.2_
 
-- [ ] 3. ハーモニーフィルタの実装
+- [x] 3. ハーモニーフィルタの実装
 
-- [ ] 3.1 (P) HarmonyFilterCalculator の実装
+- [x] 3.1 (P) HarmonyFilterCalculator の実装
   - ハーモニータイプ定義を実装（all, complementary, triadic, analogous, split-complementary）
   - 各ハーモニータイプのターゲット色相計算を実装
   - ±30°の循環距離判定機能を実装（色相0-360°の循環対応）
   - 候補が指定色相範囲内かどうかの判定機能を実装
+  - **Creates:** `src/core/accent/harmony-filter-calculator.ts`, `src/core/accent/harmony-filter-calculator.test.ts`
   - _Requirements: 3.1, 3.2_
 
-- [ ] 3.2 フィルタ適用とソート維持の実装
+- [x] 3.2 フィルタ適用とソート維持の実装
   - ハーモニーフィルタの適用機能を実装（スコア再計算なし）
   - フィルタ後のスコア順ソート維持を実装
   - フィルタ結果0件時の代替候補算出機能を実装（最も近い色相の候補を最大3件）
   - "all"フィルタ選択時の早期リターン最適化を実装
   - **依存**: 3.1（HarmonyFilterCalculatorのAPI確定後）
+  - **Creates:** `src/core/accent/harmony-filter-service.ts`, `src/core/accent/harmony-filter-service.test.ts`
   - _Requirements: 3.3, 3.4, 6.3_
 
 - [ ] 4. アクセント選定パネルUIの実装
