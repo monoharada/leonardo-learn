@@ -30,7 +30,7 @@ Automated code review skill using OpenAI Codex CLI for Spec-Driven Development w
 **Key Points:**
 - Executes actual `codex exec --sandbox read-only` commands (no simulation)
 - Returns JSON verdict with Codex Session ID
-- Auto-fixes issues and re-reviews until APPROVED (max 5 iterations)
+- Auto-fixes issues and re-reviews until APPROVED (max 6 iterations)
 
 ---
 

@@ -1,12 +1,12 @@
 # E2Eエビデンス収集プロンプト
 
-このファイルはPlaywright MCPを使用してE2Eエビデンスを収集するためのプロンプトテンプレートです。
+このファイルはPlaywrightを使用してE2Eエビデンス（画面録画とスクリーンショット）を収集するためのプロンプトテンプレートです。
 
 ## 重要: 実行方法
 
-**このプロンプトは Claude Code が Playwright MCP を使用して実行します。**
-- Codex CLI ではなく、Playwright MCP のブラウザ操作機能を使用
-- 各ステップでスクリーンショットを取得
+**このプロンプトは Claude Code が Playwright を使用して実行します。**
+- `recordVideo`オプションを有効にしてブラウザを起動（必須）
+- 各ステップでスクリーンショットを取得（補助）
 - 結果を `.context/e2e-evidence/` に保存
 
 ---
@@ -15,7 +15,7 @@
 
 ```
 あなたはE2Eテストエンジニアです。
-Playwright MCPを使用して、以下のセクションのE2Eエビデンスを収集してください。
+Playwright（recordVideoオプション有効）を使用して、以下のセクションのE2Eエビデンスを収集してください。
 
 ## 対象セクション
 
@@ -41,7 +41,17 @@ Playwright MCPを使用して、以下のセクションのE2Eエビデンスを
 ### 1. 準備
 
 1. エビデンス保存ディレクトリを作成
-2. ブラウザを開く
+2. **recordVideoオプション有効でブラウザを起動**（必須）:
+
+```typescript
+const context = await browser.newContext({
+  recordVideo: {
+    dir: '{{EVIDENCE_DIR}}',
+    size: { width: 1280, height: 720 }
+  }
+});
+const page = await context.newPage();
+```
 
 ### 2. シナリオ実行
 
@@ -49,14 +59,15 @@ Playwright MCPを使用して、以下のセクションのE2Eエビデンスを
 
 ```
 FOR each scenario in E2E_SCENARIOS:
-    1. アプリケーションURLに遷移 (browser_navigate)
+    1. アプリケーションURLに遷移
     2. 初期状態のスクリーンショット取得
     3. シナリオのアクションを順次実行:
-       - 要素のクリック (browser_click)
-       - テキスト入力 (browser_type)
+       - 要素のクリック
+       - テキスト入力
        - フォーム送信
     4. 各アクション後にスクリーンショット取得
     5. 最終状態のスクリーンショット取得
+    6. **context.close()で録画を保存**（必須）
 ```
 
 ### 3. スクリーンショット命名規則
@@ -191,16 +202,18 @@ URL: {{APP_URL}}
 
 ---
 
-## Playwright MCPアクション対応表
+## Playwrightアクション対応表
 
-| シナリオアクション | Playwright MCP |
+| シナリオアクション | Playwright |
 |------------------|----------------|
-| ページを開く | `browser_navigate` |
-| 要素をクリック | `browser_click` |
-| テキスト入力 | `browser_type` |
-| スクリーンショット | `browser_screenshot` |
-| 要素の確認 | `browser_snapshot` で取得したDOMを確認 |
-| 待機 | `browser_wait_for` |
+| ブラウザ起動（録画付き） | `browser.newContext({ recordVideo: {...} })` |
+| ページを開く | `page.goto(url)` |
+| 要素をクリック | `page.click(selector)` |
+| テキスト入力 | `page.fill(selector, text)` |
+| スクリーンショット | `page.screenshot({ path: '...' })` |
+| 要素の確認 | `page.locator(selector)` |
+| 待機 | `page.waitForSelector(selector)` |
+| 録画保存 | `context.close()` |
 
 ---
 

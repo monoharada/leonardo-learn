@@ -99,10 +99,11 @@ E2Eエビデンス収集は**Codexレビューで APPROVED を取得した後**�
                     │
                     ▼
 ┌───────────────────────────────┐
-│  Playwright MCP 実行          │
+│  Playwright 実行              │
+│  - recordVideoオプション有効   │
 │  - アプリケーションURL取得     │
 │  - E2Eシナリオ実行            │
-│  - 各ステップでスクリーンショット取得 │
+│  - 画面録画 + スクリーンショット│
 └───────────────────────────────┘
                     │
            ┌───────┴───────┐
@@ -150,6 +151,7 @@ E2Eエビデンス収集は**Codexレビューで APPROVED を取得した後**�
 └── e2e-evidence/
     └── [feature-name]/
         └── [section-id]/
+            ├── recording.webm              # 画面録画（必須）
             ├── step-01-initial.png         # 初期状態
             ├── step-02-action.png          # ユーザー操作後
             ├── step-03-validation.png      # バリデーション表示
@@ -193,22 +195,35 @@ const context = await browser.newContext({
 
 ---
 
-## Playwright MCP 実行
+## Playwright 実行
 
 ### 前提条件
 
-1. Playwright MCP がインストールされていること
+1. Playwright がインストールされていること
 2. 対象アプリケーションがローカルで起動していること
 3. アプリケーションURLが取得可能であること
 
-### 実行コマンド構造
+### 実行手順
 
-E2Eエビデンス収集は Playwright MCP の以下の機能を使用：
+E2Eエビデンス収集は Playwright の以下の機能を使用：
 
-```
-1. browser_navigate: アプリケーションURLに遷移
-2. browser_screenshot: 各ステップでスクリーンショット取得
-3. browser_click / browser_type: ユーザー操作のシミュレーション
+```typescript
+// 1. recordVideoオプション有効でブラウザ起動
+const context = await browser.newContext({
+  recordVideo: {
+    dir: '.context/e2e-evidence/[feature]/[section]/',
+    size: { width: 1280, height: 720 }
+  }
+});
+const page = await context.newPage();
+
+// 2. E2Eシナリオ実行
+await page.goto(APP_URL);
+await page.screenshot({ path: 'step-01-initial.png' });
+// ... 各操作ステップ
+
+// 3. 録画保存（context.close()で自動保存）
+await context.close();
 ```
 
 ### 録画について
@@ -302,8 +317,9 @@ FOR each e2e_scenario in section.e2e_scenarios:
 
 | エラー種別 | 対応 | 継続可否 |
 |-----------|------|---------|
-| Playwright MCP未インストール | 警告、スキップ | 続行 |
+| Playwright未インストール | 警告、スキップ | 続行 |
 | アプリケーション未起動 | 警告、リトライ提案 | 続行 |
+| 録画取得失敗 | 警告、スクリーンショットのみ | 続行 |
 | スクリーンショット失敗 | 記録、次へ | 続行 |
 | 全アクション失敗 | エラー記録 | 続行 |
 
@@ -345,6 +361,9 @@ E2Eエビデンス収集失敗 ≠ レビューブロック
 ステータス: 成功
 
 ### 収集ファイル
+録画:
+  - `.context/e2e-evidence/user-dashboard/section-2-user-dashboard/recording.webm`
+
 スクリーンショット:
   - `.context/e2e-evidence/user-dashboard/section-2-user-dashboard/step-01-initial.png`
   - `.context/e2e-evidence/user-dashboard/section-2-user-dashboard/step-02-action.png`
@@ -479,7 +498,7 @@ rm -rf .context/e2e-evidence/[feature-name]/
                       ▼                    ▼
          ┌────────────────────────┐  ┌────────────────────────┐
          │ E2Eエビデンス収集      │  │ セクション完了         │
-         │ (Playwright MCP)       │  │ 次のセクションへ       │
+         │ (Playwright+録画)      │  │ 次のセクションへ       │
          └────────────────────────┘  └────────────────────────┘
                       │
                       ▼

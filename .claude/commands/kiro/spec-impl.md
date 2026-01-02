@@ -1,6 +1,6 @@
 ---
 description: Execute spec tasks using TDD methodology
-allowed-tools: Bash, Read, Write, Edit, MultiEdit, Grep, Glob, LS, WebFetch, WebSearch
+allowed-tools: Bash, Read, Write, Edit, MultiEdit, Grep, Glob, LS, WebFetch, WebSearch, Skill
 argument-hint: <feature-name> [task-numbers]
 ---
 
@@ -134,9 +134,11 @@ tasks.md の `##` 見出し単位でセクションを識別:
 #### セクション完了チェック
 
 1. 現在のタスクが属するセクションを特定（`##` 見出しで識別）
-2. セクション内の全タスクの期待ファイルが存在するか確認
-   - 各タスクの `**Creates:**` / `**Modifies:**` を参照
-3. 全ファイル存在 AND 未レビュー → レビュー実行
+2. タスク完了時にspec.jsonの`section_tracking.sections[sectionId].tasks_completed[taskId]`を`true`に更新
+3. セクション内の全タスクの`tasks_completed`が`true`かを確認
+   - フォールバック: `tasks_completed`未設定の場合のみ`**Creates:**`のファイル存在確認を使用
+   - `**Modifies:**`はgit diff検知が必要（section-detection.md参照）
+4. 全タスク完了 AND 未レビュー → レビュー実行
 
 #### 呼び出し条件
 
@@ -150,9 +152,9 @@ IF section_complete AND NOT section_reviewed:
 
     // 2. E2Eエビデンス収集（APPROVED後、[E2E]タグ付きセクションのみ）
     IF section has [E2E] tag AND e2e_evidence.status == "pending":
-        Playwright MCPでE2Eエビデンス収集
+        Playwright（recordVideo有効）でE2Eエビデンス収集
         結果を .context/e2e-evidence/ に保存
-        ユーザーにスクリーンショットパスを報告
+        録画ファイルとスクリーンショットパスを報告
         E2E失敗でもセクション完了として扱う（ブロッキングではない）
 
 ELSE:
@@ -176,12 +178,13 @@ ELSE:
 #### E2Eエビデンス収集（[E2E]タグ付きセクション）
 
 セクション見出しに `[E2E]` タグがある場合（例: `## Section 2: Dashboard [E2E]`）、
-Codexレビュー承認後にPlaywright MCPを使用してスクリーンショットを収集:
+Codexレビュー承認後にPlaywright（recordVideo有効）を使用して録画とスクリーンショットを収集:
 
 ```
 .context/e2e-evidence/
 └── [feature-name]/
     └── [section-id]/
+        ├── recording.webm        # 画面録画（必須）
         ├── step-01-initial.png
         ├── step-02-action.png
         └── step-03-complete.png

@@ -53,11 +53,18 @@
 
 ```json
 {
-  "requirements": { "approved": boolean },
+  "requirements": { "approved": boolean, "generated": boolean },
   "design": { "approved": boolean },
   "tasks": { "approved": boolean }
 }
 ```
+
+| フィールド | 型 | 説明 |
+|-----------|-----|------|
+| `requirements.generated` | boolean | 要件が生成済みか（`/kiro:spec-requirements`完了時にtrue） |
+| `requirements.approved` | boolean | 要件がレビュー承認されたか |
+| `design.approved` | boolean | 設計がレビュー承認されたか |
+| `tasks.approved` | boolean | タスクがレビュー承認されたか |
 
 ### codex_reviews
 
@@ -287,7 +294,7 @@ function normalizeSection(section) {
 {
   "e2e_evidence": {
     "status": "passed",
-    "video_path": null,
+    "video_path": ".context/e2e-evidence/my-feature/section-2-ui/recording.webm",
     "screenshots": [
       ".context/e2e-evidence/my-feature/section-2-ui/step-01-initial.png",
       ".context/e2e-evidence/my-feature/section-2-ui/step-02-action.png",
@@ -304,13 +311,13 @@ function normalizeSection(section) {
 | フィールド | 型 | 説明 |
 |-----------|-----|------|
 | `status` | string | `"pending"` / `"passed"` / `"failed"` |
-| `video_path` | string / null | 録画ファイルパス（**オプション**: Playwright MCPでは通常null） |
-| `screenshots` | string[] | スクリーンショットファイルパス配列（**必須**） |
+| `video_path` | string / null | 録画ファイルパス（**必須**: 失敗時のみnull許容） |
+| `screenshots` | string[] | スクリーンショットファイルパス配列（推奨） |
 | `executed_at` | string / null | 実行日時（ISO8601形式） |
 | `error_message` | string / null | エラー発生時のメッセージ |
 
-**注意**: Playwright MCP は録画機能を直接提供しないため、`video_path` は通常 `null` です。
-スクリーンショットのみでエビデンスとして有効です。外部録画ツール使用時のみ `video_path` を設定してください。
+**重要**: Playwrightの`recordVideo`オプションを使用して、必ず画面録画を取得すること。
+録画なしのエビデンスは不完全とみなします。`video_path`は成功時は必須、失敗時のみnull許容。
 
 ### E2E失敗時の例
 
@@ -321,7 +328,7 @@ function normalizeSection(section) {
     "video_path": null,
     "screenshots": [],
     "executed_at": "2025-12-30T12:00:00.000Z",
-    "error_message": "Playwright MCP接続失敗: Connection refused"
+    "error_message": "Playwright接続失敗: Connection refused"
   }
 }
 ```
