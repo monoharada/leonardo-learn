@@ -56,7 +56,7 @@ For each selected task, follow Kent Beck's TDD cycle:
    - Improve code structure and readability
    - Remove duplication
    - Apply design patterns where appropriate
-   - Ensure all tests still pass after refactoring
+   - Ensure all unit/integration tests still pass after refactoring
 
 4. **VERIFY - Validate Quality**:
    - All unit/integration tests pass (new and existing)

@@ -88,8 +88,8 @@
    - Critical Issues ≦ 3件
 
 3. **判定基準**
-   - `verdict === "GO"` → 承認
-   - `verdict === "NO_GO"` → 自動修正 or ユーザー介入
+   - `ok === true` → 承認（→ GO）
+   - `ok === false` → 自動修正 or ユーザー介入（→ NO_GO）
 
 4. **spec.json更新（GO時）**
    ```javascript

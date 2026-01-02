@@ -161,7 +161,7 @@ tasks.mdの`##`見出しでセクションを定義：
 1. **セクション解析**: tasks.mdから`##`見出しを検出
 2. **完了判定**（優先順位）:
    - **方式1（推奨）**: `tasks_completed`フラグ - spec.jsonの`section_tracking.sections[id].tasks_completed[taskId]`が全てtrue
-   - **方式2（フォールバック）**: ファイル存在確認 - `**Creates:**`/`**Modifies:**`のファイルが存在
+   - **方式2（フォールバック）**: `**Creates:**`は存在確認、`**Modifies:**`は変更検出（git diff）
 3. **レビュートリガー**: 完了 AND 未レビュー の場合にレビュー実行
 
 詳細アルゴリズムは [workflows/section-detection.md](workflows/section-detection.md) を参照。
@@ -390,7 +390,7 @@ codex exec --sandbox read-only resume [SESSION_ID] "[修正内容]"
 | 項目 | 状態 |
 |------|------|
 | **Codex Session ID** | `[SESSION_ID]` |
-| レビュー回数 | X / 5 |
+| レビュー回数 | X / 6 |
 | 最終判定 | [VERDICT] |
 
 ### サマリー
