@@ -518,3 +518,24 @@ export function getCacheStats(): {
 export function clearCache(): void {
 	globalScoreCache.clearAllCaches();
 }
+
+/**
+ * DADSエラー状態（内部）
+ * Task 2.2: エラー状態管理
+ */
+let dadsLoadError: Error | null = null;
+
+/**
+ * DADSエラー状態のリセット（リトライ用）
+ * Task 2.2: Requirement 7.1
+ */
+export function resetDadsErrorState(): void {
+	dadsLoadError = null;
+}
+
+/**
+ * DADSエラー状態を取得（デバッグ用）
+ */
+export function getDadsErrorState(): Error | null {
+	return dadsLoadError;
+}

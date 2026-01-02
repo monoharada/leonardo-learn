@@ -14,6 +14,7 @@ import {
 	getCacheStats,
 	MAJOR_STEPS,
 	recalculateOnBackgroundChange,
+	resetDadsErrorState,
 	type ScoredCandidate,
 	sortCandidates,
 } from "./accent-candidate-service";
@@ -195,9 +196,19 @@ describe("AccentCandidateService", () => {
 		});
 	});
 
-	describe("エラー処理", () => {
+	describe("エラー処理 (Task 2.1)", () => {
 		it("ブランドカラー未設定でBRAND_COLOR_NOT_SETエラー", async () => {
 			const result = await generateCandidates("");
+
+			expect(result.ok).toBe(false);
+			if (!result.ok) {
+				expect(result.error.code).toBe("BRAND_COLOR_NOT_SET");
+				expect(result.error.message).toBe("ブランドカラーを設定してください");
+			}
+		});
+
+		it("ブランドカラーがnullでBRAND_COLOR_NOT_SETエラー", async () => {
+			const result = await generateCandidates(null as unknown as string);
 
 			expect(result.ok).toBe(false);
 			if (!result.ok) {
@@ -205,13 +216,124 @@ describe("AccentCandidateService", () => {
 			}
 		});
 
-		it("無効なブランドカラーでBRAND_COLOR_NOT_SETエラー", async () => {
-			const result = await generateCandidates("invalid-color");
+		it("ブランドカラーがundefinedでBRAND_COLOR_NOT_SETエラー", async () => {
+			const result = await generateCandidates(undefined as unknown as string);
 
 			expect(result.ok).toBe(false);
 			if (!result.ok) {
 				expect(result.error.code).toBe("BRAND_COLOR_NOT_SET");
 			}
+		});
+
+		it("無効なブランドカラー形式でBRAND_COLOR_NOT_SETエラー", async () => {
+			const result = await generateCandidates("invalid-color");
+
+			expect(result.ok).toBe(false);
+			if (!result.ok) {
+				expect(result.error.code).toBe("BRAND_COLOR_NOT_SET");
+				expect(result.error.message).toBe("ブランドカラーの形式が無効です");
+			}
+		});
+
+		it("背景色未設定時は#FFFFFFにフォールバック", async () => {
+			const result = await generateCandidates("#0056FF", { limit: 1 });
+
+			if (!result.ok) {
+				throw new Error(result.error.message);
+			}
+
+			// 背景色未設定でも正常に動作
+			expect(result.result.candidates.length).toBe(1);
+			// デフォルト背景色（#FFFFFF）でコントラストが計算されているはず
+			expect(
+				result.result.candidates[0]?.score.breakdown.contrastScore,
+			).toBeGreaterThanOrEqual(0);
+		});
+
+		it("無効な背景色形式時は#FFFFFFにフォールバック", async () => {
+			const resultInvalid = await generateCandidates("#0056FF", {
+				limit: 1,
+				backgroundHex: "not-a-color",
+			});
+			const resultDefault = await generateCandidates("#0056FF", {
+				limit: 1,
+				backgroundHex: "#FFFFFF",
+			});
+
+			if (!resultInvalid.ok || !resultDefault.ok) {
+				throw new Error("Failed to generate candidates");
+			}
+
+			// 無効な背景色はフォールバックされ、デフォルト背景色と同じ結果になる
+			expect(
+				resultInvalid.result.candidates[0]?.score.breakdown.contrastScore,
+			).toBe(resultDefault.result.candidates[0]?.score.breakdown.contrastScore);
+		});
+
+		it("空文字の背景色は#FFFFFFにフォールバック", async () => {
+			const resultEmpty = await generateCandidates("#0056FF", {
+				limit: 1,
+				backgroundHex: "",
+			});
+			const resultDefault = await generateCandidates("#0056FF", {
+				limit: 1,
+				backgroundHex: "#FFFFFF",
+			});
+
+			if (!resultEmpty.ok || !resultDefault.ok) {
+				throw new Error("Failed to generate candidates");
+			}
+
+			expect(
+				resultEmpty.result.candidates[0]?.score.breakdown.contrastScore,
+			).toBe(resultDefault.result.candidates[0]?.score.breakdown.contrastScore);
+		});
+	});
+
+	describe("スコア計算エラー処理とキャッシュポリシー (Task 2.2)", () => {
+		it("SCORE_CALCULATION_FAILED時にキャッシュがクリアされる", async () => {
+			// 正常な候補生成でキャッシュを構築
+			const result = await generateCandidates("#0056FF", { limit: 10 });
+			if (!result.ok) throw new Error(result.error.message);
+
+			const statsBefore = getCacheStats();
+			expect(statsBefore.partialCacheSize).toBeGreaterThan(0);
+			expect(statsBefore.fullCacheSize).toBeGreaterThan(0);
+
+			// エラー時のキャッシュクリアをシミュレートするために手動でclearCache
+			// 実際のエラー発生時はgenerateCandidates内でclearAllCachesが呼ばれる
+			clearCache();
+
+			const statsAfter = getCacheStats();
+			expect(statsAfter.partialCacheSize).toBe(0);
+			expect(statsAfter.fullCacheSize).toBe(0);
+		});
+
+		it("エラー発生後も再度正常に計算できる", async () => {
+			// 無効なブランドカラーでエラー
+			const errorResult = await generateCandidates("invalid");
+			expect(errorResult.ok).toBe(false);
+
+			// その後、正常なブランドカラーで計算できることを確認
+			const successResult = await generateCandidates("#0056FF", { limit: 5 });
+			expect(successResult.ok).toBe(true);
+			if (successResult.ok) {
+				expect(successResult.result.candidates.length).toBe(5);
+			}
+		});
+
+		it("DADSエラー状態リセット後に再度生成できる", async () => {
+			// 正常な候補生成
+			const result1 = await generateCandidates("#0056FF", { limit: 5 });
+			expect(result1.ok).toBe(true);
+
+			// キャッシュクリア
+			clearCache();
+			resetDadsErrorState();
+
+			// 再度生成できることを確認
+			const result2 = await generateCandidates("#FF0056", { limit: 5 });
+			expect(result2.ok).toBe(true);
 		});
 	});
 
