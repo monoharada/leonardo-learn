@@ -359,6 +359,8 @@ export async function generateCandidates(
 	} catch (error) {
 		// エラー状態を保存（Requirement 7.1）
 		dadsLoadError = error instanceof Error ? error : new Error(String(error));
+		// エラー時はキャッシュをクリア（Requirement 7.3）
+		globalScoreCache.clearAllCaches();
 		return {
 			ok: false,
 			error: {

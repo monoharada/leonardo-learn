@@ -339,7 +339,14 @@ describe("AccentCandidateService", () => {
 			expect(result2.ok).toBe(true);
 		});
 
-		it("DADS読み込み失敗時にDADS_LOAD_FAILEDエラーを返し、dadsLoadErrorが設定される (Requirement 7.1)", async () => {
+		it("DADS読み込み失敗時にDADS_LOAD_FAILEDエラーを返し、dadsLoadErrorが設定され、キャッシュがクリアされる (Requirement 7.1, 7.3)", async () => {
+			// まず正常な生成でキャッシュを構築
+			const result1 = await generateCandidates("#FF0056", { limit: 5 });
+			expect(result1.ok).toBe(true);
+			const statsBefore = getCacheStats();
+			expect(statsBefore.partialCacheSize).toBeGreaterThan(0);
+			expect(statsBefore.fullCacheSize).toBeGreaterThan(0);
+
 			// エラー状態をリセット
 			resetDadsErrorState();
 
@@ -363,6 +370,12 @@ describe("AccentCandidateService", () => {
 			expect(dadsError).not.toBeNull();
 			expect(dadsError?.message).toBe("Network error");
 
+			// キャッシュがクリアされていることを確認 (Requirement 7.3)
+			// ★重要: エラー発生前にキャッシュは存在していた（statsBefore > 0）
+			const statsAfter = getCacheStats();
+			expect(statsAfter.partialCacheSize).toBe(0);
+			expect(statsAfter.fullCacheSize).toBe(0);
+
 			// モックを元に戻す
 			loadDadsMock.mockRestore();
 			resetDadsErrorState();
@@ -384,17 +397,17 @@ describe("AccentCandidateService", () => {
 			expect(result1.ok).toBe(true);
 			const statsBefore = getCacheStats();
 			expect(statsBefore.partialCacheSize).toBeGreaterThan(0);
+			expect(statsBefore.fullCacheSize).toBeGreaterThan(0);
 
-			// 新しいブランドカラーで、toOklchをモック化してエラーをスロー
-			// calculateContrastScoreの中で呼ばれるtoOklchでエラーを発生させる
+			// toOklchをモック化してエラーをスロー
+			// ★重要: キャッシュを事前にクリアしない。エラーパスがクリアすることを検証
 			const toOklchMock = spyOn(colorSpace, "toOklch").mockImplementation(
 				() => {
 					throw new Error("Color conversion failed");
 				},
 			);
 
-			// 別のブランドカラーで試行（キャッシュにない状態）
-			clearCache(); // キャッシュをクリアして新規計算を強制
+			// 新しいブランドカラーで試行（キャッシュにヒットしないため新規計算が発生しエラー）
 			const result2 = await generateCandidates("#0056FF", { limit: 5 });
 
 			// エラーが返されることを確認
@@ -404,7 +417,8 @@ describe("AccentCandidateService", () => {
 				expect(result2.error.message).toBe("Color conversion failed");
 			}
 
-			// キャッシュがクリアされていることを確認 (Requirement 7.3)
+			// エラーパスによってキャッシュがクリアされていることを確認 (Requirement 7.3)
+			// ★重要: エラー発生前にキャッシュは存在していた（statsBefore > 0）
 			const statsAfter = getCacheStats();
 			expect(statsAfter.partialCacheSize).toBe(0);
 			expect(statsAfter.fullCacheSize).toBe(0);
