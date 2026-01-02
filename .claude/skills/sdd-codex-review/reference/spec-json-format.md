@@ -10,7 +10,7 @@
 {
   "phase": "requirements-approved",
   "approvals": {
-    "requirements": { "approved": true },
+    "requirements": { "approved": true, "generated": true },
     "design": { "approved": false },
     "tasks": { "approved": false }
   },

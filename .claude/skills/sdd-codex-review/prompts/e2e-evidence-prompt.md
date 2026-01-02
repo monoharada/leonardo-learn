@@ -71,9 +71,10 @@ FOR each scenario in E2E_SCENARIOS:
     // context.close()はここで呼ばない！
 
 // 全シナリオ完了後に録画を確定
-6. **page.video()?.path()で録画パスを取得**
+6. **page.video()で録画オブジェクトを取得**（close前に必須）
 7. **context.close()で録画を保存**（必須・1回のみ）
-8. 取得したパスを`recording.webm`にリネーム（オプション）
+8. **video?.path()で録画パスを取得**（close後）
+9. 取得したパスを`recording.webm`にリネーム（オプション）
 ```
 
 ### 3. スクリーンショット命名規則

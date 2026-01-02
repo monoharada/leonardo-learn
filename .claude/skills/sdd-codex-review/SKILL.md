@@ -253,7 +253,7 @@ Codexレビュー APPROVED AND e2e_required = true AND e2e_evidence.status = "pe
                 ▼           ▼
    ┌────────────────────┐  ┌────────────────────┐
    │ E2Eエビデンス収集  │  │ セクション完了     │
-   │ (Playwright MCP)   │  │ 次のセクションへ   │
+   │ (Playwright+録画)  │  │ 次のセクションへ   │
    └────────────────────┘  └────────────────────┘
                 │
                 ▼

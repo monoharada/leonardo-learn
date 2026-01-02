@@ -182,9 +182,12 @@ const page = await context.newPage();
 
 // ... シナリオ実行
 
-// 録画パスを取得（context.close()前に呼び出し必須）
-const videoPath = await page.video()?.path();
+// 録画オブジェクトを保持（context.close()前に取得必須）
+const video = page.video();
 await context.close();
+
+// 録画パスを取得（context.close()後に解決される）
+const videoPath = await video?.path();
 
 // リネーム（オプション：一貫した命名のため）
 if (videoPath) {
@@ -199,9 +202,10 @@ if (videoPath) {
 Playwrightの`recordVideo`は**ランダムなUUIDファイル名**（例: `abc123def.webm`）を生成します。
 一貫した`recording.webm`という名前にするには：
 
-1. `page.video()?.path()` で実際のファイルパスを取得
+1. `page.video()` で録画オブジェクトを取得（close前に必須）
 2. `context.close()` で録画を確定
-3. 取得したパスを`recording.webm`にリネーム
+3. `video?.path()` でファイルパスを取得（close後）
+4. 取得したパスを`recording.webm`にリネーム
 
 **または**、リネームせずに実際のパスをそのまま`video_path`に記録してもOK。
 
@@ -250,11 +254,12 @@ await page.screenshot({ path: 'step-02-action.png' });
 // ... 次の操作
 await page.screenshot({ path: 'step-03-complete.png' });
 
-// 3. 録画パスを取得してから録画を確定
-const videoPath = await page.video()?.path();
+// 3. 録画オブジェクトを取得してから録画を確定
+const video = page.video();
 await context.close();
 
-// 4. リネーム（オプション）
+// 4. 録画パスを取得してリネーム
+const videoPath = await video?.path();
 const fs = require('fs');
 const targetPath = '.context/e2e-evidence/[feature]/[section]/recording.webm';
 if (videoPath) fs.renameSync(videoPath, targetPath);
