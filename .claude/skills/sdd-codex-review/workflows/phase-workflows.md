@@ -36,7 +36,8 @@
 
    ## 出力形式（JSON）
    {
-     \"verdict\": \"OK\" | \"NEEDS_REVISION\",
+     \"ok\": true | false,
+     \"phase\": \"requirements\",
      \"issues\": [...],
      \"summary\": \"全体評価\"
    }
@@ -44,10 +45,10 @@
    ```
 
 3. **結果解析と判定**
-   - `verdict === "OK"` → 承認、次フェーズへ
-   - `verdict === "NEEDS_REVISION"` → 自動修正適用、再レビュー
+   - `ok === true` → 承認、次フェーズへ
+   - `ok === false` → 自動修正適用、再レビュー
 
-4. **自動修正（NEEDS_REVISION時）**
+4. **自動修正（ok: false時）**
    - `issues`配列を走査
    - 各`suggestion`をrequirements.mdに適用
    - 再度Codexレビューを実行（最大6回）
@@ -374,10 +375,15 @@ initialized → requirements → design → tasks → impl → completed
 修正適用後に自動実行：
 
 ```bash
-npx tsc --noEmit          # TypeScript型チェック
-npx eslint --fix .        # ESLint
-npx prettier --write .    # Prettier
-npm test                  # テスト実行
+# プロジェクトのツールチェーンに応じて選択
+# Bun + Biome プロジェクトの場合:
+bun run type-check        # TypeScript型チェック
+bun run lint:fix          # Biome lint + fix
+bun run format            # Biome format
+bun test                  # テスト実行
+
+# npm + ESLint/Prettier プロジェクトの場合:
+# npx tsc --noEmit && npx eslint --fix . && npx prettier --write . && npm test
 ```
 
 ### 停止条件

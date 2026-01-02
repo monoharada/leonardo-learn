@@ -16,9 +16,9 @@
       "expected_behavior": [
         "Reads .kiro/specs/user-auth/requirements.md completely",
         "Executes 'codex exec --sandbox read-only' with requirements review prompt",
-        "Extracts JSON verdict from Codex output",
+        "Extracts JSON with 'ok' field from Codex output",
         "Reports Codex Session ID in the response",
-        "Updates spec.json with review results on approval"
+        "Updates spec.json with review results when ok: true"
       ],
       "success_criteria": {
         "must_contain_session_id": true,
@@ -37,11 +37,11 @@
         "requirements_has_issues": true
       },
       "expected_behavior": [
-        "Receives NEEDS_REVISION verdict from Codex",
-        "Parses issues array from JSON response",
-        "Applies suggestions to requirements.md",
+        "Receives ok: false from Codex",
+        "Parses issues array with severity: blocking/advisory",
+        "Applies recommendations to requirements.md",
         "Re-submits for review using 'codex exec resume'",
-        "Continues until OK or max iterations reached"
+        "Continues until ok: true or max iterations reached"
       ],
       "success_criteria": {
         "must_handle_revision_loop": true,
@@ -52,7 +52,7 @@
   ],
   "anti_patterns": [
     "Simulating Codex response without executing codex exec",
-    "Returning OK verdict without Session ID",
-    "Skipping spec.json update after approval"
+    "Returning ok: true without Session ID",
+    "Skipping spec.json update when ok: true"
   ]
 }

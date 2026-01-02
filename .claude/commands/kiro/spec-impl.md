@@ -184,7 +184,7 @@ Codexレビュー承認後にPlaywright（recordVideo有効）を使用して録
 .context/e2e-evidence/
 └── [feature-name]/
     └── [section-id]/
-        ├── recording.webm        # 画面録画（必須）
+        ├── *.webm                # 画面録画（必須・ファイル名は任意）
         ├── step-01-initial.png
         ├── step-02-action.png
         └── step-03-complete.png

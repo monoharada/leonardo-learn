@@ -17,14 +17,14 @@
       "expected_behavior": [
         "Reads design.md and requirements.md for context",
         "Executes codex exec with design review prompt",
-        "Returns GO or NO_GO verdict",
+        "Returns ok: true or ok: false",
         "Validates design against requirements traceability",
-        "Updates spec.json phase to 'design-approved' on GO"
+        "Updates spec.json phase to 'design-approved' when ok: true"
       ],
       "success_criteria": {
         "must_read_requirements_for_context": true,
         "must_check_requirements_coverage": true,
-        "verdict_values": ["GO", "NO_GO"]
+        "ok_field_required": true
       }
     },
     {
@@ -34,10 +34,10 @@
         "design_has_security_issue": true
       },
       "expected_behavior": [
-        "Receives NO_GO verdict due to security blocking issue",
-        "Parses security category issue as blocking",
-        "Attempts to apply fix",
-        "Re-reviews until GO or user intervention needed"
+        "Receives ok: false due to security blocking issue",
+        "Parses security category issue with severity: blocking",
+        "Agent applies fix based on recommendation",
+        "Re-reviews until ok: true or user intervention needed"
       ],
       "success_criteria": {
         "security_issues_are_blocking": true,
