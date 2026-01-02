@@ -111,36 +111,40 @@
   - **Creates:** `src/core/accent/harmony-filter-service.ts`, `src/core/accent/harmony-filter-service.test.ts`
   - _Requirements: 3.3, 3.4, 6.3_
 
-- [ ] 4. アクセント選定パネルUIの実装
+- [x] 4. アクセント選定パネルUIの実装
 
-- [ ] 4.1 AccentSelectorPanel 基本UIの実装
+- [x] 4.1 AccentSelectorPanel 基本UIの実装
   - パネルの開閉制御を実装
   - ブランドカラー未設定時の無効化表示とエラーメッセージを実装
   - DADSデータ読み込み失敗時のエラーメッセージ表示（「DADSデータの読み込みに失敗しました」）とアクセント選定機能無効化を実装
   - ローディング状態の表示を実装
   - エラー状態の表示を実装
   - **依存**: 2.1, 2.3（エラー状態管理の確定後）
+  - **Creates:** `src/ui/accent-selector/accent-selector-panel.ts`, `src/ui/accent-selector/accent-selector-panel.test.ts`
   - _Requirements: 4.1, 7.1_
 
-- [ ] 4.2 (P) AccentCandidateGrid 候補表示UIの実装
+- [x] 4.2 (P) AccentCandidateGrid 候補表示UIの実装
   - 候補カードのグリッド表示を実装
   - 各カードにカラースウォッチ、DADSソース名、総合スコアを表示
   - ホバー時のスコア内訳（ハーモニー/CUD/コントラスト）表示を実装
+  - **Creates:** `src/ui/accent-selector/accent-candidate-grid.ts`, `src/ui/accent-selector/accent-candidate-grid.test.ts`
   - _Requirements: 4.2, 2.5_
 
-- [ ] 4.3 候補選択とパレット連携の実装
+- [x] 4.3 候補選択とパレット連携の実装
   - 候補カードクリック時のアクセント選択機能を実装
   - 選択したアクセントのパレットへの追加を実装（Demo State連携）
   - 選択済みアクセントの削除機能を実装
   - 選択済みアクセントの別候補への変更機能を実装
   - **依存**: 4.1, 4.2（UI基盤確定後）
+  - **Creates:** `src/ui/accent-selector/accent-palette-integration.ts`, `src/ui/accent-selector/accent-palette-integration.test.ts`
   - _Requirements: 4.3, 4.4_
 
-- [ ] 4.4 (P) HarmonyFilter UI と WeightSlider UI の実装
+- [x] 4.4 (P) HarmonyFilter UI と WeightSlider UI の実装
   - ハーモニータイプ選択ドロップダウンを実装
   - フィルタ変更時の候補リスト更新を実装
   - 重み調整スライダー（3つ: ハーモニー/CUD/コントラスト）を実装
   - 重み変更時のスコア再計算トリガーを実装
+  - **Creates:** `src/ui/accent-selector/harmony-filter-ui.ts`, `src/ui/accent-selector/harmony-filter-ui.test.ts`, `src/ui/accent-selector/weight-slider-ui.ts`, `src/ui/accent-selector/weight-slider-ui.test.ts`
   - _Requirements: 3.1, 2.3_
 
 - [ ] 5. 手動選択機能の実装

@@ -51,6 +51,18 @@
 					"3.1": true,
 					"3.2": true
 				}
+			},
+			"4": {
+				"name": "アクセント選定パネルUIの実装",
+				"status": "completed",
+				"reviewed": true,
+				"codex_session_id": "019b7eb0-e077-7fc1-8b19-303a36ba4194",
+				"tasks_completed": {
+					"4.1": true,
+					"4.2": true,
+					"4.3": true,
+					"4.4": true
+				}
 			}
 		}
 	}
