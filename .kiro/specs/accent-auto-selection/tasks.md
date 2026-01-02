@@ -37,9 +37,9 @@
 
 ## タスク一覧
 
-- [ ] 1. バランススコア計算サービスの実装
+- [x] 1. バランススコア計算サービスの実装
 
-- [ ] 1.1 BalanceScoreCalculator コア機能の実装
+- [x] 1.1 BalanceScoreCalculator コア機能の実装
   - ハーモニースコア計算を実装（既存の `calculateHueDistanceScore()` を活用、0-100スケールで返却）
   - CUDスコア計算を実装: `findNearestCudColor()` からΔEを取得し、`score = clamp(0, 100, 100 - (deltaE / 0.20) * 100)` で正規化（ΔE=0で100点、ΔE≥0.20で0点）
   - コントラストスコア計算を実装: `getContrast()` でコントラスト比を取得し、`score = clamp(0, 100, ((contrastRatio - 1) / 6) * 100)` で正規化（比1.0で0点、比7.0以上で100点）
@@ -50,7 +50,7 @@
   - **依存**: なし（他タスクから参照される基盤）
   - _Requirements: 1.2, 2.1, 2.2, 2.3_
 
-- [ ] 1.2 AccentCandidateService 候補生成機能の実装
+- [x] 1.2 AccentCandidateService 候補生成機能の実装
   - DADSトークンからchromatic候補（10色相×13ステップ = 130色）を抽出
   - 全候補に対するスコア一括計算を実装
   - スコア降順ソート（同スコア時は主要ステップ500/600/700/800を優先）を実装
@@ -58,7 +58,7 @@
   - **依存**: 1.1（BalanceScoreCalculatorのAPI確定後）
   - _Requirements: 1.1, 1.3_
 
-- [ ] 1.3 スコアキャッシュ機構の実装
+- [x] 1.3 スコアキャッシュ機構の実装
   - 二段階キャッシュ構造を実装:
     - **partialScoreCache**: キー=`${normalizedBrandHex}_${normalizedCandidateHex}`（ブランド色+候補色）、値=ハーモニー・CUDスコア（背景色・重み非依存）
     - **fullScoreCache**: キー=`${normalizedBrandHex}_${normalizedCandidateHex}_${normalizedBackgroundHex}_${normalizedHarmony}_${normalizedCud}_${normalizedContrast}`（ブランド色+候補色+背景色+正規化済み重み3値）、値=完全スコア結果
