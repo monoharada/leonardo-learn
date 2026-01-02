@@ -9,6 +9,10 @@
  * - BRAND_COLOR_NOT_SET: 自動選定・手動選択ともに無効化
  * - DADS_LOAD_FAILED: 自動選定・手動選択ともに無効化
  * - SCORE_CALCULATION_FAILED: 自動選定のみ無効化、手動選択は継続可能
+ *
+ * 注: グローバル状態は単一ソースに統一。
+ * 関数API（setErrorState等）とクラスAPI（AccentSelectionErrorState）は
+ * 同じglobalErrorStateを参照する。
  */
 
 import type { AccentSelectionError } from "./accent-candidate-service";
@@ -30,7 +34,8 @@ export interface AccentErrorStateData {
 }
 
 /**
- * グローバルエラー状態（シングルトン）
+ * グローバルエラー状態（シングルトン - 単一ソース）
+ * 関数APIとクラスAPIの両方がこの状態を参照する
  */
 let globalErrorState: AccentErrorStateData = {
 	autoSelectionDisabled: false,
@@ -54,6 +59,44 @@ export function createInitialErrorState(): AccentErrorStateData {
 }
 
 /**
+ * エラーコードに応じたエラー状態を計算する（内部ヘルパー）
+ */
+function computeErrorState(error: AccentSelectionError): AccentErrorStateData {
+	switch (error.code) {
+		case "BRAND_COLOR_NOT_SET":
+		case "DADS_LOAD_FAILED":
+			// 両方無効化
+			return {
+				autoSelectionDisabled: true,
+				manualSelectionDisabled: true,
+				errorCode: error.code,
+				errorMessage: error.message,
+				showScoreBreakdown: false,
+			};
+
+		case "SCORE_CALCULATION_FAILED":
+			// 自動選定のみ無効化、手動選択は継続可能
+			return {
+				autoSelectionDisabled: true,
+				manualSelectionDisabled: false,
+				errorCode: error.code,
+				errorMessage: error.message,
+				showScoreBreakdown: false,
+			};
+
+		default:
+			// 未知のエラーコードは両方無効化
+			return {
+				autoSelectionDisabled: true,
+				manualSelectionDisabled: true,
+				errorCode: error.code,
+				errorMessage: error.message,
+				showScoreBreakdown: false,
+			};
+	}
+}
+
+/**
  * エラー状態を設定する
  *
  * エラーコードに応じて無効化フラグを設定:
@@ -67,31 +110,7 @@ export function createInitialErrorState(): AccentErrorStateData {
 export function setErrorState(
 	error: AccentSelectionError,
 ): AccentErrorStateData {
-	switch (error.code) {
-		case "BRAND_COLOR_NOT_SET":
-		case "DADS_LOAD_FAILED":
-			// 両方無効化
-			globalErrorState = {
-				autoSelectionDisabled: true,
-				manualSelectionDisabled: true,
-				errorCode: error.code,
-				errorMessage: error.message,
-				showScoreBreakdown: false,
-			};
-			break;
-
-		case "SCORE_CALCULATION_FAILED":
-			// 自動選定のみ無効化、手動選択は継続可能
-			globalErrorState = {
-				autoSelectionDisabled: true,
-				manualSelectionDisabled: false,
-				errorCode: error.code,
-				errorMessage: error.message,
-				showScoreBreakdown: false,
-			};
-			break;
-	}
-
+	globalErrorState = computeErrorState(error);
 	return { ...globalErrorState };
 }
 
@@ -115,93 +134,74 @@ export function getErrorState(): AccentErrorStateData {
 /**
  * AccentSelectionErrorState クラス
  * エラー状態管理のオブジェクト指向インターフェース
+ *
+ * 注: このクラスはグローバルglobalErrorStateを参照するため、
+ * インスタンスを複数作成しても同じ状態を共有する。
+ * これにより、関数APIとクラスAPIの状態不整合を防ぐ。
  */
 export class AccentSelectionErrorState {
-	private state: AccentErrorStateData;
-
-	constructor() {
-		this.state = createInitialErrorState();
-	}
-
 	/**
 	 * 現在の状態を取得
+	 * グローバル状態を参照
 	 */
 	getState(): AccentErrorStateData {
-		return { ...this.state };
+		return { ...globalErrorState };
 	}
 
 	/**
 	 * エラーを設定
+	 * グローバル状態を更新
 	 */
 	setError(error: AccentSelectionError): void {
-		switch (error.code) {
-			case "BRAND_COLOR_NOT_SET":
-			case "DADS_LOAD_FAILED":
-				this.state = {
-					autoSelectionDisabled: true,
-					manualSelectionDisabled: true,
-					errorCode: error.code,
-					errorMessage: error.message,
-					showScoreBreakdown: false,
-				};
-				break;
-
-			case "SCORE_CALCULATION_FAILED":
-				this.state = {
-					autoSelectionDisabled: true,
-					manualSelectionDisabled: false,
-					errorCode: error.code,
-					errorMessage: error.message,
-					showScoreBreakdown: false,
-				};
-				break;
-		}
+		globalErrorState = computeErrorState(error);
 	}
 
 	/**
 	 * エラー状態をクリア
+	 * グローバル状態をリセット
 	 */
 	clear(): void {
-		this.state = createInitialErrorState();
+		globalErrorState = createInitialErrorState();
 	}
 
 	/**
 	 * 自動選定が無効かどうか
 	 */
 	isAutoSelectionDisabled(): boolean {
-		return this.state.autoSelectionDisabled;
+		return globalErrorState.autoSelectionDisabled;
 	}
 
 	/**
 	 * 手動選択が無効かどうか
 	 */
 	isManualSelectionDisabled(): boolean {
-		return this.state.manualSelectionDisabled;
+		return globalErrorState.manualSelectionDisabled;
 	}
 
 	/**
 	 * スコア内訳を表示できるか
 	 */
 	canShowScoreBreakdown(): boolean {
-		return this.state.showScoreBreakdown;
+		return globalErrorState.showScoreBreakdown;
 	}
 
 	/**
 	 * エラーメッセージを取得
 	 */
 	getErrorMessage(): string | null {
-		return this.state.errorMessage;
+		return globalErrorState.errorMessage;
 	}
 
 	/**
 	 * エラーコードを取得
 	 */
 	getErrorCode(): AccentSelectionError["code"] | null {
-		return this.state.errorCode;
+		return globalErrorState.errorCode;
 	}
 }
 
 /**
  * グローバルエラー状態マネージャー（シングルトン）
+ * 関数API（setErrorState等）と同じglobalErrorStateを参照
  */
 export const globalAccentErrorState = new AccentSelectionErrorState();

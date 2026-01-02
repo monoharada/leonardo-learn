@@ -354,7 +354,11 @@ export async function generateCandidates(
 	let tokens: DadsToken[];
 	try {
 		tokens = await loadDadsTokens();
+		// 成功時はエラー状態をクリア
+		dadsLoadError = null;
 	} catch (error) {
+		// エラー状態を保存（Requirement 7.1）
+		dadsLoadError = error instanceof Error ? error : new Error(String(error));
 		return {
 			ok: false,
 			error: {

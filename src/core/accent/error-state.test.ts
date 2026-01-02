@@ -11,6 +11,8 @@ import {
 	AccentSelectionErrorState,
 	clearErrorState,
 	createInitialErrorState,
+	getErrorState,
+	globalAccentErrorState,
 	setErrorState,
 } from "./error-state";
 
@@ -164,6 +166,72 @@ describe("AccentSelectionErrorState (Task 2.3)", () => {
 				message: "エラー",
 			});
 			expect(manager.canShowScoreBreakdown()).toBe(false);
+		});
+	});
+
+	describe("グローバル状態の統一 (Codex修正)", () => {
+		it("関数APIとクラスAPIは同じグローバル状態を共有", () => {
+			// 関数APIでエラーを設定
+			setErrorState({
+				code: "BRAND_COLOR_NOT_SET",
+				message: "テスト",
+			});
+
+			// クラスAPIで状態を取得 - 同じ状態を参照
+			const classState = globalAccentErrorState.getState();
+			expect(classState.errorCode).toBe("BRAND_COLOR_NOT_SET");
+			expect(classState.autoSelectionDisabled).toBe(true);
+
+			// 関数APIで状態を取得
+			const funcState = getErrorState();
+			expect(funcState.errorCode).toBe("BRAND_COLOR_NOT_SET");
+
+			// クリア
+			clearErrorState();
+
+			// 両方のAPIで状態がクリアされていることを確認
+			expect(globalAccentErrorState.getState().errorCode).toBeNull();
+			expect(getErrorState().errorCode).toBeNull();
+		});
+
+		it("クラスAPIで設定した状態は関数APIでも取得できる", () => {
+			// クラスAPIでエラーを設定
+			globalAccentErrorState.setError({
+				code: "DADS_LOAD_FAILED",
+				message: "テスト",
+			});
+
+			// 関数APIで取得
+			const state = getErrorState();
+			expect(state.errorCode).toBe("DADS_LOAD_FAILED");
+			expect(state.manualSelectionDisabled).toBe(true);
+
+			// クラスAPIでクリア
+			globalAccentErrorState.clear();
+
+			// 関数APIで確認
+			expect(getErrorState().errorCode).toBeNull();
+		});
+
+		it("複数のクラスインスタンスは同じグローバル状態を共有", () => {
+			const instance1 = new AccentSelectionErrorState();
+			const instance2 = new AccentSelectionErrorState();
+
+			// instance1でエラーを設定
+			instance1.setError({
+				code: "SCORE_CALCULATION_FAILED",
+				message: "テスト",
+			});
+
+			// instance2でも同じ状態が見える
+			expect(instance2.isAutoSelectionDisabled()).toBe(true);
+			expect(instance2.getErrorCode()).toBe("SCORE_CALCULATION_FAILED");
+
+			// instance2でクリア
+			instance2.clear();
+
+			// instance1でも状態がクリアされている
+			expect(instance1.isAutoSelectionDisabled()).toBe(false);
 		});
 	});
 });

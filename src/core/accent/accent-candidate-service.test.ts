@@ -6,12 +6,15 @@
  * Requirements: 1.1, 1.3, 2.4, 6.2
  */
 
-import { beforeEach, describe, expect, it } from "bun:test";
+import { beforeEach, describe, expect, it, mock, spyOn } from "bun:test";
+import * as colorSpace from "../../utils/color-space";
+import * as dadsDataProvider from "../tokens/dads-data-provider";
 import {
 	clearCache,
 	type GenerateCandidatesOptions,
 	generateCandidates,
 	getCacheStats,
+	getDadsErrorState,
 	MAJOR_STEPS,
 	recalculateOnBackgroundChange,
 	resetDadsErrorState,
@@ -334,6 +337,103 @@ describe("AccentCandidateService", () => {
 			// 再度生成できることを確認
 			const result2 = await generateCandidates("#FF0056", { limit: 5 });
 			expect(result2.ok).toBe(true);
+		});
+
+		it("DADS読み込み失敗時にDADS_LOAD_FAILEDエラーを返し、dadsLoadErrorが設定される (Requirement 7.1)", async () => {
+			// エラー状態をリセット
+			resetDadsErrorState();
+
+			// loadDadsTokensをモック化して例外をスロー
+			const loadDadsMock = spyOn(
+				dadsDataProvider,
+				"loadDadsTokens",
+			).mockRejectedValueOnce(new Error("Network error"));
+
+			const result = await generateCandidates("#0056FF", { limit: 5 });
+
+			// エラーが返されることを確認
+			expect(result.ok).toBe(false);
+			if (!result.ok) {
+				expect(result.error.code).toBe("DADS_LOAD_FAILED");
+				expect(result.error.message).toBe("DADSデータの読み込みに失敗しました");
+			}
+
+			// dadsLoadErrorが設定されていることを確認
+			const dadsError = getDadsErrorState();
+			expect(dadsError).not.toBeNull();
+			expect(dadsError?.message).toBe("Network error");
+
+			// モックを元に戻す
+			loadDadsMock.mockRestore();
+			resetDadsErrorState();
+		});
+
+		it("DADS読み込み成功時にdadsLoadErrorがクリアされる", async () => {
+			// 正常な候補生成
+			const result = await generateCandidates("#0056FF", { limit: 1 });
+			expect(result.ok).toBe(true);
+
+			// dadsLoadErrorがnullであることを確認
+			const dadsError = getDadsErrorState();
+			expect(dadsError).toBeNull();
+		});
+
+		it("スコア計算失敗時にSCORE_CALCULATION_FAILEDエラーを返しキャッシュがクリアされる (Requirement 7.2, 7.3)", async () => {
+			// まず正常な生成でキャッシュを構築
+			const result1 = await generateCandidates("#FF0056", { limit: 5 });
+			expect(result1.ok).toBe(true);
+			const statsBefore = getCacheStats();
+			expect(statsBefore.partialCacheSize).toBeGreaterThan(0);
+
+			// 新しいブランドカラーで、toOklchをモック化してエラーをスロー
+			// calculateContrastScoreの中で呼ばれるtoOklchでエラーを発生させる
+			const toOklchMock = spyOn(colorSpace, "toOklch").mockImplementation(
+				() => {
+					throw new Error("Color conversion failed");
+				},
+			);
+
+			// 別のブランドカラーで試行（キャッシュにない状態）
+			clearCache(); // キャッシュをクリアして新規計算を強制
+			const result2 = await generateCandidates("#0056FF", { limit: 5 });
+
+			// エラーが返されることを確認
+			expect(result2.ok).toBe(false);
+			if (!result2.ok) {
+				expect(result2.error.code).toBe("SCORE_CALCULATION_FAILED");
+				expect(result2.error.message).toBe("Color conversion failed");
+			}
+
+			// キャッシュがクリアされていることを確認 (Requirement 7.3)
+			const statsAfter = getCacheStats();
+			expect(statsAfter.partialCacheSize).toBe(0);
+			expect(statsAfter.fullCacheSize).toBe(0);
+
+			// モックを元に戻す
+			toOklchMock.mockRestore();
+		});
+
+		it("スコア計算失敗後も再度正常に計算できる (Requirement 7.2)", async () => {
+			// toOklchをモック化してエラーをスロー
+			const toOklchMock = spyOn(colorSpace, "toOklch").mockImplementation(
+				() => {
+					throw new Error("Temporary error");
+				},
+			);
+
+			clearCache();
+			const errorResult = await generateCandidates("#0056FF", { limit: 5 });
+			expect(errorResult.ok).toBe(false);
+
+			// モックを元に戻す
+			toOklchMock.mockRestore();
+
+			// その後、正常に計算できることを確認
+			const successResult = await generateCandidates("#0056FF", { limit: 5 });
+			expect(successResult.ok).toBe(true);
+			if (successResult.ok) {
+				expect(successResult.result.candidates.length).toBe(5);
+			}
 		});
 	});
 
