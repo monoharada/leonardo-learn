@@ -10,11 +10,11 @@ argument-hint: <feature-name> [task-numbers]
 - **Mission**: Execute implementation tasks using Test-Driven Development methodology based on approved specifications
 - **Success Criteria**:
   - All tests written before implementation code
-  - Code passes all tests with no regressions
+  - Code passes all unit/integration tests with no regressions
   - Tasks marked as completed in tasks.md
   - Implementation aligns with design and requirements
   - **Codex review invoked and APPROVED** via `/sdd-codex-review impl-section` (at section completion)
-  - **E2E evidence collected** for `[E2E]` tagged sections (after review APPROVED)
+  - **E2E evidence collected** for `[E2E]` tagged sections (after review APPROVED, non-blocking artifact)
 </background_information>
 
 <instructions>

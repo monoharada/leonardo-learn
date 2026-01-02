@@ -1,6 +1,6 @@
 ---
 name: sdd-codex-review
-description: "Executes automated code reviews using OpenAI Codex CLI for SDD workflow phases (requirements, design, tasks, impl). Triggers after /kiro:spec-* completion. Loops until APPROVED with auto-fix. Use: /sdd-codex-review [phase] [feature-name]. Codex統合自動レビュー。"
+description: "Executes automated code reviews using OpenAI Codex CLI for SDD workflow phases (requirements, design, tasks, impl). Triggers after /kiro:spec-* completion. Codex reviews read-only; agent applies fixes and re-reviews until APPROVED. Use: /sdd-codex-review [phase] [feature-name]. Codex統合自動レビュー。"
 ---
 
 # SDD-Codex-Review
@@ -30,7 +30,7 @@ Automated code review skill using OpenAI Codex CLI for Spec-Driven Development w
 **Key Points:**
 - Executes actual `codex exec --sandbox read-only` commands (no simulation)
 - Returns JSON verdict with Codex Session ID
-- Auto-fixes issues and re-reviews until APPROVED (max 6 iterations)
+- Agent applies fixes based on Codex feedback and re-reviews until APPROVED (max 6 iterations)
 
 ---
 
@@ -102,7 +102,7 @@ OKが出るまでフィードバックループを繰り返します。
        ┌──────────────────────────────┬──────────┴──────────┐
        ▼                              ▼                      ▼
 ┌──────────────┐                ┌──────────┐          ┌──────────┐
-│ OK: 次フェーズ│                │ 再レビュー│          │ 5回超過: │
+│ OK: 次フェーズ│                │ 再レビュー│          │ 6回超過: │
 │ spec.json更新│                │ (ループ) │          │ ユーザー │
 │ ユーザー報告 │                └──────────┘          │ 介入要求 │
 └──────────────┘                                      └──────────┘
