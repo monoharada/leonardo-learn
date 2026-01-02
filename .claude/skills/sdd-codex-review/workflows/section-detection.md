@@ -350,7 +350,7 @@ FUNCTION shouldTriggerReview(sectionId):
 ### tasks.mdの変更検知
 
 ```
-現在のハッシュ = hash(tasks.md内容)
+現在のハッシュ = SHA-256(tasks.md内容)
 保存済みハッシュ = state.tasks_md_hash
 
 IF 現在のハッシュ != 保存済みハッシュ:
@@ -478,7 +478,7 @@ E2Eエビデンス収集（Playwright MCP）
         └── step-03-complete.png    # 完了状態
 ```
 
-**注意**: Playwright MCPは直接録画機能を提供しないため、スクリーンショットのみがエビデンスとして収集されます。
+**注意**: Playwrightの`recordVideo`オプションを使用して、必ず録画を取得すること。スクリーンショットは補助エビデンスとして併用します。
 
 ---
 

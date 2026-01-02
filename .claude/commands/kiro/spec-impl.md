@@ -186,5 +186,3 @@ Codexレビュー承認後にPlaywright MCPを使用してスクリーンショ�
         ├── step-02-action.png
         └── step-03-complete.png
 ```
-
-think

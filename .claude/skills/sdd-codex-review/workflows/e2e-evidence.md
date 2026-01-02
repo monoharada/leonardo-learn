@@ -6,8 +6,8 @@
 
 ## 概要
 
-UIに関連するセクションでは、**Codexレビューで承認された後**に Playwright MCP を使用してE2Eテストを実行し、
-画面録画とスクリーンショットをエビデンスとして収集します。
+UIに関連するセクションでは、**Codexレビューで承認された後**に Playwright の `recordVideo` オプションを使用してE2Eテストを実行し、
+**必ず画面録画を取得**します。スクリーンショットは補助的なエビデンスとして併用します。
 
 ### なぜレビュー後に実行するのか
 
@@ -160,22 +160,29 @@ E2Eエビデンス収集は**Codexレビューで APPROVED を取得した後**�
 
 | ファイル種別 | 命名パターン | 必須/任意 | 説明 |
 |-------------|-------------|----------|------|
-| スクリーンショット | `step-NN-description.png` | **必須** | 各ステップの状態（Playwright MCP で取得） |
+| 録画ファイル | `recording.webm` | **必須** | Playwright `recordVideo` で取得 |
+| スクリーンショット | `step-NN-description.png` | 推奨 | 各ステップの状態（補助エビデンス） |
 
-### 重要: スクリーンショットがエビデンスの主体
+## 録画エビデンス（必須）
 
-Playwright MCP は直接的な録画機能を提供しないため、**スクリーンショットのみ**がエビデンスとなります。
-`video_path` フィールドは通常 `null` です。
+Playwrightの`recordVideo`オプションを使用して、必ず画面録画を取得すること。
 
-#### 外部録画ツール使用時（オプション）
+### 設定例
 
-OS標準の画面録画ツール等を使用して録画を取得した場合のみ、手動で以下を追加可能：
-
+```typescript
+const context = await browser.newContext({
+  recordVideo: {
+    dir: '.context/e2e-evidence/[feature]/[section]/',
+    size: { width: 1280, height: 720 }
+  }
+});
 ```
-.context/e2e-evidence/[feature]/[section]/recording.webm
-```
 
-この場合、`spec.json` の `e2e_evidence.video_path` に録画パスを設定します。
+### 重要
+
+- 録画なしのエビデンスは不完全とみなす
+- スクリーンショットは補助的なエビデンスとして併用
+- `video_path` は必須フィールド（nullは許容しない）
 
 ### .gitignore設定
 
@@ -206,10 +213,10 @@ E2Eエビデンス収集は Playwright MCP の以下の機能を使用：
 
 ### 録画について
 
-Playwright MCPでは直接録画機能は提供されないため、以下のアプローチを推奨：
+Playwrightの`recordVideo`オプションを使用して、必ず画面録画を取得すること：
 
-1. **スクリーンショットベース**: 各操作ステップでスクリーンショットを取得
-2. **外部録画ツール連携**: 必要に応じてOS標準の録画機能を使用
+1. **録画ファイル**: `recording.webm` を自動生成（必須）
+2. **スクリーンショット**: 各操作ステップで補助エビデンスとして取得（推奨）
 
 ### シナリオ実行
 
@@ -320,7 +327,7 @@ E2Eエビデンス収集失敗 ≠ レビューブロック
     "video_path": null,
     "screenshots": [],
     "executed_at": "2025-12-30T12:00:00Z",
-    "error_message": "Playwright MCP接続失敗: Connection refused"
+    "error_message": "Playwright接続失敗: Connection refused"
   }
 }
 ```
@@ -355,11 +362,11 @@ E2Eエビデンス収集失敗 ≠ レビューブロック
 ステータス: 失敗
 
 ### エラー内容
-Playwright MCP接続に失敗しました。
+Playwright接続に失敗しました。
 
 ### 推奨アクション
 1. アプリケーションが起動しているか確認してください
-2. Playwright MCPが正しく設定されているか確認してください
+2. Playwrightが正しく設定されているか確認してください
 
 Codexレビューは続行します。
 ```
@@ -373,7 +380,7 @@ Codexレビューは続行します。
 ```javascript
 section.e2e_evidence = {
   status: "passed",
-  video_path: null,  // Playwright MCPでは録画非対応
+  video_path: ".context/e2e-evidence/[feature]/[section]/recording.webm",  // 必須
   screenshots: [
     ".context/e2e-evidence/[feature]/[section]/step-01-initial.png",
     ".context/e2e-evidence/[feature]/[section]/step-02-action.png"
@@ -388,7 +395,7 @@ section.e2e_evidence = {
 ```javascript
 section.e2e_evidence = {
   status: "failed",
-  video_path: null,
+  video_path: null,  // 失敗時のみnull許容
   screenshots: [], // 部分的に取得できた場合は含める
   executed_at: new Date().toISOString(),
   error_message: "エラーの詳細"

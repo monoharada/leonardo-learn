@@ -135,13 +135,20 @@ Key commands:
 /sdd-codex-review requirements [feature]  # kiro:spec-requirements後
 /sdd-codex-review design [feature]        # kiro:spec-design後
 /sdd-codex-review tasks [feature]         # kiro:spec-tasks後
-/sdd-codex-review impl [feature]          # kiro:spec-impl後
+/sdd-codex-review impl [feature]          # kiro:spec-impl後（従来方式）
+
+# セクション単位レビュー（推奨）
+/sdd-codex-review impl-section [feature] [section-id]  # 特定セクション
+/sdd-codex-review impl-pending [feature]               # 未レビュー一括
+
+# E2Eエビデンス収集
+/sdd-codex-review e2e-evidence [feature] [section-id]  # 手動実行
 ```
 
 ワークフロー:
 1. `/kiro:spec-requirements [feature]` → `/sdd-codex-review requirements [feature]`
 2. `/kiro:spec-design [feature]` → `/sdd-codex-review design [feature]`
 3. `/kiro:spec-tasks [feature]` → `/sdd-codex-review tasks [feature]`
-4. `/kiro:spec-impl [feature] [task]` → `/sdd-codex-review impl [feature]`
+4. `/kiro:spec-impl [feature] [task]` → `/sdd-codex-review impl-section [feature] [section-id]`（セクション単位推奨）
 
 各フェーズでAPPROVEDを取得してから次へ進む。
