@@ -405,7 +405,7 @@ tasks.mdに `##` 見出しがない場合：
 
 ### E2Eエビデンス収集失敗時
 
-Playwright MCPでの実行が失敗した場合：
+Playwright（`recordVideo`オプション有効）での実行が失敗した場合：
 
 ```
 1. e2e_evidence.status = "failed"
@@ -452,7 +452,7 @@ APPROVED ?
 shouldTriggerE2EEvidence(sectionId) = true?
     ├── NO → セクション完了、次へ進行
     ↓ YES
-E2Eエビデンス収集（Playwright MCP）
+E2Eエビデンス収集（Playwright + recordVideo）
     ↓
 結果を e2e_evidence に保存
     ↓

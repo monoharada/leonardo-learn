@@ -55,9 +55,10 @@ const page = await context.newPage();
 
 ### 2. シナリオ実行
 
-各E2Eシナリオについて以下を実行:
+**重要**: 1つのcontextで全シナリオを実行し、最後に1回だけcontext.close()を呼び出す。
 
 ```
+// 同一context内で全シナリオを順次実行
 FOR each scenario in E2E_SCENARIOS:
     1. アプリケーションURLに遷移
     2. 初期状態のスクリーンショット取得
@@ -67,7 +68,12 @@ FOR each scenario in E2E_SCENARIOS:
        - フォーム送信
     4. 各アクション後にスクリーンショット取得
     5. 最終状態のスクリーンショット取得
-    6. **context.close()で録画を保存**（必須）
+    // context.close()はここで呼ばない！
+
+// 全シナリオ完了後に録画を確定
+6. **page.video()?.path()で録画パスを取得**
+7. **context.close()で録画を保存**（必須・1回のみ）
+8. 取得したパスを`recording.webm`にリネーム（オプション）
 ```
 
 ### 3. スクリーンショット命名規則
@@ -96,9 +102,13 @@ step-04-complete.png           # 最終状態
 - 実行日時: [timestamp]
 
 ### 収集ファイル
-- `step-01-xxx.png` - [説明]
-- `step-02-xxx.png` - [説明]
-- ...
+録画:
+  - `recording.webm` - 画面録画（必須）
+
+スクリーンショット:
+  - `step-01-xxx.png` - [説明]
+  - `step-02-xxx.png` - [説明]
+  - ...
 
 ### 実行結果
 - 成功したシナリオ: X件

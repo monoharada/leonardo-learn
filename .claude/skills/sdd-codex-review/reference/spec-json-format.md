@@ -269,7 +269,7 @@ function normalizeSection(section) {
 
 ### 概要
 
-`[E2E]` タグ付きセクションでは、Playwright MCP を使用してE2Eテストのエビデンス（画面録画・スクリーンショット）を収集します。
+`[E2E]` タグ付きセクションでは、Playwright（`recordVideo`オプション有効）を使用してE2Eテストのエビデンス（画面録画・スクリーンショット）を収集します。
 
 ### e2e_scenarios 構造
 

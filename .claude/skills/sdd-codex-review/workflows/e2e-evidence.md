@@ -162,7 +162,7 @@ E2Eエビデンス収集は**Codexレビューで APPROVED を取得した後**�
 
 | ファイル種別 | 命名パターン | 必須/任意 | 説明 |
 |-------------|-------------|----------|------|
-| 録画ファイル | `recording.webm` | **必須** | Playwright `recordVideo` で取得 |
+| 録画ファイル | `recording.webm` | **必須** | Playwright `recordVideo` で取得後リネーム |
 | スクリーンショット | `step-NN-description.png` | 推奨 | 各ステップの状態（補助エビデンス） |
 
 ## 録画エビデンス（必須）
@@ -178,13 +178,38 @@ const context = await browser.newContext({
     size: { width: 1280, height: 720 }
   }
 });
+const page = await context.newPage();
+
+// ... シナリオ実行
+
+// 録画パスを取得（context.close()前に呼び出し必須）
+const videoPath = await page.video()?.path();
+await context.close();
+
+// リネーム（オプション：一貫した命名のため）
+if (videoPath) {
+  const fs = require('fs');
+  const targetPath = '.context/e2e-evidence/[feature]/[section]/recording.webm';
+  fs.renameSync(videoPath, targetPath);
+}
 ```
 
-### 重要
+### 重要: Playwrightの録画ファイル名について
+
+Playwrightの`recordVideo`は**ランダムなUUIDファイル名**（例: `abc123def.webm`）を生成します。
+一貫した`recording.webm`という名前にするには：
+
+1. `page.video()?.path()` で実際のファイルパスを取得
+2. `context.close()` で録画を確定
+3. 取得したパスを`recording.webm`にリネーム
+
+**または**、リネームせずに実際のパスをそのまま`video_path`に記録してもOK。
+
+### 必須事項
 
 - 録画なしのエビデンスは不完全とみなす
 - スクリーンショットは補助的なエビデンスとして併用
-- `video_path` は必須フィールド（nullは許容しない）
+- `video_path` は必須フィールド（失敗時のみnull許容）
 
 ### .gitignore設定
 
@@ -208,7 +233,7 @@ const context = await browser.newContext({
 E2Eエビデンス収集は Playwright の以下の機能を使用：
 
 ```typescript
-// 1. recordVideoオプション有効でブラウザ起動
+// 1. recordVideoオプション有効でブラウザ起動（1回だけ）
 const context = await browser.newContext({
   recordVideo: {
     dir: '.context/e2e-evidence/[feature]/[section]/',
@@ -217,20 +242,36 @@ const context = await browser.newContext({
 });
 const page = await context.newPage();
 
-// 2. E2Eシナリオ実行
+// 2. 全シナリオを同一context内で実行
 await page.goto(APP_URL);
 await page.screenshot({ path: 'step-01-initial.png' });
 // ... 各操作ステップ
+await page.screenshot({ path: 'step-02-action.png' });
+// ... 次の操作
+await page.screenshot({ path: 'step-03-complete.png' });
 
-// 3. 録画保存（context.close()で自動保存）
+// 3. 録画パスを取得してから録画を確定
+const videoPath = await page.video()?.path();
 await context.close();
+
+// 4. リネーム（オプション）
+const fs = require('fs');
+const targetPath = '.context/e2e-evidence/[feature]/[section]/recording.webm';
+if (videoPath) fs.renameSync(videoPath, targetPath);
 ```
+
+### 重要: 1つのcontextで全シナリオを実行
+
+- `browser.newContext()` は **1回だけ** 呼び出す
+- 全シナリオを同一context内で順次実行
+- 全シナリオ完了後に `context.close()` で録画を確定
+- **context.close()をループ内で呼び出してはいけない**
 
 ### 録画について
 
 Playwrightの`recordVideo`オプションを使用して、必ず画面録画を取得すること：
 
-1. **録画ファイル**: `recording.webm` を自動生成（必須）
+1. **録画ファイル**: UUIDで自動生成 → `recording.webm`にリネーム（必須）
 2. **スクリーンショット**: 各操作ステップで補助エビデンスとして取得（推奨）
 
 ### シナリオ実行
