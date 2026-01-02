@@ -1,0 +1,53 @@
+{
+  "name": "design-review-evaluation",
+  "description": "Evaluate design review phase of sdd-codex-review skill",
+  "skills": ["sdd-codex-review"],
+  "scenarios": [
+    {
+      "name": "basic-design-review",
+      "query": "/sdd-codex-review design api-gateway",
+      "setup": {
+        "files": [
+          ".kiro/specs/api-gateway/design.md",
+          ".kiro/specs/api-gateway/requirements.md",
+          ".kiro/specs/api-gateway/spec.json"
+        ],
+        "spec_json_phase": "requirements-approved"
+      },
+      "expected_behavior": [
+        "Reads design.md and requirements.md for context",
+        "Executes codex exec with design review prompt",
+        "Returns GO or NO_GO verdict",
+        "Validates design against requirements traceability",
+        "Updates spec.json phase to 'design-approved' on GO"
+      ],
+      "success_criteria": {
+        "must_read_requirements_for_context": true,
+        "must_check_requirements_coverage": true,
+        "verdict_values": ["GO", "NO_GO"]
+      }
+    },
+    {
+      "name": "design-with-critical-issues",
+      "query": "/sdd-codex-review design data-migration",
+      "setup": {
+        "design_has_security_issue": true
+      },
+      "expected_behavior": [
+        "Receives NO_GO verdict due to security blocking issue",
+        "Parses security category issue as blocking",
+        "Attempts to apply fix",
+        "Re-reviews until GO or user intervention needed"
+      ],
+      "success_criteria": {
+        "security_issues_are_blocking": true,
+        "must_report_all_blocking_issues": true
+      }
+    }
+  ],
+  "anti_patterns": [
+    "Approving design without checking requirements coverage",
+    "Ignoring security-category issues as non-blocking",
+    "Not validating interface definitions against requirements"
+  ]
+}

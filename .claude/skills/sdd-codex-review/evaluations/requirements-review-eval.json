@@ -1,0 +1,58 @@
+{
+  "name": "requirements-review-evaluation",
+  "description": "Evaluate requirements review phase of sdd-codex-review skill",
+  "skills": ["sdd-codex-review"],
+  "scenarios": [
+    {
+      "name": "basic-requirements-review",
+      "query": "/sdd-codex-review requirements user-auth",
+      "setup": {
+        "files": [
+          ".kiro/specs/user-auth/requirements.md",
+          ".kiro/specs/user-auth/spec.json"
+        ],
+        "spec_json_phase": "initialized"
+      },
+      "expected_behavior": [
+        "Reads .kiro/specs/user-auth/requirements.md completely",
+        "Executes 'codex exec --sandbox read-only' with requirements review prompt",
+        "Extracts JSON verdict from Codex output",
+        "Reports Codex Session ID in the response",
+        "Updates spec.json with review results on approval"
+      ],
+      "success_criteria": {
+        "must_contain_session_id": true,
+        "must_execute_codex": true,
+        "must_update_spec_json_on_approval": true
+      }
+    },
+    {
+      "name": "requirements-with-issues",
+      "query": "/sdd-codex-review requirements payment-flow",
+      "setup": {
+        "files": [
+          ".kiro/specs/payment-flow/requirements.md",
+          ".kiro/specs/payment-flow/spec.json"
+        ],
+        "requirements_has_issues": true
+      },
+      "expected_behavior": [
+        "Receives NEEDS_REVISION verdict from Codex",
+        "Parses issues array from JSON response",
+        "Applies suggestions to requirements.md",
+        "Re-submits for review using 'codex exec resume'",
+        "Continues until OK or max iterations reached"
+      ],
+      "success_criteria": {
+        "must_handle_revision_loop": true,
+        "must_use_resume_for_resubmit": true,
+        "max_iterations": 5
+      }
+    }
+  ],
+  "anti_patterns": [
+    "Simulating Codex response without executing codex exec",
+    "Returning OK verdict without Session ID",
+    "Skipping spec.json update after approval"
+  ]
+}

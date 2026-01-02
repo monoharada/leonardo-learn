@@ -473,6 +473,7 @@ E2Eエビデンス収集（Playwright + recordVideo）
 .context/e2e-evidence/
 └── [feature-name]/
     └── [section-id]/
+        ├── recording.webm          # 画面録画（必須）
         ├── step-01-initial.png     # 初期状態
         ├── step-02-action.png      # 操作後
         └── step-03-complete.png    # 完了状態

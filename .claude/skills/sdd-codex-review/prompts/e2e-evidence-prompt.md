@@ -302,6 +302,7 @@ URL: http://localhost:3000/dashboard
 
 | ファイル | 説明 |
 |---------|------|
+| recording.webm | 画面録画（必須） |
 | step-01-dashboard-initial.png | ダッシュボード初期表示 |
 | step-02-widgets.png | ウィジェット表示確認 |
 | step-03-refresh.png | データ更新後の状態 |

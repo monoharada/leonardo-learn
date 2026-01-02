@@ -278,7 +278,7 @@ if (videoPath) fs.renameSync(videoPath, targetPath);
 
 Playwrightの`recordVideo`オプションを使用して、必ず画面録画を取得すること：
 
-1. **録画ファイル**: UUIDで自動生成 → `recording.webm`にリネーム（必須）
+1. **録画ファイル**: UUIDで自動生成（リネームは任意、spec.jsonの`video_path`に実際のパスを記録）
 2. **スクリーンショット**: 各操作ステップで補助エビデンスとして取得（推奨）
 
 ### シナリオ実行
