@@ -59,9 +59,10 @@ For each selected task, follow Kent Beck's TDD cycle:
    - Ensure all tests still pass after refactoring
 
 4. **VERIFY - Validate Quality**:
-   - All tests pass (new and existing)
+   - All unit/integration tests pass (new and existing)
    - No regressions in existing functionality
    - Code coverage maintained or improved
+   - Note: E2E evidence is collected separately after section review (non-blocking)
 
 5. **MARK COMPLETE**:
    - Update checkbox from `- [ ]` to `- [x]` in tasks.md

@@ -159,9 +159,12 @@ tasks.mdの`##`見出しでセクションを定義：
 ### 完了検知ロジック
 
 1. **セクション解析**: tasks.mdから`##`見出しを検出
-2. **ファイル抽出**: 各タスクの`**Creates:**`/`**Modifies:**`からファイル一覧を取得
-3. **存在確認**: 全期待ファイルが存在するか確認
-4. **レビュートリガー**: 完了 AND 未レビュー の場合にレビュー実行
+2. **完了判定**（優先順位）:
+   - **方式1（推奨）**: `tasks_completed`フラグ - spec.jsonの`section_tracking.sections[id].tasks_completed[taskId]`が全てtrue
+   - **方式2（フォールバック）**: ファイル存在確認 - `**Creates:**`/`**Modifies:**`のファイルが存在
+3. **レビュートリガー**: 完了 AND 未レビュー の場合にレビュー実行
+
+詳細アルゴリズムは [workflows/section-detection.md](workflows/section-detection.md) を参照。
 
 ### impl-section コマンド
 
@@ -293,15 +296,30 @@ E2Eはエビデンス目的であり、品質ゲートではありません。
 
 ## レビュー判定基準
 
-| 判定 | 条件 |
-|------|------|
-| ok: true | blocking = 0件 |
-| ok: false | blocking ≧ 1件 |
+### Codex JSON出力スキーマ（正式）
 
-### フェーズ別verdict
+```json
+{
+  "ok": true | false,
+  "phase": "requirements" | "design" | "tasks" | "impl",
+  "issues": [
+    { "severity": "blocking" | "advisory", "category": "...", "location": "...", "problem": "...", "recommendation": "..." }
+  ],
+  "summary": "全体評価"
+}
+```
 
-| Phase | PASS | FAIL |
-|-------|------|------|
+| JSON出力 | 条件 |
+|----------|------|
+| `ok: true` | blocking = 0件 |
+| `ok: false` | blocking ≧ 1件 |
+
+### フェーズ別verdict（ユーザー報告・spec.json履歴用）
+
+`ok` 値を以下のverdict文字列にマッピングしてユーザーに報告し、spec.jsonの`final_verdict`に記録:
+
+| Phase | `ok: true` → | `ok: false` → |
+|-------|--------------|---------------|
 | requirements | OK | NEEDS_REVISION |
 | design | GO | NO_GO |
 | tasks | APPROVED | NEEDS_REVISION |
