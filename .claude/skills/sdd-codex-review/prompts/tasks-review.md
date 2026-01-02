@@ -4,7 +4,7 @@
 
 ## ⚠️ 重要: シミュレート禁止
 
-**このプロンプトは必ず`codex exec --full-auto`で実行すること。**
+**このプロンプトは必ず`codex exec --sandbox read-only`で実行すること。**
 - ❌ Claudeがこのプロンプトを自分で処理してはいけない
 - ❌ JSON verdictを自分で生成してはいけない
 - ✅ Codex CLIを実行し、session IDを報告に含めること
@@ -14,6 +14,8 @@
 ```
 あなたはcc-sdd（Spec-Driven Development）のタスクレビュアーです。
 以下のタスク分解をレビューし、実装可能性を評価してください。
+
+これはレビューゲートとして実行されている。blockingが1件でもあればok: falseとし、修正→再レビューで収束させる前提で指摘せよ。
 
 ## レビュー基準
 
@@ -58,13 +60,17 @@
 ### 要件ドキュメント（参照用）
 {{REQUIREMENTS_CONTENT}}
 
+前回メモ: {{NOTES_FOR_NEXT_REVIEW}}
+
 ## 出力形式
 
 以下のJSON形式で厳密に回答してください：
 
 ```json
 {
-  "verdict": "APPROVED" | "NEEDS_REVISION",
+  "ok": true | false,
+  "phase": "tasks",
+  "summary": "全体評価（2-3文）",
   "coverage_analysis": {
     "requirements_covered": ["1.1", "1.2", "2.1"],
     "requirements_missing": ["3.1"],
@@ -72,10 +78,11 @@
   },
   "issues": [
     {
-      "severity": "critical" | "medium" | "minor",
+      "severity": "blocking" | "advisory",
+      "category": "correctness" | "security" | "perf" | "maintainability" | "testing" | "style",
       "task_id": "Task X.X",
-      "issue": "問題の説明",
-      "suggestion": "修正案"
+      "problem": "問題の説明",
+      "recommendation": "修正案"
     }
   ],
   "task_quality": {
@@ -88,14 +95,28 @@
   "critical_path": ["Task 2.1", "Task 2.2", "Task 3.1"],
   "estimated_parallelism": "X tasks can run in parallel",
   "strengths": ["良い点"],
-  "summary": "全体評価（2-3文）"
+  "notes_for_next_review": "次回レビュー時に参照すべきメモ"
 }
 ```
 
 ## 判定基準
 
-- **APPROVED**: critical = 0件 かつ medium ≦ 2件 かつ requirements_missing = 0
-- **NEEDS_REVISION**: それ以外
+- **ok: true**: blocking = 0件 かつ requirements_missing = 0
+- **ok: false**: blocking ≧ 1件 または requirements_missing ≧ 1
+
+## severity定義
+
+- **blocking**: 修正必須。1件でもあれば ok: false。requirements_missingがあれば自動的にblocking。
+- **advisory**: 推奨・警告。ok: true でも出力可、レポートに記載のみ
+
+## category定義
+
+- **correctness**: タスクの正確性、要件カバレッジ
+- **security**: セキュリティ関連タスク
+- **perf**: パフォーマンス関連タスク
+- **maintainability**: 保守性、粒度
+- **testing**: テストカバレッジ
+- **style**: 形式、ドキュメント品質
 
 ## スコア基準
 
@@ -122,7 +143,7 @@
 ## 注意事項
 
 1. issuesは最大5件まで、重要度順
-2. requirements_missingがあれば必ずcriticalとして報告
+2. requirements_missingがあれば必ずblockingとして報告
 3. 日本語で回答すること
 ```
 
@@ -133,11 +154,12 @@
 | `{{TASKS_CONTENT}}` | tasks.mdの全内容 |
 | `{{DESIGN_CONTENT}}` | design.mdの全内容 |
 | `{{REQUIREMENTS_CONTENT}}` | requirements.mdの全内容 |
+| `{{NOTES_FOR_NEXT_REVIEW}}` | 前回レビューのメモ（初回は空） |
 
 ## 使用例
 
 ```bash
-codex exec --full-auto "
+codex exec --sandbox read-only "
 $(cat prompts/tasks-review.md |
   sed "s/{{TASKS_CONTENT}}/$(cat .kiro/specs/my-feature/tasks.md)/" |
   sed "s/{{DESIGN_CONTENT}}/$(cat .kiro/specs/my-feature/design.md)/" |

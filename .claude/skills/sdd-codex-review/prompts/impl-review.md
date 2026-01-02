@@ -4,7 +4,7 @@
 
 ## ⚠️ 重要: シミュレート禁止
 
-**このプロンプトは必ず`codex exec --full-auto`で実行すること。**
+**このプロンプトは必ず`codex exec --sandbox read-only`で実行すること。**
 - ❌ Claudeがこのプロンプトを自分で処理してはいけない
 - ❌ JSON verdictを自分で生成してはいけない
 - ✅ Codex CLIを実行し、session IDを報告に含めること
@@ -14,6 +14,8 @@
 ```
 あなたはcc-sdd（Spec-Driven Development）の実装レビュアーです。
 実装されたコードが設計・要件に準拠しているかレビューしてください。
+
+これはレビューゲートとして実行されている。blockingが1件でもあればok: falseとし、修正→再レビューで収束させる前提で指摘せよ。
 
 ## レビュー基準
 
@@ -66,13 +68,17 @@ Task {{TASK_ID}}: {{TASK_TITLE}}
 ### 設計ドキュメント（参照用）
 {{DESIGN_INTERFACES}}
 
+前回メモ: {{NOTES_FOR_NEXT_REVIEW}}
+
 ## 出力形式
 
 以下のJSON形式で厳密に回答してください：
 
 ```json
 {
-  "verdict": "APPROVED" | "NEEDS_REVISION",
+  "ok": true | false,
+  "phase": "impl",
+  "summary": "全体評価（2-3文）",
   "requirements_validation": {
     "met": ["1.1", "1.2"],
     "unmet": [],
@@ -84,14 +90,14 @@ Task {{TASK_ID}}: {{TASK_TITLE}}
     "boundary_respected": true,
     "issues": []
   },
-  "code_issues": [
+  "issues": [
     {
+      "severity": "blocking" | "advisory",
+      "category": "correctness" | "security" | "perf" | "maintainability" | "testing" | "style",
       "file": "path/to/file.ts",
-      "line": 42,
-      "severity": "critical" | "medium" | "minor",
-      "category": "type-safety" | "error-handling" | "performance" | "security" | "style",
-      "issue": "問題の説明",
-      "suggestion": "修正案",
+      "lines": "42-45",
+      "problem": "問題の説明",
+      "recommendation": "修正案",
       "code_snippet": "問題のあるコード断片"
     }
   ],
@@ -101,47 +107,57 @@ Task {{TASK_ID}}: {{TASK_TITLE}}
       "missing_test": "不足しているテストケースの説明"
     }
   ],
-  "performance_concerns": [],
-  "security_concerns": [],
   "strengths": ["実装の良い点"],
-  "summary": "全体評価（2-3文）"
+  "notes_for_next_review": "次回レビュー時に参照すべきメモ"
 }
 ```
 
 ## 判定基準
 
-- **APPROVED**:
-  - critical = 0件
-  - medium ≦ 2件
+- **ok: true**:
+  - blocking = 0件
   - unmet = 0件
-  - セキュリティ懸念 = 0件
+  - セキュリティ関連のblocking = 0件
 
-- **NEEDS_REVISION**: それ以外
+- **ok: false**: それ以外
 
-## カテゴリ別の重要度
+## severity定義
 
-### Critical（必ず修正）
-- 型安全性違反（any使用、型キャストの乱用）
-- セキュリティ脆弱性
-- 要件未達成
+- **blocking**: 修正必須。1件でもあれば ok: false
+- **advisory**: 推奨・警告。ok: true でも出力可、レポートに記載のみ
+
+## category定義
+
+- **correctness**: 論理エラー、要件未達成、設計違反
+- **security**: セキュリティ脆弱性（自動的にblocking）
+- **perf**: パフォーマンス懸念
+- **maintainability**: 可読性、保守性の問題
+- **testing**: テストカバレッジ不足
+- **style**: コードスタイル、命名
+
+## blockingとなる条件
+
+### 自動的にblocking
+- セキュリティ脆弱性（category: security）
+- 型安全性違反（any使用、unsafe型キャスト）
+- 要件未達成（unmet ≧ 1）
 - 設計違反（インターフェース不一致）
 
-### Medium（修正推奨）
-- エラーハンドリング不足
-- テストカバレッジ不足
-- パフォーマンス懸念
-- 可読性の問題
+### 状況によりblocking
+- エラーハンドリング不足（重大な場合）
+- テストカバレッジ不足（重要機能の場合）
 
-### Minor（改善提案）
-- コードスタイル
-- 命名の改善
-- コメント追加
+### advisoryの例
+- コードスタイル改善
+- 命名の改善提案
+- コメント追加提案
+- 軽微なパフォーマンス改善
 
 ## 注意事項
 
-1. code_issuesは最大10件まで、重要度順
+1. issuesは最大10件まで、重要度順
 2. 各issueには具体的なcode_snippetを含めること
-3. suggestionは実際に適用可能なコードを含めること
+3. recommendationは実際に適用可能なコードを含めること
 4. 日本語で回答すること
 ```
 
@@ -155,6 +171,7 @@ Task {{TASK_ID}}: {{TASK_TITLE}}
 | `{{IMPLEMENTATION_DIFF}}` | git diffの出力 |
 | `{{TASK_DETAILS}}` | tasks.mdの該当タスク部分 |
 | `{{DESIGN_INTERFACES}}` | design.mdのインターフェース定義部分 |
+| `{{NOTES_FOR_NEXT_REVIEW}}` | 前回レビューのメモ（初回は空） |
 
 ## 使用例
 
@@ -165,7 +182,7 @@ CHANGED_FILES=$(git diff --name-only HEAD~1)
 # 差分を取得
 IMPLEMENTATION_DIFF=$(git diff HEAD~1)
 
-codex exec --full-auto "
+codex exec --sandbox read-only "
 $(cat prompts/impl-review.md |
   sed "s/{{TASK_ID}}/1.1/" |
   sed "s/{{TASK_TITLE}}/セマンティックロールマッピング実装/" |

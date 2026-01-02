@@ -1,6 +1,6 @@
 ---
 description: Generate comprehensive requirements for a specification
-allowed-tools: Bash, Glob, Grep, LS, Read, Write, Edit, MultiEdit, Update, WebSearch, WebFetch
+allowed-tools: Bash, Glob, Grep, LS, Read, Write, Edit, MultiEdit, Update, WebSearch, WebFetch, AskUserQuestion, Skill
 argument-hint: <feature-name>
 ---
 
@@ -33,6 +33,32 @@ Generate complete requirements for feature **$1** based on the project descripti
    - Read `.kiro/settings/rules/ears-format.md` for EARS syntax rules
    - Read `.kiro/settings/templates/specs/requirements.md` for document structure
 
+2.5 **Optional Preflight Interview (timeboxed, Japanese)**:
+   - Purpose: clarify only high-risk unknowns WITHOUT slowing down generation.
+   - Trigger logic (in order):
+     1. IF `.kiro/specs/$1/spec.json` contains `interview.requirements: true` → ALWAYS RUN
+     2. ELSE IF `.kiro/specs/$1/interview.md` exists → SKIP (already interviewed)
+     3. ELSE IF phase is `"initialized"` OR approvals.requirements.approved is `false` → RUN
+     4. ELSE IF `.kiro/specs/$1/requirements.md` project description is missing/thin → RUN
+   - Key: Skip interview if interview.md exists (unless explicit flag is set)
+   - Use AskUserQuestion tool in Japanese. Keep the requirements output language unchanged (still follow spec.json).
+   - Hard limits:
+     - Max 8 questions total (single round).
+     - If user answers "unknown/TBD", record it as Open Questions and continue.
+   - Interview questions (priority order):
+     1. このフィーチャーの成功基準は何ですか？
+     2. スコープ外とするものを3つ挙げてください
+     3. ユーザー/ロールの違いと権限の違いを教えてください
+     4. 失敗時の動作はどうすべきですか？
+     5. データの信頼できる情報源は何ですか？
+     6. セキュリティ・プライバシーの制約は何ですか？
+     7. 運用・可観測性について：何を監視すべきですか？
+     8. テスト可能な受け入れ基準を3つ挙げてください
+   - Write a concise Q&A + decisions summary to `.kiro/specs/$1/interview.md` (recommended).
+     - Do NOT block requirements generation if interview.md writing is skipped.
+   - Reliability fallback:
+     - If AskUserQuestion tool fails/unavailable/returns empty, immediately switch to plain text questions (still Japanese), same limits.
+
 3. **Generate Requirements**:
    - Create initial requirements based on project description
    - Group related functionality into logical requirement areas
@@ -48,7 +74,8 @@ Generate complete requirements for feature **$1** based on the project descripti
 - Focus on WHAT, not HOW (no implementation details)
 - Requirements must be testable and verifiable
 - Choose appropriate subject for EARS statements (system/service name for software)
-- Generate initial version first, then iterate with user feedback (no sequential questions upfront)
+- Generate initial version first, then iterate with user feedback (no sequential questions upfront).
+  Exception: a triggered preflight interview is allowed ONLY if timeboxed (<= 8 questions) and focused on high-risk unknowns.
 - Requirement headings in requirements.md MUST include a leading numeric ID only (for example: "Requirement 1", "1.", "2 Feature ..."); do not use alphabetic IDs like "Requirement A".
 </instructions>
 
@@ -75,8 +102,10 @@ Provide output in the language specified in spec.json with:
 ## Safety & Fallback
 
 ### Error Scenarios
-- **Missing Project Description**: If requirements.md lacks project description, ask user for feature details
-- **Ambiguous Requirements**: Propose initial version and iterate with user rather than asking many upfront questions
+- **Missing Project Description**: If requirements.md lacks project description, use preflight interview (Japanese) to gather minimum viable details (<= 8 questions), then generate.
+- **Ambiguous Requirements**: Do NOT run long sequential questioning. Either:
+  - (If triggered) run the timeboxed preflight interview (<= 8 questions), then generate, OR
+  - Generate an initial version and iterate with user feedback.
 - **Template Missing**: If template files don't exist, use inline fallback structure with warning
 - **Language Undefined**: Default to English (`en`) if spec.json doesn't specify language
 - **Incomplete Requirements**: After generation, explicitly ask user if requirements cover all expected functionality
@@ -97,5 +126,3 @@ Provide output in the language specified in spec.json with:
 - Provide feedback and re-run `/kiro:spec-requirements $1`
 
 **Note**: Approval is mandatory before proceeding to design phase.
-
-think

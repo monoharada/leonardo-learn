@@ -1,6 +1,6 @@
 ---
 description: Execute spec tasks using TDD methodology
-allowed-tools: Bash, Read, Write, Edit, MultiEdit, Grep, Glob, LS, WebFetch, WebSearch
+allowed-tools: Bash, Read, Write, Edit, MultiEdit, Grep, Glob, LS, WebFetch, WebSearch, Skill
 argument-hint: <feature-name> [task-numbers]
 ---
 
@@ -10,10 +10,11 @@ argument-hint: <feature-name> [task-numbers]
 - **Mission**: Execute implementation tasks using Test-Driven Development methodology based on approved specifications
 - **Success Criteria**:
   - All tests written before implementation code
-  - Code passes all tests with no regressions
+  - Code passes all unit/integration tests with no regressions
   - Tasks marked as completed in tasks.md
   - Implementation aligns with design and requirements
-  - **Codex review invoked and APPROVED** via `/sdd-codex-review impl`
+  - **Codex review invoked and APPROVED** via `/sdd-codex-review impl-section` (at section completion)
+  - **E2E evidence collected** for `[E2E]` tagged sections (after review APPROVED, non-blocking artifact)
 </background_information>
 
 <instructions>
@@ -55,12 +56,13 @@ For each selected task, follow Kent Beck's TDD cycle:
    - Improve code structure and readability
    - Remove duplication
    - Apply design patterns where appropriate
-   - Ensure all tests still pass after refactoring
+   - Ensure all unit/integration tests still pass after refactoring
 
 4. **VERIFY - Validate Quality**:
-   - All tests pass (new and existing)
+   - All unit/integration tests pass (new and existing)
    - No regressions in existing functionality
    - Code coverage maintained or improved
+   - Note: E2E evidence is collected separately after section review (non-blocking)
 
 5. **MARK COMPLETE**:
    - Update checkbox from `- [ ]` to `- [x]` in tasks.md
@@ -83,12 +85,15 @@ For each selected task, follow Kent Beck's TDD cycle:
 Provide brief summary in the language specified in spec.json:
 
 1. **Tasks Executed**: Task numbers and test results
-2. **Status**: Completed tasks marked in tasks.md, remaining tasks count
-3. **Next Step**: Invoke `/sdd-codex-review impl $1` for Codex review
+2. **Section Status**: Current section completion status
+3. **Status**: Completed tasks marked in tasks.md, remaining tasks count
+4. **Next Step**:
+   - If section complete: Invoke Codex review via Skill tool
+   - If section incomplete: Continue to next task
 
 **Format**: Concise (under 150 words)
 
-**CRITICAL**: After outputting the summary, you MUST use the Skill tool to invoke `sdd-codex-review` with args `impl $1`.
+**CRITICAL**: After section completion, you MUST use the Skill tool to invoke `sdd-codex-review` with args `impl-section $1 [section-id]`. Do NOT invoke review after each individual task - only at section completion.
 
 ## Safety & Fallback
 
@@ -111,14 +116,77 @@ Provide brief summary in the language specified in spec.json:
 **Execute all pending**:
 - `/kiro:spec-impl $1` - All unchecked tasks
 
-### Post-Implementation: Codex Review
+### Post-Implementation: Codex Review（セクション単位）
 
-**IMPORTANT**: After completing task implementation, you MUST invoke the Codex review skill:
+**重要**: タスクごとではなく、**セクション単位**でCodexレビューを実行します。
+
+#### セクションの定義
+
+tasks.md の `##` 見出し単位でセクションを識別:
+```markdown
+## Section 1: Core Foundation        ← セクション1
+### Task 1.1: Define base types
+### Task 1.2: Implement utilities
+
+## Section 2: Feature Implementation  ← セクション2
+### Task 2.1: Build main component
+```
+
+#### セクション完了チェック
+
+1. 現在のタスクが属するセクションを特定（`##` 見出しで識別）
+2. タスク完了時にspec.jsonの`section_tracking.sections[sectionId].tasks_completed[taskId]`を`true`に更新
+3. セクション内の全タスクの`tasks_completed`が`true`かを確認
+   - フォールバック: `tasks_completed`未設定の場合のみ`**Creates:**`のファイル存在確認を使用
+   - `**Modifies:**`はgit diff検知が必要（section-detection.md参照）
+4. 全タスク完了 AND 未レビュー → レビュー実行
+
+#### 呼び出し条件
 
 ```
-/sdd-codex-review impl $1
+IF section_complete AND NOT section_reviewed:
+    // 1. Codexレビュー実行
+    Skill tool invoke: "sdd-codex-review"
+    args: impl-section $1 $section_id
+    APPROVED が返されるまで修正・再レビューをループ
+    最大6回のリトライ
+
+    // 2. E2Eエビデンス収集（APPROVED後、[E2E]タグ付きセクションのみ）
+    IF section has [E2E] tag AND e2e_evidence.status == "pending":
+        Playwright（recordVideo有効）でE2Eエビデンス収集
+        結果を .context/e2e-evidence/ に保存
+        録画ファイルとスクリーンショットパスを報告
+        E2E失敗でもセクション完了として扱う（ブロッキングではない）
+
+ELSE:
+    次のタスクへ続行（レビューはスキップ）
 ```
 
-This ensures all implementations are reviewed and approved before moving to the next task.
+#### レビュータイミング
 
-think
+```
+❌ task 1.1 完了 → レビューしない
+❌ task 1.2 完了 → レビューしない（まだセクション未完了）
+✅ セクション内の全タスク完了 → Codex review
+```
+
+#### シミュレート禁止
+
+- Codex CLI を実際に実行すること
+- レビュー結果を自分で生成しないこと
+- Session ID を報告に含めること
+
+#### E2Eエビデンス収集（[E2E]タグ付きセクション）
+
+セクション見出しに `[E2E]` タグがある場合（例: `## Section 2: Dashboard [E2E]`）、
+Codexレビュー承認後にPlaywright（recordVideo有効）を使用して録画とスクリーンショットを収集:
+
+```
+.context/e2e-evidence/
+└── [feature-name]/
+    └── [section-id]/
+        ├── *.webm                # 画面録画（必須・ファイル名は任意）
+        ├── step-01-initial.png
+        ├── step-02-action.png
+        └── step-03-complete.png
+```

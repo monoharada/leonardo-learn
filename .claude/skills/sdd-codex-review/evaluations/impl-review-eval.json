@@ -1,0 +1,79 @@
+{
+  "name": "impl-review-evaluation",
+  "description": "Evaluate implementation review phase of sdd-codex-review skill",
+  "skills": ["sdd-codex-review"],
+  "scenarios": [
+    {
+      "name": "small-impl-review",
+      "query": "/sdd-codex-review impl user-profile",
+      "setup": {
+        "files_changed": 2,
+        "lines_changed": 80,
+        "expected_scale": "small"
+      },
+      "expected_behavior": [
+        "Detects small scale (≤3 files, ≤100 lines)",
+        "Executes single diff review without arch phase",
+        "Uses 'codex exec review --base main' for diff-based review",
+        "Validates code against design.md interfaces",
+        "Runs tests/linters after fixes"
+      ],
+      "success_criteria": {
+        "must_detect_scale_correctly": true,
+        "small_scale_skips_arch": true,
+        "must_run_tests_after_fix": true
+      }
+    },
+    {
+      "name": "large-impl-parallel-review",
+      "query": "/sdd-codex-review impl monorepo-refactor",
+      "setup": {
+        "files_changed": 15,
+        "lines_changed": 800,
+        "expected_scale": "large"
+      },
+      "expected_behavior": [
+        "Detects large scale (>10 files, >500 lines)",
+        "Executes arch phase first",
+        "Splits files into 3-5 groups by directory",
+        "Runs parallel diff reviews for each group",
+        "Merges results and runs cross-check phase",
+        "Reports any cross-cutting issues"
+      ],
+      "success_criteria": {
+        "must_run_arch_phase_first": true,
+        "must_parallelize_large_reviews": true,
+        "must_run_cross_check": true,
+        "max_files_per_group": 5,
+        "max_lines_per_group": 300
+      }
+    },
+    {
+      "name": "impl-with-test-failure",
+      "query": "/sdd-codex-review impl flaky-component",
+      "setup": {
+        "test_will_fail": true
+      },
+      "expected_behavior": [
+        "Applies fix from Codex suggestion",
+        "Runs bun test",
+        "Detects test failure",
+        "Attempts to fix test issue",
+        "Retries test (max 2 consecutive failures)",
+        "Stops loop and requests user intervention on 2nd failure"
+      ],
+      "success_criteria": {
+        "must_run_tests": true,
+        "must_retry_on_test_failure": true,
+        "stops_after_2_consecutive_failures": true,
+        "requests_user_intervention": true
+      }
+    }
+  ],
+  "anti_patterns": [
+    "Running parallel reviews for small changes (inefficient)",
+    "Skipping arch phase for large changes",
+    "Continuing indefinitely when tests keep failing",
+    "Not providing design context for phased refactoring tasks"
+  ]
+}

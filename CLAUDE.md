@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**leonardo-learn** is an OKLCH color space-based design system color palette generator inspired by Adobe Leonardo. It generates accessible palettes from brand colors with WCAG compliance and CUD (Color Universal Design) support.
+**leonardo-learn** is an OKLCH color space-based design system color palette generator inspired by Adobe Leonardo. It uses a contrast-ratio-driven approach ("generate colors from contrast requirements" rather than "check contrast after choosing colors") to create accessible palettes from brand colors with WCAG 2.1/2.2 and WCAG 3 APCA compliance, plus CUD (Color Universal Design) support.
 
 ## Development Commands
 
@@ -33,8 +33,11 @@ bun test --coverage
 # Performance benchmarks (CI mode)
 cross-env CI_BENCH=1 bun test src/core/cud/performance.test.ts
 
-# E2E tests
+# E2E tests (Playwright)
 bun run test:e2e
+
+# E2E tests with UI
+bun run test:e2e:ui
 
 # Type check
 bun run type-check
@@ -71,9 +74,14 @@ Circular dependencies are prohibited.
 | `src/core/cud/` | CUD optimization (optimizer, zone, snapper, harmony-score) |
 | `src/core/export/` | CSS, JSON, Tailwind, DTCG exporters |
 | `src/core/tokens/` | Design token system (DADS importer, semantic resolver) |
-| `src/accessibility/` | WCAG, APCA, CVD simulation |
+| `src/core/system/` | Color system coordination (collision detection, contrast maintenance, role assignment) |
+| `src/core/semantic-role/` | Semantic role mapping (contrast boundaries, hue normalization) |
+| `src/core/strategies/` | Generation strategies (DADS optimizer, M3 generator) |
+| `src/core/preview/` | Preview generation (scale preview, theme preview) |
+| `src/accessibility/` | WCAG 2.1/2.2, APCA (WCAG 3), CVD simulation |
 | `src/utils/` | OKLCH/OKLab color space operations |
 | `src/ui/` | Demo UI, CUD components |
+| `e2e/` | Playwright E2E tests |
 
 ### CUD Optimization Algorithm (ADR-007)
 - **Greedy algorithm** for multi-objective optimization (CUD distance + harmony)
@@ -94,10 +102,11 @@ Circular dependencies are prohibited.
 - Auto-organize imports
 
 ### Test Placement
-Tests are co-located with source files:
+Tests are co-located with source files (unit/integration), E2E tests are separate:
 ```
 src/core/cud/optimizer.ts
-src/core/cud/optimizer.test.ts
+src/core/cud/optimizer.test.ts      # Unit test (co-located)
+e2e/cud-harmony-generator.e2e.ts    # E2E test (separate directory)
 ```
 
 ## Key Libraries
@@ -126,13 +135,20 @@ Key commands:
 /sdd-codex-review requirements [feature]  # kiro:spec-requirements後
 /sdd-codex-review design [feature]        # kiro:spec-design後
 /sdd-codex-review tasks [feature]         # kiro:spec-tasks後
-/sdd-codex-review impl [feature]          # kiro:spec-impl後
+/sdd-codex-review impl [feature]          # kiro:spec-impl後（従来方式）
+
+# セクション単位レビュー（推奨）
+/sdd-codex-review impl-section [feature] [section-id]  # 特定セクション
+/sdd-codex-review impl-pending [feature]               # 未レビュー一括
+
+# E2Eエビデンス収集
+/sdd-codex-review e2e-evidence [feature] [section-id]  # 手動実行
 ```
 
 ワークフロー:
 1. `/kiro:spec-requirements [feature]` → `/sdd-codex-review requirements [feature]`
 2. `/kiro:spec-design [feature]` → `/sdd-codex-review design [feature]`
 3. `/kiro:spec-tasks [feature]` → `/sdd-codex-review tasks [feature]`
-4. `/kiro:spec-impl [feature] [task]` → `/sdd-codex-review impl [feature]`
+4. `/kiro:spec-impl [feature] [task]` → `/sdd-codex-review impl-section [feature] [section-id]`（セクション単位推奨）
 
 各フェーズでAPPROVEDを取得してから次へ進む。
