@@ -545,3 +545,36 @@ export function resetDadsErrorState(): void {
 export function getDadsErrorState(): Error | null {
 	return dadsLoadError;
 }
+
+/**
+ * 特定の色のスコアを計算する（手動選択用）
+ * Requirement 5.3: 手動追加色のスコア表示
+ *
+ * @param hex 対象色（HEX形式）
+ * @param brandColorHex ブランドカラー（HEX形式）
+ * @param backgroundHex 背景色（HEX形式）
+ * @param weights 重み設定（オプション）
+ * @returns スコア結果
+ */
+export function calculateSingleScore(
+	hex: string,
+	brandColorHex: string,
+	backgroundHex?: string,
+	weights?: Partial<ScoreWeights>,
+): BalanceScoreResult {
+	const normalizedBrand = normalizeHex(brandColorHex);
+	const normalizedCandidate = normalizeHex(hex);
+	const normalizedBg = resolveBackgroundHex(backgroundHex);
+	const normalizedWeights = normalizeWeights({
+		...DEFAULT_WEIGHTS,
+		...weights,
+	});
+
+	return calculateCachedScore(
+		normalizedBrand,
+		normalizedCandidate,
+		normalizedBg,
+		normalizedWeights,
+		globalScoreCache,
+	);
+}

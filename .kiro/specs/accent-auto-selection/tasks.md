@@ -147,9 +147,9 @@
   - **Creates:** `src/ui/accent-selector/harmony-filter-ui.ts`, `src/ui/accent-selector/harmony-filter-ui.test.ts`, `src/ui/accent-selector/weight-slider-ui.ts`, `src/ui/accent-selector/weight-slider-ui.test.ts`
   - _Requirements: 3.1, 2.3_
 
-- [ ] 5. 手動選択機能の実装
+- [x] 5. 手動選択機能の実装
 
-- [ ] 5.1 ManualAccentSelector の実装
+- [x] 5.1 ManualAccentSelector の実装
   - 手動選択パネルの開閉制御を実装
   - カテゴリタブ表示を実装（Chromatic/Neutral/Semantic の3種）
   - Chromaticカテゴリでの色相タブ表示を実装
@@ -157,11 +157,13 @@
   - トークン選択時のプレビューとスコア自動計算を実装（エラー時はスコア非表示で色選択のみ許可）
   - 選択したトークンの追加機能を実装
   - **依存**: 2.3（エラー時の手動選択継続ポリシー確定後）
+  - **Creates:** `src/ui/accent-selector/manual-accent-selector.ts`, `src/ui/accent-selector/manual-accent-selector.test.ts`
   - _Requirements: 5.1, 5.2, 5.3, 7.2_
 
-- [ ] 5.2 低スコア警告の実装
+- [x] 5.2 低スコア警告の実装
   - 総合スコア50未満の判定機能を実装
   - 低スコア警告トースト表示を実装（追加は許可）
+  - **Creates:** `src/ui/accent-selector/low-score-warning.ts`, `src/ui/accent-selector/low-score-warning.test.ts`
   - _Requirements: 5.4_
 
 - [ ] 6. パフォーマンス最適化とテスト
