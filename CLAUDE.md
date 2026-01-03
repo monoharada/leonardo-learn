@@ -104,6 +104,19 @@ Comprehensive documentation of all user interaction flows including:
 
 This document serves as the foundation for E2E and browser testing strategies.
 
+### Manual Testing Guide (Claude for Chrome)
+
+**Manual Test Guide**: `.claude/docs/manual-test-guide.md`
+
+Hybrid testing strategy using Claude for Chrome for human-like UI testing:
+- **Approach**: Natural language UI instructions (no selectors needed)
+- **5 Test Scenarios**: Golden path, CVD simulation, CUD optimization, multi-theme, detail modal
+- **Visual Verification**: Color accuracy, layout, accessibility checks
+- **Evidence Collection**: Screenshot capture guide, test result templates
+- **When to Use**: New features, UI changes, exploratory testing, before automation
+
+Complements Playwright E2E tests by providing immediate, selector-independent testing.
+
 ## Code Standards
 
 ### TypeScript
