@@ -2,6 +2,8 @@
 
 This document outlines the end-to-end testing strategy for leonardo-learn, including coverage analysis, priorities, and implementation roadmap.
 
+> **⚠️ Implementation Note**: Test code examples in this document use `data-testid` selectors that **do not yet exist** in the actual application. See [GitHub Issue](../.github/ISSUE_TEMPLATE/data-testid-implementation.md) for implementation plan. Current actual selectors use ID and data-* attributes (e.g., `#export-btn`, `data-cvd="protanopia"`). Update test code to use actual selectors or add data-testid attributes to the application before implementing tests.
+
 ## Table of Contents
 
 - [Current Test Coverage](#current-test-coverage)
@@ -134,7 +136,7 @@ This document outlines the end-to-end testing strategy for leonardo-learn, inclu
 **Current state**: ⚠️ Only format validation (not full UX flow)
 **What's missing**:
 - Export button click
-- Format selector interaction (CSS/Tailwind/JSON/DTCG)
+- Format selector interaction (CSS/Tailwind/JSON) - Note: DTCG format not yet implemented
 - Preview textarea rendering
 - Clipboard copy verification
 - File download verification
@@ -946,6 +948,10 @@ test('{Action} completes within {time}', async ({ page }) => {
 
 ---
 
-**Document version**: 1.0
+**Document version**: 1.1
 **Last updated**: 2026-01-03
 **Maintained by**: leonardo-learn team
+
+**Changelog**:
+- v1.1 (2026-01-03): Added implementation note about data-testid selectors, fixed export format count (3 not 4)
+- v1.0 (2026-01-03): Initial version

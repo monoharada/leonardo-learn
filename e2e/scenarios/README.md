@@ -2,6 +2,8 @@
 
 This directory contains scenario-based E2E tests organized by user persona and workflow. Each scenario represents a complete user journey from start to finish.
 
+> **⚠️ Implementation Note**: Test code examples use `data-testid` selectors that **do not yet exist** in the actual application. See [GitHub Issue](../../.github/ISSUE_TEMPLATE/data-testid-implementation.md). Before implementing these scenarios, either add data-testid attributes to the application OR update test code to use actual selectors (`#export-btn`, `data-cvd="protanopia"`, etc.).
+
 ## Table of Contents
 
 - [Overview](#overview)
@@ -14,7 +16,7 @@ This directory contains scenario-based E2E tests organized by user persona and w
 
 ### What is a Scenario?
 
-A **scenario** is a complete, real-world user workflow that spans multiple features and views. Unlike feature-specific tests (e.g., "background color selector works"), scenarios test entire user journeys (e.g., "design system maintainer creates DADS-based tokens and exports to DTCG format").
+A **scenario** is a complete, real-world user workflow that spans multiple features and views. Unlike feature-specific tests (e.g., "background color selector works"), scenarios test entire user journeys (e.g., "design system maintainer creates DADS-based tokens and exports to JSON format").
 
 ### Why Scenario-Based Testing?
 
@@ -318,7 +320,9 @@ test('Accessibility specialist validates CVD compliance', async ({ page }) => {
 - Integrates with Figma and design token pipelines
 - Needs semantic role mappings
 
-**User Goal**: Generate DADS-based palette with semantic roles and export to DTCG format for Figma plugin.
+**User Goal**: Generate DADS-based palette with semantic roles and export to JSON format for Figma plugin.
+
+> **Note**: DTCG format is planned but not yet implemented. This scenario uses JSON format as a substitute.
 
 **Flow**:
 ```
@@ -334,15 +338,15 @@ test('Accessibility specialist validates CVD compliance', async ({ page }) => {
     ↓ Click blue-600 shade
     ↓ Adjust hue by +5°
     ↓ Confirm changes
-[Export] Export as DTCG
-[Success] Import into Figma Tokens plugin
+[Export] Export as JSON (with semantic metadata)
+[Success] Import into Figma Tokens plugin (manual conversion to DTCG if needed)
 ```
 
 **Success Criteria**:
 - ✅ DADS harmony generates 10 hues × 13 shades = 130 colors
 - ✅ Semantic roles appear on correct shades
 - ✅ Contrast boundaries calculated accurately
-- ✅ DTCG export validates against spec
+- ✅ JSON export contains semantic metadata
 - ✅ Hue adjustment reflects in export
 
 **Test Code**:
@@ -379,16 +383,17 @@ test('Design system maintainer creates DADS tokens', async ({ page }) => {
   await page.click('[data-testid="modal-confirm"]');
   await expect(page.locator('[data-testid="color-detail-modal"]')).not.toBeVisible();
 
-  // Step 8: Export as DTCG
+  // Step 8: Export as JSON (DTCG not yet implemented)
   await page.click('[data-testid="export-button"]');
-  await page.selectOption('[data-testid="format-selector"]', 'dtcg');
+  await page.selectOption('[data-testid="format-selector"]', 'json');
 
-  // Step 9: Verify DTCG structure
-  const dtcgExport = await page.locator('[data-testid="export-preview"]').textContent();
-  const parsed = JSON.parse(dtcgExport!);
-  expect(parsed.color.blue['600'].$type).toBe('color');
-  expect(parsed.color.blue['600'].$value).toBeDefined();
-  expect(parsed.color.blue['600'].$description).toBeDefined();
+  // Step 9: Verify JSON structure with semantic metadata
+  const jsonExport = await page.locator('[data-testid="export-preview"]').textContent();
+  const parsed = JSON.parse(jsonExport!);
+  expect(parsed.colors.blue['600']).toBeDefined();
+  expect(parsed.colors.blue['600'].hex).toBeDefined();
+  expect(parsed.colors.blue['600'].oklch).toBeDefined();
+  // TODO: Verify semantic role metadata when implemented
 });
 ```
 
@@ -581,7 +586,7 @@ test('User navigates all views with consistent state', async ({ page }) => {
 ### Step 1: Identify Target Persona
 
 Choose from 4 primary personas (see `.claude/docs/user-flows.md`):
-1. **Design System Maintainer** - DADS integration, DTCG export
+1. **Design System Maintainer** - DADS integration, JSON export (DTCG planned)
 2. **Accessibility Specialist** - WCAG, CVD compliance
 3. **Brand Designer** - Quick palette generation, aesthetics
 4. **Frontend Developer** - CSS/Tailwind export, multi-theme
@@ -606,9 +611,9 @@ Document every step from entry to success:
 
 How do we know the user succeeded?
 - Specific metrics (e.g., CVD score ≥ 80%)
-- File outputs (e.g., valid DTCG JSON)
+- File outputs (e.g., valid JSON with semantic metadata)
 - Visual confirmations (e.g., all badges green)
-- Time constraints (e.g., completes in <3 min)
+- Time constraints (e.g., completes in <5 min for new users)
 
 ### Step 5: Write Test Code
 
@@ -843,6 +848,10 @@ test.describe('Scenario: [Persona] - [Goal]', () => {
 
 ---
 
-**Document version**: 1.0
+**Document version**: 1.1
 **Last updated**: 2026-01-03
 **Maintained by**: leonardo-learn team
+
+**Changelog**:
+- v1.1 (2026-01-03): Added implementation note about data-testid selectors, fixed DTCG references (not yet implemented), updated time estimates
+- v1.0 (2026-01-03): Initial version

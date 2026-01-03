@@ -2,6 +2,8 @@
 
 This document describes all user interaction flows for the leonardo-learn color palette generator. These flows serve as the foundation for E2E and browser testing.
 
+> **⚠️ Implementation Note**: This document describes the **intended user flows and test structure**. Some test selectors (`data-testid` attributes) referenced in this document **do not yet exist** in the actual implementation. See [GitHub Issue: Add data-testid attributes](../../.github/ISSUE_TEMPLATE/data-testid-implementation.md) for details. Current actual selectors use ID and data-* attributes (e.g., `#view-harmony`, `data-cvd="protanopia"`).
+
 ## Table of Contents
 
 - [Overview](#overview)
@@ -18,7 +20,7 @@ This document describes all user interaction flows for the leonardo-learn color 
 - WCAG 2.1/2.2 and WCAG 3 APCA compliance
 - CUD (Color Universal Design) support
 - CVD (Color Vision Deficiency) simulation
-- Multiple export formats (CSS, Tailwind, JSON, DTCG)
+- Multiple export formats (CSS, Tailwind, JSON)
 
 ### Application Structure
 
@@ -31,7 +33,7 @@ The application consists of 4 main views:
 
 ## Golden Path: Brand Color to Production Palette
 
-**Estimated completion time**: 2-3 minutes
+**Estimated completion time**: 3-5 minutes (new users), 1-2 minutes (experienced users)
 
 **User goal**: Generate a production-ready, accessible color palette from a brand color.
 
@@ -52,7 +54,7 @@ The application consists of 4 main views:
     ↓ Adjust background (Light/Dark)
     ↓ Review CUD validation
 [Export Dialog]
-    ↓ Select format (CSS/Tailwind/JSON/DTCG)
+    ↓ Select format (CSS/Tailwind/JSON)
     ↓ Copy or download
 [Complete]
 ```
@@ -150,11 +152,10 @@ The application consists of 4 main views:
 
 **User actions**:
 - Click "Export" button
-- Select format from dropdown:
+- Select format from format buttons:
   - CSS (custom properties)
   - Tailwind (config object)
   - JSON (generic format)
-  - DTCG (Design Tokens Community Group)
 - Review preview in textarea
 - Choose action:
   - "Copy to Clipboard" button
@@ -169,7 +170,7 @@ The application consists of 4 main views:
 
 **Test checkpoints**:
 - ✅ Export dialog opens
-- ✅ All 4 formats generate valid output
+- ✅ All 3 formats generate valid output
 - ✅ Preview shows correct syntax
 - ✅ Clipboard copy succeeds
 - ✅ Downloaded file contains correct content
@@ -229,10 +230,11 @@ The application consists of 4 main views:
    - User confirms changes
 
 4. **Export** (Export Dialog)
-   - Select DTCG format for design tool integration
+   - Select JSON format for design tool integration
+   - ⚠️ **Note**: DTCG format is planned but not yet implemented (see [Issue](../../.github/ISSUE_TEMPLATE/data-testid-implementation.md))
    - Export includes:
      - All 130 shades
-     - Semantic role metadata
+     - Semantic role metadata (in JSON format)
      - Contrast boundary annotations
      - Brand color reference
 
@@ -243,7 +245,7 @@ The application consists of 4 main views:
 - ✅ Semantic role overlays appear on correct shades
 - ✅ Contrast boundaries calculated accurately
 - ✅ Color detail modal hue scrubber works smoothly
-- ✅ DTCG export validates against spec
+- ✅ JSON export contains semantic metadata
 
 ### Flow 2: Accessibility-First Validation (WCAG AAA Projects)
 
@@ -555,7 +557,7 @@ The application consists of 4 main views:
 - 4 preset buttons per mode:
   - Light: `#ffffff`, `#f5f5f5`, `#e5e5e5`, `#fafafa`
   - Dark: `#000000`, `#1a1a1a`, `#2d2d2d`, `#0f0f0f`
-- LocalStorage persistence (keys: `leonardo-light-bg`, `leonardo-dark-bg`)
+- LocalStorage persistence (key: `leonardo-backgroundColor` with `{light, dark}` structure)
 - Debounced input (150ms delay)
 
 **API**:
@@ -645,11 +647,10 @@ interface ColorDetailModalOptions {
 
 **Features**:
 - Modal dialog (overlay)
-- Format selector (radio buttons or dropdown):
+- Format selector (button group):
   - CSS (custom properties)
   - Tailwind (JavaScript config)
   - JSON (generic format)
-  - DTCG (Design Tokens Community Group)
 - Preview section:
   - Textarea (read-only)
   - Syntax highlighting (language-specific)
@@ -701,20 +702,7 @@ module.exports = {
 }
 ```
 
-4. **DTCG**:
-```json
-{
-  "color": {
-    "primary": {
-      "50": {
-        "$type": "color",
-        "$value": "#f0f9ff",
-        "$description": "Primary color, lightest shade"
-      }
-    }
-  }
-}
-```
+> **Note**: DTCG (Design Tokens Community Group) format is planned for future implementation.
 
 ### Navigation & State
 
@@ -805,7 +793,7 @@ interface AppState {
 **Key features used**:
 - DADS harmony type
 - Shades View with semantic role overlays
-- DTCG export format
+- JSON export format (DTCG planned for future)
 - Contrast boundary visualization
 
 **Pain points this tool solves**:
@@ -927,7 +915,7 @@ View Rendering (src/ui/demo/views/)
    ```
    User selects Dark mode
        ↓
-   Retrieve from LocalStorage ('leonardo-dark-bg')
+   Retrieve from LocalStorage ('leonardo-backgroundColor').dark
        ↓
    Update state.darkBackgroundColor
        ↓
@@ -1006,10 +994,12 @@ View Rendering (src/ui/demo/views/)
 #### LocalStorage Persistence
 
 **Keys**:
-- `leonardo-light-bg`: Light background color (default: `#ffffff`)
-- `leonardo-dark-bg`: Dark background color (default: `#000000`)
-- `leonardo-cud-mode`: Last selected CUD mode (default: `off`)
-- `leonardo-last-brand-color`: Last entered brand color (optional)
+- `leonardo-backgroundColor`: Object with `{light: string, dark: string}` structure
+  - `light`: Light background color (default: `#ffffff`)
+  - `dark`: Dark background color (default: `#000000`)
+- Additional keys (implementation-specific):
+  - `leonardo-cud-mode`: Last selected CUD mode (may not persist, implementation varies)
+  - `leonardo-last-brand-color`: Last entered brand color (may not persist, implementation varies)
 
 **Write triggers**:
 - Background color change (debounced 150ms)
@@ -1108,13 +1098,17 @@ View Rendering (src/ui/demo/views/)
 - **CUD**: Color Universal Design (Masataka Okabe & Kei Ito)
 - **CVD**: Color Vision Deficiency (color blindness)
 - **DADS**: Digital Agency Design System (Japanese government standard)
-- **DTCG**: Design Tokens Community Group (W3C specification)
+- **DTCG**: Design Tokens Community Group (W3C specification) - *Planned feature, not yet implemented*
 - **HCT**: Hue-Chroma-Tone (Material Design 3 color space)
 - **OKLab**: Perceptual color space by Björn Ottosson
 - **OKLCH**: Cylindrical representation of OKLab
 
 ---
 
-**Document version**: 1.0
+**Document version**: 1.1
 **Last updated**: 2026-01-03
 **Maintained by**: leonardo-learn team
+
+**Changelog**:
+- v1.1 (2026-01-03): Fixed implementation discrepancies - export formats (3 not 4), LocalStorage keys, time estimates, added implementation notes
+- v1.0 (2026-01-03): Initial version
