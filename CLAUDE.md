@@ -89,6 +89,21 @@ Circular dependencies are prohibited.
 - **Soft Snap**: OKLab linear interpolation with configurable return factor
 - Performance target: 20-color palette in <200ms
 
+## Documentation
+
+### User Flows & Testing
+
+**User Flow Documentation**: `.claude/docs/user-flows.md`
+
+Comprehensive documentation of all user interaction flows including:
+- **Golden Path**: Brand color → Harmony selection → Palette review → Export (2-3 min)
+- **Alternative Flows**: Advanced customization, accessibility validation, background-adaptive design, CUD optimization
+- **UI Components**: Detailed breakdown of all 4 views (Harmony, Palette, Shades, Accessibility)
+- **User Personas**: Design system maintainers, accessibility specialists, brand designers, frontend developers
+- **Feature Interactions**: Event cascades, state management, performance considerations
+
+This document serves as the foundation for E2E and browser testing strategies.
+
 ## Code Standards
 
 ### TypeScript
