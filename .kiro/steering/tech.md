@@ -14,7 +14,7 @@
 - **Language**: TypeScript 5.3+ (strict mode必須)
 - **Runtime**: Bun (Webスタンダード準拠、高速ビルド/テスト)
 - **Color Library**: culori.js（OKLCH/OKLABネイティブサポート）- 唯一のランタイム依存
-- **UI Framework**: Web Components / Vanilla TS（低依存性優先）または React 19（必要に応じて）
+- **UI Framework**: Vanilla TypeScript + Web Components（Reactは不使用、低依存性を実現）
 
 **設計方針**: Webスタンダード準拠、依存性最小化、静的解析による品質担保
 
@@ -25,11 +25,11 @@
 - または **chroma.js**: 実績豊富だがOKLCH拡張が必要
 
 ### UI/デザイン
-- React 19（並行レンダリング、Suspense活用）
-- Vite（高速な開発体験）
+- Web Components（標準API、フレームワーク非依存）
+- Vanilla TypeScript（軽量、高速、依存性なし）
 
 ### テスト
-- Vitest（ユニットテスト、Vite統合）
+- Bunネイティブテストランナー（Vitest互換API、高速実行）
 - Playwright（E2Eテスト、色の視覚的検証）
 
 ## Development Standards
@@ -40,9 +40,10 @@
 - すべてのパブリックAPIにJSDoc記述
 
 ### Code Quality
-- ESLint: TypeScript/React推奨ルール適用
-- Prettier: セミコロンあり、シングルクォート、2スペースインデント
-- コミット前の自動フォーマット（Husky + lint-staged想定）
+- Biome: リント・フォーマット統合ツール（ESLint + Prettier代替）
+  - タブインデント、ダブルクォート
+  - インポート自動整理（organize imports）
+  - 高速な静的解析
 
 ### Testing
 - ユニットテスト: Vitest、コアアルゴリズムは90%以上カバレッジ
@@ -88,8 +89,8 @@ bun run lint:fix
 # フォーマット
 bun run format
 
-# フォーマットチェック（CI用）
-bun run format:check
+# 完全チェック（リント+フォーマット、CI用）
+bun run check
 ```
 
 ## Key Technical Decisions

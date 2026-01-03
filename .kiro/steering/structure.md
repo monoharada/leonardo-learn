@@ -14,9 +14,16 @@ src/core/
   ├─ theme.ts         # Theme統括クラス
   ├─ color.ts         # Color定義クラス
   ├─ background.ts    # BackgroundColor定義クラス
-  ├─ contrast.ts      # WCAG/APCAコントラスト計算
-  ├─ interpolate.ts   # Catmull-Romスプライン補間
-  └─ search.ts        # 二分探索アルゴリズム
+  ├─ solver.ts        # 二分探索による色解決アルゴリズム
+  ├─ interpolation.ts # Catmull-Romスプライン補間
+  ├─ harmony.ts       # ハーモニー生成（配色調和）
+  ├─ cud/             # CUD（色覚多様性）最適化
+  ├─ tokens/          # DADSトークン統合
+  ├─ export/          # エクスポーター（CSS/JSON/Tailwind/DTCG）
+  ├─ system/          # 色システム統合（衝突検出、役割割当）
+  ├─ semantic-role/   # セマンティックロール（意味役割マッピング）
+  ├─ strategies/      # 生成戦略（DADS最適化、M3生成）
+  └─ preview/         # プレビュー生成
 ```
 
 ### `/src/utils/`
@@ -30,13 +37,15 @@ src/utils/
 ```
 
 ### `/src/ui/`
-**Purpose**: Reactコンポーネント（日本語UI、プレビュー、パレット出力）
+**Purpose**: Vanilla TypeScript UI コンポーネント（日本語UI、CUD機能、セマンティックロール、プレビュー）
 **Example**:
 ```
 src/ui/
-  ├─ components/      # 再利用可能UIコンポーネント
-  ├─ pages/           # ページレベルコンポーネント
-  └─ hooks/           # カスタムフック
+  ├─ components/      # 再利用可能UIコンポーネント（Web Components）
+  ├─ semantic-role/   # セマンティックロールUI
+  ├─ guards/          # UI状態ガード
+  ├─ demo/            # デモページ
+  └─ styles/          # CSS・トークン定義
 ```
 
 ### `/docs/`
@@ -55,11 +64,11 @@ docs/
 ## Naming Conventions
 
 - **Files**:
-  - TypeScriptクラス: PascalCase（`Theme.ts`, `Color.ts`）
-  - ユーティリティ: kebab-case（`color-space.ts`, `wcag.ts`）
-  - Reactコンポーネント: PascalCase（`ColorPicker.tsx`, `PalettePreview.tsx`）
-- **Components**: PascalCase（`<ColorPicker />`, `<ThemeEditor />`）
+  - すべてのTypeScriptファイル: kebab-case（`theme.ts`, `color.ts`, `color-space.ts`, `wcag.ts`）
+  - テストファイル: `*.test.ts`（ソースと同じディレクトリに配置）
+  - Web Components: kebab-case（フレームワーク非依存）
 - **Functions**: camelCase（`calculateContrast`, `generateScale`, `interpolateColor`）
+- **Classes**: PascalCase（`Theme`, `Color`, `BackgroundColor`, `CudOptimizer`）
 - **Constants**: UPPER_SNAKE_CASE（`DEFAULT_SCALE_POINTS`, `WCAG_AA_THRESHOLD`）
 
 ## Import Organization
