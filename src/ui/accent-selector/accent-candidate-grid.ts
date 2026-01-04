@@ -111,7 +111,7 @@ export class AccentCandidateGrid {
 		}
 
 		// 内容をクリア
-		gridElement.innerHTML = "";
+		gridElement.replaceChildren();
 
 		// 候補がない場合
 		if (this.candidates.length === 0) {

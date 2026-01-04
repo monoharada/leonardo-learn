@@ -10,7 +10,6 @@ import {
 	calculateCircularDistance,
 	getHarmonyTypes,
 	getTargetHues,
-	type HarmonyFilterType,
 	type HarmonyTypeDefinition,
 	isWithinHarmonyRange,
 } from "./harmony-filter-calculator";

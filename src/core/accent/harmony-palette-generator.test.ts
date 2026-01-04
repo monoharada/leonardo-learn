@@ -7,7 +7,6 @@ import { describe, expect, it } from "bun:test";
 import {
 	getAllHarmonyPalettes,
 	getHarmonyPaletteColors,
-	type HarmonyPaletteResult,
 } from "./harmony-palette-generator";
 
 describe("HarmonyPaletteGenerator", () => {

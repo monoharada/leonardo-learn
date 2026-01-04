@@ -305,7 +305,7 @@ export class WeightSliderUI {
 		}
 
 		// 内容をクリア
-		sliderContainer.innerHTML = "";
+		sliderContainer.replaceChildren();
 
 		// タイトル
 		const title = document.createElement("h4");

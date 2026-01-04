@@ -35,7 +35,14 @@ export interface AccentErrorStateData {
 
 /**
  * グローバルエラー状態（シングルトン - 単一ソース）
- * 関数APIとクラスAPIの両方がこの状態を参照する
+ *
+ * 注意: このモジュール変数はシングルトンパターンとして機能します。
+ * - 関数API（setErrorState等）とクラスAPI（AccentSelectionErrorState）が
+ *   同一の状態を参照することで一貫性を保証
+ * - アクセント選定機能は1回に1パレットのみを扱う前提
+ * - テスト時は clearErrorState() でリセットしてください
+ *
+ * @internal
  */
 let globalErrorState: AccentErrorStateData = {
 	autoSelectionDisabled: false,

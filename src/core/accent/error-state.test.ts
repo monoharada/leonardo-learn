@@ -7,7 +7,6 @@
 
 import { beforeEach, describe, expect, it } from "bun:test";
 import {
-	type AccentErrorStateData,
 	AccentSelectionErrorState,
 	clearErrorState,
 	createInitialErrorState,

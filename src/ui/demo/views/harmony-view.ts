@@ -101,7 +101,7 @@ export function renderAccentSelectionView(
 	};
 
 	// コンテナをクリア
-	container.innerHTML = "";
+	container.replaceChildren();
 
 	// ヘッダーセクション（Brand Color入力）
 	const header = createHeader(inputHex, container, callbacks, viewState);

@@ -123,7 +123,7 @@ export class HarmonyFilterUI {
 		}
 
 		// 内容をクリア
-		filterElement.innerHTML = "";
+		filterElement.replaceChildren();
 
 		// ラベル
 		const label = document.createElement("label");

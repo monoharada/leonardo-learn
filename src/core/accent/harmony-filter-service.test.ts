@@ -7,14 +7,10 @@
 
 import { describe, expect, it } from "bun:test";
 import type { ScoredCandidate } from "./accent-candidate-service";
-import type {
-	BalanceScoreResult,
-	ScoreWeights,
-} from "./balance-score-calculator";
+import type { ScoreWeights } from "./balance-score-calculator";
 import {
 	filterByHarmonyType,
 	findNearestAlternatives,
-	type HarmonyFilterResult,
 } from "./harmony-filter-service";
 
 /**
