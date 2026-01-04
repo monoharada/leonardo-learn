@@ -9,6 +9,7 @@
  */
 
 import type { CVDType } from "@/accessibility/cvd-simulator";
+import type { HarmonyFilterType } from "@/core/accent/harmony-filter-calculator";
 import type { Color } from "@/core/color";
 import type { HarmonyType } from "@/core/harmony";
 import type { CudCompatibilityMode } from "@/ui/cud-components";
@@ -70,6 +71,7 @@ export type ViewMode = "harmony" | "palette" | "shades" | "accessibility";
 
 /**
  * ハーモニータイプの設定（カード表示用）
+ * @deprecated Section 7以降はAccentHarmonyTypeConfigを使用
  */
 export interface HarmonyTypeConfig {
 	id: string;
@@ -77,6 +79,16 @@ export interface HarmonyTypeConfig {
 	description: string;
 	harmonyType: HarmonyType;
 	detail: string;
+}
+
+/**
+ * アクセント選定用ハーモニータイプ設定
+ * HarmonyFilterTypeベースのUI表示用メタデータ
+ */
+export interface AccentHarmonyTypeConfig {
+	id: HarmonyFilterType;
+	name: string;
+	description: string;
 }
 
 /**
@@ -97,7 +109,12 @@ export interface DemoState {
 	lightnessDistribution: LightnessDistribution;
 	viewMode: ViewMode;
 	cvdSimulation: CVDSimulationType;
+	/**
+	 * @deprecated Section 7以降はselectedAccentFilterを使用
+	 */
 	selectedHarmonyConfig: HarmonyTypeConfig | null;
+	/** 選択されたアクセントハーモニーフィルタ */
+	selectedAccentFilter: HarmonyFilterType;
 	cudMode: CudCompatibilityMode;
 	/** ライト背景色（HEX形式、デフォルト: #ffffff） */
 	lightBackgroundColor: string;
@@ -121,6 +138,8 @@ export interface ColorDetailModalOptions {
 	paletteInfo: {
 		name: string;
 		baseChromaName?: string;
+		/** パレットID（名前編集時に必要） */
+		paletteId?: string;
 	};
 	readOnly?: boolean;
 	/** クリックした色の元のHEX値 */
@@ -128,6 +147,7 @@ export interface ColorDetailModalOptions {
 }
 
 export type { CVDType } from "@/accessibility/cvd-simulator";
+export type { HarmonyFilterType } from "@/core/accent/harmony-filter-calculator";
 export type { Color } from "@/core/color";
 /**
  * 外部型の再エクスポート

@@ -2,6 +2,7 @@
  * サイドバーモジュール
  *
  * パレット一覧のレンダリングとパレット選択機能を担当する。
+ * 注: 現在のUIでは非表示（hidden）だが、内部状態管理用に保持。
  *
  * @module @/ui/demo/sidebar
  * Requirements: 7.1, 7.3
@@ -42,26 +43,30 @@ export function renderSidebar(
 		const containerDiv = document.createElement("div");
 		containerDiv.className = "dads-palette-item";
 
-		// Main Palette Entry (Primary)
 		const btn = document.createElement("div");
-		btn.textContent = palette.name;
 		btn.className = "dads-palette-item__button";
 
 		// Show color dot
 		const dot = document.createElement("span");
 		dot.className = "dads-palette-item__dot";
 
-		// Parse first key color for dot
 		const keyColorInput = palette.keyColors[0];
 		if (keyColorInput) {
 			const { color: hex } = parseKeyColor(keyColorInput);
 			dot.style.backgroundColor = hex;
 		}
-		btn.prepend(dot);
+		btn.appendChild(dot);
+
+		// パレット名
+		const nameSpan = document.createElement("span");
+		nameSpan.className = "dads-palette-item__name";
+		nameSpan.textContent = palette.name;
+		btn.appendChild(nameSpan);
 
 		// Set active state via data attribute
 		setButtonActive(btn, palette.id === state.activeId);
 
+		// クリックでパレット選択
 		btn.onclick = () => {
 			onPaletteSelect(palette.id);
 		};

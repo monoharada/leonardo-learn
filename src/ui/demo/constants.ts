@@ -1,19 +1,59 @@
 /**
  * デモ機能の定数定義
  *
- * HARMONY_TYPES配列とDEFAULT_STATEオブジェクトを一元管理する。
+ * ACCENT_HARMONY_TYPESとDEFAULT_STATEオブジェクトを一元管理する。
  * types.tsから型をインポートして型安全性を確保。
  *
  * @module @/ui/demo/constants
- * Requirements: 6.2
+ * Requirements: 6.2, 4.2, 4.3
  */
 
 import { HarmonyType } from "@/core/harmony";
-import type { DemoState, HarmonyTypeConfig } from "./types";
+import type {
+	AccentHarmonyTypeConfig,
+	DemoState,
+	HarmonyTypeConfig,
+} from "./types";
+
+/**
+ * アクセント選定用ハーモニータイプの設定一覧
+ * HarmonyFilterTypeベースのUI表示用メタデータ
+ *
+ * Section 7: ハーモニービュー → アクセント選定ビュー置換
+ */
+export const ACCENT_HARMONY_TYPES: AccentHarmonyTypeConfig[] = [
+	{
+		id: "all",
+		name: "すべて",
+		description: "全てのアクセント候補を表示",
+	},
+	{
+		id: "complementary",
+		name: "補色",
+		description: "色相環で正反対に位置する色",
+	},
+	{
+		id: "triadic",
+		name: "トライアド",
+		description: "色相環で等間隔に配置された3色",
+	},
+	{
+		id: "analogous",
+		name: "類似色",
+		description: "色相環で隣り合う色",
+	},
+	{
+		id: "split-complementary",
+		name: "分裂補色",
+		description: "補色の両隣の色",
+	},
+];
 
 /**
  * ハーモニータイプの設定一覧
  * UI表示用のメタデータを含む
+ *
+ * @deprecated Section 7以降はACCENT_HARMONY_TYPESを使用
  */
 export const HARMONY_TYPES: HarmonyTypeConfig[] = [
 	{
@@ -96,6 +136,7 @@ export const DEFAULT_STATE: DemoState = {
 	viewMode: "harmony",
 	cvdSimulation: "normal",
 	selectedHarmonyConfig: null,
+	selectedAccentFilter: "all",
 	cudMode: "guide",
 	lightBackgroundColor: "#ffffff",
 	darkBackgroundColor: "#000000",

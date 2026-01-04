@@ -272,6 +272,7 @@ export const state: DemoState = {
 	viewMode: DEFAULT_STATE.viewMode,
 	cvdSimulation: DEFAULT_STATE.cvdSimulation,
 	selectedHarmonyConfig: DEFAULT_STATE.selectedHarmonyConfig,
+	selectedAccentFilter: DEFAULT_STATE.selectedAccentFilter,
 	cudMode: DEFAULT_STATE.cudMode,
 	lightBackgroundColor: DEFAULT_STATE.lightBackgroundColor,
 	darkBackgroundColor: DEFAULT_STATE.darkBackgroundColor,
@@ -324,6 +325,7 @@ export function resetState(): void {
 	state.viewMode = DEFAULT_STATE.viewMode;
 	state.cvdSimulation = DEFAULT_STATE.cvdSimulation;
 	state.selectedHarmonyConfig = DEFAULT_STATE.selectedHarmonyConfig;
+	state.selectedAccentFilter = DEFAULT_STATE.selectedAccentFilter;
 	state.cudMode = DEFAULT_STATE.cudMode;
 	state.lightBackgroundColor = DEFAULT_STATE.lightBackgroundColor;
 	state.darkBackgroundColor = DEFAULT_STATE.darkBackgroundColor;

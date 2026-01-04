@@ -1,88 +1,280 @@
 /**
- * ハーモニービューモジュール
+ * アクセント選定ビューモジュール
  *
- * ハーモニー選択画面のレンダリングを担当する。
- * HARMONY_TYPES定数を使用してハーモニー選択UIを構築する。
+ * Section 8: アクセント選定UI改善
+ * - ハーモニータイプカード形式でパレットを選択
+ * - カードクリックで3色パレットを生成→パレットビューへ遷移
+ * - 「詳細選択」で従来のグリッドUIを表示
  *
  * @module @/ui/demo/views/harmony-view
- * Requirements: 2.1, 2.2, 2.3, 2.4
+ * Requirements: 4.1, 4.2, 4.3, 4.4
  */
 
-import { simulateCVD } from "@/accessibility/cvd-simulator";
-import { Color } from "@/core/color";
-import { generateSystemPalette, HarmonyType } from "@/core/harmony";
+import type { ScoredCandidate } from "@/core/accent/accent-candidate-service";
+import { generateCandidates } from "@/core/accent/accent-candidate-service";
+import type { HarmonyFilterType } from "@/core/accent/harmony-filter-calculator";
+import { filterByHarmonyType } from "@/core/accent/harmony-filter-service";
+import { getAllHarmonyPalettes } from "@/core/accent/harmony-palette-generator";
+import { toOklch } from "@/utils/color-space";
+import { AccentCandidateGrid } from "../../accent-selector/accent-candidate-grid";
+import { HarmonyFilterUI } from "../../accent-selector/harmony-filter-ui";
 import {
-	createCudBadge,
-	createCudModeSelector,
-	createCudRangeGuide,
-	snapToCudColor,
-} from "@/ui/cud-components";
-import { HARMONY_TYPES } from "../constants";
+	createHarmonyTypeCardGrid,
+	type HarmonyTypeCard,
+} from "../../accent-selector/harmony-type-card";
 import { state } from "../state";
-import type {
-	ColorDetailModalOptions,
-	CVDType,
-	HarmonyTypeConfig,
-} from "../types";
+import type { ColorDetailModalOptions } from "../types";
 
 /**
- * ハーモニービューのコールバック
+ * アクセント選定ビューのコールバック
  */
-export interface HarmonyViewCallbacks {
-	/** ハーモニー選択時のコールバック */
-	onHarmonySelect: (config: HarmonyTypeConfig) => void;
-	/** 色クリック時のコールバック（モーダル表示用、将来の拡張用） */
+export interface AccentSelectionViewCallbacks {
+	/** ハーモニーカードクリック時のコールバック（パレット生成） */
+	onHarmonyCardClick: (
+		harmonyType: HarmonyFilterType,
+		paletteColors: [string, string, string],
+	) => void;
+	/** 詳細選択でのアクセント選択時のコールバック */
+	onAccentSelect: (candidate: ScoredCandidate) => void;
+	/** 色クリック時のコールバック（モーダル表示用） */
 	onColorClick: (options: ColorDetailModalOptions) => void;
 }
 
 /**
- * ハーモニービューをレンダリングする
+ * ビュー内部状態
+ */
+interface ViewState {
+	brandColorHex: string;
+	isDetailMode: boolean;
+	selectedFilter: HarmonyFilterType;
+	allCandidates: ScoredCandidate[];
+	filteredCandidates: ScoredCandidate[];
+	isLoading: boolean;
+	error: string | null;
+}
+
+/**
+ * @deprecated renderHarmonyView は renderAccentSelectionView に置き換わりました
+ * 後方互換性のために維持
+ */
+export function renderHarmonyView(
+	container: HTMLElement,
+	keyColorHex: string,
+	callbacks: {
+		onHarmonySelect?: unknown;
+		onColorClick?: (options: ColorDetailModalOptions) => void;
+	},
+): void {
+	renderAccentSelectionView(container, keyColorHex, {
+		onHarmonyCardClick: () => {},
+		onAccentSelect: () => {},
+		onColorClick: callbacks.onColorClick ?? (() => {}),
+	});
+}
+
+/**
+ * アクセント選定ビューをレンダリングする
  *
  * @param container レンダリング先のコンテナ要素
  * @param keyColorHex キーカラーのHEX値
  * @param callbacks コールバック関数
  */
-export function renderHarmonyView(
+export function renderAccentSelectionView(
 	container: HTMLElement,
 	keyColorHex: string,
-	callbacks: HarmonyViewCallbacks,
+	callbacks: AccentSelectionViewCallbacks,
 ): void {
-	const { onHarmonySelect } = callbacks;
-	// onColorClickは将来の拡張用（スウォッチクリック時のモーダル表示等）
-	// 現在のハーモニービューでは行クリックでハーモニー選択のみ
-
 	// 入力カラーをパース（無効な場合はデフォルト色）
 	const inputHex = /^#[0-9A-Fa-f]{6}$/.test(keyColorHex)
 		? keyColorHex
 		: "#3366cc";
-	const primaryColor = new Color(inputHex);
 
-	// ヘッダーセクション（Brand Color入力 + CUDモードセレクター）
-	const header = createHeader(inputHex, container, callbacks);
+	// ビュー内部状態
+	const viewState: ViewState = {
+		brandColorHex: inputHex,
+		isDetailMode: false,
+		selectedFilter: state.selectedAccentFilter,
+		allCandidates: [],
+		filteredCandidates: [],
+		isLoading: true,
+		error: null,
+	};
+
+	// コンテナをクリア
+	container.innerHTML = "";
+
+	// ヘッダーセクション（Brand Color入力）
+	const header = createHeader(inputHex, container, callbacks, viewState);
+	container.appendChild(header);
 
 	// 説明文
 	const description = document.createElement("div");
 	description.className = "dads-section__description";
-	description.innerHTML =
-		"<p>ハーモニースタイルを選択してください。見出しをクリックすると、そのスタイルでパレットを生成します。</p>";
-
-	// CUDモードがoff以外の場合はガイドを表示
-	let cudGuide: HTMLElement | null = null;
-	if (state.cudMode !== "off") {
-		cudGuide = createCudRangeGuide();
-	}
-
-	// ハーモニーリスト
-	const harmonyList = createHarmonyList(primaryColor, onHarmonySelect);
-
-	// コンテナに要素を追加
-	container.innerHTML = "";
-	container.appendChild(header);
+	description.innerHTML = "<p>ハーモニーを選択してパレットを作成します。</p>";
 	container.appendChild(description);
-	if (cudGuide) {
-		container.appendChild(cudGuide);
+
+	// カードモードの表示
+	renderCardMode(container, viewState, callbacks);
+}
+
+/**
+ * カードモードを表示
+ */
+function renderCardMode(
+	container: HTMLElement,
+	viewState: ViewState,
+	callbacks: AccentSelectionViewCallbacks,
+): void {
+	// カードエリア
+	const cardArea = document.createElement("div");
+	cardArea.className = "harmony-card-area";
+	container.appendChild(cardArea);
+
+	// ハーモニーカードグリッドを作成
+	const { cards } = createHarmonyTypeCardGrid(
+		cardArea,
+		// カードクリック時のハンドラ
+		async (type: HarmonyFilterType) => {
+			// ローディング状態にする
+			for (const card of cards) {
+				card.setLoading(true);
+			}
+
+			// パレット色を取得
+			const result = await getAllHarmonyPalettes(viewState.brandColorHex);
+			if (result.ok && result.result) {
+				const palette = result.result[type as keyof typeof result.result];
+				if (palette) {
+					callbacks.onHarmonyCardClick(type, [
+						palette.brandColor,
+						palette.accentColors[0],
+						palette.accentColors[1],
+					]);
+				}
+			}
+
+			// ローディング解除
+			for (const card of cards) {
+				card.setLoading(false);
+			}
+		},
+		// 詳細選択クリック時のハンドラ
+		() => {
+			viewState.isDetailMode = true;
+			// カードエリアを削除して詳細モードを表示
+			cardArea.remove();
+			renderDetailMode(container, viewState, callbacks);
+		},
+	);
+
+	// カードにプレビュー色を設定
+	loadCardPreviews(cards, viewState.brandColorHex);
+}
+
+/**
+ * カードのプレビュー色を読み込む
+ */
+async function loadCardPreviews(
+	cards: HarmonyTypeCard[],
+	brandColorHex: string,
+): Promise<void> {
+	// 全ハーモニータイプのパレットを取得
+	const result = await getAllHarmonyPalettes(brandColorHex);
+
+	if (result.ok && result.result) {
+		const harmonyTypes: HarmonyFilterType[] = [
+			"complementary",
+			"triadic",
+			"analogous",
+			"split-complementary",
+		];
+
+		for (let i = 0; i < cards.length && i < harmonyTypes.length; i++) {
+			const type = harmonyTypes[i];
+			const card = cards[i];
+			if (!type || !card) continue;
+			const palette = result.result[type as keyof typeof result.result];
+			if (palette) {
+				card.setPreviewColors([
+					palette.brandColor,
+					palette.accentColors[0],
+					palette.accentColors[1],
+				]);
+			}
+		}
 	}
-	container.appendChild(harmonyList);
+}
+
+/**
+ * 詳細選択モードを表示
+ */
+function renderDetailMode(
+	container: HTMLElement,
+	viewState: ViewState,
+	callbacks: AccentSelectionViewCallbacks,
+): void {
+	// 戻るボタン
+	const backButton = document.createElement("button");
+	backButton.type = "button";
+	backButton.className = "dads-button dads-button--secondary";
+	backButton.innerHTML = "← カード選択に戻る";
+	backButton.addEventListener("click", () => {
+		// 詳細モードの要素を削除
+		detailArea.remove();
+		backButton.remove();
+		// カードモードを再表示
+		renderCardMode(container, viewState, callbacks);
+	});
+	container.appendChild(backButton);
+
+	// 詳細エリア
+	const detailArea = document.createElement("div");
+	detailArea.className = "accent-detail-area";
+	container.appendChild(detailArea);
+
+	// コントロールエリア（ハーモニーフィルタ）
+	const controlsArea = document.createElement("div");
+	controlsArea.className = "accent-selection-controls";
+
+	const filterContainer = document.createElement("div");
+	filterContainer.className = "accent-selection-controls__filter";
+	controlsArea.appendChild(filterContainer);
+
+	detailArea.appendChild(controlsArea);
+
+	// 候補グリッドエリア
+	const gridContainer = document.createElement("div");
+	gridContainer.className = "accent-selection-grid";
+	detailArea.appendChild(gridContainer);
+
+	// ローディング表示
+	const loadingElement = document.createElement("div");
+	loadingElement.className = "accent-selection-loading";
+	loadingElement.innerHTML = `
+		<span class="accent-selection-loading__spinner"></span>
+		<span>アクセント候補を生成中...</span>
+	`;
+	gridContainer.appendChild(loadingElement);
+
+	// HarmonyFilterUI を初期化
+	const harmonyFilter = new HarmonyFilterUI(filterContainer);
+	harmonyFilter.setSelectedType(viewState.selectedFilter);
+
+	// AccentCandidateGrid を初期化
+	const candidateGrid = new AccentCandidateGrid(gridContainer);
+	candidateGrid.onSelectCandidate((candidate) => {
+		callbacks.onAccentSelect(candidate);
+	});
+
+	// フィルタ変更時のハンドラ
+	harmonyFilter.onFilterChange((type) => {
+		viewState.selectedFilter = type;
+		state.selectedAccentFilter = type;
+		applyFilter(viewState, candidateGrid, gridContainer);
+	});
+
+	// 候補を非同期で生成
+	loadCandidates(viewState, candidateGrid, gridContainer);
 }
 
 /**
@@ -91,7 +283,8 @@ export function renderHarmonyView(
 function createHeader(
 	inputHex: string,
 	container: HTMLElement,
-	callbacks: HarmonyViewCallbacks,
+	callbacks: AccentSelectionViewCallbacks,
+	_viewState: ViewState,
 ): HTMLElement {
 	const header = document.createElement("div");
 	header.className = "dads-harmony-header";
@@ -142,8 +335,8 @@ function createHeader(
 			keyColorsInput.value = hex;
 		}
 
-		// ハーモニーカードを再レンダリング
-		renderHarmonyView(container, hex, callbacks);
+		// ビュー全体を再レンダリング
+		renderAccentSelectionView(container, hex, callbacks);
 	};
 
 	// カラーピッカーのイベント
@@ -180,194 +373,108 @@ function createHeader(
 	colorInput.appendChild(inputRow);
 	header.appendChild(colorInput);
 
-	// CUDモードセレクター
-	const cudModeSelector = createCudModeSelector((mode) => {
-		state.cudMode = mode;
-		renderHarmonyView(container, colorText.value, callbacks);
-	}, state.cudMode);
-	header.appendChild(cudModeSelector);
-
 	return header;
 }
 
 /**
- * ハーモニーリストを作成する
+ * 候補を非同期で読み込む
  */
-function createHarmonyList(
-	primaryColor: Color,
-	onHarmonySelect: (config: HarmonyTypeConfig) => void,
-): HTMLElement {
-	const harmonyList = document.createElement("div");
-	harmonyList.className = "dads-harmony-list";
+async function loadCandidates(
+	viewState: ViewState,
+	candidateGrid: AccentCandidateGrid,
+	gridContainer: HTMLElement,
+): Promise<void> {
+	try {
+		const result = await generateCandidates(viewState.brandColorHex, {
+			limit: 130, // 全候補を取得してフィルタリング
+		});
 
-	for (const harmony of HARMONY_TYPES) {
-		const section = createHarmonyRow(primaryColor, harmony, onHarmonySelect);
-		harmonyList.appendChild(section);
-	}
+		if (result.ok) {
+			viewState.allCandidates = result.result.candidates;
+			viewState.isLoading = false;
+			viewState.error = null;
 
-	return harmonyList;
-}
-
-/**
- * ハーモニー行を作成する
- */
-function createHarmonyRow(
-	primaryColor: Color,
-	harmony: HarmonyTypeConfig,
-	onHarmonySelect: (config: HarmonyTypeConfig) => void,
-): HTMLElement {
-	// 実際のハーモニーパレットを生成
-	const palettes = generateSystemPalette(primaryColor, harmony.harmonyType);
-
-	// 現在選択されているかどうか
-	const isSelected = state.selectedHarmonyConfig?.id === harmony.id;
-
-	// ハーモニーセクション（全体がクリック可能）
-	const section = document.createElement("button");
-	section.type = "button";
-	section.className = "dads-harmony-row";
-	if (isSelected) {
-		section.dataset.selected = "true";
-	}
-
-	// 見出し
-	const heading = createHarmonyHeading(harmony, palettes.length);
-
-	// セクションクリックでハーモニー選択
-	section.onclick = () => {
-		state.selectedHarmonyConfig = harmony;
-
-		const harmonyInput = document.getElementById("harmony") as HTMLInputElement;
-		if (harmonyInput) {
-			harmonyInput.value = harmony.harmonyType;
+			// フィルタを適用
+			applyFilter(viewState, candidateGrid, gridContainer);
+		} else {
+			viewState.isLoading = false;
+			viewState.error = result.error.message;
+			showError(gridContainer, result.error.message);
 		}
-
-		onHarmonySelect(harmony);
-	};
-
-	// スウォッチ
-	const swatches = createSwatches(palettes, harmony.harmonyType);
-
-	// カード構成
-	section.appendChild(heading);
-	section.appendChild(swatches);
-
-	return section;
+	} catch (error) {
+		viewState.isLoading = false;
+		viewState.error =
+			error instanceof Error
+				? error.message
+				: "候補の生成中にエラーが発生しました";
+		showError(gridContainer, viewState.error);
+	}
 }
 
 /**
- * ハーモニー見出しを作成する
+ * フィルタを適用して候補を更新
  */
-function createHarmonyHeading(
-	harmony: HarmonyTypeConfig,
-	paletteCount: number,
-): HTMLElement {
-	const heading = document.createElement("div");
-	heading.className = "dads-harmony-row__heading";
+function applyFilter(
+	viewState: ViewState,
+	candidateGrid: AccentCandidateGrid,
+	gridContainer: HTMLElement,
+): void {
+	// ローディング表示をクリア
+	const loadingEl = gridContainer.querySelector(".accent-selection-loading");
+	if (loadingEl) {
+		loadingEl.remove();
+	}
 
-	const headingMain = document.createElement("div");
-	headingMain.className = "dads-harmony-row__heading-main";
+	// エラー表示をクリア
+	const errorEl = gridContainer.querySelector(".accent-selection-error");
+	if (errorEl) {
+		errorEl.remove();
+	}
 
-	const headingText = document.createElement("span");
-	headingText.className = "dads-harmony-row__name";
-	headingText.textContent = harmony.name;
+	// ブランドカラーの色相を取得
+	const oklch = toOklch(viewState.brandColorHex);
+	const brandHue = oklch?.h ?? 0;
 
-	const headingMeta = document.createElement("span");
-	headingMeta.className = "dads-harmony-row__meta";
-	headingMeta.textContent = `${harmony.description}（${paletteCount}色）`;
+	// フィルタを適用
+	const filterResult = filterByHarmonyType(
+		viewState.allCandidates,
+		viewState.selectedFilter,
+		brandHue,
+	);
 
-	headingMain.appendChild(headingText);
-	headingMain.appendChild(headingMeta);
-
-	const headingDetail = document.createElement("p");
-	headingDetail.className = "dads-harmony-row__detail";
-	headingDetail.textContent = harmony.detail;
-
-	heading.appendChild(headingMain);
-	heading.appendChild(headingDetail);
-
-	return heading;
-}
-
-/**
- * スウォッチを作成する
- */
-function createSwatches(
-	palettes: { name: string; keyColor: Color }[],
-	harmonyType: HarmonyType,
-): HTMLElement {
-	const swatches = document.createElement("div");
-	swatches.className = "dads-harmony-row__swatches";
-
-	// DADSの場合は主要なセマンティックカラーのみ表示
-	let displayPalettes: typeof palettes;
-	if (harmonyType === HarmonyType.DADS) {
-		const semanticNames = [
-			"primary",
-			"secondary",
-			"accent",
-			"success",
-			"error",
-			"warning",
-			"info",
-		];
-		displayPalettes = palettes
-			.filter((p) => {
-				const name = p.name.toLowerCase();
-				return semanticNames.some(
-					(s) => name === s || name.startsWith(`${s}-`),
-				);
-			})
-			.filter((p, i, arr) => {
-				// 各カテゴリから最初の1つだけ
-				const name = p.name.toLowerCase().split("-")[0];
-				return (
-					arr.findIndex((x) => x.name.toLowerCase().split("-")[0] === name) ===
-					i
-				);
-			});
+	// 候補を更新（上位10件を表示）
+	if (filterResult.isShowingAlternatives) {
+		viewState.filteredCandidates = filterResult.alternatives.slice(0, 10);
 	} else {
-		const maxSwatches = 8;
-		displayPalettes = palettes.slice(0, maxSwatches);
+		viewState.filteredCandidates = filterResult.candidates.slice(0, 10);
 	}
 
-	for (const palette of displayPalettes) {
-		const swatchContainer = document.createElement("span");
-		swatchContainer.className = "dads-harmony-row__swatch-container";
-		swatchContainer.style.cssText =
-			"display: inline-flex; flex-direction: column; align-items: center; gap: 2px;";
-
-		const swatch = document.createElement("span");
-		swatch.className = "dads-harmony-row__swatch";
-
-		// strictモードの場合はCUD推奨色にスナップ
-		let displayHex = palette.keyColor.toHex();
-		if (state.cudMode === "strict") {
-			const snapResult = snapToCudColor(displayHex, { mode: "strict" });
-			displayHex = snapResult.hex;
-		}
-
-		// CVDシミュレーションを適用
-		const displayColor =
-			state.cvdSimulation === "normal"
-				? new Color(displayHex)
-				: simulateCVD(new Color(displayHex), state.cvdSimulation as CVDType);
-		swatch.style.background = displayColor.toHex();
-		swatch.title =
-			state.cudMode === "strict"
-				? `${palette.name}: ${displayHex} (スナップ済み、元: ${palette.keyColor.toHex()})`
-				: `${palette.name}: ${palette.keyColor.toHex()}`;
-		swatchContainer.appendChild(swatch);
-
-		// CUDモードがoff以外の場合はバッジを追加
-		if (state.cudMode !== "off") {
-			const badge = createCudBadge(displayHex);
-			badge.style.marginTop = "4px";
-			swatchContainer.appendChild(badge);
-		}
-
-		swatches.appendChild(swatchContainer);
-	}
-
-	return swatches;
+	// グリッドを更新
+	candidateGrid.setCandidates(viewState.filteredCandidates);
 }
+
+/**
+ * エラー表示
+ */
+function showError(container: HTMLElement, message: string): void {
+	// ローディング表示をクリア
+	const loadingEl = container.querySelector(".accent-selection-loading");
+	if (loadingEl) {
+		loadingEl.remove();
+	}
+
+	// 既存のエラー表示をクリア
+	const existingError = container.querySelector(".accent-selection-error");
+	if (existingError) {
+		existingError.remove();
+	}
+
+	const errorElement = document.createElement("div");
+	errorElement.className = "accent-selection-error";
+	errorElement.setAttribute("role", "alert");
+	errorElement.textContent = message;
+	container.appendChild(errorElement);
+}
+
+// 後方互換性のためのexport
+export type { AccentSelectionViewCallbacks as HarmonyViewCallbacks };

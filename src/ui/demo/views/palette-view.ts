@@ -283,6 +283,7 @@ function createPaletteCard(
 			paletteInfo: {
 				name: palette.name,
 				baseChromaName: palette.baseChromaName,
+				paletteId: palette.id,
 			},
 			readOnly: isPrimary,
 			// originalHexは未指定（旧実装との一致、モーダル内でfixedScale.hexValues優先）

@@ -166,36 +166,170 @@
   - **Creates:** `src/ui/accent-selector/low-score-warning.ts`, `src/ui/accent-selector/low-score-warning.test.ts`
   - _Requirements: 5.4_
 
-- [ ] 6. パフォーマンス最適化とテスト
+- [x] 6. パフォーマンス最適化とテスト
 
-- [ ] 6.1 パフォーマンス検証と最適化
+- [x] 6.1 パフォーマンス検証と最適化
   - 130色スコア計算のパフォーマンステストを実装（200ms以内を検証）
   - キャッシュヒット時のパフォーマンステストを実装（10ms以内を検証）
   - フィルタ適用のパフォーマンステストを実装（5ms以内を検証）
   - 必要に応じた最適化の実施
+  - **Creates:** `src/core/accent/accent-performance.test.ts`
   - _Requirements: 6.1_
 
-- [ ] 6.2 (P) ユニットテストの実装
+- [x] 6.2 (P) ユニットテストの実装
   - BalanceScoreCalculator のテストを実装（既知の色ペアで期待スコア検証、CUD/コントラストの正規化式検証含む）
   - 重み正規化のテストを実装（合計100保証、端数処理、境界値）
   - HarmonyFilterCalculator のテストを実装（各ハーモニータイプの色相計算）
   - 循環距離判定のテストを実装（±30°判定）
   - エラーハンドリングのテストを実装
+  - **Modifies:** `src/core/accent/balance-score-calculator.test.ts`
   - _Requirements: 1.2, 2.1, 2.3, 3.1, 3.2_
 
-- [ ] 6.3 (P) 統合テストの実装
+- [x] 6.3 (P) 統合テストの実装
   - AccentCandidateService の統合テストを実装（DADSデータ読み込み→スコア計算→ソート）
   - メモ化動作のテストを実装（同一条件での2回目呼び出しがキャッシュヒット）
   - 背景色変更時の再計算テストを実装
   - 重み変更時のキャッシュ無効化テストを実装
   - エラー時のキャッシュクリア動作テストを実装
+  - **Creates:** `src/core/accent/accent-integration.test.ts`
   - _Requirements: 6.2, 2.4, 7.3_
 
-- [ ] 6.4 E2Eテストの実装
+- [x] 6.4 E2Eテストの実装
   - アクセント選定パネルの表示/非表示テストを実装
   - 候補カードクリック→パレット追加のテストを実装
   - ハーモニーフィルタ切替→候補リスト更新のテストを実装
   - 重みスライダー変更→スコア再計算のテストを実装
   - 手動選択フローのテストを実装
   - エラー時の手動選択継続テストを実装
+  - **Creates:** `e2e/accent-selector.e2e.ts`
   - _Requirements: 4.1, 4.3, 3.1, 2.3, 5.1, 7.2_
+
+- [x] 7. ハーモニービュー → アクセント選定ビュー置換
+
+- [x] 7.1 constants.tsの更新
+  - 既存HARMONY_TYPES配列を削除（Complementary, Analogous, Triadic...）
+  - ACCENT_HARMONY_TYPES配列を追加（HarmonyFilterTypeベース）
+  - **Modifies:** `src/ui/demo/constants.ts`
+  - _Requirements: 4.2, 4.3_
+
+- [x] 7.2 harmony-view.ts → accent-selection-view.ts改変
+  - 既存のハーモニーカード表示を削除
+  - AccentSelectorPanelのコンポーネント（HarmonyFilterUI, WeightSliderUI, AccentCandidateGrid）を直接配置
+  - Brand Color入力は維持
+  - アクセント選択時のコールバック追加
+  - **Modifies:** `src/ui/demo/views/harmony-view.ts`
+  - _Requirements: 4.1, 4.2, 4.3, 4.4_
+
+- [x] 7.3 index.tsの更新
+  - import文の更新（renderHarmonyView → renderAccentSelectionView）
+  - handleHarmonySelectを削除し、handleAccentSelectに置換
+  - renderMain()のharmonyケース更新
+  - **Modifies:** `src/ui/demo/index.ts`
+  - _Requirements: 4.1, 4.2_
+
+- [x] 7.4 types.tsの更新
+  - AccentHarmonyTypeConfig型の追加
+  - DemoStateからselectedHarmonyConfigを更新
+  - **Modifies:** `src/ui/demo/types.ts`
+  - _Requirements: 4.2_
+
+- [x] 7.5 ナビゲーション・ラベルの更新
+  - 「ハーモニー」→「アクセント選定」
+  - **Modifies:** `index.html`
+  - _Requirements: 4.1_
+
+- [x] 7.6 CSSスタイルの調整
+  - アクセント選定ビューのレイアウトスタイル追加
+  - **Modifies:** `src/ui/styles/app-components.css`
+  - _Requirements: 4.1_
+
+- [x] 7.7 E2Eテストの更新
+  - accent-selector.e2e.tsをハーモニービュー対応に修正（ハーモニービュー経由でのテストに変更）
+  - **Modifies:** `e2e/accent-selector.e2e.ts`
+  - _Requirements: 4.1, 4.2, 4.3, 4.4_
+
+- [x] 8. アクセント選定UI改善（カード形式ハーモニー選択）
+
+- [x] 8.1 HarmonyPaletteGenerator の実装
+  - 各ハーモニータイプに対して3色パレット（ブランド + 2アクセント）を生成する機能を実装
+  - 補色: ブランドカラーの補色方向から異なるステップ（明暗）の2色を選定
+  - トライアド/類似色/分裂補色: 各方向から最高スコアの1色ずつを選定
+  - 全ハーモニータイプのプレビュー用パレット一括取得機能を実装
+  - **Creates:** `src/core/accent/harmony-palette-generator.ts`, `src/core/accent/harmony-palette-generator.test.ts`
+  - _Requirements: 4.1, 4.2_
+
+- [x] 8.2 HarmonyTypeCard コンポーネントの実装
+  - ハーモニータイプをカード形式で表示するUIコンポーネントを実装
+  - 各カードにタイトル、説明、3色のプレビュースウォッチを表示
+  - クリック時のコールバック機能を実装
+  - ローディング/無効状態の表示を実装
+  - 詳細選択カード（DetailSelectCard）を実装
+  - ハーモニーカードグリッド生成関数を実装
+  - **Creates:** `src/ui/accent-selector/harmony-type-card.ts`, `src/ui/accent-selector/harmony-type-card.test.ts`
+  - _Requirements: 4.1, 4.2, 4.3_
+
+- [x] 8.3 harmony-view.ts の全面書き換え
+  - カードモード: 4種類のハーモニーカード + 詳細選択カードを表示
+  - 詳細選択モード: 従来のグリッドUIを表示（戻るボタン付き）
+  - カードプレビュー色の動的読み込み機能を実装
+  - **Modifies:** `src/ui/demo/views/harmony-view.ts`
+  - _Requirements: 4.1, 4.2, 4.3, 4.4_
+
+- [x] 8.4 index.ts のハンドラ更新
+  - handleHarmonyCardClickハンドラを追加（3色パレット生成→パレットビュー遷移）
+  - renderAccentSelectionView呼び出しにonHarmonyCardClickコールバックを追加
+  - **Modifies:** `src/ui/demo/index.ts`
+  - _Requirements: 4.1, 4.3_
+
+- [x] 8.5 CSSスタイルの追加
+  - .harmony-type-cards グリッドスタイル
+  - .harmony-type-card カードスタイル（ホバー、フォーカス、ローディング、無効状態）
+  - .harmony-type-card--detail 詳細選択カードスタイル
+  - .harmony-card-area, .accent-detail-area エリアスタイル
+  - **Modifies:** `src/ui/styles/app-components.css`
+  - _Requirements: 4.1_
+
+- [x] 8.6 E2Eテストの更新
+  - ハーモニーカード表示テスト（4種類 + 詳細選択）
+  - カードクリック→パレット生成→パレットビュー遷移テスト
+  - 詳細選択モードへの切り替えテスト
+  - 戻るボタンでカードモードに戻るテスト
+  - **Modifies:** `e2e/accent-selector.e2e.ts`
+  - _Requirements: 4.1, 4.2, 4.3, 4.4_
+
+- [x] 9. パレット名編集機能の実装
+
+- [x] 9.1 カラー詳細モーダルでのパレット名編集
+  - モーダルヘッダーに編集ボタン（鉛筆アイコン）を追加
+  - インライン編集用入力フィールドを実装
+  - Enter/Escapeキーでの確定/キャンセル機能を実装
+  - blur時の自動保存機能を実装
+  - AbortControllerによるイベントリスナーのクリーンアップを実装
+  - **Modifies:** `index.html`, `src/ui/demo/color-detail-modal.ts`
+  - _Requirements: 4.4_
+
+- [x] 9.2 types.ts の更新
+  - ColorDetailModalOptions.paletteInfoにpaletteIdプロパティを追加
+  - パレット識別用IDを通じた状態更新を実現
+  - **Modifies:** `src/ui/demo/types.ts`
+  - _Requirements: 4.4_
+
+- [x] 9.3 palette-view.ts の更新
+  - モーダル呼び出し時にpaletteIdを渡すように修正
+  - すべてのパレット（Primary含む）で名前編集を有効化
+  - **Modifies:** `src/ui/demo/views/palette-view.ts`
+  - _Requirements: 4.4_
+
+- [x] 9.4 CSSスタイルの追加
+  - .dads-drawer__name-container フレックスコンテナ
+  - .dads-drawer__edit-btn 編集ボタンスタイル
+  - .dads-drawer__name-input 入力フィールドスタイル
+  - **Modifies:** `src/ui/styles/components.css`
+  - _Requirements: 4.4_
+
+- [x] 9.5 未使用コードの削除（サイドバー編集機能）
+  - sidebar.tsからenterEditMode関数を削除
+  - ダブルクリック編集ハンドラを削除
+  - 未使用のCSSスタイル（.dads-palette-item__input等）を削除
+  - **Modifies:** `src/ui/demo/sidebar.ts`, `src/ui/styles/components.css`
+  - _Requirements: コードクリーンアップ_

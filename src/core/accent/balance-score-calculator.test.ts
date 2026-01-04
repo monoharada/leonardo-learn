@@ -192,4 +192,153 @@ describe("BalanceScoreCalculator", () => {
 			expect(result.breakdown.contrastScore).toBeGreaterThanOrEqual(95);
 		});
 	});
+
+	/**
+	 * Task 6.2: 追加ユニットテスト - 既知の色ペアでの期待スコア検証
+	 */
+	describe("既知の色ペアでの期待スコア検証 (Task 6.2)", () => {
+		it("青とオレンジの色ペアはバランススコアが計算される", () => {
+			// 青(220°)とオレンジ(30°)の色ペア
+			const result = calculateBalanceScore("#0056FF", "#FF9900", "#FFFFFF");
+			// ハーモニースコアは色相距離に基づいて計算される
+			// 補色関係の場合、特定のハーモニースコアアルゴリズムに依存
+			expect(result.breakdown.harmonyScore).toBeGreaterThanOrEqual(0);
+			expect(result.breakdown.harmonyScore).toBeLessThanOrEqual(100);
+			// 総合スコアは3指標の加重平均
+			expect(result.total).toBeGreaterThanOrEqual(0);
+		});
+
+		it("同一色相は最高のハーモニースコア", () => {
+			// 青系統の同色相
+			const result = calculateBalanceScore("#0056FF", "#0066DD", "#FFFFFF");
+			expect(result.breakdown.harmonyScore).toBeGreaterThanOrEqual(90);
+		});
+
+		it("暗い色on白背景は高コントラスト", () => {
+			const result = calculateBalanceScore("#0056FF", "#333333", "#FFFFFF");
+			expect(result.breakdown.contrastScore).toBeGreaterThanOrEqual(80);
+		});
+
+		it("明るい色on黒背景は高コントラスト", () => {
+			const result = calculateBalanceScore("#0056FF", "#CCCCCC", "#000000");
+			expect(result.breakdown.contrastScore).toBeGreaterThanOrEqual(70);
+		});
+
+		it("中間色on中間背景は低コントラスト", () => {
+			const result = calculateBalanceScore("#0056FF", "#808080", "#888888");
+			expect(result.breakdown.contrastScore).toBeLessThan(20);
+		});
+	});
+
+	/**
+	 * Task 6.2: 追加ユニットテスト - 重み正規化の境界値テスト
+	 */
+	describe("重み正規化の境界値テスト (Task 6.2)", () => {
+		it("最小値0の重み", () => {
+			const weights: ScoreWeights = { harmony: 0, cud: 50, contrast: 50 };
+			const normalized = normalizeWeights(weights);
+			expect(normalized.harmony).toBe(0);
+			expect(normalized.cud).toBe(50);
+			expect(normalized.contrast).toBe(50);
+			expect(normalized.harmony + normalized.cud + normalized.contrast).toBe(
+				100,
+			);
+		});
+
+		it("最大値100の重み", () => {
+			const weights: ScoreWeights = { harmony: 100, cud: 0, contrast: 0 };
+			const normalized = normalizeWeights(weights);
+			expect(normalized.harmony).toBe(100);
+			expect(normalized.harmony + normalized.cud + normalized.contrast).toBe(
+				100,
+			);
+		});
+
+		it("非常に小さい比率でも合計100を保証", () => {
+			const weights: ScoreWeights = { harmony: 1, cud: 1, contrast: 1 };
+			const normalized = normalizeWeights(weights);
+			expect(normalized.harmony + normalized.cud + normalized.contrast).toBe(
+				100,
+			);
+		});
+
+		it("大きな値でも合計100に正規化", () => {
+			const weights: ScoreWeights = { harmony: 200, cud: 100, contrast: 100 };
+			const normalized = normalizeWeights(weights);
+			expect(normalized.harmony + normalized.cud + normalized.contrast).toBe(
+				100,
+			);
+			expect(normalized.harmony).toBe(50); // 200/400 * 100
+			expect(normalized.cud).toBe(25); // 100/400 * 100
+			expect(normalized.contrast).toBe(25); // 100/400 * 100
+		});
+
+		it("端数が発生する比率で合計100を保証", () => {
+			// 33:33:34 のような比率
+			const weights: ScoreWeights = { harmony: 1, cud: 1, contrast: 1 };
+			const normalized = normalizeWeights(weights);
+			expect(normalized.harmony + normalized.cud + normalized.contrast).toBe(
+				100,
+			);
+		});
+
+		it("2:1:1比率の正規化", () => {
+			const weights: ScoreWeights = { harmony: 50, cud: 25, contrast: 25 };
+			const normalized = normalizeWeights(weights);
+			expect(normalized.harmony).toBe(50);
+			expect(normalized.cud).toBe(25);
+			expect(normalized.contrast).toBe(25);
+		});
+	});
+
+	/**
+	 * Task 6.2: 追加ユニットテスト - CUD/コントラスト正規化式の詳細検証
+	 */
+	describe("スコア正規化式の詳細検証 (Task 6.2)", () => {
+		it("コントラスト比4.5はWCAG AA基準相当のスコア", () => {
+			// コントラスト比約4.5（WCAG AA基準）は約58%のスコア
+			// score = ((4.5 - 1) / 6) * 100 = 58.3
+			const result = calculateBalanceScore("#0056FF", "#767676", "#FFFFFF");
+			// #767676 on #FFFFFF はコントラスト比約4.55
+			expect(result.breakdown.contrastScore).toBeGreaterThanOrEqual(50);
+			expect(result.breakdown.contrastScore).toBeLessThanOrEqual(70);
+		});
+
+		it("スコアは0-100の範囲内", () => {
+			const testCases = [
+				{ brand: "#000000", candidate: "#FFFFFF", bg: "#000000" },
+				{ brand: "#FFFFFF", candidate: "#000000", bg: "#FFFFFF" },
+				{ brand: "#FF0000", candidate: "#00FF00", bg: "#0000FF" },
+			];
+
+			for (const { brand, candidate, bg } of testCases) {
+				const result = calculateBalanceScore(brand, candidate, bg);
+				expect(result.total).toBeGreaterThanOrEqual(0);
+				expect(result.total).toBeLessThanOrEqual(100);
+				expect(result.breakdown.harmonyScore).toBeGreaterThanOrEqual(0);
+				expect(result.breakdown.harmonyScore).toBeLessThanOrEqual(100);
+				expect(result.breakdown.cudScore).toBeGreaterThanOrEqual(0);
+				expect(result.breakdown.cudScore).toBeLessThanOrEqual(100);
+				expect(result.breakdown.contrastScore).toBeGreaterThanOrEqual(0);
+				expect(result.breakdown.contrastScore).toBeLessThanOrEqual(100);
+			}
+		});
+
+		it("総合スコアは重みの加重平均", () => {
+			const weights = { harmony: 50, cud: 30, contrast: 20 };
+			const result = calculateBalanceScore(
+				"#0056FF",
+				"#FF9900",
+				"#FFFFFF",
+				weights,
+			);
+
+			const expected =
+				result.breakdown.harmonyScore * (50 / 100) +
+				result.breakdown.cudScore * (30 / 100) +
+				result.breakdown.contrastScore * (20 / 100);
+
+			expect(result.total).toBeCloseTo(expected, 1);
+		});
+	});
 });
