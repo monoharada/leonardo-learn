@@ -174,14 +174,19 @@ function generateMultiDirectionPalette(
 
 	if (targetHues.length < 2) return null;
 
-	// 各方向から最高スコアの1色を選定
+	// 各方向から最高スコアの1色を選定（重複排除）
 	const selectedCandidates: ScoredCandidate[] = [];
+	const usedTokenIds = new Set<string>();
 
 	for (const targetHue of targetHues) {
-		const directionCandidates = getCandidatesNearHue(candidates, targetHue);
+		const directionCandidates = getCandidatesNearHue(
+			candidates,
+			targetHue,
+		).filter((c) => !usedTokenIds.has(c.tokenId));
 		const firstCandidate = directionCandidates[0];
 		if (firstCandidate) {
 			selectedCandidates.push(firstCandidate);
+			usedTokenIds.add(firstCandidate.tokenId);
 		}
 	}
 

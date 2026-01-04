@@ -134,10 +134,11 @@ describe("AccentCandidateService Integration Tests (Task 6.3)", () => {
 				"#000000",
 			);
 
-			// ハーモニー・CUDスコアは同じ
-			for (let i = 0; i < result.result.candidates.length; i++) {
-				const orig = result.result.candidates[i];
-				const recalc = recalculated[i];
+			// ハーモニー・CUDスコアは同じ（再ソート後はtokenIdで照合）
+			for (const orig of result.result.candidates) {
+				const recalc = recalculated.find((c) => c.tokenId === orig.tokenId);
+				expect(recalc).toBeDefined();
+				if (!recalc) continue;
 
 				expect(recalc.score.breakdown.harmonyScore).toBe(
 					orig.score.breakdown.harmonyScore,
@@ -148,11 +149,14 @@ describe("AccentCandidateService Integration Tests (Task 6.3)", () => {
 			}
 
 			// コントラストスコアは変化する
-			const contrastChanged = result.result.candidates.some(
-				(orig, i) =>
+			const contrastChanged = result.result.candidates.some((orig) => {
+				const recalc = recalculated.find((c) => c.tokenId === orig.tokenId);
+				return (
+					recalc &&
 					orig.score.breakdown.contrastScore !==
-					recalculated[i].score.breakdown.contrastScore,
-			);
+						recalc.score.breakdown.contrastScore
+				);
+			});
 			expect(contrastChanged).toBe(true);
 		});
 
@@ -394,9 +398,10 @@ describe("AccentCandidateService Integration Tests (Task 6.3)", () => {
 					(c) => c.tokenId === filteredCandidate.tokenId,
 				);
 				expect(originalCandidate).toBeDefined();
+				if (!originalCandidate) continue;
 
 				// スコアオブジェクトが同一参照（再計算されていない）
-				expect(filteredCandidate.score).toBe(originalCandidate!.score);
+				expect(filteredCandidate.score).toBe(originalCandidate.score);
 			}
 		});
 	});

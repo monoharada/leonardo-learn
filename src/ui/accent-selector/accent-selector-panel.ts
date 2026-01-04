@@ -250,7 +250,7 @@ export class AccentSelectorPanel {
 		panelElement.setAttribute("data-open", String(this.state.isOpen));
 
 		// 内容をクリア
-		panelElement.innerHTML = "";
+		panelElement.replaceChildren();
 
 		// ヘッダー
 		const header = document.createElement("div");

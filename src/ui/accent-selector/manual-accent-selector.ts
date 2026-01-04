@@ -448,12 +448,12 @@ export class ManualAccentSelector {
 		panelElement.setAttribute("data-open", String(this.state.isOpen));
 
 		if (!this.state.isOpen) {
-			panelElement.innerHTML = "";
+			panelElement.replaceChildren();
 			return;
 		}
 
 		// 内容をクリア
-		panelElement.innerHTML = "";
+		panelElement.replaceChildren();
 
 		// ヘッダー
 		const header = this.createHeader();
@@ -477,6 +477,15 @@ export class ManualAccentSelector {
 		if (this.state.selectedToken) {
 			const preview = this.createPreview();
 			panelElement.appendChild(preview);
+		}
+
+		// 低スコア警告表示（Requirement 5.4）
+		if (this.state.lowScoreWarningMessage) {
+			const warning = document.createElement("div");
+			warning.className = "manual-accent-selector__warning";
+			warning.setAttribute("role", "alert");
+			warning.textContent = this.state.lowScoreWarningMessage;
+			panelElement.appendChild(warning);
 		}
 
 		// 追加ボタン

@@ -6,12 +6,11 @@
  * Requirements: 1.1, 1.3, 2.4, 6.2
  */
 
-import { beforeEach, describe, expect, it, mock, spyOn } from "bun:test";
+import { beforeEach, describe, expect, it, spyOn } from "bun:test";
 import * as colorSpace from "../../utils/color-space";
 import * as dadsDataProvider from "../tokens/dads-data-provider";
 import {
 	clearCache,
-	type GenerateCandidatesOptions,
 	generateCandidates,
 	getCacheStats,
 	getDadsErrorState,
@@ -527,24 +526,30 @@ describe("AccentCandidateService", () => {
 			// 候補数は同じ
 			expect(blackBgCandidates.length).toBe(whiteBgCandidates.length);
 
-			// ハーモニー・CUDスコアは同じ（背景色非依存）
-			for (let i = 0; i < whiteBgCandidates.length; i++) {
-				const white = whiteBgCandidates[i];
-				const black = blackBgCandidates[i];
-				expect(black?.score.breakdown.harmonyScore).toBe(
-					white?.score.breakdown.harmonyScore,
+			// ハーモニー・CUDスコアは同じ（背景色非依存、再ソート後はtokenIdで照合）
+			for (const white of whiteBgCandidates) {
+				const black = blackBgCandidates.find(
+					(c) => c.tokenId === white.tokenId,
 				);
-				expect(black?.score.breakdown.cudScore).toBe(
-					white?.score.breakdown.cudScore,
+				expect(black).toBeDefined();
+				if (!black) continue;
+				expect(black.score.breakdown.harmonyScore).toBe(
+					white.score.breakdown.harmonyScore,
+				);
+				expect(black.score.breakdown.cudScore).toBe(
+					white.score.breakdown.cudScore,
 				);
 			}
 
 			// コントラストスコアは異なる（背景色依存）
-			const contrastDifferences = whiteBgCandidates.filter((white, i) => {
-				const black = blackBgCandidates[i];
+			const contrastDifferences = whiteBgCandidates.filter((white) => {
+				const black = blackBgCandidates.find(
+					(c) => c.tokenId === white.tokenId,
+				);
 				return (
+					black &&
 					white.score.breakdown.contrastScore !==
-					black?.score.breakdown.contrastScore
+						black.score.breakdown.contrastScore
 				);
 			});
 			expect(contrastDifferences.length).toBeGreaterThan(0);

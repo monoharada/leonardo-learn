@@ -449,7 +449,7 @@ export function recalculateOnBackgroundChange(
 	// 背景色に関連するfullScoreCacheはクリアしない
 	// 代わりに新しい背景色で再計算し、キャッシュに追加
 
-	return previousCandidates.map((candidate) => {
+	const recalculatedCandidates = previousCandidates.map((candidate) => {
 		const normalizedCandidate = normalizeHex(candidate.hex);
 
 		// 部分キャッシュからハーモニー・CUDスコアを取得
@@ -503,6 +503,9 @@ export function recalculateOnBackgroundChange(
 			score: newScore,
 		};
 	});
+
+	// スコア更新後に再ソート（コントラスト比変化で順位が変わる可能性があるため）
+	return sortCandidates(recalculatedCandidates);
 }
 
 /**
@@ -526,8 +529,15 @@ export function clearCache(): void {
 }
 
 /**
- * DADSエラー状態（内部）
+ * DADSエラー状態（モジュールスコープ）
+ *
+ * 注意: このモジュール変数はシングルトンパターンとして機能します。
+ * - アクセント選定機能は1回に1パレットのみを扱う前提
+ * - キャッシュ効率化のために共有状態を使用
+ * - テスト時は resetDadsErrorState() でリセットしてください
+ *
  * Task 2.2: エラー状態管理
+ * @internal
  */
 let dadsLoadError: Error | null = null;
 

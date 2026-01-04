@@ -19,6 +19,19 @@
 import { expect, type Page, test } from "playwright/test";
 
 /**
+ * タイムアウト定数
+ * E2Eテストで使用する待機時間
+ */
+const TIMEOUTS = {
+	/** ビュー切り替えアニメーション完了待ち */
+	VIEW_SWITCH: 500,
+	/** UI更新完了待ち（レンダリング） */
+	UI_UPDATE: 1000,
+	/** データ読み込み・パレット生成完了待ち */
+	DATA_LOAD: 2000,
+} as const;
+
+/**
  * セレクター定数
  * Section 8: カード形式ハーモニー選択UI
  */
@@ -117,7 +130,7 @@ test.describe("ハーモニータイプカード表示 (Section 8)", () => {
 		page,
 	}) => {
 		await switchToView(page, "harmony");
-		await page.waitForTimeout(1000);
+		await page.waitForTimeout(TIMEOUTS.UI_UPDATE);
 
 		// ハーモニーカードグリッドが表示される
 		const cardsGrid = page.locator(SELECTORS.harmonyTypeCards);
@@ -131,7 +144,7 @@ test.describe("ハーモニータイプカード表示 (Section 8)", () => {
 
 	test("各カードにプレビュースウォッチが3つある", async ({ page }) => {
 		await switchToView(page, "harmony");
-		await page.waitForTimeout(2000); // パレットプレビューのロード待ち
+		await page.waitForTimeout(TIMEOUTS.DATA_LOAD); // パレットプレビューのロード待ち
 
 		// 最初のハーモニーカード（詳細選択以外）を取得
 		const firstCard = page
@@ -149,7 +162,7 @@ test.describe("ハーモニータイプカード表示 (Section 8)", () => {
 
 	test("詳細選択カードが表示される", async ({ page }) => {
 		await switchToView(page, "harmony");
-		await page.waitForTimeout(1000);
+		await page.waitForTimeout(TIMEOUTS.UI_UPDATE);
 
 		const detailCard = page.locator(SELECTORS.harmonyTypeCardDetail);
 		await expect(detailCard).toBeVisible({ timeout: 5000 });
@@ -157,7 +170,7 @@ test.describe("ハーモニータイプカード表示 (Section 8)", () => {
 
 	test("カードにハーモニータイプ名が表示される", async ({ page }) => {
 		await switchToView(page, "harmony");
-		await page.waitForTimeout(1000);
+		await page.waitForTimeout(TIMEOUTS.UI_UPDATE);
 
 		// タイトル要素を取得
 		const titles = page.locator(SELECTORS.harmonyTypeCardTitle);
@@ -178,14 +191,14 @@ test.describe("ハーモニータイプカード表示 (Section 8)", () => {
 test.describe("ハーモニーカードクリック→パレット生成 (Section 8)", () => {
 	test("補色カードをクリックするとパレットが生成される", async ({ page }) => {
 		await switchToView(page, "harmony");
-		await page.waitForTimeout(2000);
+		await page.waitForTimeout(TIMEOUTS.DATA_LOAD);
 
 		// 補色カードをクリック
 		const complementaryCard = page.locator(
 			'[data-harmony-type="complementary"]',
 		);
 		await complementaryCard.click();
-		await page.waitForTimeout(2000);
+		await page.waitForTimeout(TIMEOUTS.DATA_LOAD);
 
 		// パレットビューに遷移していることを確認（data-active属性でチェック）
 		const paletteBtn = page.locator(SELECTORS.viewPaletteBtn);
@@ -198,12 +211,12 @@ test.describe("ハーモニーカードクリック→パレット生成 (Sectio
 		page,
 	}) => {
 		await switchToView(page, "harmony");
-		await page.waitForTimeout(2000);
+		await page.waitForTimeout(TIMEOUTS.DATA_LOAD);
 
 		// トライアドカードをクリック
 		const triadicCard = page.locator('[data-harmony-type="triadic"]');
 		await triadicCard.click();
-		await page.waitForTimeout(2000);
+		await page.waitForTimeout(TIMEOUTS.DATA_LOAD);
 
 		// パレットビューに遷移していることを確認（data-active属性でチェック）
 		const paletteBtn = page.locator(SELECTORS.viewPaletteBtn);
@@ -222,12 +235,12 @@ test.describe("詳細選択モード (Section 8)", () => {
 		page,
 	}) => {
 		await switchToView(page, "harmony");
-		await page.waitForTimeout(1000);
+		await page.waitForTimeout(TIMEOUTS.UI_UPDATE);
 
 		// 詳細選択カードをクリック
 		const detailCard = page.locator(SELECTORS.harmonyTypeCardDetail);
 		await detailCard.click();
-		await page.waitForTimeout(1000);
+		await page.waitForTimeout(TIMEOUTS.UI_UPDATE);
 
 		// 詳細エリアが表示される
 		const detailArea = page.locator(SELECTORS.accentDetailArea);
@@ -236,12 +249,12 @@ test.describe("詳細選択モード (Section 8)", () => {
 
 	test("詳細モードでハーモニーフィルタが表示される", async ({ page }) => {
 		await switchToView(page, "harmony");
-		await page.waitForTimeout(1000);
+		await page.waitForTimeout(TIMEOUTS.UI_UPDATE);
 
 		// 詳細選択カードをクリック
 		const detailCard = page.locator(SELECTORS.harmonyTypeCardDetail);
 		await detailCard.click();
-		await page.waitForTimeout(2000);
+		await page.waitForTimeout(TIMEOUTS.DATA_LOAD);
 
 		// ハーモニーフィルタが表示される
 		const filter = page.locator(SELECTORS.harmonyFilter);
@@ -252,12 +265,12 @@ test.describe("詳細選択モード (Section 8)", () => {
 
 	test("詳細モードで候補グリッドが表示される", async ({ page }) => {
 		await switchToView(page, "harmony");
-		await page.waitForTimeout(1000);
+		await page.waitForTimeout(TIMEOUTS.UI_UPDATE);
 
 		// 詳細選択カードをクリック
 		const detailCard = page.locator(SELECTORS.harmonyTypeCardDetail);
 		await detailCard.click();
-		await page.waitForTimeout(2000);
+		await page.waitForTimeout(TIMEOUTS.DATA_LOAD);
 
 		// 候補グリッドが表示される
 		const grid = page.locator(SELECTORS.candidateGrid);
@@ -271,19 +284,19 @@ test.describe("詳細選択モード (Section 8)", () => {
 
 	test("詳細モードから戻るボタンでカードモードに戻れる", async ({ page }) => {
 		await switchToView(page, "harmony");
-		await page.waitForTimeout(1000);
+		await page.waitForTimeout(TIMEOUTS.UI_UPDATE);
 
 		// 詳細選択カードをクリック
 		const detailCard = page.locator(SELECTORS.harmonyTypeCardDetail);
 		await detailCard.click();
-		await page.waitForTimeout(1000);
+		await page.waitForTimeout(TIMEOUTS.UI_UPDATE);
 
 		// 戻るボタンをクリック
 		const backButton = page.locator("button", {
 			hasText: "カード選択に戻る",
 		});
 		await backButton.click();
-		await page.waitForTimeout(1000);
+		await page.waitForTimeout(TIMEOUTS.UI_UPDATE);
 
 		// カードエリアが再表示される
 		const cardArea = page.locator(SELECTORS.harmonyCardArea);
@@ -305,7 +318,7 @@ test.describe("ブランドカラー入力 (Requirement 4.1)", () => {
 
 	test("ブランドカラー変更でカードプレビューが更新される", async ({ page }) => {
 		await switchToView(page, "harmony");
-		await page.waitForTimeout(2000);
+		await page.waitForTimeout(TIMEOUTS.DATA_LOAD);
 
 		const colorInput = page.locator(SELECTORS.brandColorInput);
 		const hasInput = (await colorInput.count()) > 0;
@@ -317,7 +330,7 @@ test.describe("ブランドカラー入力 (Requirement 4.1)", () => {
 		// ブランドカラーを変更
 		await colorInput.clear();
 		await colorInput.fill("#FF5500");
-		await page.waitForTimeout(2000);
+		await page.waitForTimeout(TIMEOUTS.DATA_LOAD);
 
 		// カードエリアが再表示される（再レンダリング）
 		const cardArea = page.locator(SELECTORS.harmonyCardArea);
@@ -358,5 +371,5 @@ async function switchToView(
 ): Promise<void> {
 	const buttonId = `#view-${view}`;
 	await page.click(buttonId);
-	await page.waitForTimeout(500);
+	await page.waitForTimeout(TIMEOUTS.VIEW_SWITCH);
 }
