@@ -8,6 +8,8 @@
  * Requirements: 2.4, 10.1, 10.2, 10.3, 10.4, 10.5
  */
 
+import type { ScoredCandidate } from "@/core/accent/accent-candidate-service";
+import type { HarmonyFilterType } from "@/core/accent/harmony-filter-calculator";
 import { HarmonyType } from "@/core/harmony";
 import { openColorDetailModal } from "./color-detail-modal";
 import {
@@ -24,10 +26,10 @@ import { setupNavigation, updateViewButtons } from "./navigation";
 import { handleGenerate } from "./palette-generator";
 import { renderSidebar } from "./sidebar";
 import { state } from "./state";
-import type { ColorDetailModalOptions, HarmonyTypeConfig } from "./types";
+import type { ColorDetailModalOptions } from "./types";
 import {
+	renderAccentSelectionView,
 	renderAccessibilityView,
-	renderHarmonyView,
 	renderPaletteView,
 	renderShadesView,
 } from "./views";
@@ -63,17 +65,95 @@ export function runDemo(): void {
 	};
 
 	/**
-	 * ハーモニー選択時のハンドラ
+	 * ハーモニーカードクリック時のハンドラ
+	 * Section 8: 3色パレットを生成してパレットビューへ遷移
 	 */
-	const handleHarmonySelect = (config: HarmonyTypeConfig): void => {
-		state.selectedHarmonyConfig = config;
+	const handleHarmonyCardClick = (
+		harmonyType: HarmonyFilterType,
+		paletteColors: [string, string, string],
+	): void => {
+		// ハーモニータイプの日本語名
+		const harmonyNames: Record<HarmonyFilterType, string> = {
+			all: "すべて",
+			complementary: "補色",
+			triadic: "トライアド",
+			analogous: "類似色",
+			"split-complementary": "分裂補色",
+		};
 
+		const timestamp = Date.now();
+
+		// 既存のパレットをクリアして新しい3色パレットを作成
+		state.palettes = [];
+
+		// 1. Brand Color (Primary)
+		const brandPalette = {
+			id: `harmony-brand-${timestamp}`,
+			name: "Primary",
+			keyColors: [paletteColors[0]],
+			ratios: [21, 15, 10, 7, 4.5, 3, 1],
+			harmony: HarmonyType.DADS,
+		};
+		state.palettes.push(brandPalette);
+
+		// 2. Accent 1
+		const accent1Palette = {
+			id: `harmony-accent1-${timestamp}`,
+			name: `Accent (${harmonyNames[harmonyType]} 1)`,
+			keyColors: [paletteColors[1]],
+			ratios: [21, 15, 10, 7, 4.5, 3, 1],
+			harmony: HarmonyType.DADS,
+		};
+		state.palettes.push(accent1Palette);
+
+		// 3. Accent 2
+		const accent2Palette = {
+			id: `harmony-accent2-${timestamp}`,
+			name: `Accent (${harmonyNames[harmonyType]} 2)`,
+			keyColors: [paletteColors[2]],
+			ratios: [21, 15, 10, 7, 4.5, 3, 1],
+			harmony: HarmonyType.DADS,
+		};
+		state.palettes.push(accent2Palette);
+
+		// アクティブIDを設定
+		state.activeId = brandPalette.id;
+
+		// UIを更新
+		renderSidebar(paletteListEl, handlePaletteSelect);
+		updateEditor(triggerGenerate);
+		updateCVDScoreDisplay();
+
+		// パレットビューに自動遷移
+		updateViewButtons("palette", renderMain);
+	};
+
+	/**
+	 * アクセント選択時のハンドラ
+	 * Section 7: 選択したアクセント候補をパレットに反映（詳細選択モード用）
+	 */
+	const handleAccentSelect = (candidate: ScoredCandidate): void => {
 		// キーカラーを取得
 		const inputHex = keyColorsInput?.value.trim() || "#3366cc";
 
-		// パレットを生成
-		handleGenerate(inputHex, config.harmonyType, {
+		// DADSハーモニーでパレットを生成（アクセント付き）
+		handleGenerate(inputHex, HarmonyType.DADS, {
 			onComplete: () => {
+				// アクセントカラーとしてパレットに追加
+				const accentPalette = {
+					id: `accent-${Date.now()}`,
+					name: `Accent: ${candidate.dadsSourceName}`,
+					keyColors: [candidate.hex],
+					ratios: [21, 15, 10, 7, 4.5, 3, 1],
+					harmony: HarmonyType.DADS,
+					baseChromaName: candidate.dadsSourceName,
+					step: candidate.step,
+				};
+
+				// パレットに追加
+				state.palettes.push(accentPalette);
+				state.activeId = accentPalette.id;
+
 				renderSidebar(paletteListEl, handlePaletteSelect);
 				updateEditor(triggerGenerate);
 				updateCVDScoreDisplay();
@@ -138,14 +218,15 @@ export function runDemo(): void {
 
 		switch (state.viewMode) {
 			case "harmony":
-				// ハーモニービュー表示、app非表示
+				// アクセント選定ビュー表示、app非表示
 				// NOTE: .dads-sectionのdisplay:flexがhidden属性を上書きするため、style.displayを直接操作
 				if (harmonyViewEl) harmonyViewEl.style.display = "";
 				if (app) app.style.display = "none";
-				// ハーモニービューはharmony-view要素に直接レンダリング
+				// アクセント選定ビューはharmony-view要素に直接レンダリング
 				if (harmonyViewEl) {
-					renderHarmonyView(harmonyViewEl, keyColorHex, {
-						onHarmonySelect: handleHarmonySelect,
+					renderAccentSelectionView(harmonyViewEl, keyColorHex, {
+						onHarmonyCardClick: handleHarmonyCardClick,
+						onAccentSelect: handleAccentSelect,
 						onColorClick: handleColorClick,
 					});
 				}

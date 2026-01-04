@@ -378,6 +378,24 @@ codex exec --sandbox read-only resume --last "[修正内容]"
 codex exec --sandbox read-only resume [SESSION_ID] "[修正内容]"
 ```
 
+### 正しいコマンド形式（これ以外は使用禁止）
+
+**重要**: Codex CLIは以下の形式のみをサポートしています。
+
+```bash
+# 初回レビュー
+codex exec --sandbox read-only "[prompt]"
+
+# 差分ベースレビュー
+codex exec --sandbox read-only review --base main "[指示]"
+
+# 再レビュー（セッション継続）
+codex exec --sandbox read-only resume --last "[修正内容]"
+codex exec --sandbox read-only resume [SESSION_ID] "[修正内容]"
+```
+
+上記以外のオプション（`-a`, `--full-auto`, `--quiet`等）は存在しないため使用不可。
+
 ---
 
 ## ユーザー報告フォーマット

@@ -15,9 +15,15 @@ export {
 	renderAdjacentShadesAnalysis,
 	renderDistinguishabilityAnalysis,
 } from "./accessibility-view";
-export type { HarmonyViewCallbacks } from "./harmony-view";
-// harmony-view
-export { renderHarmonyView } from "./harmony-view";
+export type {
+	AccentSelectionViewCallbacks,
+	HarmonyViewCallbacks,
+} from "./harmony-view";
+// harmony-view (Section 7: renamed to accent-selection-view)
+export {
+	renderAccentSelectionView,
+	renderHarmonyView,
+} from "./harmony-view";
 export type { PaletteViewCallbacks } from "./palette-view";
 // palette-view
 export { renderPaletteView } from "./palette-view";

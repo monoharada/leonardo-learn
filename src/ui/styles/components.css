@@ -599,6 +599,10 @@
 	flex-shrink: 0;
 }
 
+.dads-palette-item__name {
+	flex: 1;
+}
+
 /* ============================================
  * Scale Component (Shades View)
  * ============================================ */
@@ -778,36 +782,44 @@
 }
 
 /* Light mode text colors for custom background */
-.dads-contrast-card[data-bg="custom"][data-mode="light"] .dads-contrast-card__label {
+.dads-contrast-card[data-bg="custom"][data-mode="light"]
+.dads-contrast-card__label {
 	color: var(--color-neutral-solid-gray-600);
 }
 
-.dads-contrast-card[data-bg="custom"][data-mode="light"] .dads-contrast-card__ratio {
+.dads-contrast-card[data-bg="custom"][data-mode="light"]
+	.dads-contrast-card__ratio {
 	color: var(--color-neutral-solid-gray-900);
 }
 
-.dads-contrast-card[data-bg="custom"][data-mode="light"] .dads-contrast-card__unit {
+.dads-contrast-card[data-bg="custom"][data-mode="light"]
+	.dads-contrast-card__unit {
 	color: var(--color-neutral-solid-gray-400);
 }
 
-.dads-contrast-card[data-bg="custom"][data-mode="light"] .dads-contrast-card__fail {
+.dads-contrast-card[data-bg="custom"][data-mode="light"]
+	.dads-contrast-card__fail {
 	color: var(--color-semantic-error-1);
 }
 
 /* Dark mode text colors for custom background */
-.dads-contrast-card[data-bg="custom"][data-mode="dark"] .dads-contrast-card__label {
+.dads-contrast-card[data-bg="custom"][data-mode="dark"]
+.dads-contrast-card__label {
 	color: var(--color-neutral-solid-gray-400);
 }
 
-.dads-contrast-card[data-bg="custom"][data-mode="dark"] .dads-contrast-card__ratio {
+.dads-contrast-card[data-bg="custom"][data-mode="dark"]
+	.dads-contrast-card__ratio {
 	color: white;
 }
 
-.dads-contrast-card[data-bg="custom"][data-mode="dark"] .dads-contrast-card__unit {
+.dads-contrast-card[data-bg="custom"][data-mode="dark"]
+	.dads-contrast-card__unit {
 	color: var(--color-neutral-solid-gray-600);
 }
 
-.dads-contrast-card[data-bg="custom"][data-mode="dark"] .dads-contrast-card__fail {
+.dads-contrast-card[data-bg="custom"][data-mode="dark"]
+	.dads-contrast-card__fail {
 	color: #ff8a80;
 }
 
@@ -1149,6 +1161,58 @@
 	margin: 0 0 0.1rem 0;
 	font-size: 1.1rem;
 	font-weight: 800;
+}
+
+/* パレット名編集コンテナ */
+.dads-drawer__name-container {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+/* 編集ボタン */
+.dads-drawer__edit-btn {
+	padding: 4px;
+	border: none;
+	background: transparent;
+	cursor: pointer;
+	color: var(--color-neutral-solid-gray-500);
+	border-radius: var(--border-radius-4, 4px);
+	transition:
+		color 0.15s ease,
+		background-color 0.15s ease;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.dads-drawer__edit-btn:hover {
+	color: var(--color-primitive-blue-600, #2563eb);
+	background-color: var(--color-primitive-blue-100, #dbeafe);
+}
+
+.dads-drawer__edit-btn:focus-visible {
+	outline: 2px solid var(--color-primitive-blue-500, #3b82f6);
+	outline-offset: 2px;
+}
+
+/* 名前入力フィールド */
+.dads-drawer__name-input {
+	font-size: 1.1rem;
+	font-weight: 800;
+	padding: 2px 8px;
+	margin: -2px 0;
+	border: 2px solid var(--color-primitive-blue-500, #3b82f6);
+	border-radius: var(--border-radius-4, 4px);
+	background-color: var(--color-surface-primary, #ffffff);
+	color: inherit;
+	outline: none;
+	min-width: 150px;
+	max-width: 300px;
+}
+
+.dads-drawer__name-input:focus {
+	box-shadow: 0 0 0 3px var(--color-primitive-blue-200, #bfdbfe);
 }
 
 .dads-drawer__token-name {
@@ -1802,4 +1866,3 @@
 	background: #333;
 	color: white;
 }
-

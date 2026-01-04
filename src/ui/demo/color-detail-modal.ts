@@ -310,6 +310,8 @@ function resizeScrubber(
 interface PaletteInfo {
 	name: string;
 	baseChromaName?: string;
+	/** パレットID（名前編集時に必要） */
+	paletteId?: string;
 }
 
 /**
@@ -411,6 +413,119 @@ function syncPalette(
 	if (match) {
 		match.keyColors = [newKeyColorHex];
 	}
+}
+
+/**
+ * パレット名編集UIをセットアップする
+ *
+ * @param paletteInfo パレット情報
+ * @param onRenderMain 再描画コールバック
+ * @param signal AbortSignal（イベントリスナーのクリーンアップ用）
+ */
+function setupPaletteNameEditing(
+	paletteInfo: PaletteInfo,
+	onRenderMain: () => void,
+	signal: AbortSignal,
+): void {
+	const editBtn = document.getElementById("detail-name-edit-btn");
+	const nameInput = document.getElementById(
+		"detail-name-input",
+	) as HTMLInputElement | null;
+	const chromaName = document.getElementById("detail-chroma-name");
+
+	// パレットIDがない場合は編集ボタンを非表示
+	// NOTE: readOnlyはスクラバー（色相調整）用で、名前編集には影響しない
+	if (!paletteInfo.paletteId) {
+		if (editBtn) editBtn.style.display = "none";
+		if (nameInput) nameInput.style.display = "none";
+		return;
+	}
+
+	if (!editBtn || !nameInput || !chromaName) return;
+
+	// 編集ボタンを表示
+	editBtn.style.display = "";
+	nameInput.style.display = "none";
+
+	// 編集モードに入る
+	const enterEditMode = () => {
+		if (!chromaName || !nameInput) return;
+
+		// パレットの現在の名前を取得（baseChromaNameは除く）
+		const currentName = paletteInfo.name;
+		nameInput.value = currentName;
+		nameInput.style.display = "";
+		chromaName.style.display = "none";
+		editBtn.style.display = "none";
+		nameInput.focus();
+		nameInput.select();
+	};
+
+	// 編集モードを終了して保存
+	const saveEdit = () => {
+		if (!chromaName || !nameInput) return;
+
+		const newName = nameInput.value.trim();
+		if (newName && newName !== paletteInfo.name && paletteInfo.paletteId) {
+			// パレットの名前を更新
+			const palette = state.palettes.find(
+				(p) => p.id === paletteInfo.paletteId,
+			);
+			if (palette) {
+				palette.name = newName;
+				paletteInfo.name = newName;
+			}
+
+			// シェードパレットも更新
+			const shadesPalette = state.shadesPalettes.find(
+				(p) => p.id === paletteInfo.paletteId,
+			);
+			if (shadesPalette) {
+				shadesPalette.name = newName;
+			}
+
+			// 表示を更新
+			chromaName.textContent =
+				paletteInfo.baseChromaName && newName
+					? `${paletteInfo.baseChromaName} | ${newName}`
+					: paletteInfo.baseChromaName || newName;
+
+			// メインビューを再描画
+			onRenderMain();
+		}
+
+		// 編集モードを終了
+		nameInput.style.display = "none";
+		chromaName.style.display = "";
+		editBtn.style.display = "";
+	};
+
+	// 編集をキャンセル
+	const cancelEdit = () => {
+		if (!chromaName || !nameInput) return;
+		nameInput.style.display = "none";
+		chromaName.style.display = "";
+		editBtn.style.display = "";
+	};
+
+	// イベントリスナーを設定
+	editBtn.addEventListener("click", enterEditMode, { signal });
+
+	nameInput.addEventListener(
+		"keydown",
+		(e) => {
+			if (e.key === "Enter") {
+				e.preventDefault();
+				saveEdit();
+			} else if (e.key === "Escape") {
+				e.preventDefault();
+				cancelEdit();
+			}
+		},
+		{ signal },
+	);
+
+	nameInput.addEventListener("blur", saveEdit, { signal });
 }
 
 /**
@@ -855,6 +970,13 @@ export function openColorDetailModal(
 	} else if (scrubberContainer) {
 		scrubberContainer.style.display = "";
 	}
+
+	// パレット名編集UIをセットアップ
+	setupPaletteNameEditing(
+		paletteInfo,
+		onRenderMain ?? (() => {}),
+		abortController.signal,
+	);
 
 	// モーダルを表示
 	dialog.showModal();
