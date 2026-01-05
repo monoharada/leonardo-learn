@@ -30,6 +30,67 @@ import {
 	type PartialScoreData,
 	type ScoreCache,
 } from "./score-cache";
+import {
+	calculateVibrancyScoreWithHue,
+	isMuddyHueZone,
+} from "./vibrancy-calculator";
+
+/**
+ * 問題色相帯（黄色/オレンジ系）での最低明度閾値
+ *
+ * 根拠: Adobe Colorは#3366cc（青）の補色として#CC9033（明度70%のゴールド）を選択。
+ * 問題色相帯（OKLCH 30-120°）では明度0.55未満の色は濁った茶色/オリーブ色に見える。
+ * 0.55は「濁り」と「鮮やか」の境界値として実験的に決定。
+ *
+ * @see muddy-color-prevention-approaches.md
+ */
+const MIN_LIGHTNESS_FOR_MUDDY_HUE = 0.55;
+
+/**
+ * 最低彩度閾値
+ *
+ * 根拠: OKLCH彩度0.04未満はほぼグレー（無彩色）に近く、
+ * アクセントカラーとしての視覚的インパクトが不十分。
+ * DADSカラーシェードの最低彩度色を分析し、閾値を決定。
+ */
+const MIN_CHROMA_THRESHOLD = 0.04;
+
+// isMuddyHueZone と calculateVibrancyScore は vibrancy-calculator.ts に移動済み
+// 後方互換性のため、isMuddyHueZone は再エクスポートで利用可能
+
+/**
+ * 候補色が濁り防止フィルタを通過するかチェック
+ *
+ * @param hex HEX色
+ * @returns フィルタを通過する場合true
+ */
+function passesVibrancyFilter(hex: string): boolean {
+	try {
+		const oklch = toOklch(hex);
+		if (!oklch) return false;
+
+		const chroma = oklch.c ?? 0;
+		const lightness = oklch.l ?? 0.5;
+		const hue = oklch.h ?? 0;
+
+		// 最低彩度チェック
+		if (chroma < MIN_CHROMA_THRESHOLD) {
+			return false;
+		}
+
+		// 問題色相帯（30-120°）では低明度を除外
+		if (isMuddyHueZone(hue)) {
+			if (lightness < MIN_LIGHTNESS_FOR_MUDDY_HUE) {
+				return false;
+			}
+		}
+
+		return true;
+	} catch {
+		// toOklchがエラーをスローした場合は除外
+		return false;
+	}
+}
 
 /**
  * スコア付き候補
@@ -128,7 +189,7 @@ function validateBrandColor(
 }
 
 /**
- * 部分スコア（ハーモニー + CUD）を計算
+ * 部分スコア（ハーモニー + CUD + Vibrancy）を計算
  * 背景色に依存しないスコアをキャッシュ用に分離
  */
 function calculatePartialScores(
@@ -144,9 +205,15 @@ function calculatePartialScores(
 	const rawCudScore = 100 - (deltaE / 0.2) * 100;
 	const cudScore = Math.max(0, Math.min(100, rawCudScore));
 
+	// Vibrancyスコア（Adobe Color戦略）
+	const oklch = toOklch(candidateHex);
+	const hue = oklch?.h ?? 0;
+	const vibrancyScore = calculateVibrancyScoreWithHue(candidateHex, hue);
+
 	return {
 		harmonyScore: Math.round(harmonyScore * 10) / 10,
 		cudScore: Math.round(cudScore * 10) / 10,
+		vibrancyScore: Math.round(vibrancyScore * 10) / 10,
 	};
 }
 
@@ -212,11 +279,12 @@ function calculateCachedScore(
 		normalizedBg,
 	);
 
-	// 加重平均
+	// 加重平均（vibrancyスコアを含む4要素）
 	const total =
 		partial.harmonyScore * (weights.harmony / 100) +
 		partial.cudScore * (weights.cud / 100) +
-		contrastScore * (weights.contrast / 100);
+		contrastScore * (weights.contrast / 100) +
+		partial.vibrancyScore * (weights.vibrancy / 100);
 
 	const result: BalanceScoreResult = {
 		total: Math.round(total * 10) / 10,
@@ -224,6 +292,7 @@ function calculateCachedScore(
 			harmonyScore: partial.harmonyScore,
 			cudScore: partial.cudScore,
 			contrastScore,
+			vibrancyScore: partial.vibrancyScore,
 		},
 		weights,
 	};
@@ -372,8 +441,14 @@ export async function generateCandidates(
 
 	// Chromatic候補の抽出（10色相×13ステップ = 130色）
 	const chromaticScales = getAllDadsChromatic(tokens);
-	const chromaticTokens: DadsToken[] = chromaticScales.flatMap((scale) =>
+	const allChromaticTokens: DadsToken[] = chromaticScales.flatMap((scale) =>
 		scale.colors.map((c) => c.token),
+	);
+
+	// Phase 3: 濁り防止フィルタ（Adobe Color戦略）
+	// 問題色相帯の低明度・低彩度を除外
+	const chromaticTokens = allChromaticTokens.filter((token) =>
+		passesVibrancyFilter(token.hex),
 	);
 
 	// 全候補のスコア計算（キャッシュ使用）
@@ -473,11 +548,12 @@ export function recalculateOnBackgroundChange(
 			normalizedBg,
 		);
 
-		// 加重平均
+		// 加重平均（vibrancyスコアを含む4要素）
 		const total =
 			partial.harmonyScore * (normalizedWeights.harmony / 100) +
 			partial.cudScore * (normalizedWeights.cud / 100) +
-			contrastScore * (normalizedWeights.contrast / 100);
+			contrastScore * (normalizedWeights.contrast / 100) +
+			partial.vibrancyScore * (normalizedWeights.vibrancy / 100);
 
 		const newScore: BalanceScoreResult = {
 			total: Math.round(total * 10) / 10,
@@ -485,6 +561,7 @@ export function recalculateOnBackgroundChange(
 				harmonyScore: partial.harmonyScore,
 				cudScore: partial.cudScore,
 				contrastScore,
+				vibrancyScore: partial.vibrancyScore,
 			},
 			weights: normalizedWeights,
 		};

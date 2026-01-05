@@ -140,4 +140,5 @@ export const DEFAULT_STATE: DemoState = {
 	cudMode: "guide",
 	lightBackgroundColor: "#ffffff",
 	darkBackgroundColor: "#000000",
+	accentCount: 2,
 };

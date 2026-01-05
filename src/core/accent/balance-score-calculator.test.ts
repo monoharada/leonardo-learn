@@ -58,40 +58,84 @@ describe("BalanceScoreCalculator", () => {
 	});
 
 	describe("normalizeWeights", () => {
-		it("デフォルト重み: 40/30/30", () => {
-			const weights: ScoreWeights = { harmony: 40, cud: 30, contrast: 30 };
+		it("デフォルト重み: 30/20/25/25 (Phase 3: vibrancy追加)", () => {
+			const weights: ScoreWeights = {
+				harmony: 30,
+				cud: 20,
+				contrast: 25,
+				vibrancy: 25,
+			};
 			const normalized = normalizeWeights(weights);
-			expect(normalized).toEqual({ harmony: 40, cud: 30, contrast: 30 });
+			expect(normalized).toEqual({
+				harmony: 30,
+				cud: 20,
+				contrast: 25,
+				vibrancy: 25,
+			});
 		});
 
 		it("合計100保証: 比例配分後に丸め", () => {
-			const weights: ScoreWeights = { harmony: 50, cud: 25, contrast: 25 };
+			const weights: ScoreWeights = {
+				harmony: 40,
+				cud: 20,
+				contrast: 20,
+				vibrancy: 20,
+			};
 			const normalized = normalizeWeights(weights);
-			expect(normalized.harmony + normalized.cud + normalized.contrast).toBe(
-				100,
-			);
+			const sum =
+				normalized.harmony +
+				normalized.cud +
+				normalized.contrast +
+				normalized.vibrancy;
+			expect(sum).toBe(100);
 		});
 
 		it("端数調整: 最大値に差分を加算", () => {
-			const weights: ScoreWeights = { harmony: 33, cud: 33, contrast: 33 };
+			const weights: ScoreWeights = {
+				harmony: 25,
+				cud: 25,
+				contrast: 25,
+				vibrancy: 25,
+			};
 			const normalized = normalizeWeights(weights);
-			expect(normalized.harmony + normalized.cud + normalized.contrast).toBe(
-				100,
-			);
-			// 最大値（harmony, cud, contrastが同じ場合はharmonyが優先）
-			expect(normalized.harmony).toBe(34);
+			const sum =
+				normalized.harmony +
+				normalized.cud +
+				normalized.contrast +
+				normalized.vibrancy;
+			expect(sum).toBe(100);
 		});
 
 		it("合計0の場合はデフォルト重みを返す", () => {
-			const weights: ScoreWeights = { harmony: 0, cud: 0, contrast: 0 };
+			const weights: ScoreWeights = {
+				harmony: 0,
+				cud: 0,
+				contrast: 0,
+				vibrancy: 0,
+			};
 			const normalized = normalizeWeights(weights);
-			expect(normalized).toEqual({ harmony: 40, cud: 30, contrast: 30 });
+			expect(normalized).toEqual({
+				harmony: 30,
+				cud: 20,
+				contrast: 25,
+				vibrancy: 25,
+			});
 		});
 
 		it("極端な重み配分も正規化", () => {
-			const weights: ScoreWeights = { harmony: 100, cud: 0, contrast: 0 };
+			const weights: ScoreWeights = {
+				harmony: 100,
+				cud: 0,
+				contrast: 0,
+				vibrancy: 0,
+			};
 			const normalized = normalizeWeights(weights);
-			expect(normalized).toEqual({ harmony: 100, cud: 0, contrast: 0 });
+			expect(normalized).toEqual({
+				harmony: 100,
+				cud: 0,
+				contrast: 0,
+				vibrancy: 0,
+			});
 		});
 	});
 
@@ -111,26 +155,40 @@ describe("BalanceScoreCalculator", () => {
 			expect(result.breakdown.cudScore).toBeLessThanOrEqual(100);
 			expect(result.breakdown.contrastScore).toBeGreaterThanOrEqual(0);
 			expect(result.breakdown.contrastScore).toBeLessThanOrEqual(100);
-			expect(result.weights).toEqual({ harmony: 40, cud: 30, contrast: 30 });
+			expect(result.breakdown.vibrancyScore).toBeGreaterThanOrEqual(0);
+			expect(result.breakdown.vibrancyScore).toBeLessThanOrEqual(100);
+			expect(result.weights).toEqual({
+				harmony: 30,
+				cud: 20,
+				contrast: 25,
+				vibrancy: 25,
+			});
 		});
 
 		it("カスタム重みでスコア計算", () => {
 			const result = calculateBalanceScore("#0056FF", "#FF9900", "#FFFFFF", {
-				harmony: 60,
-				cud: 20,
+				harmony: 50,
+				cud: 15,
 				contrast: 20,
+				vibrancy: 15,
 			});
 
-			expect(result.weights).toEqual({ harmony: 60, cud: 20, contrast: 20 });
+			expect(result.weights).toEqual({
+				harmony: 50,
+				cud: 15,
+				contrast: 20,
+				vibrancy: 15,
+			});
 		});
 
-		it("総合スコアは3指標の加重平均", () => {
+		it("総合スコアは4指標の加重平均", () => {
 			const result = calculateBalanceScore("#0056FF", "#FF9900", "#FFFFFF");
 
 			const expectedTotal =
 				result.breakdown.harmonyScore * (result.weights.harmony / 100) +
 				result.breakdown.cudScore * (result.weights.cud / 100) +
-				result.breakdown.contrastScore * (result.weights.contrast / 100);
+				result.breakdown.contrastScore * (result.weights.contrast / 100) +
+				result.breakdown.vibrancyScore * (result.weights.vibrancy / 100);
 
 			expect(result.total).toBeCloseTo(expectedTotal, 1);
 		});
@@ -235,59 +293,103 @@ describe("BalanceScoreCalculator", () => {
 	 */
 	describe("重み正規化の境界値テスト (Task 6.2)", () => {
 		it("最小値0の重み", () => {
-			const weights: ScoreWeights = { harmony: 0, cud: 50, contrast: 50 };
+			const weights: ScoreWeights = {
+				harmony: 0,
+				cud: 40,
+				contrast: 30,
+				vibrancy: 30,
+			};
 			const normalized = normalizeWeights(weights);
 			expect(normalized.harmony).toBe(0);
-			expect(normalized.cud).toBe(50);
-			expect(normalized.contrast).toBe(50);
-			expect(normalized.harmony + normalized.cud + normalized.contrast).toBe(
-				100,
-			);
+			const sum =
+				normalized.harmony +
+				normalized.cud +
+				normalized.contrast +
+				normalized.vibrancy;
+			expect(sum).toBe(100);
 		});
 
 		it("最大値100の重み", () => {
-			const weights: ScoreWeights = { harmony: 100, cud: 0, contrast: 0 };
+			const weights: ScoreWeights = {
+				harmony: 100,
+				cud: 0,
+				contrast: 0,
+				vibrancy: 0,
+			};
 			const normalized = normalizeWeights(weights);
 			expect(normalized.harmony).toBe(100);
-			expect(normalized.harmony + normalized.cud + normalized.contrast).toBe(
-				100,
-			);
+			const sum =
+				normalized.harmony +
+				normalized.cud +
+				normalized.contrast +
+				normalized.vibrancy;
+			expect(sum).toBe(100);
 		});
 
 		it("非常に小さい比率でも合計100を保証", () => {
-			const weights: ScoreWeights = { harmony: 1, cud: 1, contrast: 1 };
+			const weights: ScoreWeights = {
+				harmony: 1,
+				cud: 1,
+				contrast: 1,
+				vibrancy: 1,
+			};
 			const normalized = normalizeWeights(weights);
-			expect(normalized.harmony + normalized.cud + normalized.contrast).toBe(
-				100,
-			);
+			const sum =
+				normalized.harmony +
+				normalized.cud +
+				normalized.contrast +
+				normalized.vibrancy;
+			expect(sum).toBe(100);
 		});
 
 		it("大きな値でも合計100に正規化", () => {
-			const weights: ScoreWeights = { harmony: 200, cud: 100, contrast: 100 };
+			const weights: ScoreWeights = {
+				harmony: 200,
+				cud: 100,
+				contrast: 100,
+				vibrancy: 100,
+			};
 			const normalized = normalizeWeights(weights);
-			expect(normalized.harmony + normalized.cud + normalized.contrast).toBe(
-				100,
-			);
-			expect(normalized.harmony).toBe(50); // 200/400 * 100
-			expect(normalized.cud).toBe(25); // 100/400 * 100
-			expect(normalized.contrast).toBe(25); // 100/400 * 100
+			const sum =
+				normalized.harmony +
+				normalized.cud +
+				normalized.contrast +
+				normalized.vibrancy;
+			expect(sum).toBe(100);
+			expect(normalized.harmony).toBe(40); // 200/500 * 100
+			expect(normalized.cud).toBe(20); // 100/500 * 100
+			expect(normalized.contrast).toBe(20); // 100/500 * 100
+			expect(normalized.vibrancy).toBe(20); // 100/500 * 100
 		});
 
 		it("端数が発生する比率で合計100を保証", () => {
-			// 33:33:34 のような比率
-			const weights: ScoreWeights = { harmony: 1, cud: 1, contrast: 1 };
+			const weights: ScoreWeights = {
+				harmony: 1,
+				cud: 1,
+				contrast: 1,
+				vibrancy: 1,
+			};
 			const normalized = normalizeWeights(weights);
-			expect(normalized.harmony + normalized.cud + normalized.contrast).toBe(
-				100,
-			);
+			const sum =
+				normalized.harmony +
+				normalized.cud +
+				normalized.contrast +
+				normalized.vibrancy;
+			expect(sum).toBe(100);
 		});
 
-		it("2:1:1比率の正規化", () => {
-			const weights: ScoreWeights = { harmony: 50, cud: 25, contrast: 25 };
+		it("2:1:1:1比率の正規化", () => {
+			const weights: ScoreWeights = {
+				harmony: 40,
+				cud: 20,
+				contrast: 20,
+				vibrancy: 20,
+			};
 			const normalized = normalizeWeights(weights);
-			expect(normalized.harmony).toBe(50);
-			expect(normalized.cud).toBe(25);
-			expect(normalized.contrast).toBe(25);
+			expect(normalized.harmony).toBe(40);
+			expect(normalized.cud).toBe(20);
+			expect(normalized.contrast).toBe(20);
+			expect(normalized.vibrancy).toBe(20);
 		});
 	});
 
@@ -324,8 +426,9 @@ describe("BalanceScoreCalculator", () => {
 			}
 		});
 
-		it("総合スコアは重みの加重平均", () => {
-			const weights = { harmony: 50, cud: 30, contrast: 20 };
+		it("総合スコアは重みの加重平均（4要素）", () => {
+			// 4要素の重み（合計100）
+			const weights = { harmony: 40, cud: 25, contrast: 20, vibrancy: 15 };
 			const result = calculateBalanceScore(
 				"#0056FF",
 				"#FF9900",
@@ -333,10 +436,15 @@ describe("BalanceScoreCalculator", () => {
 				weights,
 			);
 
+			// 正規化後の重みを取得
+			const normalizedWeights = result.weights;
+
+			// 4要素の加重平均を計算
 			const expected =
-				result.breakdown.harmonyScore * (50 / 100) +
-				result.breakdown.cudScore * (30 / 100) +
-				result.breakdown.contrastScore * (20 / 100);
+				result.breakdown.harmonyScore * (normalizedWeights.harmony / 100) +
+				result.breakdown.cudScore * (normalizedWeights.cud / 100) +
+				result.breakdown.contrastScore * (normalizedWeights.contrast / 100) +
+				result.breakdown.vibrancyScore * (normalizedWeights.vibrancy / 100);
 
 			expect(result.total).toBeCloseTo(expected, 1);
 		});

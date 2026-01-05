@@ -20,6 +20,7 @@ import {
 	resetDadsErrorState,
 } from "./accent-candidate-service";
 import { filterByHarmonyType } from "./harmony-filter-service";
+import { EXPECTED_CANDIDATES_AFTER_FILTER } from "./test-constants";
 
 describe("AccentCandidateService Integration Tests (Task 6.3)", () => {
 	beforeEach(() => {
@@ -29,13 +30,15 @@ describe("AccentCandidateService Integration Tests (Task 6.3)", () => {
 
 	describe("DADSデータ読み込み→スコア計算→ソートの統合フロー", () => {
 		it("全体フローが正常に動作する", async () => {
-			const result = await generateCandidates("#0056FF", { limit: 130 });
+			const result = await generateCandidates("#0056FF", { limit: 200 });
 
 			expect(result.ok).toBe(true);
 			if (!result.ok) return;
 
-			// 130色全てが取得される
-			expect(result.result.candidates.length).toBe(130);
+			// Phase 3: Vibrancyフィルタ後の候補数
+			expect(result.result.candidates.length).toBe(
+				EXPECTED_CANDIDATES_AFTER_FILTER,
+			);
 
 			// 各候補がスコアを持つ
 			for (const candidate of result.result.candidates) {
@@ -75,14 +78,14 @@ describe("AccentCandidateService Integration Tests (Task 6.3)", () => {
 	describe("メモ化動作のテスト (Requirement 6.2)", () => {
 		it("同一条件での2回目呼び出しがキャッシュヒット", async () => {
 			// 1回目: キャッシュなし
-			const result1 = await generateCandidates("#0056FF", { limit: 130 });
+			const result1 = await generateCandidates("#0056FF", { limit: 200 });
 			expect(result1.ok).toBe(true);
 
 			const stats1 = getCacheStats();
 			const time1 = result1.ok ? result1.result.calculationTimeMs : 0;
 
 			// 2回目: キャッシュヒット
-			const result2 = await generateCandidates("#0056FF", { limit: 130 });
+			const result2 = await generateCandidates("#0056FF", { limit: 200 });
 			expect(result2.ok).toBe(true);
 
 			const stats2 = getCacheStats();
@@ -188,10 +191,10 @@ describe("AccentCandidateService Integration Tests (Task 6.3)", () => {
 
 	describe("重み変更時のキャッシュ無効化テスト (Requirement 6.2)", () => {
 		it("重み変更時にfullScoreCacheが無効化される", async () => {
-			// 初回生成
+			// 初回生成（Phase 3: 4要素の重み）
 			const result1 = await generateCandidates("#0056FF", {
 				limit: 10,
-				weights: { harmony: 40, cud: 30, contrast: 30 },
+				weights: { harmony: 30, cud: 25, contrast: 25, vibrancy: 20 },
 			});
 			expect(result1.ok).toBe(true);
 
@@ -200,7 +203,7 @@ describe("AccentCandidateService Integration Tests (Task 6.3)", () => {
 			// 重み変更
 			const result2 = await generateCandidates("#0056FF", {
 				limit: 10,
-				weights: { harmony: 60, cud: 20, contrast: 20 },
+				weights: { harmony: 50, cud: 20, contrast: 15, vibrancy: 15 },
 			});
 			expect(result2.ok).toBe(true);
 
@@ -213,13 +216,14 @@ describe("AccentCandidateService Integration Tests (Task 6.3)", () => {
 		});
 
 		it("重み変更時にスコアが再計算される", async () => {
+			// Phase 3: 4要素の重み（合計100）
 			const result1 = await generateCandidates("#0056FF", {
 				limit: 10,
-				weights: { harmony: 40, cud: 30, contrast: 30 },
+				weights: { harmony: 30, cud: 30, contrast: 20, vibrancy: 20 },
 			});
 			const result2 = await generateCandidates("#0056FF", {
 				limit: 10,
-				weights: { harmony: 80, cud: 10, contrast: 10 },
+				weights: { harmony: 70, cud: 10, contrast: 10, vibrancy: 10 },
 			});
 
 			expect(result1.ok).toBe(true);
@@ -237,9 +241,10 @@ describe("AccentCandidateService Integration Tests (Task 6.3)", () => {
 
 			// 重みが正しく適用されている
 			for (const candidate of result2.result.candidates) {
-				expect(candidate.score.weights.harmony).toBe(80);
+				expect(candidate.score.weights.harmony).toBe(70);
 				expect(candidate.score.weights.cud).toBe(10);
 				expect(candidate.score.weights.contrast).toBe(10);
+				expect(candidate.score.weights.vibrancy).toBe(10);
 			}
 		});
 	});
@@ -296,7 +301,7 @@ describe("AccentCandidateService Integration Tests (Task 6.3)", () => {
 
 	describe("フィルタとスコア計算の統合", () => {
 		it("フィルタ後もスコア順が維持される (Requirement 3.3)", async () => {
-			const result = await generateCandidates("#0056FF", { limit: 130 });
+			const result = await generateCandidates("#0056FF", { limit: 200 });
 			expect(result.ok).toBe(true);
 			if (!result.ok) return;
 
@@ -315,7 +320,7 @@ describe("AccentCandidateService Integration Tests (Task 6.3)", () => {
 		});
 
 		it("フィルタはスコアを変更しない (Requirement 6.3)", async () => {
-			const result = await generateCandidates("#0056FF", { limit: 130 });
+			const result = await generateCandidates("#0056FF", { limit: 200 });
 			expect(result.ok).toBe(true);
 			if (!result.ok) return;
 
@@ -339,7 +344,7 @@ describe("AccentCandidateService Integration Tests (Task 6.3)", () => {
 
 		it("フィルタ適用時にキャッシュが使われスコア再計算が行われない (Requirement 6.3)", async () => {
 			// 1回目: キャッシュを構築
-			const result = await generateCandidates("#0056FF", { limit: 130 });
+			const result = await generateCandidates("#0056FF", { limit: 200 });
 			expect(result.ok).toBe(true);
 			if (!result.ok) return;
 
@@ -385,7 +390,7 @@ describe("AccentCandidateService Integration Tests (Task 6.3)", () => {
 		});
 
 		it("フィルタ適用は入力配列の参照をそのまま使う（スコアオブジェクトの再生成なし）", async () => {
-			const result = await generateCandidates("#0056FF", { limit: 130 });
+			const result = await generateCandidates("#0056FF", { limit: 200 });
 			expect(result.ok).toBe(true);
 			if (!result.ok) return;
 
