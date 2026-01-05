@@ -14,11 +14,13 @@ import {
 
 /**
  * 背景色非依存のスコアデータ
- * ハーモニースコアとCUDスコアはブランド色と候補色のみに依存
+ * ハーモニースコア、CUDスコア、VibrancyスコアはBrand色と候補色のみに依存
  */
 export interface PartialScoreData {
 	harmonyScore: number;
 	cudScore: number;
+	/** 鮮やかさスコア（Adobe Color戦略: 問題色相帯での高明度優遇） */
+	vibrancyScore: number;
 }
 
 /**
@@ -40,7 +42,7 @@ export function buildPartialCacheKey(
 
 /**
  * 完全キャッシュのキー生成
- * キー形式: ${normalizedBrandHex}_${normalizedCandidateHex}_${normalizedBackgroundHex}_${harmony}_${cud}_${contrast}
+ * キー形式: ${normalizedBrandHex}_${normalizedCandidateHex}_${normalizedBackgroundHex}_${harmony}_${cud}_${contrast}_${vibrancy}
  *
  * @param brandHex ブランドカラー
  * @param candidateHex 候補色
@@ -57,7 +59,7 @@ export function buildFullCacheKey(
 	const normalizedBrand = normalizeHex(brandHex);
 	const normalizedCandidate = normalizeHex(candidateHex);
 	const normalizedBg = normalizeHex(backgroundHex);
-	return `${normalizedBrand}_${normalizedCandidate}_${normalizedBg}_${weights.harmony}_${weights.cud}_${weights.contrast}`;
+	return `${normalizedBrand}_${normalizedCandidate}_${normalizedBg}_${weights.harmony}_${weights.cud}_${weights.contrast}_${weights.vibrancy}`;
 }
 
 /**

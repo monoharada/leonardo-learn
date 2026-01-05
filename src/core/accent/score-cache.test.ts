@@ -35,21 +35,25 @@ describe("ScoreCache", () => {
 	});
 
 	describe("buildFullCacheKey", () => {
-		it("ブランド+候補+背景+重みでキーを生成", () => {
+		it("ブランド+候補+背景+重み（4要素）でキーを生成", () => {
+			// Phase 3: vibrancy追加
 			const key = buildFullCacheKey("#0056FF", "#FF9900", "#FFFFFF", {
-				harmony: 40,
-				cud: 30,
-				contrast: 30,
+				harmony: 30,
+				cud: 20,
+				contrast: 25,
+				vibrancy: 25,
 			});
-			expect(key).toBe("#0056FF_#FF9900_#FFFFFF_40_30_30");
+			expect(key).toBe("#0056FF_#FF9900_#FFFFFF_30_20_25_25");
 		});
 	});
 
 	describe("partialScoreCache", () => {
-		it("部分スコアを保存・取得", () => {
+		it("部分スコアを保存・取得（vibrancy含む）", () => {
+			// Phase 3: vibrancyScore追加
 			const partial: PartialScoreData = {
 				harmonyScore: 80,
 				cudScore: 70,
+				vibrancyScore: 65,
 			};
 			cache.setPartialScore("#0056FF", "#FF9900", partial);
 
@@ -66,6 +70,7 @@ describe("ScoreCache", () => {
 			const partial: PartialScoreData = {
 				harmonyScore: 80,
 				cudScore: 70,
+				vibrancyScore: 65,
 			};
 			cache.setPartialScore("#0056FF", "#FF9900", partial);
 

@@ -25,7 +25,10 @@ import { toOklch } from "../../utils/color-space";
 import { AccentCandidateGrid } from "./accent-candidate-grid";
 import { AccentPaletteIntegration } from "./accent-palette-integration";
 import { HarmonyFilterUI } from "./harmony-filter-ui";
-import { WeightSliderUI } from "./weight-slider-ui";
+import {
+	type ScoreWeights as UIScoreWeights,
+	WeightSliderUI,
+} from "./weight-slider-ui";
 
 /**
  * パネル状態
@@ -48,12 +51,13 @@ export interface AccentSelectorPanelState {
 }
 
 /**
- * デフォルト重み
+ * デフォルト重み（Phase 3: vibrancy追加）
  */
 const DEFAULT_WEIGHTS: ScoreWeights = {
-	harmony: 40,
-	cud: 30,
-	contrast: 30,
+	harmony: 30,
+	cud: 20,
+	contrast: 25,
+	vibrancy: 25,
 };
 
 /**
@@ -314,7 +318,9 @@ export class AccentSelectorPanel {
 		sliderContainer.className = "accent-selector-panel__sliders";
 		controlsArea.appendChild(sliderContainer);
 		this.weightSlider = new WeightSliderUI(sliderContainer);
-		this.weightSlider.setWeights(this.state.weights);
+		// UIスライダーには3つの調整可能重みのみを渡す（vibrancyは内部用）
+		const { harmony, cud, contrast } = this.state.weights;
+		this.weightSlider.setWeights({ harmony, cud, contrast });
 		this.weightSlider.onWeightsChange((weights) => {
 			this.handleWeightsChange(weights);
 		});
@@ -372,9 +378,14 @@ export class AccentSelectorPanel {
 
 	/**
 	 * 重み変更ハンドラ
+	 * UIから受け取る3つの重みに、内部用vibrancy重みを追加
 	 */
-	private async handleWeightsChange(weights: ScoreWeights): Promise<void> {
-		this.state.weights = weights;
+	private async handleWeightsChange(uiWeights: UIScoreWeights): Promise<void> {
+		// UIの3重み + 内部vibrancy = 4重み
+		this.state.weights = {
+			...uiWeights,
+			vibrancy: DEFAULT_WEIGHTS.vibrancy,
+		};
 
 		// ブランドカラーがあれば再計算
 		if (this.state.brandColorHex && this.state.isOpen) {

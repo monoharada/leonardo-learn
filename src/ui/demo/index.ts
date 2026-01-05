@@ -66,11 +66,11 @@ export function runDemo(): void {
 
 	/**
 	 * ハーモニーカードクリック時のハンドラ
-	 * Section 8: 3色パレットを生成してパレットビューへ遷移
+	 * Section 8: 可変長パレットを生成してパレットビューへ遷移
 	 */
 	const handleHarmonyCardClick = (
 		harmonyType: HarmonyFilterType,
-		paletteColors: [string, string, string],
+		paletteColors: string[],
 	): void => {
 		// ハーモニータイプの日本語名
 		const harmonyNames: Record<HarmonyFilterType, string> = {
@@ -83,41 +83,43 @@ export function runDemo(): void {
 
 		const timestamp = Date.now();
 
-		// 既存のパレットをクリアして新しい3色パレットを作成
+		// 既存のパレットをクリアして新しいパレットを作成
 		state.palettes = [];
 
-		// 1. Brand Color (Primary)
-		const brandPalette = {
-			id: `harmony-brand-${timestamp}`,
-			name: "Primary",
-			keyColors: [paletteColors[0]],
-			ratios: [21, 15, 10, 7, 4.5, 3, 1],
-			harmony: HarmonyType.DADS,
-		};
-		state.palettes.push(brandPalette);
+		// 1. Brand Color (Primary) - 最初の色
+		const brandColor = paletteColors[0];
+		if (brandColor) {
+			const brandPalette = {
+				id: `harmony-brand-${timestamp}`,
+				name: "Primary",
+				keyColors: [brandColor],
+				ratios: [21, 15, 10, 7, 4.5, 3, 1],
+				harmony: HarmonyType.DADS,
+			};
+			state.palettes.push(brandPalette);
+		}
 
-		// 2. Accent 1
-		const accent1Palette = {
-			id: `harmony-accent1-${timestamp}`,
-			name: `Accent (${harmonyNames[harmonyType]} 1)`,
-			keyColors: [paletteColors[1]],
-			ratios: [21, 15, 10, 7, 4.5, 3, 1],
-			harmony: HarmonyType.DADS,
-		};
-		state.palettes.push(accent1Palette);
+		// 2. アクセントカラー（可変長対応）
+		const accentColors = paletteColors.slice(1);
+		for (let i = 0; i < accentColors.length; i++) {
+			const accentColor = accentColors[i];
+			if (accentColor) {
+				const accentPalette = {
+					id: `harmony-accent${i + 1}-${timestamp}`,
+					name: `Accent (${harmonyNames[harmonyType]} ${i + 1})`,
+					keyColors: [accentColor],
+					ratios: [21, 15, 10, 7, 4.5, 3, 1],
+					harmony: HarmonyType.DADS,
+				};
+				state.palettes.push(accentPalette);
+			}
+		}
 
-		// 3. Accent 2
-		const accent2Palette = {
-			id: `harmony-accent2-${timestamp}`,
-			name: `Accent (${harmonyNames[harmonyType]} 2)`,
-			keyColors: [paletteColors[2]],
-			ratios: [21, 15, 10, 7, 4.5, 3, 1],
-			harmony: HarmonyType.DADS,
-		};
-		state.palettes.push(accent2Palette);
-
-		// アクティブIDを設定
-		state.activeId = brandPalette.id;
+		// アクティブIDを設定（最初のパレットを選択）
+		const firstPalette = state.palettes[0];
+		if (firstPalette) {
+			state.activeId = firstPalette.id;
+		}
 
 		// UIを更新
 		renderSidebar(paletteListEl, handlePaletteSelect);

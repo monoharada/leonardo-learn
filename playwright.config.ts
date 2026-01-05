@@ -18,7 +18,9 @@ export default defineConfig({
 	reporter: "html",
 	use: {
 		baseURL: "http://localhost:3000",
-		trace: "on-first-retry",
+		// CI環境ではストレージ節約のため失敗時のみtrace、ローカルでは常時記録
+		trace: process.env.CI ? "on-first-retry" : "on",
+		video: "on",
 	},
 	projects: [
 		{

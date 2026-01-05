@@ -10,6 +10,7 @@ import { toOklch } from "../../utils/color-space";
 import { getContrast } from "../../utils/wcag";
 import { calculateHueDistanceScore } from "../cud/harmony-score";
 import { findNearestCudColor } from "../cud/service";
+import { calculateVibrancyScore } from "./vibrancy-calculator";
 
 /**
  * 無効な色エラー
@@ -31,6 +32,8 @@ export interface ScoreWeights {
 	cud: number;
 	/** コントラストスコア重み（0-100） */
 	contrast: number;
+	/** 鮮やかさスコア重み（0-100）- Adobe Color戦略による濁り防止 */
+	vibrancy: number;
 }
 
 /**
@@ -44,18 +47,22 @@ export interface BalanceScoreResult {
 		harmonyScore: number;
 		cudScore: number;
 		contrastScore: number;
+		/** 鮮やかさスコア（Adobe Color戦略による濁り防止） */
+		vibrancyScore: number;
 	};
 	/** 使用した重み（正規化済み） */
 	weights: ScoreWeights;
 }
 
 /**
- * デフォルト重み（ハーモニー40%、CUD30%、コントラスト30%）
+ * デフォルト重み（ハーモニー30%、CUD20%、コントラスト25%、Vibrancy25%）
+ * Phase 3: Adobe Color戦略による濁り防止のためVibrancyを追加
  */
 export const DEFAULT_WEIGHTS: Readonly<ScoreWeights> = {
-	harmony: 40,
-	cud: 30,
-	contrast: 30,
+	harmony: 30,
+	cud: 20,
+	contrast: 25,
+	vibrancy: 25,
 };
 
 /**
@@ -123,7 +130,8 @@ export function resolveBackgroundHex(
  * @returns 正規化済み重み
  */
 export function normalizeWeights(weights: ScoreWeights): ScoreWeights {
-	const sum = weights.harmony + weights.cud + weights.contrast;
+	const sum =
+		weights.harmony + weights.cud + weights.contrast + weights.vibrancy;
 	if (sum === 0) {
 		return { ...DEFAULT_WEIGHTS };
 	}
@@ -132,22 +140,25 @@ export function normalizeWeights(weights: ScoreWeights): ScoreWeights {
 	let harmony = Math.round((weights.harmony / sum) * 100);
 	let cud = Math.round((weights.cud / sum) * 100);
 	let contrast = Math.round((weights.contrast / sum) * 100);
+	let vibrancy = Math.round((weights.vibrancy / sum) * 100);
 
 	// 合計が100でない場合、最大値に差分を加算
-	const total = harmony + cud + contrast;
+	const total = harmony + cud + contrast + vibrancy;
 	if (total !== 100) {
 		const diff = 100 - total;
-		const max = Math.max(harmony, cud, contrast);
+		const max = Math.max(harmony, cud, contrast, vibrancy);
 		if (harmony === max) {
 			harmony += diff;
 		} else if (cud === max) {
 			cud += diff;
-		} else {
+		} else if (contrast === max) {
 			contrast += diff;
+		} else {
+			vibrancy += diff;
 		}
 	}
 
-	return { harmony, cud, contrast };
+	return { harmony, cud, contrast, vibrancy };
 }
 
 /**
@@ -217,13 +228,16 @@ function calculateContrastScore(
 	return Math.max(0, Math.min(100, score));
 }
 
+// calculateVibrancyScore は vibrancy-calculator.ts に移動済み
+// インポートにより利用可能
+
 /**
  * バランススコアを計算する
  *
  * @param brandColorHex ブランドカラー（HEX形式）
  * @param candidateHex 候補色（HEX形式）
  * @param backgroundHex 背景色（HEX形式）
- * @param weights 重み設定（オプション、デフォルト: 40/30/30）
+ * @param weights 重み設定（オプション、デフォルト: 30/20/25/25）
  * @returns スコア計算結果
  * @throws InvalidColorError 無効な色形式の場合
  */
@@ -259,12 +273,14 @@ export function calculateBalanceScore(
 		normalizedCandidateHex,
 		normalizedBackgroundHex,
 	);
+	const vibrancyScore = calculateVibrancyScore(normalizedCandidateHex);
 
-	// 加重平均を計算
+	// 加重平均を計算（4要素）
 	const total =
 		harmonyScore * (normalizedWeights.harmony / 100) +
 		cudScore * (normalizedWeights.cud / 100) +
-		contrastScore * (normalizedWeights.contrast / 100);
+		contrastScore * (normalizedWeights.contrast / 100) +
+		vibrancyScore * (normalizedWeights.vibrancy / 100);
 
 	return {
 		total: Math.round(total * 10) / 10,
@@ -272,6 +288,7 @@ export function calculateBalanceScore(
 			harmonyScore: Math.round(harmonyScore * 10) / 10,
 			cudScore: Math.round(cudScore * 10) / 10,
 			contrastScore: Math.round(contrastScore * 10) / 10,
+			vibrancyScore: Math.round(vibrancyScore * 10) / 10,
 		},
 		weights: normalizedWeights,
 	};

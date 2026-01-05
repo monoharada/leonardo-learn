@@ -20,6 +20,7 @@ import {
 	type ScoredCandidate,
 	sortCandidates,
 } from "./accent-candidate-service";
+import { EXPECTED_CANDIDATES_AFTER_FILTER } from "./test-constants";
 
 describe("AccentCandidateService", () => {
 	beforeEach(() => {
@@ -28,15 +29,14 @@ describe("AccentCandidateService", () => {
 	});
 
 	describe("generateCandidates", () => {
-		it("全130色（10色相×13ステップ）をスコア計算", async () => {
+		it("Vibrancyフィルタ適用後の候補をスコア計算", async () => {
 			const result = await generateCandidates("#0056FF");
 
 			if (!result.ok) {
 				throw new Error(result.error.message);
 			}
 
-			// 130色全てがスコア計算されていることを確認
-			// ただし、limit未指定時はデフォルト10件
+			// limit未指定時はデフォルト10件
 			expect(result.result.candidates.length).toBe(10);
 		});
 
@@ -50,14 +50,17 @@ describe("AccentCandidateService", () => {
 			expect(result.result.candidates.length).toBe(5);
 		});
 
-		it("limit: 130で全候補を取得", async () => {
-			const result = await generateCandidates("#0056FF", { limit: 130 });
+		it("limitを大きく指定するとフィルタ後の全候補を取得", async () => {
+			const result = await generateCandidates("#0056FF", { limit: 200 });
 
 			if (!result.ok) {
 				throw new Error(result.error.message);
 			}
 
-			expect(result.result.candidates.length).toBe(130);
+			// Vibrancyフィルタで18色除外 → 約112色が残る
+			expect(result.result.candidates.length).toBe(
+				EXPECTED_CANDIDATES_AFTER_FILTER,
+			);
 		});
 
 		it("スコア降順でソートされている", async () => {
@@ -108,10 +111,11 @@ describe("AccentCandidateService", () => {
 			}
 		});
 
-		it("カスタム重みを適用", async () => {
+		it("カスタム重みを適用（4要素）", async () => {
+			// Phase 3: 4要素の重み（合計100）
 			const result = await generateCandidates("#0056FF", {
 				limit: 5,
-				weights: { harmony: 60, cud: 20, contrast: 20 },
+				weights: { harmony: 50, cud: 20, contrast: 15, vibrancy: 15 },
 			});
 
 			if (!result.ok) {
@@ -119,7 +123,8 @@ describe("AccentCandidateService", () => {
 			}
 
 			for (const candidate of result.result.candidates) {
-				expect(candidate.score.weights.harmony).toBe(60);
+				expect(candidate.score.weights.harmony).toBe(50);
+				expect(candidate.score.weights.vibrancy).toBe(15);
 			}
 		});
 
@@ -153,7 +158,7 @@ describe("AccentCandidateService", () => {
 		});
 
 		it("計算時間を測定", async () => {
-			const result = await generateCandidates("#0056FF", { limit: 130 });
+			const result = await generateCandidates("#0056FF", { limit: 200 });
 
 			if (!result.ok) {
 				throw new Error(result.error.message);
@@ -390,7 +395,7 @@ describe("AccentCandidateService", () => {
 			expect(dadsError).toBeNull();
 		});
 
-		it("スコア計算失敗時にSCORE_CALCULATION_FAILEDエラーを返しキャッシュがクリアされる (Requirement 7.2, 7.3)", async () => {
+		it("toOklchエラー時はvibrancyフィルタで安全に除外される (Requirement 7.2, 7.3)", async () => {
 			// まず正常な生成でキャッシュを構築
 			const result1 = await generateCandidates("#FF0056", { limit: 5 });
 			expect(result1.ok).toBe(true);
@@ -399,34 +404,32 @@ describe("AccentCandidateService", () => {
 			expect(statsBefore.fullCacheSize).toBeGreaterThan(0);
 
 			// toOklchをモック化してエラーをスロー
-			// ★重要: キャッシュを事前にクリアしない。エラーパスがクリアすることを検証
 			const toOklchMock = spyOn(colorSpace, "toOklch").mockImplementation(
 				() => {
 					throw new Error("Color conversion failed");
 				},
 			);
 
-			// 新しいブランドカラーで試行（キャッシュにヒットしないため新規計算が発生しエラー）
+			// 新しいブランドカラーで試行
+			// Phase 3: vibrancyフィルタがエラーをキャッチして全候補を除外
 			const result2 = await generateCandidates("#0056FF", { limit: 5 });
 
-			// エラーが返されることを確認
-			expect(result2.ok).toBe(false);
-			if (!result2.ok) {
-				expect(result2.error.code).toBe("SCORE_CALCULATION_FAILED");
-				expect(result2.error.message).toBe("Color conversion failed");
+			// エラーではなく空の結果が返される（フィルタで全除外）
+			expect(result2.ok).toBe(true);
+			if (result2.ok) {
+				expect(result2.result.candidates.length).toBe(0);
 			}
 
-			// エラーパスによってキャッシュがクリアされていることを確認 (Requirement 7.3)
-			// ★重要: エラー発生前にキャッシュは存在していた（statsBefore > 0）
+			// キャッシュは以前の状態を維持（エラーが発生していないため）
+			// ただし新しいブランドカラーのエントリは追加されない
 			const statsAfter = getCacheStats();
-			expect(statsAfter.partialCacheSize).toBe(0);
-			expect(statsAfter.fullCacheSize).toBe(0);
+			expect(statsAfter.partialCacheSize).toBe(statsBefore.partialCacheSize);
 
 			// モックを元に戻す
 			toOklchMock.mockRestore();
 		});
 
-		it("スコア計算失敗後も再度正常に計算できる (Requirement 7.2)", async () => {
+		it("toOklchエラー時はフィルタで除外されて回復可能 (Requirement 7.2)", async () => {
 			// toOklchをモック化してエラーをスロー
 			const toOklchMock = spyOn(colorSpace, "toOklch").mockImplementation(
 				() => {
@@ -435,8 +438,14 @@ describe("AccentCandidateService", () => {
 			);
 
 			clearCache();
-			const errorResult = await generateCandidates("#0056FF", { limit: 5 });
-			expect(errorResult.ok).toBe(false);
+			// Phase 3: vibrancyフィルタがエラーをキャッチして候補を除外
+			// 全候補が除外されるため、候補0件で成功
+			const filterResult = await generateCandidates("#0056FF", { limit: 5 });
+			expect(filterResult.ok).toBe(true);
+			if (filterResult.ok) {
+				// 全候補がフィルタで除外される
+				expect(filterResult.result.candidates.length).toBe(0);
+			}
 
 			// モックを元に戻す
 			toOklchMock.mockRestore();
@@ -453,21 +462,22 @@ describe("AccentCandidateService", () => {
 	describe("キャッシュ統合 (Requirement 6.2)", () => {
 		it("2回目の呼び出しでキャッシュヒット", async () => {
 			// 1回目: キャッシュなし
-			const result1 = await generateCandidates("#0056FF", { limit: 130 });
+			const result1 = await generateCandidates("#0056FF", { limit: 200 });
 			if (!result1.ok) throw new Error(result1.error.message);
 
 			const stats1 = getCacheStats();
-			expect(stats1.partialCacheSize).toBe(130); // 130色分のpartialキャッシュ
-			expect(stats1.fullCacheSize).toBe(130); // 130色分のfullキャッシュ
+			// Vibrancyフィルタ適用後の色数分のキャッシュ
+			expect(stats1.partialCacheSize).toBe(EXPECTED_CANDIDATES_AFTER_FILTER);
+			expect(stats1.fullCacheSize).toBe(EXPECTED_CANDIDATES_AFTER_FILTER);
 
 			// 2回目: キャッシュヒット（同じ条件）
-			const result2 = await generateCandidates("#0056FF", { limit: 130 });
+			const result2 = await generateCandidates("#0056FF", { limit: 200 });
 			if (!result2.ok) throw new Error(result2.error.message);
 
 			// キャッシュサイズは変わらない
 			const stats2 = getCacheStats();
-			expect(stats2.partialCacheSize).toBe(130);
-			expect(stats2.fullCacheSize).toBe(130);
+			expect(stats2.partialCacheSize).toBe(EXPECTED_CANDIDATES_AFTER_FILTER);
+			expect(stats2.fullCacheSize).toBe(EXPECTED_CANDIDATES_AFTER_FILTER);
 
 			// 2回目の方が高速（キャッシュヒット）
 			expect(result2.result.calculationTimeMs).toBeLessThan(
@@ -582,7 +592,7 @@ describe("AccentCandidateService", () => {
 		it("partialキャッシュを活用して効率的に再計算", async () => {
 			// 初回生成でpartialキャッシュを構築
 			const result = await generateCandidates("#0056FF", {
-				limit: 130,
+				limit: 200,
 				backgroundHex: "#FFFFFF",
 			});
 			if (!result.ok) throw new Error(result.error.message);

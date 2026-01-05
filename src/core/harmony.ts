@@ -93,21 +93,74 @@ function findNearestHarmonyColor(
 }
 
 /**
- * 黄色系（暖色系）の色相かどうかを判定
- * 黄色系は暗いToneでは鮮やかに見えないため、特別な処理が必要
- *
- * @param hue - 色相（0-360）
- * @returns 黄色系の場合true
+ * 色の鮮やかさ調整パラメータ
+ * 特定の色相帯で濁った色になるのを防ぐ
  */
-function isWarmYellowHue(hue: number): boolean {
-	// HCT色相で黄色〜オレンジ系（約60-120°）
-	return hue >= 60 && hue <= 120;
+export interface VibrancyAdjustment {
+	/** Toneブースト量（0-15程度） */
+	toneBoost: number;
+	/** Chroma乗数（relativeChromaに適用、1.0-1.2程度） */
+	chromaMultiplier: number;
+	/** 最適Toneへのブレンド係数（0.5-0.95） */
+	toneBlendFactor: number;
+}
+
+/**
+ * HCT色相に基づいて鮮やかさ調整パラメータを取得
+ * 茶色帯・黄色帯・黄緑帯で明度と彩度を調整し、濁りを防ぐ
+ *
+ * @param hctHue - HCT色相（0-360）
+ * @returns 調整パラメータ
+ */
+export function getVibrancyAdjustment(hctHue: number): VibrancyAdjustment {
+	// Normalize hue to 0-360
+	const hue = ((hctHue % 360) + 360) % 360;
+
+	// Problem Zone 1: Brown (HCT ~20-60°)
+	// 茶色帯は中間明度で彩度が低くなりやすい
+	if (hue >= 20 && hue <= 60) {
+		const intensity = 1 - Math.abs(hue - 40) / 20; // Peak at 40°
+		return {
+			toneBoost: 8 * intensity,
+			chromaMultiplier: 1.1,
+			toneBlendFactor: 0.7 + 0.15 * intensity,
+		};
+	}
+
+	// Problem Zone 2: Yellow (HCT ~60-120°)
+	// 黄色帯は高明度でのみ鮮やかに見える（最も調整が必要）
+	if (hue >= 60 && hue <= 120) {
+		const intensity = 1 - Math.abs(hue - 90) / 30; // Peak at 90°
+		return {
+			toneBoost: 15 * intensity,
+			chromaMultiplier: 1.15 + 0.05 * intensity,
+			toneBlendFactor: 0.85 + 0.1 * intensity,
+		};
+	}
+
+	// Problem Zone 3: Yellow-Green/Lime (HCT ~120-150°)
+	// 黄緑帯は中間明度で濁りやすい
+	if (hue >= 120 && hue <= 150) {
+		const intensity = 1 - Math.abs(hue - 135) / 15; // Peak at 135°
+		return {
+			toneBoost: 10 * intensity,
+			chromaMultiplier: 1.1,
+			toneBlendFactor: 0.75 + 0.1 * intensity,
+		};
+	}
+
+	// その他の色相（青、紫、赤など）は調整不要
+	return {
+		toneBoost: 0,
+		chromaMultiplier: 1.0,
+		toneBlendFactor: 0.5,
+	};
 }
 
 /**
  * HCT色空間を使用して色相を回転させた色を生成
  * 各色相で最も鮮やかに見えるようにToneとChromaを最適化
- * 特に黄色系は高いToneを使用して鮮やかさを確保
+ * 茶色帯・黄色帯・黄緑帯では明度を上げて濁りを防ぐ
  *
  * @param sourceHex - 元の色（HEX形式）
  * @param hueShift - 色相シフト量（度）
@@ -131,25 +184,24 @@ function rotateHueWithHCT(sourceHex: string, hueShift: number): Color {
 	// 新しい色相での最適なToneを取得
 	const newOptimal = findOptimalToneForHue(newHue);
 
-	// 黄色系の場合はより積極的にToneを上げる
-	let toneBlendFactor: number;
-	if (isWarmYellowHue(newHue)) {
-		// 黄色系: 最適Toneに強く寄せる（0.85-0.95）
-		toneBlendFactor = 0.85 + relativeChroma * 0.1;
-	} else {
-		// その他: 元のToneをある程度維持（0.5-0.7）
-		toneBlendFactor = 0.5 + relativeChroma * 0.2;
-	}
+	// 新しい色相に基づいて鮮やかさ調整パラメータを取得
+	const vibrancy = getVibrancyAdjustment(newHue);
 
-	const newTone = hct.tone + (newOptimal.tone - hct.tone) * toneBlendFactor;
+	// 最適Toneへのブレンド（色相に応じた係数を使用）
+	const toneBlendFactor = vibrancy.toneBlendFactor + relativeChroma * 0.1;
+	let newTone = hct.tone + (newOptimal.tone - hct.tone) * toneBlendFactor;
+
+	// 問題のある色相帯では追加でToneをブースト
+	newTone = Math.min(newTone + vibrancy.toneBoost, 95);
 
 	// 新しいToneでの最大Chromaを取得
 	const maxChromaAtNewTone = getMaxChromaForHueTone(newHue, newTone);
 
-	// 相対彩度を適用（黄色系は最大に近づける）
-	const chromaMultiplier = isWarmYellowHue(newHue)
-		? Math.min(relativeChroma * 1.2, 1.0)
-		: Math.min(relativeChroma * 1.1, 1.0);
+	// 相対彩度を適用（色相に応じたchromaMultiplierを使用）
+	const chromaMultiplier = Math.min(
+		relativeChroma * vibrancy.chromaMultiplier,
+		1.0,
+	);
 	const newChroma = maxChromaAtNewTone * chromaMultiplier;
 
 	// HCTで新しい色を生成

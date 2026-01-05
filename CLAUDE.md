@@ -124,6 +124,79 @@ src/core/cud/optimizer.test.ts      # Unit test (co-located)
 e2e/cud-harmony-generator.e2e.ts    # E2E test (separate directory)
 ```
 
+## E2E Video Evidence Requirements（E2E動画エビデンスルール）
+
+### 必須ルール
+E2Eテスト実行後、以下のエビデンスをユーザーに提出すること：
+
+1. **動画エビデンス（必須）**
+   - テスト実行中のブラウザ操作が録画された動画ファイル
+   - 保存場所: `test-results/` ディレクトリ
+   - UIコンポーネント操作（プルダウン、ボタン、入力など）が視認可能であること
+
+2. **HTMLレポート**
+   - `bun run test:e2e`実行後、`npx playwright show-report`でレポートを開く
+   - トレース情報（スクリーンショット含む）を確認可能にする
+
+### テスト実装要件
+
+E2Eテストでは以下を守ること：
+
+1. **人間的な操作の可視化**:
+   - UIコンポーネント操作の前後に`page.waitForTimeout(500-800)`を挿入
+   - ボタン、入力フィールドの操作は動画に映る
+   - ネイティブ`<select>`のドロップダウン展開はOSレベルUIのため動画に映らない（下記参照）
+2. **操作前後の状態変化を明確に**: Before/After状態がわかるようにアサーションを含める
+3. **セレクタの明確化**: `data-testid`属性を使用し、要素を確実に特定する
+
+### プルダウン操作の実装
+
+**注意**: ネイティブHTML `<select>` 要素のドロップダウンメニューは、ブラウザのOSネイティブUIでレンダリングされるため、Playwrightの動画録画には展開状態が映りません。
+
+```typescript
+// ネイティブ<select>の場合（ドロップダウン展開は動画に映らない）
+// クリック→selectOption()で操作し、値の変化を動画で確認
+await accentCountSelect.click();              // フォーカスを示す（動画に映る）
+await page.waitForTimeout(500);               // 遅延を入れて視認可能に
+await accentCountSelect.selectOption("3");    // 値を変更（変更後の値は動画に映る）
+await page.waitForTimeout(TIMEOUTS.AFTER_ACTION);
+```
+
+**動画で確認できる内容**:
+- プルダウンへのクリック（フォーカス）
+- 選択後の表示値変化（例: 「3色」→「4色」）
+- UIの結果変化（カードの色数変化など）
+
+**動画で確認できない内容**:
+- ネイティブドロップダウンの展開・選択肢一覧（OSレベルのUIのため）
+
+### エビデンス提出フロー（Claude Code必須対応）
+
+E2Eテスト実行後、以下の手順でエビデンスを提出すること：
+
+1. `bun run test:e2e` でテスト実行（`playwright.config.ts`で`video: "on"`が有効）
+2. テスト結果サマリーをユーザーに報告（パス/失敗数）
+3. 動画ファイルの場所を案内: `test-results/[test-name]/video.webm`
+4. HTMLレポートの開き方を案内: `npx playwright show-report`
+5. 重要な操作のBefore/Afterスクリーンショットを提示（必要に応じて）
+
+### エビデンス提出例
+
+```
+## E2Eテスト結果
+
+**テスト実行結果**: 10 passed, 0 failed
+
+### 動画エビデンス
+以下のディレクトリに動画ファイルが保存されています：
+- `test-results/パレット色数変更-Phase-4-バグ修正-4色パレット選択でカードに4色表示される-chromium/video.webm`
+- `test-results/パレット色数変更-Phase-4-バグ修正-5色パレット選択でカードに5色表示される-chromium/video.webm`
+
+### HTMLレポート
+以下のコマンドでHTMLレポートを開けます：
+npx playwright show-report
+```
+
 ## Key Libraries
 
 - **culori.js**: OKLCH/OKLab color operations (only runtime dependency)

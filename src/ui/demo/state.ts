@@ -276,6 +276,7 @@ export const state: DemoState = {
 	cudMode: DEFAULT_STATE.cudMode,
 	lightBackgroundColor: DEFAULT_STATE.lightBackgroundColor,
 	darkBackgroundColor: DEFAULT_STATE.darkBackgroundColor,
+	accentCount: DEFAULT_STATE.accentCount,
 };
 
 /**
@@ -329,4 +330,5 @@ export function resetState(): void {
 	state.cudMode = DEFAULT_STATE.cudMode;
 	state.lightBackgroundColor = DEFAULT_STATE.lightBackgroundColor;
 	state.darkBackgroundColor = DEFAULT_STATE.darkBackgroundColor;
+	state.accentCount = DEFAULT_STATE.accentCount;
 }

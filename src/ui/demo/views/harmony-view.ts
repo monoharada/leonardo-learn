@@ -32,7 +32,7 @@ export interface AccentSelectionViewCallbacks {
 	/** ハーモニーカードクリック時のコールバック（パレット生成） */
 	onHarmonyCardClick: (
 		harmonyType: HarmonyFilterType,
-		paletteColors: [string, string, string],
+		paletteColors: string[],
 	) => void;
 	/** 詳細選択でのアクセント選択時のコールバック */
 	onAccentSelect: (candidate: ScoredCandidate) => void;
@@ -51,6 +51,8 @@ interface ViewState {
 	filteredCandidates: ScoredCandidate[];
 	isLoading: boolean;
 	error: string | null;
+	/** アクセントカラーの数（2-5、デフォルト2）ブランド+アクセント=3-6色 */
+	accentCount: 2 | 3 | 4 | 5;
 }
 
 /**
@@ -98,6 +100,7 @@ export function renderAccentSelectionView(
 		filteredCandidates: [],
 		isLoading: true,
 		error: null,
+		accentCount: state.accentCount, // グローバル状態から取得
 	};
 
 	// コンテナをクリア
@@ -140,15 +143,17 @@ function renderCardMode(
 				card.setLoading(true);
 			}
 
-			// パレット色を取得
-			const result = await getAllHarmonyPalettes(viewState.brandColorHex);
+			// パレット色を取得（accentCountを渡す）
+			const result = await getAllHarmonyPalettes(viewState.brandColorHex, {
+				accentCount: viewState.accentCount,
+			});
 			if (result.ok && result.result) {
 				const palette = result.result[type as keyof typeof result.result];
 				if (palette) {
+					// ブランドカラー + 全アクセントカラーを配列で渡す
 					callbacks.onHarmonyCardClick(type, [
 						palette.brandColor,
-						palette.accentColors[0],
-						palette.accentColors[1],
+						...palette.accentColors,
 					]);
 				}
 			}
@@ -167,8 +172,8 @@ function renderCardMode(
 		},
 	);
 
-	// カードにプレビュー色を設定
-	loadCardPreviews(cards, viewState.brandColorHex);
+	// カードにプレビュー色を設定（accentCountを渡す）
+	loadCardPreviews(cards, viewState.brandColorHex, viewState.accentCount);
 }
 
 /**
@@ -177,9 +182,10 @@ function renderCardMode(
 async function loadCardPreviews(
 	cards: HarmonyTypeCard[],
 	brandColorHex: string,
+	accentCount: 2 | 3 | 4 | 5 = 2,
 ): Promise<void> {
-	// 全ハーモニータイプのパレットを取得
-	const result = await getAllHarmonyPalettes(brandColorHex);
+	// 全ハーモニータイプのパレットを取得（accentCountを渡す）
+	const result = await getAllHarmonyPalettes(brandColorHex, { accentCount });
 
 	if (result.ok && result.result) {
 		const harmonyTypes: HarmonyFilterType[] = [
@@ -195,11 +201,8 @@ async function loadCardPreviews(
 			if (!type || !card) continue;
 			const palette = result.result[type as keyof typeof result.result];
 			if (palette) {
-				card.setPreviewColors([
-					palette.brandColor,
-					palette.accentColors[0],
-					palette.accentColors[1],
-				]);
+				// ブランドカラー + 全アクセントカラーを設定
+				card.setPreviewColors([palette.brandColor, ...palette.accentColors]);
 			}
 		}
 	}
@@ -284,7 +287,7 @@ function createHeader(
 	inputHex: string,
 	container: HTMLElement,
 	callbacks: AccentSelectionViewCallbacks,
-	_viewState: ViewState,
+	viewState: ViewState,
 ): HTMLElement {
 	const header = document.createElement("div");
 	header.className = "dads-harmony-header";
@@ -372,6 +375,55 @@ function createHeader(
 	colorInput.appendChild(colorLabel);
 	colorInput.appendChild(inputRow);
 	header.appendChild(colorInput);
+
+	// アクセントカラー数選択プルダウン
+	const accentCountInput = document.createElement("div");
+	accentCountInput.className = "dads-harmony-header__accent-count";
+
+	const accentCountLabel = document.createElement("label");
+	accentCountLabel.className = "dads-label";
+	accentCountLabel.textContent = "パレット色数";
+	accentCountLabel.htmlFor = "accent-count-select";
+
+	const accentCountSelect = document.createElement("select");
+	accentCountSelect.id = "accent-count-select";
+	accentCountSelect.dataset.testid = "accent-count-select";
+	accentCountSelect.className = "dads-select";
+
+	// 3〜6色（アクセント2〜5 + ブランド1）
+	const options = [
+		{ value: 2, label: "3色パレット" },
+		{ value: 3, label: "4色パレット" },
+		{ value: 4, label: "5色パレット" },
+		{ value: 5, label: "6色パレット" },
+	];
+
+	for (const opt of options) {
+		const option = document.createElement("option");
+		option.value = String(opt.value);
+		option.textContent = opt.label;
+		if (opt.value === viewState.accentCount) {
+			option.selected = true;
+		}
+		accentCountSelect.appendChild(option);
+	}
+
+	// プルダウン変更時のハンドラ
+	accentCountSelect.addEventListener("change", (e) => {
+		const value = Number.parseInt((e.target as HTMLSelectElement).value, 10) as
+			| 2
+			| 3
+			| 4
+			| 5;
+		state.accentCount = value; // グローバル状態に保存
+		viewState.accentCount = value;
+		// ビュー全体を再レンダリング
+		renderAccentSelectionView(container, viewState.brandColorHex, callbacks);
+	});
+
+	accentCountInput.appendChild(accentCountLabel);
+	accentCountInput.appendChild(accentCountSelect);
+	header.appendChild(accentCountInput);
 
 	return header;
 }

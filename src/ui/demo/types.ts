@@ -120,6 +120,8 @@ export interface DemoState {
 	lightBackgroundColor: string;
 	/** ダーク背景色（HEX形式、デフォルト: #000000） */
 	darkBackgroundColor: string;
+	/** アクセントカラー数（2-5）。ブランド+アクセント=3-6色 */
+	accentCount: 2 | 3 | 4 | 5;
 }
 
 /**

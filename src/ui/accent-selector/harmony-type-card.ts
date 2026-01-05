@@ -68,6 +68,7 @@ export class HarmonyTypeCard {
 	private cardElement: HTMLButtonElement | null = null;
 	private previewContainer: HTMLElement | null = null;
 	private swatchElements: HTMLElement[] = [];
+	private labelElement: HTMLElement | null = null;
 
 	constructor(
 		container: HTMLElement,
@@ -108,25 +109,19 @@ export class HarmonyTypeCard {
 		this.previewContainer = document.createElement("div");
 		this.previewContainer.className = "harmony-type-card__preview";
 
-		// 3つのスウォッチを作成（初期状態はプレースホルダー）
-		for (let i = 0; i < 3; i++) {
-			const swatch = document.createElement("div");
-			swatch.className = "harmony-type-card__swatch";
-			swatch.style.backgroundColor = "#e0e0e0";
-			this.swatchElements.push(swatch);
-			this.previewContainer.appendChild(swatch);
-		}
+		// 初期状態: 3つのスウォッチを作成（プレースホルダー）
+		this.createSwatches(3);
 
 		// パレットラベル
-		const label = document.createElement("div");
-		label.className = "harmony-type-card__label";
-		label.textContent = "3色パレット";
+		this.labelElement = document.createElement("div");
+		this.labelElement.className = "harmony-type-card__label";
+		this.labelElement.textContent = "3色パレット";
 
 		// 要素を組み立て
 		this.cardElement.appendChild(title);
 		this.cardElement.appendChild(description);
 		this.cardElement.appendChild(this.previewContainer);
-		this.cardElement.appendChild(label);
+		this.cardElement.appendChild(this.labelElement);
 
 		// クリックイベント
 		this.cardElement.addEventListener("click", () => {
@@ -137,18 +132,48 @@ export class HarmonyTypeCard {
 	}
 
 	/**
-	 * プレビュー色を設定
-	 *
-	 * @param colors 3色の配列（ブランドカラー + 2アクセント）
+	 * スウォッチ要素を作成
 	 */
-	setPreviewColors(colors: [string, string, string]): void {
-		if (this.swatchElements.length >= 3 && colors.length >= 3) {
-			const [color0, color1, color2] = colors;
-			const [swatch0, swatch1, swatch2] = this.swatchElements;
-			if (swatch0 && swatch1 && swatch2) {
-				swatch0.style.backgroundColor = color0;
-				swatch1.style.backgroundColor = color1;
-				swatch2.style.backgroundColor = color2;
+	private createSwatches(count: number): void {
+		if (!this.previewContainer) return;
+
+		// 既存のスウォッチをクリア
+		this.swatchElements = [];
+		this.previewContainer.replaceChildren();
+
+		// 指定数のスウォッチを作成
+		for (let i = 0; i < count; i++) {
+			const swatch = document.createElement("div");
+			swatch.className = "harmony-type-card__swatch";
+			swatch.style.backgroundColor = "#e0e0e0";
+			this.swatchElements.push(swatch);
+			this.previewContainer.appendChild(swatch);
+		}
+	}
+
+	/**
+	 * プレビュー色を設定（可変長対応）
+	 *
+	 * @param colors 色の配列（ブランドカラー + アクセント、3〜6色）
+	 */
+	setPreviewColors(colors: string[]): void {
+		if (!this.previewContainer || colors.length === 0) return;
+
+		// スウォッチ数が色数と異なる場合は再作成
+		if (this.swatchElements.length !== colors.length) {
+			this.createSwatches(colors.length);
+			// ラベルも更新
+			if (this.labelElement) {
+				this.labelElement.textContent = `${colors.length}色パレット`;
+			}
+		}
+
+		// 各スウォッチに色を設定
+		for (let i = 0; i < colors.length; i++) {
+			const swatch = this.swatchElements[i];
+			const color = colors[i];
+			if (swatch && color) {
+				swatch.style.backgroundColor = color;
 			}
 		}
 	}
@@ -192,6 +217,7 @@ export class HarmonyTypeCard {
 		}
 		this.swatchElements = [];
 		this.previewContainer = null;
+		this.labelElement = null;
 	}
 }
 
