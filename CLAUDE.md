@@ -195,9 +195,9 @@ User request → TodoWrite (create plan) → Mark first task in_progress →
 Implement → Mark completed → Next task → ... → All done
 ```
 
-### 2. Code Quality & Simplicity (ENFORCE AUTOMATICALLY)
+### 2. Code Quality & Simplicity (CHECK REQUIRED)
 
-**Auto-check before any commit**:
+**Manual checks required before any commit**:
 - ✅ **No `any` types**: Use `unknown` or proper type definitions
 - ✅ **No circular dependencies**: Verify UI → Core → Utils direction
 - ✅ **No over-engineering**:
@@ -215,13 +215,9 @@ Implement → Mark completed → Next task → ... → All done
 - Grep for `any` type usage: should return zero results
 - Check import paths for circular dependencies (use Explore agent if complex)
 
-**Custom agents to create** (if needed):
-```bash
-# Create .claude/agents/simplicity-checker.md
-/agents  # Then configure for over-engineering detection
-```
+**Note**: Pre-commit hooks are not yet implemented. These checks must be run manually.
 
-### 3. Accessibility Validation (CRITICAL - AUTO-CHECK)
+### 3. Accessibility Validation (CRITICAL - CHECK REQUIRED)
 
 **When to activate** (ALWAYS for color-related changes):
 - ANY changes to `src/core/solver.ts`, `src/accessibility/`, `src/core/cud/`
@@ -237,7 +233,7 @@ Implement → Mark completed → Next task → ... → All done
 
 **Testing requirements**:
 ```bash
-# Run accessibility-specific tests automatically
+# Run accessibility-specific tests (manual execution required)
 bun test src/accessibility/
 bun test src/core/cud/
 
@@ -280,7 +276,7 @@ bun test src/core/solver.test.ts
 - **tdd-specialist**: Generates tests before implementation
 - **coverage-analyzer**: Monitors and reports coverage drops
 
-### 5. Performance Monitoring (AUTO-CHECK)
+### 5. Performance Monitoring (CHECK REQUIRED)
 
 **Performance target**: 20-color palette generation in <200ms (ENFORCE)
 
@@ -292,7 +288,7 @@ bun test src/core/solver.test.ts
 
 **Benchmarking**:
 ```bash
-# Run performance benchmarks automatically
+# Run performance benchmarks (manual execution required)
 cross-env CI_BENCH=1 bun test src/core/cud/performance.test.ts
 
 # Verify <200ms target is met
@@ -301,7 +297,7 @@ cross-env CI_BENCH=1 bun test src/core/cud/performance.test.ts
 **Custom agents recommended**:
 - **performance-analyzer**: Auto-runs benchmarks and flags regressions
 
-### 6. Architecture & Dependency Management (AUTO-ENFORCE)
+### 6. Architecture & Dependency Management (CHECK REQUIRED)
 
 **Critical rules** (NEVER violate):
 - ❌ **No circular dependencies**: UI → Core → Utils (one direction only)
@@ -501,21 +497,15 @@ Claude Code (autonomous):
 
 ### Custom Agent Creation Templates
 
-Based on the existing `.claude/commands/kiro/` structure, here are templates for creating custom agents:
+**⚠️ Note**: These templates represent a recommended agent structure for this project. They follow patterns from existing `.claude/commands/kiro/` slash commands but are **not yet implemented or validated**. If you choose to create custom agents, adjust the YAML frontmatter and tool specifications to match your actual Claude Code agent configuration.
+
+Based on the existing `.claude/commands/kiro/` structure, here are template examples:
 
 #### Template 1: accessibility-guardian.md
 ```markdown
 ---
-name: accessibility-guardian
 description: Auto-validates WCAG 2.1/2.2 and APCA compliance for color-related changes
-tools:
-  - read_file
-  - grep
-  - bash
-triggers:
-  - src/core/solver.ts
-  - src/accessibility/
-  - src/core/cud/
+allowed-tools: Bash, Read, Grep
 ---
 
 You are an accessibility validation specialist for the leonardo-learn color palette generator.
@@ -563,16 +553,8 @@ Only approve if ALL accessibility tests pass. If any fail, provide specific fix 
 #### Template 2: performance-analyzer.md
 ```markdown
 ---
-name: performance-analyzer
 description: Runs benchmarks and validates <200ms target for palette generation
-tools:
-  - read_file
-  - bash
-triggers:
-  - src/core/cud/optimizer.ts
-  - src/core/solver.ts
-  - src/core/interpolation.ts
-  - src/core/strategies/
+allowed-tools: Bash, Read
 ---
 
 You are a performance monitoring specialist for the leonardo-learn color palette generator.
@@ -620,13 +602,8 @@ Approve if 20-color benchmark stays <200ms. If regression detected, provide opti
 #### Template 3: simplicity-enforcer.md
 ```markdown
 ---
-name: simplicity-enforcer
 description: Detects over-engineering patterns and enforces code simplicity
-tools:
-  - read_file
-  - grep
-triggers:
-  - all code changes
+allowed-tools: Read, Grep
 ---
 
 You are a code simplicity guardian for the leonardo-learn project.
@@ -714,9 +691,9 @@ Prompt: "Find all files related to contrast calculation. Look for:
 Return file paths with brief descriptions."
 
 // Expected output:
-src/core/solver.ts:45 - Binary search for target contrast ratios
-src/accessibility/wcag2.ts:12 - WCAG 2.1/2.2 contrast ratio calculation
-src/accessibility/apca.ts:34 - APCA Lc (lightness contrast) calculation
+src/core/solver.ts - Binary search for target contrast ratios
+src/accessibility/wcag2.ts - WCAG 2.1/2.2 contrast ratio calculation
+src/accessibility/apca.ts - APCA Lc (lightness contrast) calculation
 ```
 
 #### Plan Agent Example
