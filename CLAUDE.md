@@ -446,3 +446,387 @@ Read .claude/docs/user-flows.md
 Read .kiro/steering/tech.md
 Use Explore agent for dependency analysis
 ```
+
+## Practical Examples & Templates
+
+### TodoWrite Workflow Examples
+
+**Example 1: Feature Implementation**
+```
+User: "Add CUD harmony optimization to the palette generator"
+
+Claude Code (autonomous):
+1. Use TodoWrite to create task list:
+   - Research existing CUD implementation in src/core/cud/
+   - Design harmony scoring algorithm
+   - Implement harmony calculator in src/core/cud/harmony-score.ts
+   - Write tests for harmony calculator (TDD)
+   - Integrate with optimizer.ts
+   - Run accessibility tests
+   - Run performance benchmarks (<200ms target)
+   - Update documentation
+
+2. Mark first task as "in_progress"
+3. Use Explore agent to research existing CUD code
+4. Mark first task as "completed"
+5. Mark second task as "in_progress"
+6. ... continue until all done
+```
+
+**Example 2: Bug Fix with Testing**
+```
+User: "Fix contrast calculation bug in solver.ts"
+
+Claude Code (autonomous):
+1. Use TodoWrite to create task list:
+   - Reproduce bug with failing test case
+   - Debug solver.ts binary search algorithm
+   - Fix the bug
+   - Verify test passes
+   - Run full test suite (coverage must stay 90%+)
+   - Check for regressions in accessibility tests
+
+2. Mark "Reproduce bug" as in_progress
+3. Write failing test in src/core/solver.test.ts
+4. Mark as completed, move to next task
+5. ... continue sequentially
+```
+
+**TodoWrite Best Practices for leonardo-learn**:
+- **Granularity**: Each task = 5-15 minutes of work
+- **Testing**: Always include test-related tasks (write test, run test, verify coverage)
+- **Accessibility**: For color changes, include `bun test src/accessibility/` task
+- **Performance**: For optimizer changes, include benchmark task
+- **Atomicity**: Each task should be independently completable
+
+### Custom Agent Creation Templates
+
+Based on the existing `.claude/commands/kiro/` structure, here are templates for creating custom agents:
+
+#### Template 1: accessibility-guardian.md
+```markdown
+---
+name: accessibility-guardian
+description: Auto-validates WCAG 2.1/2.2 and APCA compliance for color-related changes
+tools:
+  - read_file
+  - grep
+  - bash
+triggers:
+  - src/core/solver.ts
+  - src/accessibility/
+  - src/core/cud/
+---
+
+You are an accessibility validation specialist for the leonardo-learn color palette generator.
+
+## Your Mission
+
+Validate that color generation changes maintain WCAG 2.1/2.2 and APCA (WCAG 3) compliance.
+
+## Validation Checklist
+
+### 1. WCAG 2.1/2.2 Compliance
+- Run: `bun test src/accessibility/wcag2.test.ts`
+- Check contrast ratios meet AA/AAA standards
+- Verify distinguishability tests pass
+
+### 2. APCA (WCAG 3) Compliance
+- Run: `bun test src/accessibility/apca.test.ts`
+- Validate Lc (lightness contrast) calculations
+- Check src/accessibility/apca.ts integration
+
+### 3. CUD Optimization
+- Run: `bun test src/core/cud/`
+- Validate ΔE thresholds:
+  - Safe: ΔE ≤ 0.05
+  - Warning: 0.05 < ΔE ≤ 0.12
+  - Off: ΔE > 0.12
+- Check harmony scores remain valid
+
+### 4. CVD Simulation
+- Run: `bun test src/accessibility/cvd-simulator.test.ts`
+- Ensure color-blind friendly palettes (protanopia, deuteranopia, tritanopia)
+
+## Report Format
+
+Provide a concise report:
+- ✅ Passed checks
+- ❌ Failed checks with file:line references
+- ⚠️ Warnings (e.g., approaching threshold limits)
+
+## Exit Criteria
+
+Only approve if ALL accessibility tests pass. If any fail, provide specific fix recommendations.
+```
+
+#### Template 2: performance-analyzer.md
+```markdown
+---
+name: performance-analyzer
+description: Runs benchmarks and validates <200ms target for palette generation
+tools:
+  - read_file
+  - bash
+triggers:
+  - src/core/cud/optimizer.ts
+  - src/core/solver.ts
+  - src/core/interpolation.ts
+  - src/core/strategies/
+---
+
+You are a performance monitoring specialist for the leonardo-learn color palette generator.
+
+## Performance Target
+
+**20-color palette generation must complete in <200ms** (enforced)
+
+## Benchmarking Workflow
+
+### 1. Run Performance Tests
+```bash
+cross-env CI_BENCH=1 bun test src/core/cud/performance.test.ts
+```
+
+### 2. Analyze Results
+- Check "20-color full optimization" benchmark
+- Compare against 200ms baseline
+- Identify performance regressions (>10% slowdown)
+
+### 3. Profile Hot Paths (if needed)
+- Binary search in src/core/solver.ts
+- Spline interpolation in src/core/interpolation.ts
+- CUD optimizer greedy algorithm in src/core/cud/optimizer.ts
+
+## Report Format
+
+```
+Performance Analysis Report
+===========================
+✅ 20-color palette: 145ms (✓ <200ms target)
+⚠️ 50-color palette: 380ms (approaching limit)
+❌ Binary search: +25% slower (regression detected)
+
+Recommendations:
+- Optimize binary search epsilon threshold
+- Consider memoization for repeated calculations
+```
+
+## Exit Criteria
+
+Approve if 20-color benchmark stays <200ms. If regression detected, provide optimization suggestions.
+```
+
+#### Template 3: simplicity-enforcer.md
+```markdown
+---
+name: simplicity-enforcer
+description: Detects over-engineering patterns and enforces code simplicity
+tools:
+  - read_file
+  - grep
+triggers:
+  - all code changes
+---
+
+You are a code simplicity guardian for the leonardo-learn project.
+
+## Over-Engineering Detection Rules
+
+### 1. No Premature Abstraction
+❌ **Bad**: Creating helper function for single use
+```typescript
+function calculateSum(a: number, b: number) { return a + b; }
+const total = calculateSum(x, y);
+```
+✅ **Good**: Direct calculation for one-time operation
+```typescript
+const total = x + y;
+```
+
+### 2. No Unnecessary Error Handling
+❌ **Bad**: Validating internal function parameters
+```typescript
+function internal_helper(value: ValidatedType) {
+  if (!value) throw new Error("Invalid value"); // Redundant
+}
+```
+✅ **Good**: Trust internal code contracts
+```typescript
+function internal_helper(value: ValidatedType) {
+  // No validation needed - caller guarantees valid input
+}
+```
+
+### 3. Three Similar Lines > Premature Abstraction
+❌ **Bad**: Abstracting 3 similar lines
+```typescript
+function setColor(prop: string, value: string) { ... }
+setColor("primary", primary);
+setColor("secondary", secondary);
+setColor("tertiary", tertiary);
+```
+✅ **Good**: Keep simple code simple
+```typescript
+colors.primary = primary;
+colors.secondary = secondary;
+colors.tertiary = tertiary;
+```
+
+### 4. No Backwards-Compatibility Hacks
+❌ **Bad**: Keeping unused variables for "compatibility"
+```typescript
+const _oldName = value; // Kept for backwards compatibility
+const newName = value;
+```
+✅ **Good**: Delete unused code completely
+```typescript
+const newName = value;
+```
+
+## Validation Checklist
+
+1. Grep for common over-engineering patterns:
+   - Unused variables starting with `_`
+   - Single-use helper functions
+   - Feature flags for hypothetical futures
+2. Check for abstractions with only 1-2 usages
+3. Verify error handling only at system boundaries (user input, external APIs)
+
+## Report Format
+
+List violations with file:line references and suggest simpler alternatives.
+```
+
+### Built-in Agent Usage Examples
+
+#### Explore Agent Example
+```typescript
+// User request: "Where is the contrast calculation implemented?"
+
+// Claude Code autonomously uses Explore agent:
+Task: Analyze codebase structure
+Agent: Explore (fast, read-only)
+Prompt: "Find all files related to contrast calculation. Look for:
+- WCAG contrast ratio functions
+- APCA contrast calculation
+- Binary search for contrast targets
+Return file paths with brief descriptions."
+
+// Expected output:
+src/core/solver.ts:45 - Binary search for target contrast ratios
+src/accessibility/wcag2.ts:12 - WCAG 2.1/2.2 contrast ratio calculation
+src/accessibility/apca.ts:34 - APCA Lc (lightness contrast) calculation
+```
+
+#### Plan Agent Example
+```typescript
+// User request: "Add Material Design 3 color generation support"
+
+// Claude Code autonomously enters Plan Mode:
+EnterPlanMode()
+
+// In Plan Mode:
+1. Explore existing color generation strategies in src/core/strategies/
+2. Read Material Design 3 documentation
+3. Design integration approach:
+   - Create src/core/strategies/m3-generator.ts
+   - Integrate with existing Theme system
+   - Maintain backward compatibility
+4. Write plan.md with task breakdown
+5. ExitPlanMode() → user approval → implement
+```
+
+### Integration with Kiro/Codex Workflows
+
+#### Pattern 1: Spec Implementation with Agent Assistance
+```bash
+# User runs Kiro spec workflow
+/kiro:spec-requirements color-harmony-optimization
+/sdd-codex-review requirements color-harmony-optimization
+# → APPROVED
+
+/kiro:spec-design color-harmony-optimization
+# Claude Code autonomously:
+# - Uses Plan agent to analyze design options
+# - References .kiro/steering/tech.md for architecture guidelines
+# - Creates design.md with detailed technical approach
+/sdd-codex-review design color-harmony-optimization
+# → APPROVED
+
+/kiro:spec-tasks color-harmony-optimization
+# Claude Code autonomously:
+# - Uses TodoWrite to break down into tasks
+# - Marks tasks with [E2E] tags where needed
+/sdd-codex-review tasks color-harmony-optimization
+# → APPROVED
+
+/kiro:spec-impl color-harmony-optimization 1-3
+# Claude Code autonomously:
+# - Uses TodoWrite for sub-tasks within each task
+# - Runs accessibility tests after color algorithm changes
+# - Runs performance benchmarks after optimizer changes
+# - Marks section complete
+/sdd-codex-review impl-section color-harmony-optimization section-1
+# → APPROVED
+```
+
+#### Pattern 2: Bug Fix with Autonomous Checks
+```typescript
+// User: "Fix the APCA contrast bug reported in issue #42"
+
+// Claude Code autonomous workflow:
+1. TodoWrite: Create task list (reproduce, fix, test, verify)
+2. Explore agent: Analyze src/accessibility/apca.ts and related tests
+3. Implement fix with TDD (write failing test first)
+4. Run accessibility tests: bun test src/accessibility/
+5. Check coverage: bun test --coverage (must stay 90%+)
+6. Commit with message referencing issue #42
+7. No Codex review needed (bug fix, not spec work)
+```
+
+#### Pattern 3: Performance Optimization
+```typescript
+// User: "Optimize the CUD optimizer to be faster"
+
+// Claude Code autonomous workflow:
+1. TodoWrite: Create task list
+2. Run baseline benchmark: cross-env CI_BENCH=1 bun test src/core/cud/performance.test.ts
+   Result: 20-color palette = 185ms (baseline)
+3. Use Plan agent to design optimization approach
+4. Implement optimization in src/core/cud/optimizer.ts
+5. Run benchmark again: 145ms (✅ 22% improvement)
+6. Verify tests still pass: bun test src/core/cud/
+7. Check no regressions: bun test --coverage
+8. Commit with performance metrics in message
+```
+
+### When to Use Which Agent
+
+| Scenario | Agent | Rationale |
+|----------|-------|-----------|
+| "Where is X implemented?" | Explore | Fast read-only search |
+| "How does Y work?" | Explore | Codebase understanding |
+| "Add new feature Z" | Plan → TodoWrite | Complex multi-step task |
+| "Fix bug in W" | TodoWrite only | Clear scope, no planning needed |
+| "Optimize performance" | TodoWrite + Benchmark | Iterative with measurements |
+| "Refactor architecture" | Plan → TodoWrite | Architectural decisions needed |
+| "Add accessibility check" | TodoWrite + accessibility-guardian | Validation required |
+
+### Common Pitfalls to Avoid
+
+1. **❌ Using Explore for simple file reads**: Just use Read tool directly
+2. **❌ Entering Plan Mode for trivial tasks**: TodoWrite is sufficient for <3 step tasks
+3. **❌ Forgetting to mark todos complete**: Update immediately after finishing
+4. **❌ Skipping autonomous checks**: Always run `bun run check` before commit
+5. **❌ Not running accessibility tests**: Required for ANY color algorithm change
+
+### Agent Success Metrics
+
+Track these metrics to ensure effective agent usage:
+
+- **TodoWrite usage rate**: Should be 100% for tasks with 3+ steps
+- **Test coverage**: Must maintain 90%+ (enforced)
+- **Accessibility test pass rate**: 100% required before commit
+- **Performance regression rate**: 0 regressions >10% allowed
+- **`any` type count**: Should remain at 2 (only in utility functions with JSDoc)
