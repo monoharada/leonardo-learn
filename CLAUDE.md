@@ -167,3 +167,282 @@ Key commands:
 4. `/kiro:spec-impl [feature] [task]` → `/sdd-codex-review impl-section [feature] [section-id]`（セクション単位推奨）
 
 各フェーズでAPPROVEDを取得してから次へ進む。
+
+## Agent-Driven Development Guidelines
+
+Claude Code should **autonomously** leverage agents and built-in tools throughout the development process. This section defines when and how to use specialized capabilities for this project.
+
+### 1. Task Decomposition & Planning (ALWAYS USE)
+
+**When to activate**:
+- ANY task involving 3+ steps or files
+- Feature implementation requests
+- Complex refactoring or architectural changes
+- Performance optimization work
+- Accessibility improvements
+
+**Tools to use**:
+- **Plan Agent (EnterPlanMode)**: For architectural decisions, multiple valid approaches, or large-scale changes
+- **TodoWrite tool** (CRITICAL): Create task lists IMMEDIATELY when starting any non-trivial work
+  - Break down into specific, actionable items
+  - Mark tasks as `in_progress` BEFORE starting work
+  - Mark as `completed` IMMEDIATELY after finishing (no batching)
+  - Keep exactly ONE task `in_progress` at any time
+
+**Example workflow**:
+```
+User request → TodoWrite (create plan) → Mark first task in_progress →
+Implement → Mark completed → Next task → ... → All done
+```
+
+### 2. Code Quality & Simplicity (ENFORCE AUTOMATICALLY)
+
+**Auto-check before any commit**:
+- ✅ **No `any` types**: Use `unknown` or proper type definitions
+- ✅ **No circular dependencies**: Verify UI → Core → Utils direction
+- ✅ **No over-engineering**:
+  - Don't add features beyond what was requested
+  - Don't create abstractions for one-time operations
+  - Don't add error handling for impossible scenarios
+  - Three similar lines > premature abstraction
+- ✅ **No backwards-compatibility hacks**: Delete unused code completely
+- ✅ **Strict TypeScript compliance**: All strict flags must pass
+- ✅ **Biome formatting**: Auto-format with tab indentation, double quotes
+
+**Tools to use**:
+- Run `bun run check` before committing
+- Use `bun run type-check` to verify strict TypeScript
+- Grep for `any` type usage: should return zero results
+- Check import paths for circular dependencies (use Explore agent if complex)
+
+**Custom agents to create** (if needed):
+```bash
+# Create .claude/agents/simplicity-checker.md
+/agents  # Then configure for over-engineering detection
+```
+
+### 3. Accessibility Validation (CRITICAL - AUTO-CHECK)
+
+**When to activate** (ALWAYS for color-related changes):
+- ANY changes to `src/core/solver.ts`, `src/accessibility/`, `src/core/cud/`
+- Contrast calculation modifications
+- Color generation algorithm updates
+- UI component changes in `src/ui/`
+
+**Required checks**:
+- ✅ **WCAG 2.1/2.2 compliance**: Verify contrast ratios meet standards
+- ✅ **APCA (WCAG 3) compliance**: Check `src/accessibility/apca.ts` integration
+- ✅ **CUD optimization**: Validate ΔE thresholds (Safe ≤0.05, Warning ≤0.12, Off >0.12)
+- ✅ **CVD simulation**: Ensure color-blind friendly palettes
+
+**Testing requirements**:
+```bash
+# Run accessibility-specific tests automatically
+bun test src/accessibility/
+bun test src/core/cud/
+
+# Verify APCA contrast calculations
+bun test src/core/solver.test.ts
+```
+
+**Custom agents recommended**:
+- **accessibility-guardian**: Auto-validates WCAG/APCA on color changes
+- **cud-optimizer-validator**: Checks CUD zone classifications and harmony scores
+
+### 4. Test-Driven Development (MANDATORY)
+
+**Coverage target**: 90%+ (ENFORCE)
+
+**Workflow** (follow strictly):
+1. **Write tests FIRST** (TDD approach)
+2. **Implement to pass tests**
+3. **Verify coverage**: `bun test --coverage`
+4. **Never commit** if coverage drops below 90%
+
+**Auto-test scenarios**:
+- After implementing any function in `src/core/`
+- After modifying algorithms in `src/core/solver.ts`, `src/core/interpolation.ts`
+- After CUD optimization changes
+- Before any git commit
+
+**Test placement**:
+- **Co-located**: Unit/integration tests next to source files
+  ```
+  src/core/cud/optimizer.ts
+  src/core/cud/optimizer.test.ts  ← Same directory
+  ```
+- **Separate**: E2E tests in dedicated directory
+  ```
+  e2e/cud-harmony-generator.e2e.ts  ← E2E directory
+  ```
+
+**Custom agents recommended**:
+- **tdd-specialist**: Generates tests before implementation
+- **coverage-analyzer**: Monitors and reports coverage drops
+
+### 5. Performance Monitoring (AUTO-CHECK)
+
+**Performance target**: 20-color palette generation in <200ms (ENFORCE)
+
+**When to measure** (ALWAYS for these changes):
+- Modifications to `src/core/cud/optimizer.ts`
+- Changes to `src/core/solver.ts` (binary search algorithm)
+- Updates to `src/core/interpolation.ts` (spline interpolation)
+- Any algorithm in `src/core/strategies/`
+
+**Benchmarking**:
+```bash
+# Run performance benchmarks automatically
+cross-env CI_BENCH=1 bun test src/core/cud/performance.test.ts
+
+# Verify <200ms target is met
+```
+
+**Custom agents recommended**:
+- **performance-analyzer**: Auto-runs benchmarks and flags regressions
+
+### 6. Architecture & Dependency Management (AUTO-ENFORCE)
+
+**Critical rules** (NEVER violate):
+- ❌ **No circular dependencies**: UI → Core → Utils (one direction only)
+- ❌ **No cross-layer imports**: `src/ui/` cannot import from `src/core/` siblings
+- ✅ **Use path aliases**: `@/core/*`, `@/utils/*`, `@/ui/*` (not relative paths)
+
+**Auto-check before commits**:
+```bash
+# Verify dependency direction (use Explore agent if complex codebase)
+# Check for backward imports: Core → UI (FORBIDDEN)
+# Check for sibling imports within layers (DISCOURAGED)
+```
+
+**Tools to use**:
+- **Explore Agent**: For analyzing dependency graphs in large changes
+- **Grep tool**: Search for forbidden import patterns
+  ```bash
+  # Example: Check if core imports from ui (should be zero)
+  grep -r "from '@/ui" src/core/
+  ```
+
+### 7. Documentation & User Flows (REFERENCE FREQUENTLY)
+
+**Key documents to consult**:
+- **User flows**: `.claude/docs/user-flows.md` (check before UI changes)
+- **Steering docs**: `.kiro/steering/` (check before architecture decisions)
+- **ADRs**: `.kiro/steering/` (Architecture Decision Records)
+
+**When to reference**:
+- Before implementing UI features → Check `.claude/docs/user-flows.md`
+- Before architectural changes → Check `.kiro/steering/tech.md`
+- Before new features → Check `.kiro/steering/product.md`
+
+### 8. E2E Testing (RUN BEFORE PR)
+
+**When to run** (MANDATORY):
+- After implementing user-facing features
+- Before creating pull requests
+- After significant UI changes
+
+**Commands**:
+```bash
+# Run E2E tests automatically
+bun run test:e2e
+
+# Use UI mode for debugging
+bun run test:e2e:ui
+```
+
+### Built-in Agents Reference
+
+Claude Code provides these built-in agents (use autonomously as needed):
+
+| Agent | Purpose | When to Use |
+|-------|---------|-------------|
+| **Explore** | Fast codebase analysis (read-only) | Understand code structure, find files, analyze dependencies |
+| **Plan** | Implementation planning & task decomposition | Complex features, architectural decisions, multiple approaches |
+| **General-Purpose** | Multi-step tasks with file modifications | Standard development tasks requiring read + write + execute |
+
+### Custom Agents for leonardo-learn
+
+**Recommended custom agents to create**:
+
+1. **`.claude/agents/accessibility-guardian.md`**
+   - Auto-validates WCAG 2.1/2.2 and APCA compliance
+   - Checks CUD optimization constraints
+   - Triggers on: Changes to `src/accessibility/`, `src/core/solver.ts`, `src/core/cud/`
+
+2. **`.claude/agents/performance-analyzer.md`**
+   - Runs benchmarks automatically
+   - Validates <200ms target for palette generation
+   - Triggers on: Changes to `src/core/cud/`, `src/core/solver.ts`, `src/core/strategies/`
+
+3. **`.claude/agents/simplicity-enforcer.md`**
+   - Detects over-engineering patterns
+   - Flags unnecessary abstractions
+   - Checks for premature optimization
+   - Triggers on: All code changes
+
+4. **`.claude/agents/dependency-checker.md`**
+   - Validates UI → Core → Utils direction
+   - Detects circular dependencies
+   - Checks path alias usage
+   - Triggers on: New files, import changes
+
+### Autonomous Behavior Rules
+
+**Claude Code MUST autonomously**:
+1. ✅ Use TodoWrite for ANY task with 3+ steps (no exceptions)
+2. ✅ Run `bun run check` before committing
+3. ✅ Run tests after implementing functions: `bun test [file].test.ts`
+4. ✅ Check test coverage: `bun test --coverage` (must be 90%+)
+5. ✅ Validate accessibility after color algorithm changes
+6. ✅ Run performance benchmarks after optimizer changes
+7. ✅ Reference `.claude/docs/user-flows.md` before UI changes
+8. ✅ Use Explore agent for complex dependency analysis
+9. ✅ Use Plan agent (EnterPlanMode) for architectural decisions
+10. ✅ Check for `any` types and circular dependencies before commits
+
+**Claude Code MUST NEVER**:
+1. ❌ Commit code with `any` types
+2. ❌ Introduce circular dependencies (UI → Core → Utils violation)
+3. ❌ Over-engineer (add features/abstractions beyond requirements)
+4. ❌ Skip tests (90%+ coverage is mandatory)
+5. ❌ Ignore performance regressions (>200ms for 20-color palette)
+6. ❌ Break accessibility standards (WCAG 2.1/2.2, APCA compliance)
+7. ❌ Add backwards-compatibility hacks (delete unused code completely)
+
+### Integration with Existing Workflows
+
+This agent-driven approach **complements** existing workflows:
+
+- **Kiro spec workflow**: Use Plan agent during `/kiro:spec-design` and `/kiro:spec-tasks`
+- **Codex review**: Run `/sdd-codex-review` after agent-assisted implementation
+- **E2E evidence**: Agents can help collect evidence for `/sdd-codex-review e2e-evidence`
+
+### Quick Reference Card
+
+```bash
+# Task planning (ALWAYS use for 3+ step tasks)
+Use TodoWrite immediately when starting work
+
+# Code quality checks (BEFORE commits)
+bun run check              # Lint + format
+bun run type-check         # Strict TypeScript
+grep -r "any" src/         # Should return zero
+
+# Testing (AFTER implementations)
+bun test [file].test.ts    # Unit tests
+bun test --coverage        # Must be 90%+
+bun run test:e2e           # E2E tests
+
+# Accessibility (AFTER color changes)
+bun test src/accessibility/
+bun test src/core/cud/
+
+# Performance (AFTER optimizer changes)
+cross-env CI_BENCH=1 bun test src/core/cud/performance.test.ts
+
+# Architecture (BEFORE big changes)
+Read .claude/docs/user-flows.md
+Read .kiro/steering/tech.md
+Use Explore agent for dependency analysis
+```
