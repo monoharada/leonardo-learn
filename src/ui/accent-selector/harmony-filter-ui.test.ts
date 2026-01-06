@@ -58,6 +58,21 @@ describe("HarmonyFilterUI", () => {
 			expect(filter.getSelectedType()).toBe("split-complementary");
 		});
 
+		test("monochromatic を設定できる", () => {
+			filter.setSelectedType("monochromatic");
+			expect(filter.getSelectedType()).toBe("monochromatic");
+		});
+
+		test("shades を設定できる", () => {
+			filter.setSelectedType("shades");
+			expect(filter.getSelectedType()).toBe("shades");
+		});
+
+		test("compound を設定できる", () => {
+			filter.setSelectedType("compound");
+			expect(filter.getSelectedType()).toBe("compound");
+		});
+
 		test("all に戻せる", () => {
 			filter.setSelectedType("complementary");
 			filter.setSelectedType("all");
@@ -105,7 +120,7 @@ describe("HarmonyFilterUI", () => {
 		test("全てのハーモニータイプオプションを返す", () => {
 			const options = filter.getHarmonyTypeOptions();
 
-			expect(options.length).toBe(5);
+			expect(options.length).toBe(8);
 
 			// 各オプションが正しい形式を持つことを確認
 			for (const option of options) {
@@ -148,6 +163,27 @@ describe("HarmonyFilterUI", () => {
 			const option = options.find((o) => o.id === "split-complementary");
 			expect(option).toBeDefined();
 			expect(option?.nameJa).toBe("分裂補色");
+		});
+
+		test("オプションに 'monochromatic' が含まれる", () => {
+			const options = filter.getHarmonyTypeOptions();
+			const option = options.find((o) => o.id === "monochromatic");
+			expect(option).toBeDefined();
+			expect(option?.nameJa).toBe("モノクロマティック");
+		});
+
+		test("オプションに 'shades' が含まれる", () => {
+			const options = filter.getHarmonyTypeOptions();
+			const option = options.find((o) => o.id === "shades");
+			expect(option).toBeDefined();
+			expect(option?.nameJa).toBe("シェード");
+		});
+
+		test("オプションに 'compound' が含まれる", () => {
+			const options = filter.getHarmonyTypeOptions();
+			const option = options.find((o) => o.id === "compound");
+			expect(option).toBeDefined();
+			expect(option?.nameJa).toBe("コンパウンド");
 		});
 	});
 

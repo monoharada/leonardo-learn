@@ -11,6 +11,9 @@
  * - triadic（トライアド）
  * - analogous（類似色）
  * - split-complementary（分裂補色）
+ * - monochromatic（モノクロマティック）
+ * - shades（シェード）
+ * - compound（コンパウンド）
  */
 
 import type { HarmonyFilterType } from "../../core/accent/harmony-filter-calculator";
@@ -45,6 +48,13 @@ const HARMONY_TYPE_OPTIONS: readonly HarmonyTypeOption[] = [
 		nameJa: "分裂補色",
 		nameEn: "Split Complementary",
 	},
+	{
+		id: "monochromatic",
+		nameJa: "モノクロマティック",
+		nameEn: "Monochromatic",
+	},
+	{ id: "shades", nameJa: "シェード", nameEn: "Shades" },
+	{ id: "compound", nameJa: "コンパウンド", nameEn: "Compound" },
 ] as const;
 
 /**

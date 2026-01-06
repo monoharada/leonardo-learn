@@ -14,7 +14,10 @@ export type HarmonyFilterType =
 	| "complementary"
 	| "triadic"
 	| "analogous"
-	| "split-complementary";
+	| "split-complementary"
+	| "monochromatic"
+	| "shades"
+	| "compound";
 
 /**
  * ハーモニータイプ定義
@@ -60,6 +63,24 @@ const HARMONY_TYPES: readonly HarmonyTypeDefinition[] = [
 		nameJa: "分裂補色",
 		nameEn: "Split Complementary",
 		hueOffsets: [150, 210],
+	},
+	{
+		id: "monochromatic",
+		nameJa: "モノクロマティック",
+		nameEn: "Monochromatic",
+		hueOffsets: [0], // 同一色相
+	},
+	{
+		id: "shades",
+		nameJa: "シェード",
+		nameEn: "Shades",
+		hueOffsets: [0], // 同一色相、明度のみ変化
+	},
+	{
+		id: "compound",
+		nameJa: "コンパウンド",
+		nameEn: "Compound",
+		hueOffsets: [30, 180], // 類似色 + 補色方向
 	},
 ] as const;
 

@@ -333,3 +333,70 @@
   - 未使用のCSSスタイル（.dads-palette-item__input等）を削除
   - **Modifies:** `src/ui/demo/sidebar.ts`, `src/ui/styles/components.css`
   - _Requirements: コードクリーンアップ_
+
+- [x] 10. 新ハーモニータイプの追加（Adobe Color調査対応）
+
+- [x] 10.1 HarmonyFilterCalculator への新タイプ追加
+  - HarmonyFilterType に3タイプ追加: monochromatic, shades, compound
+  - HARMONY_TYPES配列を8要素に拡張（all含む）
+  - 各タイプの色相オフセット定義:
+    - monochromatic: [0]（同一色相）
+    - shades: [0]（同一色相）
+    - compound: [30, 180]（類似色+補色）
+  - getTargetHues()の更新
+  - **Modifies:** `src/core/accent/harmony-filter-calculator.ts`, `src/core/accent/harmony-filter-calculator.test.ts`
+  - _Requirements: Adobe Color調査レポート Section 6.1_
+
+- [x] 10.2 役割ベースパレット選択の実装
+  - PaletteRole型の定義（accent, accentLight, accentDark, secondary, baseMuted等）
+  - 各ハーモニータイプ用のRoleConfig定義:
+    - COMPLEMENTARY_ROLE_CONFIG
+    - TRIADIC_ROLE_CONFIG
+    - ANALOGOUS_ROLE_CONFIG
+    - SPLIT_COMPLEMENTARY_ROLE_CONFIG
+    - MONOCHROMATIC_ROLE_CONFIG
+    - SHADES_ROLE_CONFIG
+    - COMPOUND_ROLE_CONFIG
+  - stepOffset による明度バリエーション生成
+  - **Creates:** `src/core/accent/palette-role.ts`, `src/core/accent/palette-role.test.ts`
+  - _Requirements: Adobe Color調査レポート Section 6.2_
+
+- [x] 10.3 HarmonyPaletteGenerator の新タイプ対応
+  - generateMonochromaticPalette()の実装（同一色相・異なるステップ）
+  - generateShadesPalette()の実装（同一色相・段階的明度変化）
+  - generateCompoundPalette()の実装（類似色+補色）
+  - 役割ベース選択との統合
+  - STEP_TARGETS定義（明度分布: 500, 300, 700, 800等）
+  - **Modifies:** `src/core/accent/harmony-palette-generator.ts`, `src/core/accent/harmony-palette-generator.test.ts`
+  - _Requirements: Adobe Color調査レポート Section 7_
+
+- [x] 10.4 HarmonyTypeCard の新タイプ対応
+  - HARMONY_TYPE_CARD_CONFIGS に3タイプ追加:
+    - monochromatic: 「モノクロマティック」「同一色相で彩度・明度を変化」
+    - shades: 「シェード」「同一色相で明度のみを変化」
+    - compound: 「コンパウンド」「類似色と補色のハイブリッド」
+  - プレビュースウォッチ（3色）の対応
+  - **Modifies:** `src/ui/accent-selector/harmony-type-card.ts`, `src/ui/accent-selector/harmony-type-card.test.ts`
+  - _Requirements: Adobe Color調査レポート Section 2_
+
+- [x] 10.5 harmony-view.ts の新タイプ対応
+  - loadCardPreviews() に3タイプ追加
+  - カードモードで7種類のハーモニーカード表示
+  - **Modifies:** `src/ui/demo/views/harmony-view.ts`
+  - _Requirements: UI対応_
+
+- [x] 10.6 index.ts の harmonyNames Record 更新
+  - 新3タイプの日本語名追加:
+    - monochromatic: 「モノクロマティック」
+    - shades: 「シェード」
+    - compound: 「コンパウンド」
+  - TypeScriptビルドエラー解消
+  - **Modifies:** `src/ui/demo/index.ts`
+  - _Requirements: TypeScript型安全性_
+
+- [x] 10.7 ユニットテストの追加・更新
+  - harmony-filter-calculator.test.ts: 新3タイプの色相計算テスト
+  - harmony-palette-generator.test.ts: 新ジェネレータのテスト
+  - harmony-type-card.test.ts: 7カード+詳細選択カードのテスト
+  - 全85テストケース合格確認
+  - _Requirements: テストカバレッジ維持_

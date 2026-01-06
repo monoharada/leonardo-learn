@@ -293,6 +293,55 @@ Adobe Colorの調査により、leonardo-learnのアクセント選択UI改善�
 
 ---
 
+## 9. 実装状況（2026年1月6日更新）
+
+### 9.1 完了した改善
+
+| 提案 | 状況 | 実装詳細 |
+|------|------|----------|
+| モノクロマティック追加 | ✅ 完了 | `generateMonochromaticPalette()`実装、同一色相・異なるステップで3色生成 |
+| シェード追加 | ✅ 完了 | `generateShadesPalette()`実装、同一色相・段階的明度変化で3色生成 |
+| コンパウンド追加 | ✅ 完了 | `generateCompoundPalette()`実装、類似色(+30°)+補色(+180°)で3色生成 |
+| 色の役割定義導入 | ✅ 完了 | `PaletteRole`型と各ハーモニータイプ用`RoleConfig`を実装 |
+| ハーモニーカード拡張 | ✅ 完了 | 4種類→7種類に拡張、プレビュースウォッチ対応 |
+
+### 9.2 技術的な実装アプローチ
+
+#### DADSトークン制約への対応
+Adobe Colorは自由に色を生成できるのに対し、leonardo-learnはDADSカラートークン（130色: 10色相 × 13ステップ）に制約されている。
+
+**採用したアプローチ**:
+1. ハーモニースコアを優先してアクセント候補（色相）を選定
+2. `stepOffset`を使用してステップ（明度）を調整しバリエーションを生成
+3. 生成された色は必ずDADSトークンにスナップ
+
+```typescript
+// 役割ベース選択の例（補色の場合）
+const COMPLEMENTARY_ROLE_CONFIG: RoleConfig[] = [
+  { role: "accent", stepOffset: 0 },      // 基準ステップ
+  { role: "accentLight", stepOffset: -2 }, // 2ステップ明るく
+  { role: "accentDark", stepOffset: 2 },   // 2ステップ暗く
+];
+```
+
+### 9.3 未対応の改善提案
+
+| 提案 | 優先度 | 状況 |
+|------|--------|------|
+| 正方形ハーモニー | 中 | 未着手（コアモジュールには存在） |
+| カスタムハーモニー | 低 | 未着手 |
+| パレット5〜6色対応 | 中 | 未着手（現在は3色構成） |
+
+### 9.4 関連ファイル
+
+- 実装タスク: `.kiro/specs/accent-auto-selection/tasks.md` Section 10
+- 役割定義: `src/core/accent/palette-role.ts`
+- パレット生成: `src/core/accent/harmony-palette-generator.ts`
+- フィルタ計算: `src/core/accent/harmony-filter-calculator.ts`
+- UIカード: `src/ui/accent-selector/harmony-type-card.ts`
+
+---
+
 ## 参考資料
 
 - Adobe Color: https://color.adobe.com/ja/create/color-wheel

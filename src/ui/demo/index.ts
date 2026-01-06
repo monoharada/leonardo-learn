@@ -79,6 +79,9 @@ export function runDemo(): void {
 			triadic: "トライアド",
 			analogous: "類似色",
 			"split-complementary": "分裂補色",
+			monochromatic: "モノクロマティック",
+			shades: "シェード",
+			compound: "コンパウンド",
 		};
 
 		const timestamp = Date.now();

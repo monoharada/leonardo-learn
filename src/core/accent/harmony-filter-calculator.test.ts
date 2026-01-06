@@ -16,19 +16,24 @@ import {
 
 describe("HarmonyFilterCalculator", () => {
 	describe("getHarmonyTypes", () => {
-		it("should return 5 harmony type definitions", () => {
+		it("should return 8 harmony type definitions", () => {
 			const types = getHarmonyTypes();
-			expect(types.length).toBe(5);
+			expect(types.length).toBe(8);
 		});
 
 		it("should include all required harmony types", () => {
 			const types = getHarmonyTypes();
 			const ids = types.map((t) => t.id);
+			// 既存の5タイプ
 			expect(ids).toContain("all");
 			expect(ids).toContain("complementary");
 			expect(ids).toContain("triadic");
 			expect(ids).toContain("analogous");
 			expect(ids).toContain("split-complementary");
+			// 新しい3タイプ
+			expect(ids).toContain("monochromatic");
+			expect(ids).toContain("shades");
+			expect(ids).toContain("compound");
 		});
 
 		it('should have correct definitions for "all" type', () => {
@@ -79,6 +84,36 @@ describe("HarmonyFilterCalculator", () => {
 			expect(splitCompType.nameJa).toBe("分裂補色");
 			expect(splitCompType.nameEn).toBe("Split Complementary");
 			expect(splitCompType.hueOffsets).toEqual([150, 210]);
+		});
+
+		it('should have correct definitions for "monochromatic" type', () => {
+			const types = getHarmonyTypes();
+			const monoType = types.find(
+				(t) => t.id === "monochromatic",
+			) as HarmonyTypeDefinition;
+			expect(monoType.nameJa).toBe("モノクロマティック");
+			expect(monoType.nameEn).toBe("Monochromatic");
+			expect(monoType.hueOffsets).toEqual([0]);
+		});
+
+		it('should have correct definitions for "shades" type', () => {
+			const types = getHarmonyTypes();
+			const shadesType = types.find(
+				(t) => t.id === "shades",
+			) as HarmonyTypeDefinition;
+			expect(shadesType.nameJa).toBe("シェード");
+			expect(shadesType.nameEn).toBe("Shades");
+			expect(shadesType.hueOffsets).toEqual([0]);
+		});
+
+		it('should have correct definitions for "compound" type', () => {
+			const types = getHarmonyTypes();
+			const compoundType = types.find(
+				(t) => t.id === "compound",
+			) as HarmonyTypeDefinition;
+			expect(compoundType.nameJa).toBe("コンパウンド");
+			expect(compoundType.nameEn).toBe("Compound");
+			expect(compoundType.hueOffsets).toEqual([30, 180]);
 		});
 	});
 
@@ -143,6 +178,25 @@ describe("HarmonyFilterCalculator", () => {
 			const result = getTargetHues(360, "complementary");
 			// 360 + 180 = 540 -> 180
 			expect(result).toEqual([180]);
+		});
+
+		it('should return [120] for "monochromatic" type with brandHue=120', () => {
+			// モノクロマティックは同一色相
+			const result = getTargetHues(120, "monochromatic");
+			expect(result).toEqual([120]);
+		});
+
+		it('should return [120] for "shades" type with brandHue=120', () => {
+			// シェードも同一色相
+			const result = getTargetHues(120, "shades");
+			expect(result).toEqual([120]);
+		});
+
+		it('should return [150, 300] for "compound" type with brandHue=120', () => {
+			// コンパウンド: +30° と +180°
+			// 120 + 30 = 150, 120 + 180 = 300
+			const result = getTargetHues(120, "compound");
+			expect(result).toEqual([150, 300]);
 		});
 	});
 

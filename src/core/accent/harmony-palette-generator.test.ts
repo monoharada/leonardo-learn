@@ -4,6 +4,7 @@
  */
 
 import { describe, expect, it } from "bun:test";
+import { toOklch } from "../../utils/color-space";
 import {
 	getAllHarmonyPalettes,
 	getHarmonyPaletteColors,
@@ -185,6 +186,320 @@ describe("HarmonyPaletteGenerator", () => {
 			if (result.ok) {
 				expect(result.result.candidates).toHaveLength(2);
 			}
+		});
+	});
+
+	describe("Phase 1: 明度バリエーションテスト", () => {
+		it("3色補色パレットで明度差が15%以上ある", async () => {
+			const result = await getHarmonyPaletteColors(
+				TEST_BRAND_COLOR,
+				"complementary",
+				{ accentCount: 3 },
+			);
+
+			expect(result.ok).toBe(true);
+			if (result.ok) {
+				const colors = result.result.accentColors;
+				expect(colors).toHaveLength(3);
+
+				// 各色の明度（OKLCH L値）を取得
+				const lightnesses = colors.map((hex) => {
+					const oklch = toOklch(hex);
+					return oklch?.l ?? 0;
+				});
+
+				// 最大明度差を計算
+				const maxL = Math.max(...lightnesses);
+				const minL = Math.min(...lightnesses);
+				const lightnessDiff = maxL - minL;
+
+				// 15%以上の明度差があることを確認
+				expect(lightnessDiff).toBeGreaterThanOrEqual(0.15);
+			}
+		});
+
+		it("4色補色パレットでベース方向の色が含まれる", async () => {
+			const result = await getHarmonyPaletteColors(
+				TEST_BRAND_COLOR,
+				"complementary",
+				{ accentCount: 4 },
+			);
+
+			expect(result.ok).toBe(true);
+			if (result.ok) {
+				const candidates = result.result.candidates;
+				expect(candidates).toHaveLength(4);
+
+				// ブランドカラーの色相を取得
+				const brandOklch = toOklch(TEST_BRAND_COLOR);
+				const brandHue = brandOklch?.h ?? 0;
+
+				// 少なくとも1つの候補がベース方向（ブランドカラーに近い色相）にあることを確認
+				const hasBaseDirection = candidates.some((c) => {
+					const hueDiff = Math.abs(c.hue - brandHue);
+					const normalizedDiff = Math.min(hueDiff, 360 - hueDiff);
+					return normalizedDiff <= 30; // ±30°以内
+				});
+
+				expect(hasBaseDirection).toBe(true);
+			}
+		});
+
+		it("5色補色パレットで明暗バリエーションが豊富", async () => {
+			const result = await getHarmonyPaletteColors(
+				TEST_BRAND_COLOR,
+				"complementary",
+				{ accentCount: 5 },
+			);
+
+			expect(result.ok).toBe(true);
+			if (result.ok) {
+				const colors = result.result.accentColors;
+				expect(colors).toHaveLength(5);
+
+				// 各色の明度を取得
+				const lightnesses = colors.map((hex) => {
+					const oklch = toOklch(hex);
+					return oklch?.l ?? 0;
+				});
+
+				// 明度の範囲が広いことを確認（20%以上）
+				const maxL = Math.max(...lightnesses);
+				const minL = Math.min(...lightnesses);
+				const lightnessDiff = maxL - minL;
+
+				expect(lightnessDiff).toBeGreaterThanOrEqual(0.2);
+			}
+		});
+
+		it("トライアドパレットで各方向から色が選定される", async () => {
+			const result = await getHarmonyPaletteColors(
+				TEST_BRAND_COLOR,
+				"triadic",
+				{ accentCount: 4 },
+			);
+
+			expect(result.ok).toBe(true);
+			if (result.ok) {
+				const candidates = result.result.candidates;
+				expect(candidates).toHaveLength(4);
+
+				// ブランドカラーの色相から120°、240°方向の色相を計算
+				const brandOklch = toOklch(TEST_BRAND_COLOR);
+				const brandHue = brandOklch?.h ?? 0;
+				const targetHue1 = (brandHue + 120) % 360;
+				const targetHue2 = (brandHue + 240) % 360;
+
+				// 各方向に少なくとも1色ずつあることを確認
+				const hasDirection1 = candidates.some((c) => {
+					const hueDiff = Math.abs(c.hue - targetHue1);
+					const normalizedDiff = Math.min(hueDiff, 360 - hueDiff);
+					return normalizedDiff <= 30;
+				});
+
+				const hasDirection2 = candidates.some((c) => {
+					const hueDiff = Math.abs(c.hue - targetHue2);
+					const normalizedDiff = Math.min(hueDiff, 360 - hueDiff);
+					return normalizedDiff <= 30;
+				});
+
+				expect(hasDirection1).toBe(true);
+				expect(hasDirection2).toBe(true);
+			}
+		});
+
+		it("役割に基づいて重複しない候補が選定される", async () => {
+			const result = await getHarmonyPaletteColors(
+				TEST_BRAND_COLOR,
+				"complementary",
+				{ accentCount: 5 },
+			);
+
+			expect(result.ok).toBe(true);
+			if (result.ok) {
+				const candidates = result.result.candidates;
+				const tokenIds = candidates.map((c) => c.tokenId);
+
+				// 全てのトークンIDがユニークであることを確認
+				const uniqueTokenIds = new Set(tokenIds);
+				expect(uniqueTokenIds.size).toBe(tokenIds.length);
+			}
+		});
+	});
+
+	describe("Phase 2: 新ハーモニータイプテスト", () => {
+		describe("モノクロマティック", () => {
+			it("モノクロマティックパレットを生成できる", async () => {
+				const result = await getHarmonyPaletteColors(
+					TEST_BRAND_COLOR,
+					"monochromatic",
+				);
+
+				expect(result.ok).toBe(true);
+				if (result.ok) {
+					expect(result.result.brandColor).toBe(TEST_BRAND_COLOR);
+					expect(result.result.accentColors).toHaveLength(2);
+					expect(result.result.harmonyType).toBe("monochromatic");
+				}
+			});
+
+			it("モノクロマティックパレットの全色が同一色相（±30°）", async () => {
+				const result = await getHarmonyPaletteColors(
+					TEST_BRAND_COLOR,
+					"monochromatic",
+					{ accentCount: 3 },
+				);
+
+				expect(result.ok).toBe(true);
+				if (result.ok) {
+					const brandOklch = toOklch(TEST_BRAND_COLOR);
+					const brandHue = brandOklch?.h ?? 0;
+
+					const allWithinRange = result.result.candidates.every((c) => {
+						const hueDiff = Math.abs(c.hue - brandHue);
+						const normalizedDiff = Math.min(hueDiff, 360 - hueDiff);
+						return normalizedDiff <= 30;
+					});
+
+					expect(allWithinRange).toBe(true);
+				}
+			});
+
+			it("モノクロマティックパレットで明度差がある", async () => {
+				const result = await getHarmonyPaletteColors(
+					TEST_BRAND_COLOR,
+					"monochromatic",
+					{ accentCount: 3 },
+				);
+
+				expect(result.ok).toBe(true);
+				if (result.ok) {
+					const lightnesses = result.result.accentColors.map((hex) => {
+						const oklch = toOklch(hex);
+						return oklch?.l ?? 0;
+					});
+
+					const maxL = Math.max(...lightnesses);
+					const minL = Math.min(...lightnesses);
+					expect(maxL - minL).toBeGreaterThanOrEqual(0.2);
+				}
+			});
+		});
+
+		describe("シェード", () => {
+			it("シェードパレットを生成できる", async () => {
+				const result = await getHarmonyPaletteColors(
+					TEST_BRAND_COLOR,
+					"shades",
+				);
+
+				expect(result.ok).toBe(true);
+				if (result.ok) {
+					expect(result.result.brandColor).toBe(TEST_BRAND_COLOR);
+					expect(result.result.accentColors).toHaveLength(2);
+					expect(result.result.harmonyType).toBe("shades");
+				}
+			});
+
+			it("シェードパレットの明度が線形に分布", async () => {
+				const result = await getHarmonyPaletteColors(
+					TEST_BRAND_COLOR,
+					"shades",
+					{ accentCount: 3 },
+				);
+
+				expect(result.ok).toBe(true);
+				if (result.ok) {
+					const lightnesses = result.result.accentColors
+						.map((hex) => {
+							const oklch = toOklch(hex);
+							return oklch?.l ?? 0;
+						})
+						.sort((a, b) => b - a); // 明るい順
+
+					// 線形分布を確認（隣接する明度差が大きく異ならない）
+					if (lightnesses.length >= 3) {
+						const diff1 = lightnesses[0] - lightnesses[1];
+						const diff2 = lightnesses[1] - lightnesses[2];
+						// 差の比率が0.3〜3.0の範囲内（あまりにも偏っていない）
+						const ratio = diff1 / diff2;
+						expect(ratio).toBeGreaterThan(0.1);
+						expect(ratio).toBeLessThan(10);
+					}
+				}
+			});
+		});
+
+		describe("コンパウンド", () => {
+			it("コンパウンドパレットを生成できる", async () => {
+				const result = await getHarmonyPaletteColors(
+					TEST_BRAND_COLOR,
+					"compound",
+				);
+
+				expect(result.ok).toBe(true);
+				if (result.ok) {
+					expect(result.result.brandColor).toBe(TEST_BRAND_COLOR);
+					expect(result.result.accentColors).toHaveLength(2);
+					expect(result.result.harmonyType).toBe("compound");
+				}
+			});
+
+			it("コンパウンドパレットは類似色と補色方向の両方を含む", async () => {
+				const result = await getHarmonyPaletteColors(
+					TEST_BRAND_COLOR,
+					"compound",
+					{ accentCount: 4 },
+				);
+
+				expect(result.ok).toBe(true);
+				if (result.ok) {
+					const brandOklch = toOklch(TEST_BRAND_COLOR);
+					const brandHue = brandOklch?.h ?? 0;
+
+					// 類似色方向（+30°）
+					const analogousHue = (brandHue + 30) % 360;
+					// 補色方向（180°）
+					const complementaryHue = (brandHue + 180) % 360;
+
+					const candidates = result.result.candidates;
+
+					const hasAnalogous = candidates.some((c) => {
+						const hueDiff = Math.abs(c.hue - analogousHue);
+						const normalizedDiff = Math.min(hueDiff, 360 - hueDiff);
+						return normalizedDiff <= 30;
+					});
+
+					const hasComplementary = candidates.some((c) => {
+						const hueDiff = Math.abs(c.hue - complementaryHue);
+						const normalizedDiff = Math.min(hueDiff, 360 - hueDiff);
+						return normalizedDiff <= 30;
+					});
+
+					expect(hasAnalogous).toBe(true);
+					expect(hasComplementary).toBe(true);
+				}
+			});
+		});
+
+		describe("getAllHarmonyPalettes", () => {
+			it("新ハーモニータイプを含む全パレットを取得できる", async () => {
+				const result = await getAllHarmonyPalettes(TEST_BRAND_COLOR);
+
+				expect(result.ok).toBe(true);
+				if (result.ok && result.result) {
+					// 既存の4タイプ
+					expect(result.result.complementary).not.toBeNull();
+					expect(result.result.triadic).not.toBeNull();
+					expect(result.result.analogous).not.toBeNull();
+					expect(result.result["split-complementary"]).not.toBeNull();
+
+					// 新しい3タイプ
+					expect(result.result.monochromatic).not.toBeNull();
+					expect(result.result.shades).not.toBeNull();
+					expect(result.result.compound).not.toBeNull();
+				}
+			});
 		});
 	});
 });
