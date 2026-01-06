@@ -56,6 +56,21 @@ export const HARMONY_TYPE_CARD_CONFIGS: HarmonyTypeCardConfig[] = [
 		name: "分裂補色",
 		description: "補色の両隣の色",
 	},
+	{
+		type: "monochromatic",
+		name: "モノクロマティック",
+		description: "同じ色相で明暗を変化",
+	},
+	{
+		type: "shades",
+		name: "シェード",
+		description: "同じ色相で明度のみ変化",
+	},
+	{
+		type: "compound",
+		name: "コンパウンド",
+		description: "類似色と補色の組み合わせ",
+	},
 ];
 
 /**

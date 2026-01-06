@@ -193,6 +193,9 @@ async function loadCardPreviews(
 			"triadic",
 			"analogous",
 			"split-complementary",
+			"monochromatic",
+			"shades",
+			"compound",
 		];
 
 		for (let i = 0; i < cards.length && i < harmonyTypes.length; i++) {
