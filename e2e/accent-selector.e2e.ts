@@ -9,7 +9,7 @@
  * - ブランドカラー入力テスト
  *
  * Note: Section 8でカード形式のハーモニー選択UIに変更されました。
- * - 4種類のハーモニーカード + 詳細選択カードを表示
+ * - 7種類のハーモニーカード + 詳細選択カードを表示
  * - カードクリックで3色パレットを生成→パレットビューへ遷移
  * - 「詳細選択」で従来のグリッドUIを表示
  *
@@ -126,7 +126,7 @@ test.describe("アクセント選定ビューの表示 (Requirement 4.1)", () =>
 // ============================================================================
 
 test.describe("ハーモニータイプカード表示 (Section 8)", () => {
-	test("4種類のハーモニーカード + 詳細選択カードが表示される", async ({
+	test("7種類のハーモニーカード + 詳細選択カードが表示される", async ({
 		page,
 	}) => {
 		await switchToView(page, "harmony");
@@ -136,10 +136,10 @@ test.describe("ハーモニータイプカード表示 (Section 8)", () => {
 		const cardsGrid = page.locator(SELECTORS.harmonyTypeCards);
 		await expect(cardsGrid).toBeVisible({ timeout: 10000 });
 
-		// 全カード（4つ + 詳細選択）が表示される
+		// 全カード（7つ + 詳細選択）が表示される
 		const allCards = page.locator(SELECTORS.harmonyTypeCard);
 		const cardCount = await allCards.count();
-		expect(cardCount).toBe(5); // 補色, トライアド, 類似色, 分裂補色, 詳細選択
+		expect(cardCount).toBe(8); // 補色, トライアド, 類似色, 分裂補色, モノクロマティック, シェード, コンパウンド, 詳細選択
 	});
 
 	test("各カードにプレビュースウォッチが3つある", async ({ page }) => {
@@ -181,6 +181,9 @@ test.describe("ハーモニータイプカード表示 (Section 8)", () => {
 		expect(titleTexts.some((t) => t.includes("トライアド"))).toBe(true);
 		expect(titleTexts.some((t) => t.includes("類似色"))).toBe(true);
 		expect(titleTexts.some((t) => t.includes("分裂補色"))).toBe(true);
+		expect(titleTexts.some((t) => t.includes("モノクロマティック"))).toBe(true);
+		expect(titleTexts.some((t) => t.includes("シェード"))).toBe(true);
+		expect(titleTexts.some((t) => t.includes("コンパウンド"))).toBe(true);
 	});
 });
 
