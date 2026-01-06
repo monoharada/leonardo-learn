@@ -91,6 +91,26 @@ Circular dependencies are prohibited.
 
 ## Documentation
 
+### Quick Reference Guides
+
+**Reference Documentation**: `/ref/`
+
+| File | Description |
+|------|-------------|
+| `ref/architecture.md` | Three-layer design, module overview, dependency rules |
+| `ref/cud-optimization.md` | CUD algorithm, zones, soft snap, harmony scoring |
+| `ref/accessibility.md` | WCAG 2.1/2.2, APCA, CVD simulation |
+| `ref/development.md` | Commands, code standards, quality gates |
+| `ref/harmony-types.md` | Color harmony types, palette roles |
+
+### Steering Documents
+
+| File | Description |
+|------|-------------|
+| `.kiro/steering/product.md` | Product overview, core capabilities, value proposition |
+| `.kiro/steering/tech.md` | Technical decisions (ADRs), development standards |
+| `.kiro/steering/structure.md` | Directory patterns, naming conventions |
+
 ### User Flows & Testing
 
 **User Flow Documentation**: `.claude/docs/user-flows.md`
