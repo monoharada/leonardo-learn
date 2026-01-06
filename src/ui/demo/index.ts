@@ -119,8 +119,12 @@ export async function runDemo(): Promise<void> {
 			const accentColor = accentColors[i];
 			const candidate = candidates?.[i];
 			if (accentColor) {
-				// dadsSourceName (例: "Blue 600") から baseChromaName (例: "Blue") を抽出
-				const baseChromaName = candidate?.dadsSourceName?.split(" ")[0];
+				// dadsSourceName (例: "Blue 600", "Light Blue 600") から baseChromaName を抽出
+				// 末尾のステップ番号を除去（スペース区切りの複数語色相名に対応）
+				const baseChromaName = candidate?.dadsSourceName?.replace(
+					/\s+\d+$/,
+					"",
+				);
 				const accentPalette = {
 					id: `harmony-accent${i + 1}-${timestamp}`,
 					name: `Accent (${harmonyNames[harmonyType]} ${i + 1})`,
