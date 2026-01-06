@@ -189,8 +189,10 @@ function createPaletteCard(
 	const isPrimary =
 		palette.name === "Primary" || palette.name?.startsWith("Primary");
 
-	// strictモードの場合はCUD推奨色にスナップ
-	let displayHex = keyColor.toHex();
+	// DADSトークンの正確なHEX値を優先使用（Color変換による誤差を回避）
+	// fixedScale.hexValuesがある場合はそれを使用、なければkeyColor.toHex()にフォールバック
+	let displayHex =
+		fixedScale.hexValues?.[fixedScale.keyIndex] ?? keyColor.toHex();
 	let snapInfo: { snapped: boolean; originalHex: string } | null = null;
 	if (state.cudMode === "strict") {
 		const snapResult = snapToCudColor(displayHex, { mode: "strict" });
