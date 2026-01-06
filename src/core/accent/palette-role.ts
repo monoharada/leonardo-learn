@@ -20,6 +20,18 @@ export interface PaletteRole {
 	nameEn: string;
 	usageJa: string;
 	usageEn: string;
+	/**
+	 * 基準ステップからのオフセット
+	 *
+	 * - 正の値: より明るい色を選択（DADSでは小さいステップ値）
+	 * - 負の値: より暗い色を選択（DADSでは大きいステップ値）
+	 * - 計算式: targetStep = baseStep - stepOffset
+	 * - DADSステップ範囲: 50（最明）〜 1200（最暗）
+	 *
+	 * @example
+	 * baseStep=500, stepOffset=+300 → targetStep=200 (明るい)
+	 * baseStep=500, stepOffset=-400 → targetStep=900 (暗い)
+	 */
 	stepOffset: number;
 	hueDirection: "harmony" | "base";
 	harmonyDirectionIndex?: number;
@@ -196,8 +208,14 @@ export function getRoleConfigForHarmony(
 			return SHADES_ROLE_CONFIG;
 		case "compound":
 			return COMPOUND_ROLE_CONFIG;
-		default:
+		default: {
+			// exhaustive check: 未知のハーモニータイプを検出
+			// TypeScriptの型安全性を維持しつつ、ランタイムでの警告を出力
+			console.warn(
+				`Unknown harmony type: ${harmonyType as string}, falling back to complementary`,
+			);
 			return COMPLEMENTARY_ROLE_CONFIG;
+		}
 	}
 }
 

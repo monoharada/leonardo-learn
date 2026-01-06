@@ -18,8 +18,12 @@ export interface HarmonyTypeCardConfig {
 	type: HarmonyFilterType;
 	/** 表示名（日本語） */
 	name: string;
-	/** 説明文 */
+	/** 表示名（英語） */
+	nameEn: string;
+	/** 説明文（日本語） */
 	description: string;
+	/** 説明文（英語） */
+	descriptionEn: string;
 }
 
 /**
@@ -39,37 +43,51 @@ export const HARMONY_TYPE_CARD_CONFIGS: HarmonyTypeCardConfig[] = [
 	{
 		type: "complementary",
 		name: "補色",
+		nameEn: "Complementary",
 		description: "色相環で正反対の色",
+		descriptionEn: "Colors opposite on the color wheel",
 	},
 	{
 		type: "triadic",
 		name: "トライアド",
+		nameEn: "Triadic",
 		description: "色相環を3等分した配色",
+		descriptionEn: "Three colors equally spaced on the wheel",
 	},
 	{
 		type: "analogous",
 		name: "類似色",
+		nameEn: "Analogous",
 		description: "色相環で隣り合う色",
+		descriptionEn: "Adjacent colors on the color wheel",
 	},
 	{
 		type: "split-complementary",
 		name: "分裂補色",
+		nameEn: "Split-Complementary",
 		description: "補色の両隣の色",
+		descriptionEn: "Colors adjacent to the complement",
 	},
 	{
 		type: "monochromatic",
 		name: "モノクロマティック",
+		nameEn: "Monochromatic",
 		description: "同じ色相で明暗を変化",
+		descriptionEn: "Single hue with varied lightness and saturation",
 	},
 	{
 		type: "shades",
 		name: "シェード",
+		nameEn: "Shades",
 		description: "同じ色相で明度のみ変化",
+		descriptionEn: "Single hue with varied lightness only",
 	},
 	{
 		type: "compound",
 		name: "コンパウンド",
+		nameEn: "Compound",
 		description: "類似色と補色の組み合わせ",
+		descriptionEn: "Combination of analogous and complementary",
 	},
 ];
 

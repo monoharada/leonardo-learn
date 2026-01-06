@@ -301,6 +301,16 @@ function generateMultiDirectionPalette(
 
 /**
  * ステップ目標値（モノクロマティック/シェード用）
+ *
+ * 【設計意図 - Issue #4 への回答】
+ * Monochromatic/Shadesハーモニーは「均等な明度分布」が本質であるため、
+ * 役割ベース選択（PaletteRole.stepOffset）ではなくSTEP_TARGETSを直接使用しています。
+ *
+ * 役割ベースは「アクセントLight/Dark」のような相対的な明度調整に適していますが、
+ * モノクロマティック/シェードでは全色が同一色相内で均等に分布することが重要です。
+ * これは意図的な設計判断であり、他のハーモニータイプとの実装差異は許容されます。
+ *
+ * DADS仕様: 50=最も明るい、1200=最も暗い
  */
 const STEP_TARGETS: Record<2 | 3 | 4 | 5, number[]> = {
 	2: [200, 900],
