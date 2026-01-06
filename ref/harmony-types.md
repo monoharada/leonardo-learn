@@ -24,7 +24,7 @@ UI-level color wheel harmonies used to filter accent color candidates based on h
 | **monochromatic** | 0° | Same hue, varied L/C |
 | **shades** | 0° | Same hue, lightness variation |
 | **compound** | 30°, 180° | Analogous + complement |
-| **square** | 90°, 180°, 270° | Square on wheel |
+| **square** | 90°, 180°, 270° | 4 colors at 90° intervals (brand + offsets) |
 
 ### Filtering Logic
 

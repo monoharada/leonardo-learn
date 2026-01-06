@@ -201,9 +201,9 @@ export const COMPOUND_ROLE_CONFIG: RoleConfigByCount = {
 };
 
 /**
- * 正方形（Square）: 90°, 180°, 270°の3方向
- * 色相環を4等分した配色
- * harmony方向[0]=90°、harmony方向[1]=180°、harmony方向[2]=270°
+ * 正方形（Square）: ブランド色(0°) + 90°, 180°, 270°で計4色相
+ * 色相環を90°間隔で4等分した配色
+ * harmony方向[0]=+90°、harmony方向[1]=+180°、harmony方向[2]=+270°
  */
 export const SQUARE_ROLE_CONFIG: RoleConfigByCount = {
 	2: ["accent", "secondary"],
