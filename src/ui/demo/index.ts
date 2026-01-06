@@ -82,6 +82,7 @@ export function runDemo(): void {
 			monochromatic: "モノクロマティック",
 			shades: "シェード",
 			compound: "コンパウンド",
+			square: "正方形",
 		};
 
 		const timestamp = Date.now();

@@ -65,6 +65,7 @@ export interface AllHarmonyPalettesResult {
 	monochromatic: HarmonyPaletteResult | null;
 	shades: HarmonyPaletteResult | null;
 	compound: HarmonyPaletteResult | null;
+	square: HarmonyPaletteResult | null;
 }
 
 /**
@@ -580,6 +581,7 @@ export async function getHarmonyPaletteColors(
 		case "triadic":
 		case "analogous":
 		case "split-complementary":
+		case "square":
 			palette = generateMultiDirectionPalette(
 				brandColorHex,
 				candidates,
@@ -681,6 +683,12 @@ export async function getAllHarmonyPalettes(
 		),
 		shades: generateShadesPalette(brandColorHex, candidates, accentCount),
 		compound: generateCompoundPalette(brandColorHex, candidates, accentCount),
+		square: generateMultiDirectionPalette(
+			brandColorHex,
+			candidates,
+			"square",
+			accentCount,
+		),
 	};
 
 	return { ok: true, result };

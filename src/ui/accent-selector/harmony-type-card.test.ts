@@ -179,7 +179,7 @@ describe("DetailSelectCard", () => {
 });
 
 describe("createHarmonyTypeCardGrid", () => {
-	it("7つのハーモニーカードと1つの詳細カードを作成する", () => {
+	it("8つのハーモニーカードと1つの詳細カードを作成する", () => {
 		const onCardClick = mock(() => {});
 		const onDetailClick = mock(() => {});
 
@@ -189,11 +189,11 @@ describe("createHarmonyTypeCardGrid", () => {
 			onDetailClick,
 		);
 
-		expect(cards.length).toBe(7);
+		expect(cards.length).toBe(8);
 		expect(detailCard).toBeDefined();
 
 		const allCards = container.querySelectorAll(".harmony-type-card");
-		expect(allCards.length).toBe(8); // 7 + 1
+		expect(allCards.length).toBe(9); // 8 + 1
 	});
 
 	it("グリッドコンテナが作成される", () => {
@@ -208,8 +208,8 @@ describe("createHarmonyTypeCardGrid", () => {
 });
 
 describe("HARMONY_TYPE_CARD_CONFIGS", () => {
-	it("7つのハーモニータイプが定義されている", () => {
-		expect(HARMONY_TYPE_CARD_CONFIGS.length).toBe(7);
+	it("8つのハーモニータイプが定義されている", () => {
+		expect(HARMONY_TYPE_CARD_CONFIGS.length).toBe(8);
 	});
 
 	it("必要なプロパティが定義されている", () => {
@@ -231,5 +231,7 @@ describe("HARMONY_TYPE_CARD_CONFIGS", () => {
 		expect(types).toContain("monochromatic");
 		expect(types).toContain("shades");
 		expect(types).toContain("compound");
+		// 追加のタイプ
+		expect(types).toContain("square");
 	});
 });

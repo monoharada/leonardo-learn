@@ -196,6 +196,7 @@ async function loadCardPreviews(
 			"monochromatic",
 			"shades",
 			"compound",
+			"square",
 		];
 
 		for (let i = 0; i < cards.length && i < harmonyTypes.length; i++) {

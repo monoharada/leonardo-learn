@@ -482,6 +482,67 @@ describe("HarmonyPaletteGenerator", () => {
 			});
 		});
 
+		describe("正方形", () => {
+			it("正方形パレットを生成できる", async () => {
+				const result = await getHarmonyPaletteColors(
+					TEST_BRAND_COLOR,
+					"square",
+					{ accentCount: 3 },
+				);
+
+				expect(result.ok).toBe(true);
+				if (result.ok) {
+					expect(result.result.brandColor).toBe(TEST_BRAND_COLOR);
+					expect(result.result.accentColors).toHaveLength(3);
+					expect(result.result.harmonyType).toBe("square");
+				}
+			});
+
+			it("正方形パレットは3方向の色相を含む", async () => {
+				const result = await getHarmonyPaletteColors(
+					TEST_BRAND_COLOR,
+					"square",
+					{ accentCount: 3 },
+				);
+
+				expect(result.ok).toBe(true);
+				if (result.ok) {
+					const brandOklch = toOklch(TEST_BRAND_COLOR);
+					const brandHue = brandOklch?.h ?? 0;
+
+					const squareHues = [
+						(brandHue + 90) % 360,
+						(brandHue + 180) % 360,
+						(brandHue + 270) % 360,
+					];
+
+					const candidates = result.result.candidates;
+
+					const has90 = candidates.some((c) => {
+						const hueDiff = Math.abs(c.hue - squareHues[0]);
+						const normalizedDiff = Math.min(hueDiff, 360 - hueDiff);
+						return normalizedDiff <= 30;
+					});
+
+					const has180 = candidates.some((c) => {
+						const hueDiff = Math.abs(c.hue - squareHues[1]);
+						const normalizedDiff = Math.min(hueDiff, 360 - hueDiff);
+						return normalizedDiff <= 30;
+					});
+
+					const has270 = candidates.some((c) => {
+						const hueDiff = Math.abs(c.hue - squareHues[2]);
+						const normalizedDiff = Math.min(hueDiff, 360 - hueDiff);
+						return normalizedDiff <= 30;
+					});
+
+					expect(has90).toBe(true);
+					expect(has180).toBe(true);
+					expect(has270).toBe(true);
+				}
+			});
+		});
+
 		describe("getAllHarmonyPalettes", () => {
 			it("新ハーモニータイプを含む全パレットを取得できる", async () => {
 				const result = await getAllHarmonyPalettes(TEST_BRAND_COLOR);
@@ -498,6 +559,7 @@ describe("HarmonyPaletteGenerator", () => {
 					expect(result.result.monochromatic).not.toBeNull();
 					expect(result.result.shades).not.toBeNull();
 					expect(result.result.compound).not.toBeNull();
+					expect(result.result.square).not.toBeNull();
 				}
 			});
 		});

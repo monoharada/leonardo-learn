@@ -10,6 +10,7 @@ export type PaletteRoleId =
 	| "secondary"
 	| "secondaryLight"
 	| "secondaryDark"
+	| "tertiary"
 	| "baseMuted"
 	| "baseLight"
 	| "baseDark";
@@ -91,6 +92,15 @@ export const PALETTE_ROLES: Record<PaletteRoleId, Omit<PaletteRole, "id">> = {
 		stepOffset: -400,
 		hueDirection: "harmony",
 		harmonyDirectionIndex: 1,
+	},
+	tertiary: {
+		nameJa: "ターシャリ",
+		nameEn: "Tertiary",
+		usageJa: "三次アクセント",
+		usageEn: "Tertiary accent",
+		stepOffset: 0,
+		hueDirection: "harmony",
+		harmonyDirectionIndex: 2,
 	},
 	baseMuted: {
 		nameJa: "ベース（彩度低）",
@@ -190,6 +200,18 @@ export const COMPOUND_ROLE_CONFIG: RoleConfigByCount = {
 	5: ["accent", "accentLight", "accentDark", "secondary", "secondaryDark"],
 };
 
+/**
+ * 正方形（Square）: ブランド色(0°) + 90°, 180°, 270°で計4色相
+ * 色相環を90°間隔で4等分した配色
+ * harmony方向[0]=+90°、harmony方向[1]=+180°、harmony方向[2]=+270°
+ */
+export const SQUARE_ROLE_CONFIG: RoleConfigByCount = {
+	2: ["accent", "secondary"],
+	3: ["accent", "secondary", "tertiary"],
+	4: ["accent", "secondary", "tertiary", "accentDark"],
+	5: ["accent", "accentLight", "secondary", "tertiary", "accentDark"],
+};
+
 export function getRoleConfigForHarmony(
 	harmonyType: Exclude<HarmonyFilterType, "all">,
 ): RoleConfigByCount {
@@ -208,6 +230,8 @@ export function getRoleConfigForHarmony(
 			return SHADES_ROLE_CONFIG;
 		case "compound":
 			return COMPOUND_ROLE_CONFIG;
+		case "square":
+			return SQUARE_ROLE_CONFIG;
 		default: {
 			// exhaustive check: 未知のハーモニータイプを検出
 			// TypeScriptの型安全性を維持しつつ、ランタイムでの警告を出力

@@ -19,14 +19,15 @@ import {
 	type PaletteRoleId,
 	SHADES_ROLE_CONFIG,
 	SPLIT_COMPLEMENTARY_ROLE_CONFIG,
+	SQUARE_ROLE_CONFIG,
 	TRIADIC_ROLE_CONFIG,
 } from "./palette-role";
 
 describe("PaletteRole", () => {
 	describe("PALETTE_ROLES", () => {
-		it("should define 9 role types", () => {
+		it("should define 10 role types", () => {
 			const roleIds = Object.keys(PALETTE_ROLES);
-			expect(roleIds.length).toBe(9);
+			expect(roleIds.length).toBe(10);
 		});
 
 		it("should include all required role IDs", () => {
@@ -37,6 +38,7 @@ describe("PaletteRole", () => {
 			expect(roleIds).toContain("secondary");
 			expect(roleIds).toContain("secondaryLight");
 			expect(roleIds).toContain("secondaryDark");
+			expect(roleIds).toContain("tertiary");
 			expect(roleIds).toContain("baseMuted");
 			expect(roleIds).toContain("baseLight");
 			expect(roleIds).toContain("baseDark");
@@ -94,6 +96,12 @@ describe("PaletteRole", () => {
 			expect(role.harmonyDirectionIndex).toBe(1);
 		});
 
+		it("should return role for third harmony direction", () => {
+			const role = getPaletteRole("tertiary");
+			expect(role.hueDirection).toBe("harmony");
+			expect(role.harmonyDirectionIndex).toBe(2);
+		});
+
 		it("should return role for base direction", () => {
 			const role = getPaletteRole("baseMuted");
 			expect(role.hueDirection).toBe("base");
@@ -135,6 +143,11 @@ describe("PaletteRole", () => {
 		it("should return COMPOUND_ROLE_CONFIG for compound", () => {
 			const config = getRoleConfigForHarmony("compound");
 			expect(config).toBe(COMPOUND_ROLE_CONFIG);
+		});
+
+		it("should return SQUARE_ROLE_CONFIG for square", () => {
+			const config = getRoleConfigForHarmony("square");
+			expect(config).toBe(SQUARE_ROLE_CONFIG);
 		});
 
 		it("should log warning for unknown harmony type", () => {
@@ -194,6 +207,12 @@ describe("PaletteRole", () => {
 			const ids = roles.map((r) => r.id);
 			expect(ids).toEqual(["baseLight", "baseMuted", "baseDark", "accentDark"]);
 		});
+
+		it("should include tertiary for square 3-count", () => {
+			const roles = getRolesForCount("square", 3);
+			const ids = roles.map((r) => r.id);
+			expect(ids).toEqual(["accent", "secondary", "tertiary"]);
+		});
 	});
 
 	describe("Role Config Structures", () => {
@@ -205,6 +224,7 @@ describe("PaletteRole", () => {
 			{ name: "MONOCHROMATIC", config: MONOCHROMATIC_ROLE_CONFIG },
 			{ name: "SHADES", config: SHADES_ROLE_CONFIG },
 			{ name: "COMPOUND", config: COMPOUND_ROLE_CONFIG },
+			{ name: "SQUARE", config: SQUARE_ROLE_CONFIG },
 		];
 
 		for (const { name, config } of roleConfigs) {

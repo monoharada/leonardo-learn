@@ -17,7 +17,8 @@ export type HarmonyFilterType =
 	| "split-complementary"
 	| "monochromatic"
 	| "shades"
-	| "compound";
+	| "compound"
+	| "square";
 
 /**
  * ハーモニータイプ定義
@@ -81,6 +82,12 @@ const HARMONY_TYPES: readonly HarmonyTypeDefinition[] = [
 		nameJa: "コンパウンド",
 		nameEn: "Compound",
 		hueOffsets: [30, 180], // 類似色 + 補色方向
+	},
+	{
+		id: "square",
+		nameJa: "正方形",
+		nameEn: "Square",
+		hueOffsets: [90, 180, 270], // 正方形（90度, 180度, 270度）
 	},
 ] as const;
 

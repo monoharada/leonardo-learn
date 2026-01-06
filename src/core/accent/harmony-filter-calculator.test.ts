@@ -16,9 +16,9 @@ import {
 
 describe("HarmonyFilterCalculator", () => {
 	describe("getHarmonyTypes", () => {
-		it("should return 8 harmony type definitions", () => {
+		it("should return 9 harmony type definitions", () => {
 			const types = getHarmonyTypes();
-			expect(types.length).toBe(8);
+			expect(types.length).toBe(9);
 		});
 
 		it("should include all required harmony types", () => {
@@ -34,6 +34,8 @@ describe("HarmonyFilterCalculator", () => {
 			expect(ids).toContain("monochromatic");
 			expect(ids).toContain("shades");
 			expect(ids).toContain("compound");
+			// 追加のタイプ
+			expect(ids).toContain("square");
 		});
 
 		it('should have correct definitions for "all" type', () => {
@@ -114,6 +116,16 @@ describe("HarmonyFilterCalculator", () => {
 			expect(compoundType.nameJa).toBe("コンパウンド");
 			expect(compoundType.nameEn).toBe("Compound");
 			expect(compoundType.hueOffsets).toEqual([30, 180]);
+		});
+
+		it('should have correct definitions for "square" type', () => {
+			const types = getHarmonyTypes();
+			const squareType = types.find(
+				(t) => t.id === "square",
+			) as HarmonyTypeDefinition;
+			expect(squareType.nameJa).toBe("正方形");
+			expect(squareType.nameEn).toBe("Square");
+			expect(squareType.hueOffsets).toEqual([90, 180, 270]);
 		});
 	});
 
@@ -197,6 +209,19 @@ describe("HarmonyFilterCalculator", () => {
 			// 120 + 30 = 150, 120 + 180 = 300
 			const result = getTargetHues(120, "compound");
 			expect(result).toEqual([150, 300]);
+		});
+
+		it('should return [210, 300, 30] for "square" type with brandHue=120', () => {
+			// 正方形: +90°, +180°, +270°
+			// 120 + 90 = 210, 120 + 180 = 300, 120 + 270 = 390 -> 30
+			const result = getTargetHues(120, "square");
+			expect(result).toEqual([210, 300, 30]);
+		});
+
+		it('should handle wrap-around for "square" with brandHue=300', () => {
+			// 300 + 90 = 390 -> 30, 300 + 180 = 480 -> 120, 300 + 270 = 570 -> 210
+			const result = getTargetHues(300, "square");
+			expect(result).toEqual([30, 120, 210]);
 		});
 	});
 

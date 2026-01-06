@@ -73,6 +73,11 @@ describe("HarmonyFilterUI", () => {
 			expect(filter.getSelectedType()).toBe("compound");
 		});
 
+		test("square を設定できる", () => {
+			filter.setSelectedType("square");
+			expect(filter.getSelectedType()).toBe("square");
+		});
+
 		test("all に戻せる", () => {
 			filter.setSelectedType("complementary");
 			filter.setSelectedType("all");
@@ -120,7 +125,7 @@ describe("HarmonyFilterUI", () => {
 		test("全てのハーモニータイプオプションを返す", () => {
 			const options = filter.getHarmonyTypeOptions();
 
-			expect(options.length).toBe(8);
+			expect(options.length).toBe(9);
 
 			// 各オプションが正しい形式を持つことを確認
 			for (const option of options) {
@@ -184,6 +189,13 @@ describe("HarmonyFilterUI", () => {
 			const option = options.find((o) => o.id === "compound");
 			expect(option).toBeDefined();
 			expect(option?.nameJa).toBe("コンパウンド");
+		});
+
+		test("オプションに 'square' が含まれる", () => {
+			const options = filter.getHarmonyTypeOptions();
+			const option = options.find((o) => o.id === "square");
+			expect(option).toBeDefined();
+			expect(option?.nameJa).toBe("正方形");
 		});
 	});
 
