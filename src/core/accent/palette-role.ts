@@ -10,6 +10,7 @@ export type PaletteRoleId =
 	| "secondary"
 	| "secondaryLight"
 	| "secondaryDark"
+	| "tertiary"
 	| "baseMuted"
 	| "baseLight"
 	| "baseDark";
@@ -91,6 +92,15 @@ export const PALETTE_ROLES: Record<PaletteRoleId, Omit<PaletteRole, "id">> = {
 		stepOffset: -400,
 		hueDirection: "harmony",
 		harmonyDirectionIndex: 1,
+	},
+	tertiary: {
+		nameJa: "ターシャリ",
+		nameEn: "Tertiary",
+		usageJa: "三次アクセント",
+		usageEn: "Tertiary accent",
+		stepOffset: 0,
+		hueDirection: "harmony",
+		harmonyDirectionIndex: 2,
 	},
 	baseMuted: {
 		nameJa: "ベース（彩度低）",
@@ -197,9 +207,9 @@ export const COMPOUND_ROLE_CONFIG: RoleConfigByCount = {
  */
 export const SQUARE_ROLE_CONFIG: RoleConfigByCount = {
 	2: ["accent", "secondary"],
-	3: ["accent", "secondary", "accentDark"],
-	4: ["accent", "accentDark", "secondary", "secondaryDark"],
-	5: ["accent", "accentLight", "accentDark", "secondary", "secondaryDark"],
+	3: ["accent", "secondary", "tertiary"],
+	4: ["accent", "secondary", "tertiary", "accentDark"],
+	5: ["accent", "accentLight", "secondary", "tertiary", "accentDark"],
 };
 
 export function getRoleConfigForHarmony(
