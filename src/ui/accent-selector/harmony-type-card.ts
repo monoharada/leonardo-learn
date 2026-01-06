@@ -89,6 +89,13 @@ export const HARMONY_TYPE_CARD_CONFIGS: HarmonyTypeCardConfig[] = [
 		description: "類似色と補色の組み合わせ",
 		descriptionEn: "Combination of analogous and complementary",
 	},
+	{
+		type: "square",
+		name: "正方形",
+		nameEn: "Square",
+		description: "色相環を4等分した配色",
+		descriptionEn: "Four colors equally spaced on the wheel",
+	},
 ];
 
 /**

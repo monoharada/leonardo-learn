@@ -14,6 +14,7 @@
  * - monochromatic（モノクロマティック）
  * - shades（シェード）
  * - compound（コンパウンド）
+ * - square（正方形）
  */
 
 import type { HarmonyFilterType } from "../../core/accent/harmony-filter-calculator";
@@ -55,6 +56,7 @@ const HARMONY_TYPE_OPTIONS: readonly HarmonyTypeOption[] = [
 	},
 	{ id: "shades", nameJa: "シェード", nameEn: "Shades" },
 	{ id: "compound", nameJa: "コンパウンド", nameEn: "Compound" },
+	{ id: "square", nameJa: "正方形", nameEn: "Square" },
 ] as const;
 
 /**

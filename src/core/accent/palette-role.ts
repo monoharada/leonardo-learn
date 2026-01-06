@@ -190,6 +190,18 @@ export const COMPOUND_ROLE_CONFIG: RoleConfigByCount = {
 	5: ["accent", "accentLight", "accentDark", "secondary", "secondaryDark"],
 };
 
+/**
+ * 正方形（Square）: 90°, 180°, 270°の3方向
+ * 色相環を4等分した配色
+ * harmony方向[0]=90°、harmony方向[1]=180°、harmony方向[2]=270°
+ */
+export const SQUARE_ROLE_CONFIG: RoleConfigByCount = {
+	2: ["accent", "secondary"],
+	3: ["accent", "secondary", "accentDark"],
+	4: ["accent", "accentDark", "secondary", "secondaryDark"],
+	5: ["accent", "accentLight", "accentDark", "secondary", "secondaryDark"],
+};
+
 export function getRoleConfigForHarmony(
 	harmonyType: Exclude<HarmonyFilterType, "all">,
 ): RoleConfigByCount {
@@ -208,6 +220,8 @@ export function getRoleConfigForHarmony(
 			return SHADES_ROLE_CONFIG;
 		case "compound":
 			return COMPOUND_ROLE_CONFIG;
+		case "square":
+			return SQUARE_ROLE_CONFIG;
 		default: {
 			// exhaustive check: 未知のハーモニータイプを検出
 			// TypeScriptの型安全性を維持しつつ、ランタイムでの警告を出力
