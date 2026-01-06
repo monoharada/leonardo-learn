@@ -165,13 +165,15 @@ export async function runDemo(): Promise<void> {
 		handleGenerate(inputHex, HarmonyType.DADS, {
 			onComplete: () => {
 				// アクセントカラーとしてパレットに追加
+				// dadsSourceName (例: "Light Blue 600") からステップを除去してbaseChromaNameを取得
+				const baseChromaName = candidate.dadsSourceName.replace(/\s+\d+$/, "");
 				const accentPalette = {
 					id: `accent-${Date.now()}`,
 					name: `Accent: ${candidate.dadsSourceName}`,
 					keyColors: [candidate.hex],
 					ratios: [21, 15, 10, 7, 4.5, 3, 1],
 					harmony: HarmonyType.DADS,
-					baseChromaName: candidate.dadsSourceName,
+					baseChromaName,
 					step: candidate.step,
 				};
 
