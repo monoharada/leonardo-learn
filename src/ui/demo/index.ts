@@ -11,6 +11,7 @@
 import type { ScoredCandidate } from "@/core/accent/accent-candidate-service";
 import type { HarmonyFilterType } from "@/core/accent/harmony-filter-calculator";
 import { HarmonyType, initializeHarmonyDads } from "@/core/harmony";
+import { getRandomDadsColor } from "@/core/tokens/random-color-picker";
 
 /**
  * Regex pattern to extract base chroma name from DADS source name
@@ -68,6 +69,25 @@ export async function runDemo(): Promise<void> {
 
 	// 必須要素のガード
 	if (!app || !paletteListEl) return;
+
+	// ========================================
+	// 初期ブランドカラーのランダム選択
+	// ========================================
+	// keyColorsInputが存在し、デフォルト値（#3366cc）のままの場合はランダム選択
+	if (keyColorsInput) {
+		const currentValue = keyColorsInput.value.trim();
+		// デフォルト値の場合はランダムに選択
+		if (currentValue === "#3366cc" || currentValue === "") {
+			try {
+				const randomHex = await getRandomDadsColor();
+				keyColorsInput.value = randomHex;
+			} catch (error) {
+				console.warn("Failed to get random initial color, using default:", error);
+				// エラー時はデフォルト値を使用
+				keyColorsInput.value = "#3366cc";
+			}
+		}
+	}
 
 	// ========================================
 	// コールバック定義（View→Feature接続）

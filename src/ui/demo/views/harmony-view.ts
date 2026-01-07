@@ -15,6 +15,7 @@ import { generateCandidates } from "@/core/accent/accent-candidate-service";
 import type { HarmonyFilterType } from "@/core/accent/harmony-filter-calculator";
 import { filterByHarmonyType } from "@/core/accent/harmony-filter-service";
 import { getAllHarmonyPalettes } from "@/core/accent/harmony-palette-generator";
+import { getRandomDadsColor } from "@/core/tokens/random-color-picker";
 import { toOklch } from "@/utils/color-space";
 import { AccentCandidateGrid } from "../../accent-selector/accent-candidate-grid";
 import { HarmonyFilterUI } from "../../accent-selector/harmony-filter-ui";
@@ -376,9 +377,37 @@ function createHeader(
 		}
 	});
 
+	// ランダム選択ボタン
+	const randomButton = document.createElement("button");
+	randomButton.type = "button";
+	randomButton.className = "dads-button dads-button--secondary dads-button--random";
+	randomButton.innerHTML = "🎲 ランダム";
+	randomButton.dataset.testid = "random-color-button";
+	randomButton.title = "DADSカラーからランダムに選択";
+
+	randomButton.addEventListener("click", async (e) => {
+		e.stopPropagation();
+		try {
+			// ボタンを無効化してローディング状態にする
+			randomButton.disabled = true;
+			randomButton.innerHTML = "⏳ 選択中...";
+
+			const randomHex = await getRandomDadsColor();
+			updateColor(randomHex, "picker");
+		} catch (error) {
+			console.error("Failed to get random color:", error);
+			alert("ランダムカラーの取得に失敗しました");
+		} finally {
+			// ボタンを元に戻す
+			randomButton.disabled = false;
+			randomButton.innerHTML = "🎲 ランダム";
+		}
+	});
+
 	// 要素の組み立て
 	inputRow.appendChild(colorText);
 	inputRow.appendChild(colorPicker);
+	inputRow.appendChild(randomButton);
 	colorInput.appendChild(colorLabel);
 	colorInput.appendChild(inputRow);
 	header.appendChild(colorInput);
