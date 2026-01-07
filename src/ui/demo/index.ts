@@ -11,6 +11,13 @@
 import type { ScoredCandidate } from "@/core/accent/accent-candidate-service";
 import type { HarmonyFilterType } from "@/core/accent/harmony-filter-calculator";
 import { HarmonyType, initializeHarmonyDads } from "@/core/harmony";
+
+/**
+ * Regex pattern to extract base chroma name from DADS source name
+ * Removes trailing step number (e.g., "Light Blue 600" -> "Light Blue")
+ */
+const DADS_STEP_SUFFIX_PATTERN = /\s+\d+$/;
+
 import { openColorDetailModal } from "./color-detail-modal";
 import {
 	applySimulation,
@@ -122,7 +129,7 @@ export async function runDemo(): Promise<void> {
 				// dadsSourceName (例: "Blue 600", "Light Blue 600") から baseChromaName を抽出
 				// 末尾のステップ番号を除去（スペース区切りの複数語色相名に対応）
 				const baseChromaName = candidate?.dadsSourceName?.replace(
-					/\s+\d+$/,
+					DADS_STEP_SUFFIX_PATTERN,
 					"",
 				);
 				const accentPalette = {
@@ -166,7 +173,10 @@ export async function runDemo(): Promise<void> {
 			onComplete: () => {
 				// アクセントカラーとしてパレットに追加
 				// dadsSourceName (例: "Light Blue 600") からステップを除去してbaseChromaNameを取得
-				const baseChromaName = candidate.dadsSourceName.replace(/\s+\d+$/, "");
+				const baseChromaName = candidate.dadsSourceName.replace(
+					DADS_STEP_SUFFIX_PATTERN,
+					"",
+				);
 				const accentPalette = {
 					id: `accent-${Date.now()}`,
 					name: `Accent: ${candidate.dadsSourceName}`,

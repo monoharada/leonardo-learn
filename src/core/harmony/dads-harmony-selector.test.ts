@@ -9,10 +9,7 @@ import { beforeAll, describe, expect, test } from "bun:test";
 import { oklch } from "culori";
 import { loadDadsTokens } from "../tokens/dads-data-provider";
 import type { DadsToken } from "../tokens/types";
-import {
-	DadsHarmonySelector,
-	type HarmonyPaletteResult,
-} from "./dads-harmony-selector";
+import { DadsHarmonySelector } from "./dads-harmony-selector";
 
 describe("DadsHarmonySelector", () => {
 	let selector: DadsHarmonySelector;

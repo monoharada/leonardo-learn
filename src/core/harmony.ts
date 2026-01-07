@@ -12,34 +12,36 @@ import type { DadsToken } from "./tokens/types";
 
 // DADS Harmony Selector cache
 let cachedDadsSelector: DadsHarmonySelector | null = null;
-let isInitializing = false;
+let initPromise: Promise<void> | null = null;
 
 /**
  * Initialize DADS Harmony Selector
  * Must be called before using harmony types with DADS token selection
  *
+ * Uses Promise queue pattern to avoid race conditions when multiple
+ * callers attempt initialization simultaneously.
+ *
  * @returns Promise that resolves when initialization is complete
  */
 export async function initializeHarmonyDads(): Promise<void> {
 	if (cachedDadsSelector) return;
-	if (isInitializing) {
-		// Wait for existing initialization to complete
-		while (isInitializing) {
-			await new Promise((resolve) => setTimeout(resolve, 10));
-		}
-		return;
-	}
+	if (initPromise) return initPromise;
 
-	isInitializing = true;
-	try {
-		const tokens = await loadDadsTokens();
-		const chromaticTokens = tokens.filter(
-			(t: DadsToken) => t.classification.category === "chromatic",
-		);
-		cachedDadsSelector = new DadsHarmonySelector(chromaticTokens);
-	} finally {
-		isInitializing = false;
-	}
+	initPromise = (async () => {
+		try {
+			const tokens = await loadDadsTokens();
+			const chromaticTokens = tokens.filter(
+				(t: DadsToken) => t.classification.category === "chromatic",
+			);
+			cachedDadsSelector = new DadsHarmonySelector(chromaticTokens);
+		} catch (error) {
+			// Reset on failure to allow retry
+			initPromise = null;
+			throw error;
+		}
+	})();
+
+	return initPromise;
 }
 
 /**

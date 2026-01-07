@@ -80,7 +80,7 @@ export function getTokensByHue(
  * ```
  */
 export function selectDadsStep(
-	hueName: LocalDadsColorHue | DadsColorHue | string,
+	hueName: LocalDadsColorHue | DadsColorHue,
 	context: StepSelectionContext,
 	tokens: DadsToken[],
 	usedTokenIds: Set<string>,
@@ -132,15 +132,17 @@ export function selectDadsStep(
  * - Local names (from hue-mapper): "cyan", "teal"
  * - DADS names: "light-blue", "cyan"
  */
-function mapToDadsHueName(hueName: string): string {
+function mapToDadsHueName(
+	hueName: LocalDadsColorHue | DadsColorHue,
+): DadsColorHue {
 	// DADS uses different names for some hues
-	const mapping: Record<string, string> = {
+	const mapping: Partial<Record<LocalDadsColorHue, DadsColorHue>> = {
 		// Local name -> DADS name
 		cyan: "light-blue", // DADS_CHROMAS uses "cyan" for what DADS calls "light-blue"
 		teal: "cyan", // DADS_CHROMAS uses "teal" for what DADS calls "cyan"
 	};
 
-	return mapping[hueName] ?? hueName;
+	return mapping[hueName as LocalDadsColorHue] ?? (hueName as DadsColorHue);
 }
 
 /**
@@ -153,7 +155,10 @@ function mapToDadsHueName(hueName: string): string {
  * @returns Array of selected tokens (may contain nulls for failed selections)
  */
 export function selectMultipleDadsSteps(
-	selections: Array<{ hueName: string; context: StepSelectionContext }>,
+	selections: Array<{
+		hueName: LocalDadsColorHue | DadsColorHue;
+		context: StepSelectionContext;
+	}>,
 	tokens: DadsToken[],
 ): Array<DadsToken | null> {
 	const usedIds = new Set<string>();

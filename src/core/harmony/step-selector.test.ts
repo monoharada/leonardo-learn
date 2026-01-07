@@ -13,6 +13,7 @@ import {
 	STEP_PREFERENCES,
 	type StepSelectionContext,
 	selectDadsStep,
+	selectMultipleDadsSteps,
 } from "./step-selector";
 
 describe("step-selector", () => {
@@ -227,6 +228,125 @@ describe("step-selector", () => {
 
 				expect(result).toBeNull();
 			});
+		});
+	});
+
+	describe("selectMultipleDadsSteps", () => {
+		test("selects multiple tokens for different hues", () => {
+			const selections = [
+				{
+					hueName: "blue" as const,
+					context: {
+						role: "primary" as const,
+						lightPreference: "mid" as const,
+					},
+				},
+				{
+					hueName: "yellow" as const,
+					context: {
+						role: "secondary" as const,
+						lightPreference: "mid" as const,
+					},
+				},
+				{
+					hueName: "red" as const,
+					context: {
+						role: "accent" as const,
+						lightPreference: "dark" as const,
+					},
+				},
+			];
+			const results = selectMultipleDadsSteps(selections, allTokens);
+
+			expect(results).toHaveLength(3);
+			expect(results[0]).not.toBeNull();
+			expect(results[1]).not.toBeNull();
+			expect(results[2]).not.toBeNull();
+
+			expect(results[0]!.classification.hue).toBe("blue");
+			expect(results[1]!.classification.hue).toBe("yellow");
+			expect(results[2]!.classification.hue).toBe("red");
+		});
+
+		test("avoids duplicate selections across palette", () => {
+			// Select same hue twice - should get different steps
+			const selections = [
+				{
+					hueName: "blue" as const,
+					context: {
+						role: "primary" as const,
+						lightPreference: "mid" as const,
+					},
+				},
+				{
+					hueName: "blue" as const,
+					context: {
+						role: "secondary" as const,
+						lightPreference: "mid" as const,
+					},
+				},
+			];
+			const results = selectMultipleDadsSteps(selections, allTokens);
+
+			expect(results).toHaveLength(2);
+			expect(results[0]).not.toBeNull();
+			expect(results[1]).not.toBeNull();
+
+			// Both should be blue, but different IDs
+			expect(results[0]!.classification.hue).toBe("blue");
+			expect(results[1]!.classification.hue).toBe("blue");
+			expect(results[0]!.id).not.toBe(results[1]!.id);
+		});
+
+		test("returns null for selections when all tokens exhausted", () => {
+			// Try to select more blue tokens than available (13)
+			const selections = Array.from({ length: 15 }, () => ({
+				hueName: "blue" as const,
+				context: { role: "accent" as const, lightPreference: "mid" as const },
+			}));
+			const results = selectMultipleDadsSteps(selections, allTokens);
+
+			expect(results).toHaveLength(15);
+			// First 13 should succeed (13 blue tokens)
+			const nonNullCount = results.filter((r) => r !== null).length;
+			expect(nonNullCount).toBe(13);
+			// Last 2 should be null
+			expect(results[13]).toBeNull();
+			expect(results[14]).toBeNull();
+		});
+
+		test("handles empty selections array", () => {
+			const results = selectMultipleDadsSteps([], allTokens);
+			expect(results).toEqual([]);
+		});
+
+		test("handles hue name mapping for multi-selection", () => {
+			// Test that local hue names are mapped correctly
+			const selections = [
+				{
+					hueName: "cyan" as const, // Maps to "light-blue" in DADS
+					context: {
+						role: "primary" as const,
+						lightPreference: "mid" as const,
+					},
+				},
+				{
+					hueName: "teal" as const, // Maps to "cyan" in DADS
+					context: {
+						role: "secondary" as const,
+						lightPreference: "mid" as const,
+					},
+				},
+			];
+			const results = selectMultipleDadsSteps(selections, allTokens);
+
+			expect(results).toHaveLength(2);
+			expect(results[0]).not.toBeNull();
+			expect(results[1]).not.toBeNull();
+
+			// Verify mapped hue names
+			expect(results[0]!.classification.hue).toBe("light-blue");
+			expect(results[1]!.classification.hue).toBe("cyan");
 		});
 	});
 });
