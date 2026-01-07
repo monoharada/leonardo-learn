@@ -5,7 +5,60 @@ import {
 } from "@material/material-color-utilities";
 import { BASE_CHROMAS, DADS_CHROMAS, snapToBaseChroma } from "./base-chroma";
 import { Color } from "./color";
+import { DadsHarmonySelector } from "./harmony/dads-harmony-selector";
 import { findColorForContrast } from "./solver";
+import { loadDadsTokens } from "./tokens/dads-data-provider";
+import type { DadsToken } from "./tokens/types";
+
+// DADS Harmony Selector cache
+let cachedDadsSelector: DadsHarmonySelector | null = null;
+let initPromise: Promise<void> | null = null;
+
+/**
+ * Initialize DADS Harmony Selector
+ * Must be called before using harmony types with DADS token selection
+ *
+ * Uses Promise queue pattern to avoid race conditions when multiple
+ * callers attempt initialization simultaneously.
+ *
+ * @returns Promise that resolves when initialization is complete
+ */
+export async function initializeHarmonyDads(): Promise<void> {
+	if (cachedDadsSelector) return;
+	if (initPromise) return initPromise;
+
+	initPromise = (async () => {
+		try {
+			const tokens = await loadDadsTokens();
+			const chromaticTokens = tokens.filter(
+				(t: DadsToken) => t.classification.category === "chromatic",
+			);
+			cachedDadsSelector = new DadsHarmonySelector(chromaticTokens);
+		} catch (error) {
+			// Reset on failure to allow retry
+			initPromise = null;
+			throw error;
+		}
+	})();
+
+	return initPromise;
+}
+
+/**
+ * Get the cached DADS Harmony Selector
+ *
+ * @returns DadsHarmonySelector or null if not initialized
+ */
+function getDadsSelector(): DadsHarmonySelector | null {
+	return cachedDadsSelector;
+}
+
+/**
+ * Check if DADS Harmony Selector is initialized
+ */
+export function isHarmonyDadsInitialized(): boolean {
+	return cachedDadsSelector !== null;
+}
 
 /**
  * 指定したHueで最大Chromaが得られるToneを見つける
@@ -493,48 +546,186 @@ export function generateHarmonyPalette(
 	});
 
 	// ハーモニータイプに基づいて追加の色を生成
-	// HCT色空間を使用するため、色相シフト量のみを指定
+	// DADSセレクタが初期化されている場合はDADSトークンから選択
+	// 初期化されていない場合はHCT色空間を使用（フォールバック）
+	const dadsSelector = getDadsSelector();
+
+	// Helper: DADSトークンからSystemPaletteColorを作成
+	const createFromDadsToken = (
+		token: DadsToken,
+		roleName: string,
+		role: "primary" | "secondary" | "accent",
+	): SystemPaletteColor => {
+		const tokenColor = new Color(token.hex);
+		const { chroma: snappedChroma } = snapToBaseChroma(tokenColor);
+		return {
+			name: roleName,
+			keyColor: tokenColor,
+			role,
+			baseChromaName: snappedChroma.displayName,
+		};
+	};
+
 	switch (harmonyType) {
 		case HarmonyType.NONE:
 			// Primary のみ
 			break;
 
-		case HarmonyType.COMPLEMENTARY:
+		case HarmonyType.COMPLEMENTARY: {
 			// 補色（180度）
-			palette.push(createColorWithHCT(180, "Secondary", "secondary"));
+			if (dadsSelector) {
+				const result = dadsSelector.generateComplementary(keyHex);
+				if (result.colors[0]) {
+					palette.push(
+						createFromDadsToken(
+							result.colors[0].token,
+							"Secondary",
+							"secondary",
+						),
+					);
+				}
+			} else {
+				palette.push(createColorWithHCT(180, "Secondary", "secondary"));
+			}
 			break;
+		}
 
-		case HarmonyType.TRIADIC:
+		case HarmonyType.TRIADIC: {
 			// 三角形（120度, 240度）
-			palette.push(createColorWithHCT(120, "Secondary", "secondary"));
-			palette.push(createColorWithHCT(240, "Accent", "accent"));
+			if (dadsSelector) {
+				const result = dadsSelector.generateTriadic(keyHex);
+				if (result.colors[0]) {
+					palette.push(
+						createFromDadsToken(
+							result.colors[0].token,
+							"Secondary",
+							"secondary",
+						),
+					);
+				}
+				if (result.colors[1]) {
+					palette.push(
+						createFromDadsToken(result.colors[1].token, "Accent", "accent"),
+					);
+				}
+			} else {
+				palette.push(createColorWithHCT(120, "Secondary", "secondary"));
+				palette.push(createColorWithHCT(240, "Accent", "accent"));
+			}
 			break;
+		}
 
-		case HarmonyType.ANALOGOUS:
+		case HarmonyType.ANALOGOUS: {
 			// 類似色（+30度, -30度）
-			palette.push(createColorWithHCT(30, "Secondary", "secondary"));
-			palette.push(createColorWithHCT(-30, "Accent", "accent"));
+			if (dadsSelector) {
+				const result = dadsSelector.generateAnalogous(keyHex);
+				if (result.colors[0]) {
+					palette.push(
+						createFromDadsToken(
+							result.colors[0].token,
+							"Secondary",
+							"secondary",
+						),
+					);
+				}
+				if (result.colors[1]) {
+					palette.push(
+						createFromDadsToken(result.colors[1].token, "Accent", "accent"),
+					);
+				}
+			} else {
+				palette.push(createColorWithHCT(30, "Secondary", "secondary"));
+				palette.push(createColorWithHCT(-30, "Accent", "accent"));
+			}
 			break;
+		}
 
-		case HarmonyType.SPLIT_COMPLEMENTARY:
+		case HarmonyType.SPLIT_COMPLEMENTARY: {
 			// 分裂補色（150度, 210度）
-			palette.push(createColorWithHCT(150, "Secondary", "secondary"));
-			palette.push(createColorWithHCT(210, "Accent", "accent"));
+			if (dadsSelector) {
+				const result = dadsSelector.generateSplitComplementary(keyHex);
+				if (result.colors[0]) {
+					palette.push(
+						createFromDadsToken(
+							result.colors[0].token,
+							"Secondary",
+							"secondary",
+						),
+					);
+				}
+				if (result.colors[1]) {
+					palette.push(
+						createFromDadsToken(result.colors[1].token, "Accent", "accent"),
+					);
+				}
+			} else {
+				palette.push(createColorWithHCT(150, "Secondary", "secondary"));
+				palette.push(createColorWithHCT(210, "Accent", "accent"));
+			}
 			break;
+		}
 
-		case HarmonyType.TETRADIC:
+		case HarmonyType.TETRADIC: {
 			// 長方形（60度, 180度, 240度）
-			palette.push(createColorWithHCT(60, "Secondary", "secondary"));
-			palette.push(createColorWithHCT(180, "Accent 1", "accent"));
-			palette.push(createColorWithHCT(240, "Accent 2", "accent"));
+			if (dadsSelector) {
+				const result = dadsSelector.generateTetradic(keyHex);
+				if (result.colors[0]) {
+					palette.push(
+						createFromDadsToken(
+							result.colors[0].token,
+							"Secondary",
+							"secondary",
+						),
+					);
+				}
+				if (result.colors[1]) {
+					palette.push(
+						createFromDadsToken(result.colors[1].token, "Accent 1", "accent"),
+					);
+				}
+				if (result.colors[2]) {
+					palette.push(
+						createFromDadsToken(result.colors[2].token, "Accent 2", "accent"),
+					);
+				}
+			} else {
+				palette.push(createColorWithHCT(60, "Secondary", "secondary"));
+				palette.push(createColorWithHCT(180, "Accent 1", "accent"));
+				palette.push(createColorWithHCT(240, "Accent 2", "accent"));
+			}
 			break;
+		}
 
-		case HarmonyType.SQUARE:
+		case HarmonyType.SQUARE: {
 			// 正方形（90度, 180度, 270度）
-			palette.push(createColorWithHCT(90, "Secondary", "secondary"));
-			palette.push(createColorWithHCT(180, "Accent 1", "accent"));
-			palette.push(createColorWithHCT(270, "Accent 2", "accent"));
+			if (dadsSelector) {
+				const result = dadsSelector.generateSquare(keyHex);
+				if (result.colors[0]) {
+					palette.push(
+						createFromDadsToken(
+							result.colors[0].token,
+							"Secondary",
+							"secondary",
+						),
+					);
+				}
+				if (result.colors[1]) {
+					palette.push(
+						createFromDadsToken(result.colors[1].token, "Accent 1", "accent"),
+					);
+				}
+				if (result.colors[2]) {
+					palette.push(
+						createFromDadsToken(result.colors[2].token, "Accent 2", "accent"),
+					);
+				}
+			} else {
+				palette.push(createColorWithHCT(90, "Secondary", "secondary"));
+				palette.push(createColorWithHCT(180, "Accent 1", "accent"));
+				palette.push(createColorWithHCT(270, "Accent 2", "accent"));
+			}
 			break;
+		}
 
 		case HarmonyType.M3: {
 			// Material Design 3 カラーシステム

@@ -33,6 +33,7 @@ export interface AccentSelectionViewCallbacks {
 	onHarmonyCardClick: (
 		harmonyType: HarmonyFilterType,
 		paletteColors: string[],
+		candidates?: ScoredCandidate[],
 	) => void;
 	/** 詳細選択でのアクセント選択時のコールバック */
 	onAccentSelect: (candidate: ScoredCandidate) => void;
@@ -151,10 +152,12 @@ function renderCardMode(
 				const palette = result.result[type as keyof typeof result.result];
 				if (palette) {
 					// ブランドカラー + 全アクセントカラーを配列で渡す
-					callbacks.onHarmonyCardClick(type, [
-						palette.brandColor,
-						...palette.accentColors,
-					]);
+					// candidates配列も渡す（DADSメタデータ抽出用）
+					callbacks.onHarmonyCardClick(
+						type,
+						[palette.brandColor, ...palette.accentColors],
+						palette.candidates,
+					);
 				}
 			}
 

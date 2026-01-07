@@ -138,6 +138,8 @@ console.log(`leonardo-learn v${VERSION} - OKLCH Color Palette Generator`);
 // Run demo if in browser environment
 if (typeof document !== "undefined") {
 	import("./ui/demo").then(({ runDemo }) => {
-		runDemo();
+		runDemo().catch((error) => {
+			console.error("Failed to initialize demo:", error);
+		});
 	});
 }

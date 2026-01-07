@@ -10,7 +10,14 @@
 
 import type { ScoredCandidate } from "@/core/accent/accent-candidate-service";
 import type { HarmonyFilterType } from "@/core/accent/harmony-filter-calculator";
-import { HarmonyType } from "@/core/harmony";
+import { HarmonyType, initializeHarmonyDads } from "@/core/harmony";
+
+/**
+ * Regex pattern to extract base chroma name from DADS source name
+ * Removes trailing step number (e.g., "Light Blue 600" -> "Light Blue")
+ */
+const DADS_STEP_SUFFIX_PATTERN = /\s+\d+$/;
+
 import { openColorDetailModal } from "./color-detail-modal";
 import {
 	applySimulation,
@@ -40,7 +47,16 @@ import {
  * 必須DOM要素の取得と存在確認を行い、
  * 各モジュールのsetup関数を呼び出して初期化する。
  */
-export function runDemo(): void {
+export async function runDemo(): Promise<void> {
+	// DADS Harmony Selectorの初期化
+	// これによりハーモニー生成でDADSトークン選択が使用される
+	// 初期化に失敗してもUIは表示される（HCTフォールバック使用）
+	try {
+		await initializeHarmonyDads();
+	} catch (error) {
+		console.warn("DADS initialization failed, using HCT fallback:", error);
+	}
+
 	// 必須DOM要素の取得
 	const app = document.getElementById("app");
 	const paletteListEl = document.getElementById("palette-list");
@@ -71,6 +87,7 @@ export function runDemo(): void {
 	const handleHarmonyCardClick = (
 		harmonyType: HarmonyFilterType,
 		paletteColors: string[],
+		candidates?: ScoredCandidate[],
 	): void => {
 		// ハーモニータイプの日本語名
 		const harmonyNames: Record<HarmonyFilterType, string> = {
@@ -104,16 +121,26 @@ export function runDemo(): void {
 		}
 
 		// 2. アクセントカラー（可変長対応）
+		// candidatesからDADSメタデータ（baseChromaName, step）を抽出
 		const accentColors = paletteColors.slice(1);
 		for (let i = 0; i < accentColors.length; i++) {
 			const accentColor = accentColors[i];
+			const candidate = candidates?.[i];
 			if (accentColor) {
+				// dadsSourceName (例: "Blue 600", "Light Blue 600") から baseChromaName を抽出
+				// 末尾のステップ番号を除去（スペース区切りの複数語色相名に対応）
+				const baseChromaName = candidate?.dadsSourceName?.replace(
+					DADS_STEP_SUFFIX_PATTERN,
+					"",
+				);
 				const accentPalette = {
 					id: `harmony-accent${i + 1}-${timestamp}`,
 					name: `Accent (${harmonyNames[harmonyType]} ${i + 1})`,
 					keyColors: [accentColor],
 					ratios: [21, 15, 10, 7, 4.5, 3, 1],
 					harmony: HarmonyType.DADS,
+					baseChromaName,
+					step: candidate?.step,
 				};
 				state.palettes.push(accentPalette);
 			}
@@ -146,13 +173,18 @@ export function runDemo(): void {
 		handleGenerate(inputHex, HarmonyType.DADS, {
 			onComplete: () => {
 				// アクセントカラーとしてパレットに追加
+				// dadsSourceName (例: "Light Blue 600") からステップを除去してbaseChromaNameを取得
+				const baseChromaName = candidate.dadsSourceName.replace(
+					DADS_STEP_SUFFIX_PATTERN,
+					"",
+				);
 				const accentPalette = {
 					id: `accent-${Date.now()}`,
 					name: `Accent: ${candidate.dadsSourceName}`,
 					keyColors: [candidate.hex],
 					ratios: [21, 15, 10, 7, 4.5, 3, 1],
 					harmony: HarmonyType.DADS,
-					baseChromaName: candidate.dadsSourceName,
+					baseChromaName,
 					step: candidate.step,
 				};
 
