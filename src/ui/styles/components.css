@@ -1866,3 +1866,156 @@
 	background: #333;
 	color: white;
 }
+
+/* ============================================
+ * Coolors-style Palette Display
+ * Issue #33: アクセントカラー選定UIブラッシュアップ
+ * ============================================ */
+
+.coolors-display {
+	display: flex;
+	width: 100%;
+	height: min(50vh, 400px);
+	border-radius: var(--border-radius-8);
+	overflow: hidden;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.coolors-column {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: flex-end;
+	padding-bottom: 16px;
+	transition: flex 0.2s ease;
+}
+
+.coolors-column[data-hoverable="true"]:hover {
+	flex: 1.15;
+}
+
+.coolors-column[data-hoverable="true"]:focus-visible {
+	flex: 1.15;
+	outline: 4px solid var(--color-neutral-black);
+	outline-offset: -4px;
+}
+
+.coolors-column__hex {
+	font-family: var(--font-family-mono, monospace);
+	font-size: 14px;
+	font-weight: 600;
+	text-transform: uppercase;
+	/* color はJSで動的に設定（背景色に基づく白/黒） */
+}
+
+.coolors-column__token-name {
+	font-size: 12px;
+	font-weight: 500;
+	margin-bottom: 4px;
+	/* color はJSで動的に設定（背景色に基づく白/黒） */
+}
+
+/* ============================================
+ * Harmony Sidebar
+ * Issue #33: アクセントカラー選定UIブラッシュアップ
+ * ============================================ */
+
+.harmony-sidebar {
+	background: var(--color-neutral-solid-gray-50);
+	border-radius: var(--border-radius-8);
+	min-width: 180px;
+	max-height: min(50vh, 400px);
+}
+
+.harmony-sidebar__card {
+	background: var(--color-neutral-white);
+	border: 1px solid var(--color-neutral-solid-gray-200);
+	margin-bottom: 4px;
+}
+
+.harmony-sidebar__card:last-child {
+	margin-bottom: 0;
+}
+
+.harmony-sidebar__card:hover {
+	background: var(--color-primitive-blue-50);
+	border-color: var(--color-primitive-blue-200);
+}
+
+.harmony-sidebar__card:focus-visible {
+	outline: 4px solid var(--color-neutral-black);
+	outline-offset: 2px;
+	box-shadow: 0 0 0 2px var(--color-primitive-yellow-300);
+}
+
+.harmony-sidebar__card--selected {
+	background: var(--color-primitive-blue-100);
+	border-color: var(--color-primitive-blue-900);
+	border-width: 2px;
+}
+
+.harmony-sidebar__card-name {
+	color: var(--color-neutral-solid-gray-900);
+}
+
+.harmony-sidebar__swatches {
+	display: flex;
+	gap: 2px;
+	flex-wrap: wrap;
+}
+
+.harmony-sidebar__swatch {
+	border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+/* ============================================
+ * Copy Toast
+ * Issue #33: アクセントカラー選定UIブラッシュアップ
+ * ============================================ */
+
+.copy-toast {
+	animation: toast-slide-in 0.2s ease-out;
+}
+
+@keyframes toast-slide-in {
+	from {
+		transform: translate(-50%, 20px);
+		opacity: 0;
+	}
+	to {
+		transform: translate(-50%, 0);
+		opacity: 1;
+	}
+}
+
+/* ============================================
+ * Coolors Layout (Main + Sidebar)
+ * Issue #33: アクセントカラー選定UIブラッシュアップ
+ * ============================================ */
+
+.coolors-layout {
+	display: flex;
+	gap: 16px;
+	margin-top: 16px;
+}
+
+.coolors-layout__main {
+	flex: 1;
+	min-width: 0;
+}
+
+.coolors-layout__sidebar {
+	flex-shrink: 0;
+}
+
+/* レスポンシブ: タブレット以下ではサイドバーを非表示（モバイル対応は後回し） */
+@media (max-width: 768px) {
+	.coolors-layout {
+		flex-direction: column;
+	}
+
+	.coolors-layout__sidebar {
+		display: none;
+	}
+}

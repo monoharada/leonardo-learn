@@ -15,6 +15,7 @@ import { generateCandidates } from "@/core/accent/accent-candidate-service";
 import type { HarmonyFilterType } from "@/core/accent/harmony-filter-calculator";
 import { filterByHarmonyType } from "@/core/accent/harmony-filter-service";
 import { getAllHarmonyPalettes } from "@/core/accent/harmony-palette-generator";
+import { Color } from "@/core/color";
 import { getRandomDadsColor } from "@/core/tokens/random-color-picker";
 import { toOklch } from "@/utils/color-space";
 import { AccentCandidateGrid } from "../../accent-selector/accent-candidate-grid";
@@ -23,6 +24,8 @@ import {
 	createHarmonyTypeCardGrid,
 	type HarmonyTypeCard,
 } from "../../accent-selector/harmony-type-card";
+import { createCoolorsPaletteDisplay } from "../../components/coolors-palette-display";
+import { createHarmonySidebar } from "../../components/harmony-sidebar";
 import {
 	addHistoryEntry,
 	clearBrandColorHistory,
@@ -31,6 +34,13 @@ import {
 	loadBrandColorHistory,
 	persistBrandColorHistory,
 } from "../brand-color-history";
+import {
+	ALL_HARMONY_TYPES,
+	createHarmonyStateManager,
+	type HarmonyPreviewData,
+	type HarmonyStateManager,
+} from "../harmony-state-manager";
+import { createPalettesFromHarmonyColors } from "../palette-generator";
 import { state } from "../state";
 import type { ColorDetailModalOptions } from "../types";
 
@@ -63,6 +73,51 @@ interface ViewState {
 	error: string | null;
 	/** アクセントカラーの数（2-5、デフォルト2）ブランド+アクセント=3-6色 */
 	accentCount: 2 | 3 | 4 | 5;
+	/** ハーモニー状態管理（セッション記憶対応） */
+	harmonyManager: HarmonyStateManager;
+	/** Coolorsモードを使用するかどうか */
+	useCoolorsMode: boolean;
+}
+
+/**
+ * セッション内で共有するハーモニー状態マネージャー
+ * ビューの再レンダリング間で状態を保持する
+ */
+let sharedHarmonyManager: HarmonyStateManager | null = null;
+
+/**
+ * 共有ハーモニーマネージャーを取得または作成する
+ */
+function getSharedHarmonyManager(): HarmonyStateManager {
+	if (!sharedHarmonyManager) {
+		sharedHarmonyManager = createHarmonyStateManager();
+	}
+	return sharedHarmonyManager;
+}
+
+/**
+ * グローバルstate.palettesをハーモニープレビュー色から同期する
+ *
+ * パレットビュー・アクセシビリティビューが読み取る state.palettes を
+ * ハーモニービューのプレビュー色から自動的に更新する。
+ *
+ * @param harmonyType 選択されたハーモニータイプ
+ * @param colors プレビュー色配列 [brandColor, accent1, accent2, ...]
+ * @param candidates アクセント候補（DADSメタデータ抽出用）
+ */
+function syncStatePalettes(
+	harmonyType: HarmonyFilterType,
+	colors: string[],
+	candidates?: ScoredCandidate[],
+): void {
+	state.palettes = createPalettesFromHarmonyColors(
+		harmonyType,
+		colors,
+		candidates,
+	);
+	if (state.palettes.length > 0 && state.palettes[0]) {
+		state.activeId = state.palettes[0].id;
+	}
 }
 
 /**
@@ -101,6 +156,9 @@ export function renderAccentSelectionView(
 		? keyColorHex
 		: "#3366cc";
 
+	// 共有ハーモニーマネージャーを取得
+	const harmonyManager = getSharedHarmonyManager();
+
 	// ビュー内部状態
 	const viewState: ViewState = {
 		brandColorHex: inputHex,
@@ -111,6 +169,8 @@ export function renderAccentSelectionView(
 		isLoading: true,
 		error: null,
 		accentCount: state.accentCount, // グローバル状態から取得
+		harmonyManager,
+		useCoolorsMode: true, // デフォルトでCoolorsモードを使用
 	};
 
 	// コンテナをクリア
@@ -126,8 +186,12 @@ export function renderAccentSelectionView(
 	description.innerHTML = "<p>ハーモニーを選択してパレットを作成します。</p>";
 	container.appendChild(description);
 
-	// カードモードの表示
-	renderCardMode(container, viewState, callbacks);
+	// Coolorsモードまたは従来のカードモードで表示
+	if (viewState.useCoolorsMode) {
+		renderCoolorsMode(container, viewState, callbacks);
+	} else {
+		renderCardMode(container, viewState, callbacks);
+	}
 }
 
 /**
@@ -186,6 +250,203 @@ function renderCardMode(
 
 	// カードにプレビュー色を設定（accentCountを渡す）
 	loadCardPreviews(cards, viewState.brandColorHex, viewState.accentCount);
+}
+
+/**
+ * Coolorsスタイルのモードを表示
+ * メイン表示 + サイドバーの2カラムレイアウト
+ */
+function renderCoolorsMode(
+	container: HTMLElement,
+	viewState: ViewState,
+	callbacks: AccentSelectionViewCallbacks,
+): void {
+	// レイアウトコンテナ
+	const layout = document.createElement("div");
+	layout.className = "coolors-layout";
+	container.appendChild(layout);
+
+	// メインエリア
+	const mainArea = document.createElement("div");
+	mainArea.className = "coolors-layout__main";
+	layout.appendChild(mainArea);
+
+	// サイドバーエリア
+	const sidebarArea = document.createElement("div");
+	sidebarArea.className = "coolors-layout__sidebar";
+	layout.appendChild(sidebarArea);
+
+	// ローディング表示
+	const loadingEl = document.createElement("div");
+	loadingEl.className = "accent-selection-loading";
+	loadingEl.innerHTML = `
+		<span class="accent-selection-loading__spinner"></span>
+		<span>パレットを生成中...</span>
+	`;
+	mainArea.appendChild(loadingEl);
+
+	// 全ハーモニープレビューを読み込み、メイン表示を更新
+	loadCoolorsPreviews(viewState, mainArea, sidebarArea, callbacks);
+}
+
+/**
+ * Coolorsモードのプレビューを読み込み、UIを更新する
+ */
+async function loadCoolorsPreviews(
+	viewState: ViewState,
+	mainArea: HTMLElement,
+	sidebarArea: HTMLElement,
+	callbacks: AccentSelectionViewCallbacks,
+): Promise<void> {
+	const { harmonyManager, brandColorHex, accentCount } = viewState;
+
+	// 全ハーモニータイプのパレットを取得
+	const result = await getAllHarmonyPalettes(brandColorHex, { accentCount });
+
+	// ローディング表示を削除
+	const loadingEl = mainArea.querySelector(".accent-selection-loading");
+	if (loadingEl) loadingEl.remove();
+
+	if (!result.ok || !result.result) {
+		showError(mainArea, "パレットの生成に失敗しました");
+		return;
+	}
+
+	// HarmonyPreviewData を構築
+	const previewData: HarmonyPreviewData = {};
+	const paletteCandidatesMap = new Map<HarmonyFilterType, ScoredCandidate[]>();
+
+	for (const type of ALL_HARMONY_TYPES) {
+		const palette = result.result[type as keyof typeof result.result];
+		if (palette) {
+			previewData[type] = [palette.brandColor, ...palette.accentColors];
+			paletteCandidatesMap.set(type, palette.candidates);
+		}
+	}
+
+	// プレビューデータをマネージャーに設定
+	harmonyManager.setHarmonyPreviews(previewData);
+
+	// ハーモニータイプを取得（ユーザー選択済みならそれ、未選択ならランダム）
+	const selectedType = harmonyManager.getOrSelectHarmony();
+	const currentColors = harmonyManager.getPreviewColors(selectedType) ?? [];
+
+	// トークン名を生成
+	const tokenNames = generateTokenNames(currentColors.length);
+
+	// メイン表示を作成
+	const mainDisplay = createCoolorsPaletteDisplay({
+		colors: currentColors,
+		tokenNames,
+		onColorClick: (hex, index) => {
+			// カラー詳細モーダルを開く（読み取り専用モード）
+			const color = new Color(hex);
+			callbacks.onColorClick({
+				stepColor: color,
+				keyColor: color,
+				index: 0,
+				fixedScale: {
+					colors: [color],
+					keyIndex: 0,
+					hexValues: [hex],
+				},
+				paletteInfo: {
+					name: tokenNames[index] ?? `Color ${index + 1}`,
+				},
+				readOnly: true,
+				originalHex: hex,
+			});
+		},
+	});
+	mainArea.appendChild(mainDisplay);
+
+	// ★ 初回ロード時にグローバル状態を同期
+	// パレットビュー・アクセシビリティビューがこのデータを参照する
+	syncStatePalettes(
+		selectedType,
+		currentColors,
+		paletteCandidatesMap.get(selectedType),
+	);
+
+	// サイドバーを作成
+	const sidebar = createHarmonySidebar({
+		selectedType,
+		previews: harmonyManager.getHarmonyPreviews(),
+		onSelect: (type) => {
+			// ユーザー選択を記録
+			harmonyManager.selectHarmony(type);
+
+			// メイン表示を更新
+			const newColors = harmonyManager.getPreviewColors(type) ?? [];
+			const newTokenNames = generateTokenNames(newColors.length);
+
+			// 既存のメイン表示を削除して再作成
+			mainArea.replaceChildren();
+			const newMainDisplay = createCoolorsPaletteDisplay({
+				colors: newColors,
+				tokenNames: newTokenNames,
+				onColorClick: (hex, index) => {
+					// カラー詳細モーダルを開く（読み取り専用モード）
+					const color = new Color(hex);
+					callbacks.onColorClick({
+						stepColor: color,
+						keyColor: color,
+						index: 0,
+						fixedScale: {
+							colors: [color],
+							keyIndex: 0,
+							hexValues: [hex],
+						},
+						paletteInfo: {
+							name: newTokenNames[index] ?? `Color ${index + 1}`,
+						},
+						readOnly: true,
+						originalHex: hex,
+					});
+				},
+			});
+			mainArea.appendChild(newMainDisplay);
+
+			// ★ サイドバー選択時にグローバル状態を同期
+			// パレットビュー・アクセシビリティビューがこのデータを参照する
+			syncStatePalettes(type, newColors, paletteCandidatesMap.get(type));
+
+			// サイドバーも更新（選択状態を反映）
+			sidebarArea.replaceChildren();
+			const newSidebar = createHarmonySidebar({
+				selectedType: type,
+				previews: harmonyManager.getHarmonyPreviews(),
+				onSelect: (t) => {
+					// 再帰的に同じ処理を実行（簡易実装）
+					harmonyManager.selectHarmony(t);
+					// 全体を再レンダリング
+					const container =
+						sidebarArea.closest(".coolors-layout")?.parentElement;
+					if (container) {
+						const layoutEl = container.querySelector(".coolors-layout");
+						if (layoutEl) layoutEl.remove();
+						renderCoolorsMode(container as HTMLElement, viewState, callbacks);
+					}
+				},
+			});
+			sidebarArea.appendChild(newSidebar);
+
+			// サイドバー選択ではパレットビューへの遷移を行わない
+			// メイン表示の切り替えのみ
+		},
+	});
+	sidebarArea.appendChild(sidebar);
+}
+
+/**
+ * トークン名を生成する
+ */
+function generateTokenNames(colorCount: number): string[] {
+	const names = ["Brand"];
+	for (let i = 1; i < colorCount; i++) {
+		names.push(`Accent-${i}`);
+	}
+	return names;
 }
 
 /**
