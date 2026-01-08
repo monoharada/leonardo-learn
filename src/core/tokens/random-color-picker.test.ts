@@ -4,109 +4,10 @@
  * @module @/core/tokens/random-color-picker.test
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import type { DadsToken } from "./types";
 
-// dads-data-providerをモック（importエラーを回避）
-vi.mock("./dads-data-provider", async () => {
-	const mockChromaticTokens: DadsToken[] = [
-		{
-			id: "dads-blue-500",
-			hex: "#0066cc",
-			nameJa: "青 500",
-			nameEn: "Blue 500",
-			classification: { category: "chromatic", hue: "blue", scale: 500 },
-			source: "dads",
-		},
-		{
-			id: "dads-blue-600",
-			hex: "#0052a3",
-			nameJa: "青 600",
-			nameEn: "Blue 600",
-			classification: { category: "chromatic", hue: "blue", scale: 600 },
-			source: "dads",
-		},
-		{
-			id: "dads-blue-700",
-			hex: "#00408a",
-			nameJa: "青 700",
-			nameEn: "Blue 700",
-			classification: { category: "chromatic", hue: "blue", scale: 700 },
-			source: "dads",
-		},
-		{
-			id: "dads-red-500",
-			hex: "#cc0000",
-			nameJa: "赤 500",
-			nameEn: "Red 500",
-			classification: { category: "chromatic", hue: "red", scale: 500 },
-			source: "dads",
-		},
-		{
-			id: "dads-red-600",
-			hex: "#a30000",
-			nameJa: "赤 600",
-			nameEn: "Red 600",
-			classification: { category: "chromatic", hue: "red", scale: 600 },
-			source: "dads",
-		},
-		{
-			id: "dads-red-700",
-			hex: "#8a0000",
-			nameJa: "赤 700",
-			nameEn: "Red 700",
-			classification: { category: "chromatic", hue: "red", scale: 700 },
-			source: "dads",
-		},
-		{
-			id: "dads-green-500",
-			hex: "#00cc66",
-			nameJa: "緑 500",
-			nameEn: "Green 500",
-			classification: { category: "chromatic", hue: "green", scale: 500 },
-			source: "dads",
-		},
-		{
-			id: "dads-green-600",
-			hex: "#00a352",
-			nameJa: "緑 600",
-			nameEn: "Green 600",
-			classification: { category: "chromatic", hue: "green", scale: 600 },
-			source: "dads",
-		},
-		{
-			id: "dads-green-700",
-			hex: "#008a40",
-			nameJa: "緑 700",
-			nameEn: "Green 700",
-			classification: { category: "chromatic", hue: "green", scale: 700 },
-			source: "dads",
-		},
-	];
-
-	const mockNeutralTokens: DadsToken[] = [
-		{
-			id: "dads-neutral-500",
-			hex: "#888888",
-			nameJa: "ニュートラル 500",
-			nameEn: "Neutral 500",
-			classification: { category: "neutral", scale: 500 },
-			source: "dads",
-		},
-	];
-
-	return {
-		loadDadsTokens: vi.fn(async () => [
-			...mockChromaticTokens,
-			...mockNeutralTokens,
-		]),
-		clearTokenCache: vi.fn(),
-	};
-});
-
-import { getRandomDadsColor, getRandomDadsToken } from "./random-color-picker";
-
-// モックデータへの参照（テストで使用）
+// テスト用モックデータ
 const mockChromaticTokens: DadsToken[] = [
 	{
 		id: "dads-blue-500",
@@ -182,13 +83,39 @@ const mockChromaticTokens: DadsToken[] = [
 	},
 ];
 
+const mockNeutralTokens: DadsToken[] = [
+	{
+		id: "dads-neutral-500",
+		hex: "#888888",
+		nameJa: "ニュートラル 500",
+		nameEn: "Neutral 500",
+		classification: { category: "neutral", scale: 500 },
+		source: "dads",
+	},
+];
+
+// モック関数を作成
+const mockLoadDadsTokens = mock(async () => [
+	...mockChromaticTokens,
+	...mockNeutralTokens,
+]);
+
+// dads-data-providerモジュールをモック
+mock.module("./dads-data-provider", () => ({
+	loadDadsTokens: mockLoadDadsTokens,
+	clearTokenCache: mock(() => {}),
+}));
+
+// モック設定後にインポート
+import { getRandomDadsColor, getRandomDadsToken } from "./random-color-picker";
+
 describe("random-color-picker", () => {
 	beforeEach(() => {
-		// モックはvi.mock()で設定済み
+		mockLoadDadsTokens.mockClear();
 	});
 
 	afterEach(() => {
-		vi.clearAllMocks();
+		mockLoadDadsTokens.mockClear();
 	});
 
 	describe("getRandomDadsColor", () => {
@@ -307,6 +234,30 @@ describe("random-color-picker", () => {
 			const mockHexValues = mockChromaticTokens.map((t) => t.hex);
 			for (const color of colors) {
 				expect(mockHexValues).toContain(color);
+			}
+		});
+	});
+
+	describe("selectRandomChromaticToken (internal helper)", () => {
+		it("should reuse logic between getRandomDadsColor and getRandomDadsToken", async () => {
+			// 両関数が同じ内部ヘルパーを使用していることを間接的に確認
+			// loadDadsTokensが呼び出されていることを確認
+			await getRandomDadsColor();
+			expect(mockLoadDadsTokens).toHaveBeenCalled();
+
+			mockLoadDadsTokens.mockClear();
+
+			await getRandomDadsToken();
+			expect(mockLoadDadsTokens).toHaveBeenCalled();
+		});
+
+		it("should filter only chromatic tokens", async () => {
+			// neutralトークンが選ばれないことを確認（50回テスト）
+			const neutralHex = mockNeutralTokens[0].hex;
+
+			for (let i = 0; i < 50; i++) {
+				const hex = await getRandomDadsColor();
+				expect(hex).not.toBe(neutralHex);
 			}
 		});
 	});
