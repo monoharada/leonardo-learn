@@ -120,8 +120,9 @@ export function persistBrandColorHistory(
 			BRAND_COLOR_HISTORY_STORAGE_KEY,
 			JSON.stringify(entries),
 		);
-	} catch {
-		// localStorageが利用できない場合は無視
+	} catch (error) {
+		// localStorageが利用できない場合やQuota超過時は警告を出力
+		console.warn("Failed to persist brand color history:", error);
 	}
 }
 

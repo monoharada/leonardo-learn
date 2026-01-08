@@ -380,13 +380,17 @@
 }
 
 /* Chrome 134+ 対応: base-select によるカスタマイズ */
+/* Chrome 134+の実験的機能: base-select
+ * 他のブラウザでは無視され、通常のselectにフォールバック
+ * https://developer.chrome.com/blog/styling-select
+ */
 @supports (appearance: base-select) {
 	.dads-history-dropdown,
 	.dads-history-dropdown::picker(select) {
 		appearance: base-select;
 	}
 
-	/* 選択肢の色プレビュー */
+	/* 選択肢の色プレビュー（Chrome 134+のみ有効） */
 	.dads-history-dropdown option::before {
 		content: "";
 		display: inline-block;
