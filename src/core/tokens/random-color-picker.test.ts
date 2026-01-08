@@ -210,12 +210,12 @@ describe("random-color-picker", () => {
 		});
 	});
 
-	describe("error handling", () => {
-		it("should handle token loading failures gracefully", async () => {
-			// トークンの読み込みは成功するはずだが、エラーハンドリングの構造をテスト
-			// 実際のエラーケースはモック化が必要だが、ここでは正常系のみテスト
+	describe("token loading", () => {
+		it("should successfully load and return a color from tokens", async () => {
+			// 正常系: トークンの読み込みが成功し、HEX値が返されることを確認
 			const hex = await getRandomDadsColor();
 			expect(hex).toBeDefined();
+			expect(hex).toMatch(/^#[0-9a-f]{6}$/i);
 		});
 	});
 

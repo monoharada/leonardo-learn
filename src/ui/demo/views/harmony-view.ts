@@ -382,7 +382,7 @@ function createHeader(
 	randomButton.type = "button";
 	randomButton.className =
 		"dads-button dads-button--secondary dads-button--random";
-	randomButton.innerHTML = "ランダム";
+	randomButton.textContent = "ランダム";
 	randomButton.dataset.testid = "random-color-button";
 	randomButton.title = "DADSカラーからランダムに選択";
 
@@ -391,7 +391,7 @@ function createHeader(
 		try {
 			// ボタンを無効化してローディング状態にする
 			randomButton.disabled = true;
-			randomButton.innerHTML = "⏳ 選択中...";
+			randomButton.textContent = "⏳ 選択中...";
 
 			const randomHex = await getRandomDadsColor();
 			updateColor(randomHex, "picker");
@@ -401,7 +401,7 @@ function createHeader(
 		} finally {
 			// ボタンを元に戻す
 			randomButton.disabled = false;
-			randomButton.innerHTML = "ランダム";
+			randomButton.textContent = "ランダム";
 		}
 	});
 
