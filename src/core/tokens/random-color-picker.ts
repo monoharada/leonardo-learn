@@ -10,12 +10,12 @@ import { loadDadsTokens } from "./dads-data-provider";
 import type { DadsToken } from "./types";
 
 /**
- * DADSの有彩色（chromatic）トークンからランダムに1つ選択する
+ * DADSの有彩色（chromatic）トークンからランダムに1つ選択する（内部ヘルパー）
  *
- * @returns ランダムに選択されたDADSトークンのHEX値
+ * @returns ランダムに選択されたDADSトークン
  * @throws DADSトークンの読み込みに失敗した場合
  */
-export async function getRandomDadsColor(): Promise<string> {
+async function selectRandomChromaticToken(): Promise<DadsToken> {
 	const tokens = await loadDadsTokens();
 
 	// chromaticカテゴリのみをフィルター（10色相 × 13スケール = 130色）
@@ -35,7 +35,18 @@ export async function getRandomDadsColor(): Promise<string> {
 		throw new Error("トークンの選択に失敗しました");
 	}
 
-	return selectedToken.hex;
+	return selectedToken;
+}
+
+/**
+ * DADSの有彩色（chromatic）トークンからランダムに1つ選択する
+ *
+ * @returns ランダムに選択されたDADSトークンのHEX値
+ * @throws DADSトークンの読み込みに失敗した場合
+ */
+export async function getRandomDadsColor(): Promise<string> {
+	const token = await selectRandomChromaticToken();
+	return token.hex;
 }
 
 /**
@@ -45,24 +56,5 @@ export async function getRandomDadsColor(): Promise<string> {
  * @throws DADSトークンの読み込みに失敗した場合
  */
 export async function getRandomDadsToken(): Promise<DadsToken> {
-	const tokens = await loadDadsTokens();
-
-	// chromaticカテゴリのみをフィルター
-	const chromaticTokens = tokens.filter(
-		(t) => t.classification.category === "chromatic",
-	);
-
-	if (chromaticTokens.length === 0) {
-		throw new Error("有彩色トークンが見つかりませんでした");
-	}
-
-	// ランダムにトークンを選択
-	const randomIndex = Math.floor(Math.random() * chromaticTokens.length);
-	const selectedToken = chromaticTokens[randomIndex];
-
-	if (!selectedToken) {
-		throw new Error("トークンの選択に失敗しました");
-	}
-
-	return selectedToken;
+	return selectRandomChromaticToken();
 }

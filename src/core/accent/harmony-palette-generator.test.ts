@@ -564,4 +564,94 @@ describe("HarmonyPaletteGenerator", () => {
 			});
 		});
 	});
+
+	describe("brandColor重複防止", () => {
+		// DADSトークンの色（ランダム選択で選ばれる可能性がある色）
+		const DADS_TOKEN_COLORS = [
+			"#2c4100", // lime系の暗い色
+			"#0056ff", // blue系
+			"#ff5500", // orange系
+		];
+
+		it("analogousパレットでbrandColorと同じトークンが選ばれない", async () => {
+			for (const brandColor of DADS_TOKEN_COLORS) {
+				const result = await getAllHarmonyPalettes(brandColor);
+
+				expect(result.ok).toBe(true);
+				if (!result.ok) continue;
+
+				const analogous = result.result?.analogous;
+				if (!analogous) continue;
+
+				// 全てのアクセントカラーがbrandColorと異なることを確認
+				for (const accentColor of analogous.accentColors) {
+					expect(accentColor.toLowerCase()).not.toBe(brandColor.toLowerCase());
+				}
+			}
+		});
+
+		it("complementaryパレットでbrandColorと同じトークンが選ばれない", async () => {
+			for (const brandColor of DADS_TOKEN_COLORS) {
+				const result = await getAllHarmonyPalettes(brandColor);
+
+				expect(result.ok).toBe(true);
+				if (!result.ok) continue;
+
+				const complementary = result.result?.complementary;
+				if (!complementary) continue;
+
+				// 全てのアクセントカラーがbrandColorと異なることを確認
+				for (const accentColor of complementary.accentColors) {
+					expect(accentColor.toLowerCase()).not.toBe(brandColor.toLowerCase());
+				}
+			}
+		});
+
+		it("compoundパレットでbrandColorと同じトークンが選ばれない", async () => {
+			for (const brandColor of DADS_TOKEN_COLORS) {
+				const result = await getAllHarmonyPalettes(brandColor);
+
+				expect(result.ok).toBe(true);
+				if (!result.ok) continue;
+
+				const compound = result.result?.compound;
+				if (!compound) continue;
+
+				// 全てのアクセントカラーがbrandColorと異なることを確認
+				for (const accentColor of compound.accentColors) {
+					expect(accentColor.toLowerCase()).not.toBe(brandColor.toLowerCase());
+				}
+			}
+		});
+
+		it("パレット内の全色がユニークなカラーコードである", async () => {
+			for (const brandColor of DADS_TOKEN_COLORS) {
+				const result = await getAllHarmonyPalettes(brandColor);
+
+				expect(result.ok).toBe(true);
+				if (!result.ok) continue;
+
+				// 各ハーモニータイプでチェック
+				const harmonyTypes = [
+					"complementary",
+					"triadic",
+					"analogous",
+					"split-complementary",
+					"compound",
+					"square",
+				] as const;
+
+				for (const harmonyType of harmonyTypes) {
+					const palette = result.result?.[harmonyType];
+					if (!palette) continue;
+
+					const allColors = [palette.brandColor, ...palette.accentColors];
+					const uniqueColors = new Set(allColors.map((c) => c.toLowerCase()));
+
+					// 全てのカラーコードがユニークであることを確認
+					expect(uniqueColors.size).toBe(allColors.length);
+				}
+			}
+		});
+	});
 });

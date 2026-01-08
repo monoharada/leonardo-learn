@@ -82,7 +82,10 @@ export async function runDemo(): Promise<void> {
 				const randomHex = await getRandomDadsColor();
 				keyColorsInput.value = randomHex;
 			} catch (error) {
-				console.warn("Failed to get random initial color, using default:", error);
+				console.warn(
+					"Failed to get random initial color, using default:",
+					error,
+				);
 				// エラー時はデフォルト値を使用
 				keyColorsInput.value = "#3366cc";
 			}
