@@ -87,6 +87,71 @@ function getCandidatesNearHue(
 }
 
 /**
+ * brandColorに最も近いScoredCandidateを取得
+ *
+ * ランダム選択されたbrandColorと同じトークンがアクセントカラーとして
+ * 選ばれないよう、brandColorに対応するトークンを特定する。
+ *
+ * @param brandColorHex ブランドカラー
+ * @param candidates 全候補
+ * @returns 最も近い候補（見つからない場合はnull）
+ */
+function findBrandTokenCandidate(
+	brandColorHex: string,
+	candidates: ScoredCandidate[],
+): ScoredCandidate | null {
+	// brandColorのhexと完全一致する候補を探す
+	const exactMatch = candidates.find(
+		(c) => c.hex.toLowerCase() === brandColorHex.toLowerCase(),
+	);
+	if (exactMatch) return exactMatch;
+
+	// 完全一致がない場合、色相と明度が最も近い候補を返す
+	const brandOklch = toOklch(brandColorHex);
+	if (!brandOklch) return null;
+
+	const brandHue = brandOklch.h ?? 0;
+	const brandL = brandOklch.l;
+
+	// 色相が近く、明度も近い候補を探す
+	const sorted = candidates
+		.map((c) => ({
+			candidate: c,
+			hueDist: calculateCircularDistance(c.hue, brandHue),
+			lDist: Math.abs((toOklch(c.hex)?.l ?? 0) - brandL),
+		}))
+		.filter((x) => x.hueDist <= 30) // 色相が30°以内
+		.sort((a, b) => {
+			// 色相距離が同じなら明度距離で比較
+			if (a.hueDist === b.hueDist) {
+				return a.lDist - b.lDist;
+			}
+			return a.hueDist - b.hueDist;
+		});
+
+	return sorted[0]?.candidate ?? null;
+}
+
+/**
+ * brandColorに対応するトークンIDを含む除外セットを作成する
+ *
+ * @param brandColorHex ブランドカラー
+ * @param candidates 全候補
+ * @returns brandColorトークンIDを含む除外セット
+ */
+function createExclusionSetWithBrandCandidate(
+	brandColorHex: string,
+	candidates: ScoredCandidate[],
+): Set<string> {
+	const usedTokenIds = new Set<string>();
+	const brandCandidate = findBrandTokenCandidate(brandColorHex, candidates);
+	if (brandCandidate) {
+		usedTokenIds.add(brandCandidate.tokenId);
+	}
+	return usedTokenIds;
+}
+
+/**
  * 基準候補からステップオフセットを適用して最適な候補を選択
  *
  * @param candidates 候補リスト（色相でフィルタ済み）
@@ -198,7 +263,10 @@ function generateComplementaryPalette(
 	// 役割に基づいて候補を選択
 	const roles = getRolesForCount("complementary", accentCount as 2 | 3 | 4 | 5);
 	const selectedCandidates: ScoredCandidate[] = [];
-	const usedTokenIds = new Set<string>();
+	const usedTokenIds = createExclusionSetWithBrandCandidate(
+		brandColorHex,
+		candidates,
+	);
 
 	for (const role of roles) {
 		const selected = selectCandidateByRole(
@@ -271,7 +339,10 @@ function generateMultiDirectionPalette(
 	// 役割に基づいて候補を選択
 	const roles = getRolesForCount(harmonyType, accentCount as 2 | 3 | 4 | 5);
 	const selectedCandidates: ScoredCandidate[] = [];
-	const usedTokenIds = new Set<string>();
+	const usedTokenIds = createExclusionSetWithBrandCandidate(
+		brandColorHex,
+		candidates,
+	);
 
 	for (const role of roles) {
 		const selected = selectCandidateByRole(
@@ -497,7 +568,10 @@ function generateCompoundPalette(
 	// 役割に基づいて候補を選択
 	const roles = getRolesForCount("compound", accentCount as 2 | 3 | 4 | 5);
 	const selectedCandidates: ScoredCandidate[] = [];
-	const usedTokenIds = new Set<string>();
+	const usedTokenIds = createExclusionSetWithBrandCandidate(
+		brandColorHex,
+		candidates,
+	);
 
 	for (const role of roles) {
 		const selected = selectCandidateByRole(
