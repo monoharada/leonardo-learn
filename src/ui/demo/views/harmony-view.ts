@@ -23,6 +23,14 @@ import {
 	createHarmonyTypeCardGrid,
 	type HarmonyTypeCard,
 } from "../../accent-selector/harmony-type-card";
+import {
+	addHistoryEntry,
+	clearBrandColorHistory,
+	createHistoryEntry,
+	formatHistoryTimestamp,
+	loadBrandColorHistory,
+	persistBrandColorHistory,
+} from "../brand-color-history";
 import { state } from "../state";
 import type { ColorDetailModalOptions } from "../types";
 
@@ -329,12 +337,17 @@ function createHeader(
 	colorPicker.value = inputHex;
 
 	// カラー入力の同期とカード更新
-	const updateColor = (hex: string, source: "picker" | "text") => {
+	const updateColor = (
+		hex: string,
+		source: "picker" | "text" | "history",
+		fromHistory = false,
+	) => {
 		if (!/^#[0-9A-Fa-f]{6}$/.test(hex)) return;
 
-		if (source === "picker") {
+		if (source === "picker" || source === "history") {
 			colorText.value = hex;
-		} else {
+		}
+		if (source === "text" || source === "history") {
 			colorPicker.value = hex;
 		}
 
@@ -344,6 +357,14 @@ function createHeader(
 		) as HTMLInputElement | null;
 		if (keyColorsInput) {
 			keyColorsInput.value = hex;
+		}
+
+		// 履歴に保存（履歴から復元した場合は除外）
+		if (!fromHistory) {
+			const currentHistory = loadBrandColorHistory();
+			const entry = createHistoryEntry(hex, viewState.accentCount);
+			const newHistory = addHistoryEntry(currentHistory, entry);
+			persistBrandColorHistory(newHistory);
 		}
 
 		// ビュー全体を再レンダリング
@@ -405,10 +426,100 @@ function createHeader(
 		}
 	});
 
+	// 履歴ドロップダウン
+	const historyContainer = document.createElement("div");
+	historyContainer.className = "dads-history-container";
+
+	const historySelect = document.createElement("select");
+	historySelect.id = "brand-color-history-select";
+	historySelect.dataset.testid = "brand-color-history-select";
+	historySelect.className = "dads-select dads-history-dropdown";
+	historySelect.title = "履歴から選択";
+
+	// 履歴ドロップダウンの選択肢を更新する関数
+	const updateHistoryOptions = () => {
+		const history = loadBrandColorHistory();
+
+		// 既存のオプションをクリア
+		historySelect.replaceChildren();
+
+		// プレースホルダーオプション
+		const placeholder = document.createElement("option");
+		placeholder.value = "";
+		placeholder.textContent =
+			history.length > 0 ? `履歴 (${history.length})` : "履歴なし";
+		placeholder.disabled = true;
+		placeholder.selected = true;
+		historySelect.appendChild(placeholder);
+
+		// 履歴エントリを追加
+		for (const entry of history) {
+			const option = document.createElement("option");
+			option.value = JSON.stringify({
+				hex: entry.brandColorHex,
+				accentCount: entry.accentCount,
+			});
+			option.textContent = `${entry.brandColorHex.toUpperCase()} | ${entry.accentCount + 1}色 | ${formatHistoryTimestamp(entry.timestamp)}`;
+			option.style.setProperty("--option-color", entry.brandColorHex);
+			historySelect.appendChild(option);
+		}
+
+		// 履歴がない場合は非表示
+		historySelect.disabled = history.length === 0;
+	};
+
+	// 初期化時に履歴を読み込み
+	updateHistoryOptions();
+
+	// 履歴選択時のハンドラ
+	historySelect.addEventListener("change", (e) => {
+		const value = (e.target as HTMLSelectElement).value;
+		if (!value) return;
+
+		try {
+			const { hex, accentCount } = JSON.parse(value) as {
+				hex: string;
+				accentCount: 2 | 3 | 4 | 5;
+			};
+
+			// アクセント数を更新
+			state.accentCount = accentCount;
+			viewState.accentCount = accentCount;
+
+			// 色を更新（履歴からの復元なので fromHistory = true）
+			updateColor(hex, "history", true);
+		} catch {
+			// JSONパースエラーは無視
+		}
+
+		// プレースホルダーに戻す
+		historySelect.selectedIndex = 0;
+	});
+
+	// クリアボタン
+	const clearButton = document.createElement("button");
+	clearButton.type = "button";
+	clearButton.className = "dads-button dads-button--icon dads-history-clear";
+	clearButton.textContent = "×";
+	clearButton.dataset.testid = "brand-color-history-clear";
+	clearButton.title = "履歴をクリア";
+
+	clearButton.addEventListener("click", (e) => {
+		e.stopPropagation();
+		if (confirm("履歴をクリアしますか？")) {
+			clearBrandColorHistory();
+			updateHistoryOptions();
+		}
+	});
+
+	historyContainer.appendChild(historySelect);
+	historyContainer.appendChild(clearButton);
+
 	// 要素の組み立て
 	inputRow.appendChild(colorText);
 	inputRow.appendChild(colorPicker);
 	inputRow.appendChild(randomButton);
+	inputRow.appendChild(historyContainer);
 	colorInput.appendChild(colorLabel);
 	colorInput.appendChild(inputRow);
 	header.appendChild(colorInput);

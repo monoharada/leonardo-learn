@@ -360,3 +360,82 @@
 .accent-detail-area {
 	margin-top: var(--space-md, 1rem);
 }
+
+/* ============================================
+ * Brand Color History
+ * 履歴ドロップダウンとクリアボタン
+ * ============================================ */
+
+.dads-history-container {
+	display: flex;
+	align-items: center;
+	gap: var(--space-xs, 0.25rem);
+}
+
+.dads-history-dropdown {
+	min-width: 180px;
+	max-width: 220px;
+	padding: var(--space-xs, 0.25rem) var(--space-sm, 0.5rem);
+	font-size: var(--font-size-sm, 0.875rem);
+}
+
+/* Chrome 134+ 対応: base-select によるカスタマイズ */
+/* Chrome 134+の実験的機能: base-select
+ * 他のブラウザでは無視され、通常のselectにフォールバック
+ * https://developer.chrome.com/blog/styling-select
+ */
+@supports (appearance: base-select) {
+	.dads-history-dropdown,
+	.dads-history-dropdown::picker(select) {
+		appearance: base-select;
+	}
+
+	/* 選択肢の色プレビュー（Chrome 134+のみ有効） */
+	.dads-history-dropdown option::before {
+		content: "";
+		display: inline-block;
+		width: 14px;
+		height: 14px;
+		margin-right: var(--space-xs, 0.25rem);
+		background-color: var(--option-color, transparent);
+		border-radius: 2px;
+		border: 1px solid rgba(0, 0, 0, 0.1);
+		vertical-align: middle;
+	}
+}
+
+/* 履歴クリアボタン */
+.dads-history-clear {
+	padding: var(--space-xs, 0.25rem) var(--space-sm, 0.5rem);
+	font-size: var(--font-size-sm, 0.875rem);
+	line-height: 1;
+	min-width: auto;
+	background: var(--color-surface, #ffffff);
+	border: 1px solid var(--color-border, #e5e7eb);
+	border-radius: var(--radius-sm, 0.25rem);
+	color: var(--color-text-secondary, #6b7280);
+	cursor: pointer;
+	transition: all 0.2s ease;
+}
+
+.dads-history-clear:hover {
+	background: var(--color-error-light, #fef2f2);
+	border-color: var(--color-error, #dc2626);
+	color: var(--color-error, #dc2626);
+}
+
+.dads-history-clear:focus {
+	outline: 2px solid var(--color-primary, #3b82f6);
+	outline-offset: 2px;
+}
+
+/* 無効状態のドロップダウン */
+.dads-history-dropdown:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+/* 履歴ドロップダウンの選択肢 */
+.dads-history-dropdown option {
+	padding: var(--space-xs, 0.25rem) var(--space-sm, 0.5rem);
+}
