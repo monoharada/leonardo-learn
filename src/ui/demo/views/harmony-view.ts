@@ -380,8 +380,9 @@ function createHeader(
 	// ランダム選択ボタン
 	const randomButton = document.createElement("button");
 	randomButton.type = "button";
-	randomButton.className = "dads-button dads-button--secondary dads-button--random";
-	randomButton.innerHTML = "🎲 ランダム";
+	randomButton.className =
+		"dads-button dads-button--secondary dads-button--random";
+	randomButton.innerHTML = "ランダム";
 	randomButton.dataset.testid = "random-color-button";
 	randomButton.title = "DADSカラーからランダムに選択";
 
@@ -400,7 +401,7 @@ function createHeader(
 		} finally {
 			// ボタンを元に戻す
 			randomButton.disabled = false;
-			randomButton.innerHTML = "🎲 ランダム";
+			randomButton.innerHTML = "ランダム";
 		}
 	});
 
