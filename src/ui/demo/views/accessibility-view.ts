@@ -316,6 +316,10 @@ function renderCvdBoundaryRow(
 	const contentContainer = document.createElement("div");
 	contentContainer.className = "dads-a11y-cvd-boundary-content";
 
+	// 色のストリップコンテナ（エラーインジケーター配置用）
+	const stripContainer = document.createElement("div");
+	stripContainer.className = "dads-cvd-strip-container";
+
 	// 色のストリップ表示
 	const strip = document.createElement("div");
 	strip.className = "dads-cvd-strip";
@@ -330,13 +334,40 @@ function renderCvdBoundaryRow(
 		swatch.textContent = item.name;
 		strip.appendChild(swatch);
 	});
-	contentContainer.appendChild(strip);
+	stripContainer.appendChild(strip);
+
+	// エラー境界にインジケーターを表示するオーバーレイ
+	const overlay = document.createElement("div");
+	overlay.className = "dads-cvd-overlay";
+
+	const segmentWidth = 100 / result.sortedColors.length;
+
+	result.boundaryValidations.forEach((validation) => {
+		if (!validation.isDistinguishable) {
+			const markerPos = (validation.index + 1) * segmentWidth;
+
+			// 縦線
+			const conflictLine = document.createElement("div");
+			conflictLine.className = "dads-cvd-conflict-line";
+			conflictLine.style.left = `${markerPos}%`;
+			overlay.appendChild(conflictLine);
+
+			// エクスクラメーションアイコン
+			const conflictIcon = document.createElement("div");
+			conflictIcon.className = "dads-cvd-conflict-icon";
+			conflictIcon.style.left = `${markerPos}%`;
+			conflictIcon.style.transform = "translate(-50%, -50%)";
+			conflictIcon.textContent = "!";
+			overlay.appendChild(conflictIcon);
+		}
+	});
+
+	stripContainer.appendChild(overlay);
+	contentContainer.appendChild(stripContainer);
 
 	// 境界マーカーとΔE値表示
 	const boundaryMarkers = document.createElement("div");
 	boundaryMarkers.className = "dads-a11y-boundary-markers";
-
-	const segmentWidth = 100 / result.sortedColors.length;
 
 	result.boundaryValidations.forEach((validation) => {
 		const markerPos = (validation.index + 1) * segmentWidth;
