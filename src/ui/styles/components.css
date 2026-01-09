@@ -2064,7 +2064,6 @@
 	padding: 1.5rem;
 	background: var(--color-neutral-white);
 	border-radius: var(--border-radius-8);
-	box-shadow: var(--elevation-1);
 }
 
 .dads-a11y-sort-tabs {
@@ -2180,4 +2179,44 @@
 	border-radius: var(--border-radius-8);
 	color: var(--color-neutral-solid-gray-600);
 	font-size: var(--font-size-14);
+}
+
+/* CVD Type Selector for Sorting Validation */
+.dads-a11y-cvd-selector {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	margin-bottom: 1rem;
+}
+
+.dads-a11y-cvd-btn {
+	padding: 6px 12px;
+	border: 1px solid var(--color-neutral-solid-gray-300);
+	border-radius: var(--border-radius-8);
+	background: var(--color-neutral-white);
+	color: var(--color-neutral-solid-gray-600);
+	font-size: var(--font-size-12);
+	font-weight: 500;
+	cursor: pointer;
+	transition: all 0.2s ease;
+}
+
+.dads-a11y-cvd-btn:hover {
+	background: var(--color-neutral-solid-gray-50);
+	border-color: var(--color-neutral-solid-gray-400);
+}
+
+.dads-a11y-cvd-btn--active {
+	background: var(--color-neutral-solid-gray-900);
+	border-color: var(--color-neutral-solid-gray-900);
+	color: var(--color-neutral-white);
+}
+
+.dads-a11y-cvd-btn--active:hover {
+	background: var(--color-neutral-solid-gray-800);
+}
+
+.dads-a11y-cvd-btn:focus-visible {
+	outline: 2px solid var(--color-neutral-black);
+	outline-offset: 2px;
 }

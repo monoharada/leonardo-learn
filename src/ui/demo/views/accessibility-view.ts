@@ -42,6 +42,9 @@ const DISTINGUISHABILITY_THRESHOLD = 3.0;
 /** 現在選択中のソートタイプ（モジュールレベルの状態） */
 let currentSortType: SortType = "hue";
 
+/** 現在選択中のCVDタイプ（並べ替え検証用） */
+let currentSortingCvdType: CVDType | "normal" = "normal";
+
 /**
  * アクセシビリティビューのヘルパー関数
  */
@@ -279,29 +282,116 @@ function renderSortTabs(
 }
 
 /**
+ * CVDタイプセレクターをレンダリングする（並べ替え検証用）
+ *
+ * @param container レンダリング先のコンテナ要素
+ * @param onCvdChange CVDタイプ変更時のコールバック
+ */
+function renderSortingCvdSelector(
+	container: HTMLElement,
+	onCvdChange: (cvdType: CVDType | "normal") => void,
+): void {
+	const selectorContainer = document.createElement("div");
+	selectorContainer.className = "dads-a11y-cvd-selector";
+	selectorContainer.setAttribute("role", "tablist");
+	selectorContainer.setAttribute("aria-label", "色覚タイプを選択");
+
+	// 通常色覚ボタン
+	const normalBtn = document.createElement("button");
+	normalBtn.className = "dads-a11y-cvd-btn";
+	normalBtn.textContent = "通常";
+	normalBtn.setAttribute("role", "tab");
+	normalBtn.setAttribute("data-cvd-type", "normal");
+	normalBtn.setAttribute(
+		"aria-selected",
+		currentSortingCvdType === "normal" ? "true" : "false",
+	);
+	if (currentSortingCvdType === "normal") {
+		normalBtn.classList.add("dads-a11y-cvd-btn--active");
+	}
+	normalBtn.addEventListener("click", () => {
+		currentSortingCvdType = "normal";
+		onCvdChange("normal");
+		updateCvdButtonStates(selectorContainer);
+	});
+	selectorContainer.appendChild(normalBtn);
+
+	// 各CVDタイプのボタン
+	const cvdTypes = getAllCVDTypes();
+	cvdTypes.forEach((cvdType) => {
+		const btn = document.createElement("button");
+		btn.className = "dads-a11y-cvd-btn";
+		btn.textContent =
+			getCVDTypeName(cvdType).replace(" Vision", "").split(" ")[0] ?? "";
+		btn.setAttribute("role", "tab");
+		btn.setAttribute("data-cvd-type", cvdType);
+		btn.setAttribute(
+			"aria-selected",
+			currentSortingCvdType === cvdType ? "true" : "false",
+		);
+		if (currentSortingCvdType === cvdType) {
+			btn.classList.add("dads-a11y-cvd-btn--active");
+		}
+		btn.addEventListener("click", () => {
+			currentSortingCvdType = cvdType;
+			onCvdChange(cvdType);
+			updateCvdButtonStates(selectorContainer);
+		});
+		selectorContainer.appendChild(btn);
+	});
+
+	container.appendChild(selectorContainer);
+}
+
+/**
+ * CVDボタンのアクティブ状態を更新する
+ */
+function updateCvdButtonStates(container: HTMLElement): void {
+	container.querySelectorAll(".dads-a11y-cvd-btn").forEach((btn) => {
+		const cvdType = btn.getAttribute("data-cvd-type");
+		const isActive = cvdType === currentSortingCvdType;
+		btn.classList.toggle("dads-a11y-cvd-btn--active", isActive);
+		btn.setAttribute("aria-selected", isActive ? "true" : "false");
+	});
+}
+
+/**
  * 隣接境界検証結果をレンダリングする
  *
  * @param container レンダリング先のコンテナ要素
  * @param colors ソート済み色リスト
  * @param sortType ソートタイプ
+ * @param cvdType CVDタイプ（nullの場合は通常色覚）
  */
 function renderBoundaryValidation(
 	container: HTMLElement,
 	colors: NamedColor[],
 	sortType: SortType,
+	cvdType: CVDType | "normal" = "normal",
 ): void {
-	const result = sortColorsWithValidation(colors, sortType);
+	// CVDシミュレーションを適用した色に変換
+	const simulatedColors: NamedColor[] =
+		cvdType === "normal"
+			? colors
+			: colors.map((item) => ({
+					name: item.name,
+					color: simulateCVD(item.color, cvdType),
+				}));
+
+	const result = sortColorsWithValidation(simulatedColors, sortType);
 
 	// コンテナをクリア
 	container.innerHTML = "";
 
-	// タイトル
+	// タイトル（CVDタイプを含む）
 	const heading = document.createElement("h4");
 	heading.className = "dads-a11y-boundary__heading";
-	heading.textContent = `${getSortTypeName(sortType)}での隣接境界検証`;
+	const cvdLabel =
+		cvdType === "normal" ? "一般色覚" : getCVDTypeName(cvdType).split(" ")[0];
+	heading.textContent = `${getSortTypeName(sortType)}での隣接境界検証（${cvdLabel}）`;
 	container.appendChild(heading);
 
-	// 色のストリップ表示
+	// 色のストリップ表示（シミュレーション後の色を表示）
 	const stripRow = document.createElement("div");
 	stripRow.className = "dads-cvd-row";
 
@@ -322,8 +412,8 @@ function renderBoundaryValidation(
 	container.appendChild(stripRow);
 
 	// 境界マーカーとΔE値表示
-	const boundaryContainer = document.createElement("div");
-	boundaryContainer.className = "dads-a11y-boundary-markers";
+	const boundaryMarkers = document.createElement("div");
+	boundaryMarkers.className = "dads-a11y-boundary-markers";
 
 	const segmentWidth = 100 / result.sortedColors.length;
 
@@ -345,9 +435,9 @@ function renderBoundaryValidation(
 		}
 
 		marker.appendChild(deltaEBadge);
-		boundaryContainer.appendChild(marker);
+		boundaryMarkers.appendChild(marker);
 	});
-	container.appendChild(boundaryContainer);
+	container.appendChild(boundaryMarkers);
 
 	// サマリー
 	const problemCount = result.boundaryValidations.filter(
@@ -411,15 +501,30 @@ function renderSortingValidationSection(
 	boundaryContainer.className = "dads-a11y-boundary-container";
 	boundaryContainer.setAttribute("data-testid", "boundary-container");
 
-	// タブコンテナ
-	renderSortTabs(section, (sortType) => {
-		renderBoundaryValidation(boundaryContainer, namedColors, sortType);
+	// 更新関数（ソートタイプとCVDタイプの両方を考慮）
+	const updateBoundaryValidation = () => {
+		renderBoundaryValidation(
+			boundaryContainer,
+			namedColors,
+			currentSortType,
+			currentSortingCvdType,
+		);
+	};
+
+	// ソートタブ
+	renderSortTabs(section, () => {
+		updateBoundaryValidation();
+	});
+
+	// CVDタイプセレクター
+	renderSortingCvdSelector(section, () => {
+		updateBoundaryValidation();
 	});
 
 	section.appendChild(boundaryContainer);
 
 	// 初期表示
-	renderBoundaryValidation(boundaryContainer, namedColors, currentSortType);
+	updateBoundaryValidation();
 
 	container.appendChild(section);
 }
