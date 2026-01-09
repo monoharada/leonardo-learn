@@ -484,6 +484,49 @@ function renderSortingValidationSection(
 		return;
 	}
 
+	// 警告アラートボックス（上部に表示）
+	const alertBox = document.createElement("div");
+	alertBox.className = "dads-a11y-alert-box";
+	section.appendChild(alertBox);
+
+	/**
+	 * 全CVDタイプの問題数を計算する
+	 */
+	const calculateTotalProblems = (sortType: SortType): number => {
+		const cvdTypes = getAllCVDTypes();
+		return ["normal" as const, ...cvdTypes].reduce((count, cvdType) => {
+			const simulatedColors: NamedColor[] =
+				cvdType === "normal"
+					? namedColors
+					: namedColors.map((item) => ({
+							name: item.name,
+							color: simulateCVD(item.color, cvdType),
+						}));
+			const result = sortColorsWithValidation(simulatedColors, sortType);
+			return (
+				count +
+				result.boundaryValidations.filter((v) => !v.isDistinguishable).length
+			);
+		}, 0);
+	};
+
+	/**
+	 * 警告アラートボックスを更新する
+	 */
+	const updateAlertBox = (sortType: SortType) => {
+		const totalProblems = calculateTotalProblems(sortType);
+		if (totalProblems > 0) {
+			alertBox.className = "dads-a11y-alert-box dads-a11y-alert-box--warning";
+			alertBox.innerHTML = `<span class="dads-a11y-alert-icon">⚠</span> <strong>識別困難なペア検出:</strong> ${totalProblems}件のペアがCVD状態で混同される可能性があります。`;
+		} else {
+			alertBox.className = "dads-a11y-alert-box dads-a11y-alert-box--ok";
+			alertBox.innerHTML = `<span class="dads-a11y-alert-icon">✓</span> すべての隣接ペアが十分に区別できます。`;
+		}
+	};
+
+	// 初期表示時に警告アラートを更新
+	updateAlertBox(currentSortType);
+
 	// 境界検証コンテナ
 	const boundaryContainer = document.createElement("div");
 	boundaryContainer.className = "dads-a11y-boundary-container";
@@ -491,6 +534,7 @@ function renderSortingValidationSection(
 
 	// 更新関数
 	const updateBoundaryValidation = () => {
+		updateAlertBox(currentSortType);
 		renderAllCvdBoundaryValidations(
 			boundaryContainer,
 			namedColors,

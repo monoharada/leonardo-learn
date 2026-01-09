@@ -2223,3 +2223,32 @@
 	white-space: nowrap;
 	align-self: start;
 }
+
+/* Alert Box - Top warning/success notification */
+.dads-a11y-alert-box {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 12px 16px;
+	border-radius: var(--border-radius-8);
+	margin-bottom: 1.5rem;
+	font-size: var(--font-size-14);
+	line-height: 1.5;
+}
+
+.dads-a11y-alert-box--warning {
+	background: #fff3cd;
+	border: 1px solid #ffc107;
+	color: #856404;
+}
+
+.dads-a11y-alert-box--ok {
+	background: #d4edda;
+	border: 1px solid #28a745;
+	color: #155724;
+}
+
+.dads-a11y-alert-icon {
+	font-size: 1.2em;
+	flex-shrink: 0;
+}
