@@ -31,7 +31,10 @@ import {
 	setupExportHandlers,
 } from "./export-handlers";
 import { setupNavigation, updateViewButtons } from "./navigation";
-import { handleGenerate } from "./palette-generator";
+import {
+	createPalettesFromHarmonyColors,
+	handleGenerate,
+} from "./palette-generator";
 import { renderSidebar } from "./sidebar";
 import { state } from "./state";
 import type { ColorDetailModalOptions } from "./types";
@@ -112,62 +115,12 @@ export async function runDemo(): Promise<void> {
 		paletteColors: string[],
 		candidates?: ScoredCandidate[],
 	): void => {
-		// ハーモニータイプの日本語名
-		const harmonyNames: Record<HarmonyFilterType, string> = {
-			all: "すべて",
-			complementary: "補色",
-			triadic: "トライアド",
-			analogous: "類似色",
-			"split-complementary": "分裂補色",
-			monochromatic: "モノクロマティック",
-			shades: "シェード",
-			compound: "コンパウンド",
-			square: "正方形",
-		};
-
-		const timestamp = Date.now();
-
-		// 既存のパレットをクリアして新しいパレットを作成
-		state.palettes = [];
-
-		// 1. Brand Color (Primary) - 最初の色
-		const brandColor = paletteColors[0];
-		if (brandColor) {
-			const brandPalette = {
-				id: `harmony-brand-${timestamp}`,
-				name: "Primary",
-				keyColors: [brandColor],
-				ratios: [21, 15, 10, 7, 4.5, 3, 1],
-				harmony: HarmonyType.DADS,
-			};
-			state.palettes.push(brandPalette);
-		}
-
-		// 2. アクセントカラー（可変長対応）
-		// candidatesからDADSメタデータ（baseChromaName, step）を抽出
-		const accentColors = paletteColors.slice(1);
-		for (let i = 0; i < accentColors.length; i++) {
-			const accentColor = accentColors[i];
-			const candidate = candidates?.[i];
-			if (accentColor) {
-				// dadsSourceName (例: "Blue 600", "Light Blue 600") から baseChromaName を抽出
-				// 末尾のステップ番号を除去（スペース区切りの複数語色相名に対応）
-				const baseChromaName = candidate?.dadsSourceName?.replace(
-					DADS_STEP_SUFFIX_PATTERN,
-					"",
-				);
-				const accentPalette = {
-					id: `harmony-accent${i + 1}-${timestamp}`,
-					name: `Accent (${harmonyNames[harmonyType]} ${i + 1})`,
-					keyColors: [accentColor],
-					ratios: [21, 15, 10, 7, 4.5, 3, 1],
-					harmony: HarmonyType.DADS,
-					baseChromaName,
-					step: candidate?.step,
-				};
-				state.palettes.push(accentPalette);
-			}
-		}
+		// 新しい共通関数を使用してパレットを生成
+		state.palettes = createPalettesFromHarmonyColors(
+			harmonyType,
+			paletteColors,
+			candidates,
+		);
 
 		// アクティブIDを設定（最初のパレットを選択）
 		const firstPalette = state.palettes[0];

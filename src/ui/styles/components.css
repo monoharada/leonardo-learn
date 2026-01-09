@@ -324,8 +324,15 @@
 
 .dads-main__content {
 	flex: 1;
-	overflow-y: auto;
-	padding: 2rem;
+	display: flex;
+	flex-direction: column;
+	overflow-y: auto; /* デフォルト: スクロール可能 */
+	padding: 1.5rem 2rem;
+}
+
+/* ハーモニービューが表示されている時のみオーバーフローを無効化 */
+.dads-main__content:has(#harmony-view:not([hidden])) {
+	overflow: hidden;
 }
 
 .dads-main__content .palette {
@@ -542,6 +549,14 @@
 	display: flex;
 	flex-direction: column;
 	gap: 2rem;
+}
+
+/* ハーモニービュー専用：スクロール無しでビューポート内に収める */
+#harmony-view.dads-section {
+	flex: 1;
+	min-height: 0;
+	overflow: hidden;
+	gap: 0;
 }
 
 .dads-section__heading {
@@ -1523,8 +1538,8 @@
 	margin-bottom: 1.5rem;
 	padding: 1.5rem;
 	background: var(--color-neutral-white);
-	border-radius: var(--border-radius-16);
-	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+	border-radius: var(--border-radius-8);
+	box-shadow: var(--shadow-subtle);
 }
 
 .dads-harmony-header__title {
@@ -1865,4 +1880,176 @@
 	border: none;
 	background: #333;
 	color: white;
+}
+
+/* ============================================
+ * Coolors-style Palette Display
+ * Issue #33: アクセントカラー選定UIブラッシュアップ
+ * ============================================ */
+
+.coolors-display {
+	display: flex;
+	width: 100%;
+	height: min(70vh, 600px);
+	border-radius: var(--border-radius-8);
+	overflow: hidden;
+	box-shadow: var(--shadow-subtle);
+}
+
+.coolors-column {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: flex-end;
+	padding: 16px 8px;
+	cursor: pointer;
+	transition: flex 0.2s ease;
+}
+
+.coolors-column[data-hoverable="true"]:hover {
+	/* ホバー時に2%拡張（微細な動き） */
+	flex: 1.02;
+}
+
+.coolors-column[data-hoverable="true"]:focus-visible {
+	/* フォーカス時も同様に2%拡張（アクセシビリティ対応） */
+	flex: 1.02;
+	outline: 4px solid var(--color-neutral-black);
+	outline-offset: -4px;
+}
+
+.coolors-column__hex {
+	font-family: var(--font-family-mono, monospace);
+	font-size: 14px;
+	font-weight: 600;
+	text-transform: uppercase;
+	/* color はJSで動的に設定（背景色に基づく白/黒） */
+}
+
+.coolors-column__token-name {
+	font-size: 12px;
+	font-weight: 500;
+	margin-bottom: 4px;
+	opacity: 0.8;
+	/* color はJSで動的に設定（背景色に基づく白/黒） */
+}
+
+.coolors-column__primitive-name {
+	font-family: var(--font-family-mono, monospace);
+	font-size: 11px;
+	margin-bottom: 4px;
+	opacity: 0.7;
+	/* color はJSで動的に設定（背景色に基づく白/黒） */
+}
+
+/* ============================================
+ * Harmony Sidebar
+ * Issue #33: アクセントカラー選定UIブラッシュアップ
+ * ============================================ */
+
+.harmony-sidebar {
+	display: flex;
+	flex-direction: row;
+	flex-wrap: nowrap;
+	gap: 8px;
+	width: 100%;
+	padding: 8px;
+	background: var(--color-neutral-solid-gray-50);
+	border-radius: var(--border-radius-8);
+	overflow-x: auto;
+	box-shadow: var(--shadow-subtle);
+}
+
+.harmony-sidebar__card {
+	flex: 1;
+	background: var(--color-neutral-white);
+	border: 1px solid var(--color-neutral-solid-gray-200);
+	border-radius: var(--border-radius-4);
+	padding: 8px 12px;
+	cursor: pointer;
+	min-width: 100px;
+	text-align: center;
+	transition: background-color 0.15s ease;
+}
+
+.harmony-sidebar__card:hover {
+	background: var(--color-primitive-blue-50);
+	border-color: var(--color-primitive-blue-200);
+}
+
+.harmony-sidebar__card:focus-visible {
+	outline: 4px solid var(--color-neutral-black);
+	outline-offset: 2px;
+	box-shadow: 0 0 0 2px var(--color-primitive-yellow-300);
+}
+
+.harmony-sidebar__card--selected {
+	background: var(--color-primitive-blue-100);
+	border-color: var(--color-primitive-blue-900);
+	border-width: 2px;
+}
+
+.harmony-sidebar__card-name {
+	font-size: 14px;
+	font-weight: 500;
+	color: var(--color-neutral-solid-gray-900);
+}
+
+.harmony-sidebar__card--selected .harmony-sidebar__card-name {
+	font-weight: 600;
+}
+
+.harmony-sidebar__swatches {
+	display: flex;
+	justify-content: center;
+	gap: 4px;
+	margin-top: 6px;
+}
+
+.harmony-sidebar__swatch {
+	width: 24px;
+	height: 24px;
+	border-radius: var(--border-radius-4);
+	border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+/* ============================================
+ * Coolors Layout (Main + Sidebar)
+ * Issue #33: アクセントカラー選定UIブラッシュアップ
+ * ============================================ */
+
+.coolors-layout {
+	display: flex;
+	flex-direction: column;
+	gap: 0;
+	margin-top: 16px;
+	flex: 1;
+	min-height: 0;
+	overflow: hidden;
+}
+
+.coolors-layout__main {
+	flex: 1;
+	min-width: 0;
+	min-height: 0;
+	overflow: hidden;
+}
+
+.coolors-layout__sidebar {
+	flex-shrink: 0;
+	width: 100%;
+}
+
+/* ハーモニーサイドバーセクション（見出し＋サイドバー） */
+.harmony-sidebar-section {
+	flex-shrink: 0;
+	padding: 12px 0 0;
+}
+
+.harmony-sidebar-section__heading {
+	font-size: 14px;
+	font-weight: 600;
+	margin-bottom: 8px;
+	color: var(--color-neutral-solid-gray-700);
 }

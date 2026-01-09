@@ -8,14 +8,81 @@
  * Requirements: 9.1, 9.2, 9.3
  */
 
+import type { ScoredCandidate } from "@/core/accent/accent-candidate-service";
+import type { HarmonyFilterType } from "@/core/accent/harmony-filter-calculator";
 import { Color } from "@/core/color";
 import {
 	generateFullChromaPalette,
 	generateSystemPalette,
 	HarmonyType,
 } from "@/core/harmony";
+import { HARMONY_TYPE_LABELS } from "../components/harmony-sidebar";
 import { state } from "./state";
 import type { PaletteConfig } from "./types";
+
+/**
+ * Regex pattern to extract base chroma name from DADS source name
+ * Removes trailing step number (e.g., "Light Blue 600" -> "Light Blue")
+ */
+const DADS_STEP_SUFFIX_PATTERN = /\s+\d+$/;
+
+/**
+ * ハーモニープレビュー色からPaletteConfig[]を生成する
+ *
+ * @param harmonyType ハーモニータイプ
+ * @param paletteColors プレビュー色配列 [brandColor, accent1, accent2, ...]
+ * @param candidates アクセント候補（DADSメタデータ抽出用）
+ * @returns PaletteConfig配列
+ */
+export function createPalettesFromHarmonyColors(
+	harmonyType: HarmonyFilterType,
+	paletteColors: string[],
+	candidates?: ScoredCandidate[],
+): PaletteConfig[] {
+	const timestamp = Date.now();
+	const palettes: PaletteConfig[] = [];
+
+	// 1. Brand Color (Primary) - 最初の色
+	const brandColor = paletteColors[0];
+	if (brandColor) {
+		const brandPalette: PaletteConfig = {
+			id: `harmony-brand-${timestamp}`,
+			name: "Primary",
+			keyColors: [brandColor],
+			ratios: [21, 15, 10, 7, 4.5, 3, 1],
+			harmony: HarmonyType.DADS,
+		};
+		palettes.push(brandPalette);
+	}
+
+	// 2. アクセントカラー（可変長対応）
+	// candidatesからDADSメタデータ（baseChromaName, step）を抽出
+	const accentColors = paletteColors.slice(1);
+	for (let i = 0; i < accentColors.length; i++) {
+		const accentColor = accentColors[i];
+		const candidate = candidates?.[i];
+		if (accentColor) {
+			// dadsSourceName (例: "Blue 600", "Light Blue 600") から baseChromaName を抽出
+			// 末尾のステップ番号を除去（スペース区切りの複数語色相名に対応）
+			const baseChromaName = candidate?.dadsSourceName?.replace(
+				DADS_STEP_SUFFIX_PATTERN,
+				"",
+			);
+			const accentPalette: PaletteConfig = {
+				id: `harmony-accent${i + 1}-${timestamp}`,
+				name: `Accent (${HARMONY_TYPE_LABELS[harmonyType]} ${i + 1})`,
+				keyColors: [accentColor],
+				ratios: [21, 15, 10, 7, 4.5, 3, 1],
+				harmony: HarmonyType.DADS,
+				baseChromaName,
+				step: candidate?.step,
+			};
+			palettes.push(accentPalette);
+		}
+	}
+
+	return palettes;
+}
 
 /**
  * パレット生成完了後のコールバック

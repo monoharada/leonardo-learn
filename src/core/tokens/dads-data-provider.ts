@@ -232,3 +232,31 @@ export function getHueOrder(): readonly DadsColorHue[] {
 export function getScaleOrder(): readonly DadsChromaScale[] {
 	return SCALE_ORDER;
 }
+
+/**
+ * HEX値からDADSトークンを検索する
+ *
+ * @param tokens - DADSトークン配列
+ * @param hex - 検索するHEX値
+ * @returns 一致するDADSトークン情報、見つからない場合はundefined
+ */
+export function findDadsColorByHex(
+	tokens: DadsToken[],
+	hex: string,
+): { token: DadsToken; hue: DadsColorHue; scale: DadsChromaScale } | undefined {
+	const normalizedHex = hex.toLowerCase();
+
+	for (const token of tokens) {
+		if (
+			token.hex.toLowerCase() === normalizedHex &&
+			token.classification.category === "chromatic"
+		) {
+			return {
+				token,
+				hue: token.classification.hue as DadsColorHue,
+				scale: token.classification.scale as DadsChromaScale,
+			};
+		}
+	}
+	return undefined;
+}
