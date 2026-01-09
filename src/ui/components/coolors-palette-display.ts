@@ -9,6 +9,8 @@
  * @module @/ui/components/coolors-palette-display
  */
 
+import { getContrastTextColor } from "@/ui/semantic-role/circular-swatch-transformer";
+
 /**
  * CoolorsPaletteDisplayのプロパティ
  */
@@ -85,8 +87,9 @@ function createColorColumn(props: ColorColumnProps): HTMLElement {
 	column.setAttribute("aria-label", `${hex} の詳細を表示`);
 	column.setAttribute("tabindex", "0");
 
-	// テキスト色を背景色に基づいて決定
-	const textColor = getContrastTextColor(hex);
+	// テキスト色を背景色に基づいて決定（WCAGコントラスト比で最適な方を選択）
+	const textColor =
+		getContrastTextColor(hex) === "black" ? "#000000" : "#ffffff";
 
 	// トークン名（オプション）
 	if (tokenName) {
@@ -127,23 +130,4 @@ function createColorColumn(props: ColorColumnProps): HTMLElement {
 	});
 
 	return column;
-}
-
-/**
- * 背景色に基づいてコントラストの高いテキスト色を返す
- *
- * @param hex 背景色のHEX値
- * @returns テキスト色（白または黒）
- */
-function getContrastTextColor(hex: string): string {
-	// HEXをRGBに変換
-	const r = Number.parseInt(hex.slice(1, 3), 16);
-	const g = Number.parseInt(hex.slice(3, 5), 16);
-	const b = Number.parseInt(hex.slice(5, 7), 16);
-
-	// 相対輝度を計算（簡易版）
-	const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-
-	// 輝度が0.5より大きい場合は黒、それ以外は白
-	return luminance > 0.5 ? "#000000" : "#ffffff";
 }

@@ -17,6 +17,7 @@ import { filterByHarmonyType } from "@/core/accent/harmony-filter-service";
 import { getAllHarmonyPalettes } from "@/core/accent/harmony-palette-generator";
 import { Color } from "@/core/color";
 import {
+	findDadsColorByHex,
 	getDadsColorsByHue,
 	getDadsHueFromDisplayName,
 	loadDadsTokens,
@@ -303,6 +304,9 @@ async function loadCoolorsPreviews(
 	// 全ハーモニータイプのパレットを取得
 	const result = await getAllHarmonyPalettes(brandColorHex, { accentCount });
 
+	// DADSトークンをキャッシュ（プライマリーカラー検索用）
+	const dadsTokensCache = await loadDadsTokens();
+
 	// ローディング表示を削除
 	const loadingEl = mainArea.querySelector(".accent-selection-loading");
 	if (loadingEl) loadingEl.remove();
@@ -337,6 +341,7 @@ async function loadCoolorsPreviews(
 	const primitiveNames = generatePrimitiveNames(
 		currentColors,
 		currentCandidates,
+		dadsTokensCache,
 	);
 
 	// メイン表示を作成
@@ -376,6 +381,7 @@ async function loadCoolorsPreviews(
 			const newPrimitiveNames = generatePrimitiveNames(
 				newColors,
 				newCandidates,
+				dadsTokensCache,
 			);
 
 			// 既存のメイン表示を削除して再作成
@@ -459,15 +465,23 @@ function generateTokenNames(colorCount: number): string[] {
  *
  * @param colors パレットの色配列
  * @param candidates ScoredCandidate配列
+ * @param dadsTokensCache DADSトークンのキャッシュ（プライマリーカラー検索用）
  * @returns プリミティブトークン名の配列（例: "green-1200"）
  */
 function generatePrimitiveNames(
 	colors: string[],
 	candidates: ScoredCandidate[],
+	dadsTokensCache?: Awaited<ReturnType<typeof loadDadsTokens>>,
 ): string[] {
 	return colors.map((hex, index) => {
-		// プライマリー（index === 0）はユーザー入力色なので空欄
-		if (index === 0) return "";
+		// プライマリー（index === 0）の場合、DADSトークンから検索
+		if (index === 0) {
+			if (!dadsTokensCache) return "";
+			const found = findDadsColorByHex(dadsTokensCache, hex);
+			if (!found) return "";
+			// "blue-600" 形式で返す
+			return `${found.hue}-${found.scale}`;
+		}
 
 		// HEXから対応するScoredCandidateを検索
 		const candidate = candidates.find(
@@ -513,63 +527,76 @@ async function buildDadsColorDetailOptions(
 ): Promise<ColorDetailModalOptions> {
 	const color = new Color(hex);
 
+	// DADSトークンを読み込み
+	const tokens = await loadDadsTokens();
+
 	// アクセントカラー（index > 0）の場合、ScoredCandidateからDADS情報を取得
-	// ブランドカラー（index === 0）の場合はDADSカラーではない可能性あり
-	const candidate = index > 0 ? findCandidateByHex(hex, candidates) : undefined;
+	// ブランドカラー（index === 0）の場合、DADSトークンから直接検索
+	let dadsHue: ReturnType<typeof getDadsHueFromDisplayName> | undefined;
+	let dadsStep: number | undefined;
 
-	if (candidate) {
-		// dadsSourceName（例: "Blue 600"）から色相名を抽出
-		const hueNameMatch = candidate.dadsSourceName.match(/^(.+?)\s+\d+$/);
-		const hueDisplayName = hueNameMatch ? hueNameMatch[1] : undefined;
-		const dadsHue = hueDisplayName
-			? getDadsHueFromDisplayName(hueDisplayName)
-			: undefined;
+	if (index > 0) {
+		// アクセントカラー: candidatesから検索
+		const candidate = findCandidateByHex(hex, candidates);
+		if (candidate) {
+			const hueNameMatch = candidate.dadsSourceName.match(/^(.+?)\s+\d+$/);
+			const hueDisplayName = hueNameMatch ? hueNameMatch[1] : undefined;
+			dadsHue = hueDisplayName
+				? getDadsHueFromDisplayName(hueDisplayName)
+				: undefined;
+			dadsStep = candidate.step;
+		}
+	} else {
+		// プライマリーカラー: DADSトークンから直接検索
+		const found = findDadsColorByHex(tokens, hex);
+		if (found) {
+			dadsHue = found.hue;
+			dadsStep = found.scale;
+		}
+	}
 
-		if (dadsHue) {
-			try {
-				// DADSトークンを読み込み、シェードスケールを取得
-				const tokens = await loadDadsTokens();
-				const colorScale = getDadsColorsByHue(tokens, dadsHue);
+	if (dadsHue && dadsStep !== undefined) {
+		try {
+			const colorScale = getDadsColorsByHue(tokens, dadsHue);
 
-				// colorScale.colorsは50→1200の順（明→暗）
-				// ミニスケールで表示するために逆順にする（1200→50: 暗→明）
-				const reversedColors = [...colorScale.colors].reverse();
-				const scaleColors = reversedColors.map((c) => new Color(c.hex));
-				const hexValues = reversedColors.map((c) => c.hex);
+			// colorScale.colorsは50→1200の順（明→暗）
+			// ミニスケールで表示するために逆順にする（1200→50: 暗→明）
+			const reversedColors = [...colorScale.colors].reverse();
+			const scaleColors = reversedColors.map((c) => new Color(c.hex));
+			const hexValues = reversedColors.map((c) => c.hex);
 
-				// クリックされた色のインデックスを計算（reverse後）
-				const originalIndex = colorScale.colors.findIndex(
-					(c) => c.scale === candidate.step,
-				);
-				const scaleIndex =
-					originalIndex >= 0 ? colorScale.colors.length - 1 - originalIndex : 0;
+			// クリックされた色のインデックスを計算（reverse後）
+			const originalIndex = colorScale.colors.findIndex(
+				(c) => c.scale === dadsStep,
+			);
+			const scaleIndex =
+				originalIndex >= 0 ? colorScale.colors.length - 1 - originalIndex : 0;
 
-				// 代表色としてステップ600を使用（なければクリックした色）
-				const keyColorItem =
-					colorScale.colors.find((c) => c.scale === 600) ||
-					colorScale.colors.find((c) => c.scale === candidate.step);
-				const keyColor = keyColorItem ? new Color(keyColorItem.hex) : color;
+			// 代表色としてステップ600を使用（なければクリックした色）
+			const keyColorItem =
+				colorScale.colors.find((c) => c.scale === 600) ||
+				colorScale.colors.find((c) => c.scale === dadsStep);
+			const keyColor = keyColorItem ? new Color(keyColorItem.hex) : color;
 
-				return {
-					stepColor: color,
-					keyColor,
-					index: scaleIndex,
-					fixedScale: {
-						colors: scaleColors,
-						keyIndex: scaleIndex,
-						hexValues,
-					},
-					paletteInfo: {
-						name: tokenName,
-						baseChromaName: colorScale.hueName.en,
-						step: candidate.step,
-					},
-					readOnly: true,
-					originalHex: hex,
-				};
-			} catch (error) {
-				console.warn("Failed to load DADS scale for modal:", error);
-			}
+			return {
+				stepColor: color,
+				keyColor,
+				index: scaleIndex,
+				fixedScale: {
+					colors: scaleColors,
+					keyIndex: scaleIndex,
+					hexValues,
+				},
+				paletteInfo: {
+					name: tokenName,
+					baseChromaName: colorScale.hueName.en,
+					step: dadsStep,
+				},
+				readOnly: true,
+				originalHex: hex,
+			};
+		} catch (error) {
+			console.warn("Failed to load DADS scale for modal:", error);
 		}
 	}
 

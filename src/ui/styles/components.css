@@ -1538,8 +1538,8 @@
 	margin-bottom: 1.5rem;
 	padding: 1.5rem;
 	background: var(--color-neutral-white);
-	border-radius: var(--border-radius-16);
-	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+	border-radius: var(--border-radius-8);
+	box-shadow: var(--shadow-subtle);
 }
 
 .dads-harmony-header__title {
@@ -1890,10 +1890,10 @@
 .coolors-display {
 	display: flex;
 	width: 100%;
-	height: min(50vh, 400px);
+	height: min(70vh, 600px);
 	border-radius: var(--border-radius-8);
 	overflow: hidden;
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+	box-shadow: var(--shadow-subtle);
 }
 
 .coolors-column {
@@ -1908,13 +1908,13 @@
 }
 
 .coolors-column[data-hoverable="true"]:hover {
-	/* ホバー時に15%拡張してアクティブ感を演出 */
-	flex: 1.15;
+	/* ホバー時に2%拡張（微細な動き） */
+	flex: 1.02;
 }
 
 .coolors-column[data-hoverable="true"]:focus-visible {
-	/* フォーカス時も同様に15%拡張（アクセシビリティ対応） */
-	flex: 1.15;
+	/* フォーカス時も同様に2%拡張（アクセシビリティ対応） */
+	flex: 1.02;
 	outline: 4px solid var(--color-neutral-black);
 	outline-offset: -4px;
 }
@@ -1954,9 +1954,11 @@
 	flex-wrap: nowrap;
 	gap: 8px;
 	width: 100%;
+	padding: 8px;
 	background: var(--color-neutral-solid-gray-50);
 	border-radius: var(--border-radius-8);
 	overflow-x: auto;
+	box-shadow: var(--shadow-subtle);
 }
 
 .harmony-sidebar__card {
@@ -2008,7 +2010,7 @@
 .harmony-sidebar__swatch {
 	width: 24px;
 	height: 24px;
-	border-radius: 4px;
+	border-radius: var(--border-radius-4);
 	border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
