@@ -4,14 +4,10 @@
  * Coolors風のフルブリードカラム表示を実現するUIコンポーネント。
  * 各色を縦カラムで表示し、クリックでカラー詳細モーダルを開く。
  *
+ * 高さはCSSで `height: min(50vh, 400px)` として定義。
+ *
  * @module @/ui/components/coolors-palette-display
  */
-
-/**
- * コンポーネントの高さ定義
- * min(50vh, 400px) で、ビューポートに応じた適切な高さを確保
- */
-export const COOLORS_DISPLAY_HEIGHT = "100%";
 
 /**
  * CoolorsPaletteDisplayのプロパティ
@@ -38,14 +34,9 @@ export function createCoolorsPaletteDisplay(
 ): HTMLElement {
 	const { colors, tokenNames, primitiveNames, onColorClick } = props;
 
-	// コンテナ作成
+	// コンテナ作成（スタイルはCSSで定義）
 	const container = document.createElement("div");
 	container.className = "coolors-display";
-	container.style.display = "flex";
-	container.style.height = COOLORS_DISPLAY_HEIGHT;
-	container.style.width = "100%";
-	container.style.borderRadius = "8px";
-	container.style.overflow = "hidden";
 
 	// 各色のカラムを作成
 	for (let i = 0; i < colors.length; i++) {
@@ -84,14 +75,7 @@ function createColorColumn(props: ColorColumnProps): HTMLElement {
 
 	const column = document.createElement("div");
 	column.className = "coolors-column";
-	column.style.backgroundColor = hex;
-	column.style.display = "flex";
-	column.style.flexDirection = "column";
-	column.style.justifyContent = "flex-end";
-	column.style.alignItems = "center";
-	column.style.padding = "16px 8px";
-	column.style.cursor = "pointer";
-	column.style.transition = "flex 0.2s ease";
+	column.style.backgroundColor = hex; // 動的な背景色のみインラインで設定
 
 	// ホバー用のdata属性
 	column.setAttribute("data-hoverable", "true");
@@ -109,10 +93,7 @@ function createColorColumn(props: ColorColumnProps): HTMLElement {
 		const tokenLabel = document.createElement("span");
 		tokenLabel.className = "coolors-column__token-name";
 		tokenLabel.textContent = tokenName;
-		tokenLabel.style.color = textColor;
-		tokenLabel.style.fontSize = "12px";
-		tokenLabel.style.marginBottom = "4px";
-		tokenLabel.style.opacity = "0.8";
+		tokenLabel.style.color = textColor; // 動的な色のみインラインで設定
 		column.appendChild(tokenLabel);
 	}
 
@@ -121,11 +102,7 @@ function createColorColumn(props: ColorColumnProps): HTMLElement {
 		const primitiveLabel = document.createElement("span");
 		primitiveLabel.className = "coolors-column__primitive-name";
 		primitiveLabel.textContent = primitiveName;
-		primitiveLabel.style.color = textColor;
-		primitiveLabel.style.fontSize = "11px";
-		primitiveLabel.style.marginBottom = "4px";
-		primitiveLabel.style.opacity = "0.7";
-		primitiveLabel.style.fontFamily = "monospace";
+		primitiveLabel.style.color = textColor; // 動的な色のみインラインで設定
 		column.appendChild(primitiveLabel);
 	}
 
@@ -133,10 +110,7 @@ function createColorColumn(props: ColorColumnProps): HTMLElement {
 	const hexLabel = document.createElement("span");
 	hexLabel.className = "coolors-column__hex";
 	hexLabel.textContent = hex.toUpperCase();
-	hexLabel.style.color = textColor;
-	hexLabel.style.fontSize = "14px";
-	hexLabel.style.fontWeight = "bold";
-	hexLabel.style.fontFamily = "monospace";
+	hexLabel.style.color = textColor; // 動的な色のみインラインで設定
 	column.appendChild(hexLabel);
 
 	// クリックイベント

@@ -19,7 +19,6 @@ global.HTMLElement = dom.window.HTMLElement as typeof HTMLElement;
 
 // テスト対象のモジュールをインポート
 import {
-	COOLORS_DISPLAY_HEIGHT,
 	type CoolorsPaletteDisplayProps,
 	createCoolorsPaletteDisplay,
 } from "./coolors-palette-display";
@@ -111,9 +110,16 @@ describe("CoolorsPaletteDisplay", () => {
 			expect(element.classList.contains("coolors-display")).toBe(true);
 		});
 
-		it("コンテナ高さがCOOLORS_DISPLAY_HEIGHTで定義された値になる", () => {
-			expect(typeof COOLORS_DISPLAY_HEIGHT).toBe("string");
-			expect(COOLORS_DISPLAY_HEIGHT).toBe("100%");
+		it("コンテナ高さはCSSで管理される（インラインスタイルなし）", () => {
+			const props: CoolorsPaletteDisplayProps = {
+				colors: ["#ff0000"],
+				onColorClick: () => {},
+			};
+
+			const element = createCoolorsPaletteDisplay(props);
+			// 高さはCSSで min(50vh, 400px) として定義されているため、
+			// インラインスタイルは設定されない
+			expect(element.style.height).toBe("");
 		});
 	});
 
@@ -142,7 +148,7 @@ describe("CoolorsPaletteDisplay", () => {
 			expect(onColorClickMock).toHaveBeenCalledWith("#00ff00", 1);
 		});
 
-		it("カラムにcursor: pointerスタイルが設定される", () => {
+		it("カラムにcoolors-columnクラスが付与される（CSSでスタイル適用）", () => {
 			const props: CoolorsPaletteDisplayProps = {
 				colors: ["#ff0000"],
 				onColorClick: () => {},
@@ -151,10 +157,9 @@ describe("CoolorsPaletteDisplay", () => {
 			const element = createCoolorsPaletteDisplay(props);
 			container.appendChild(element);
 
-			const column = element.querySelector(
-				".coolors-column",
-			) as HTMLElement | null;
-			expect(column?.style.cursor).toBe("pointer");
+			const column = element.querySelector(".coolors-column");
+			expect(column).not.toBeNull();
+			expect(column?.classList.contains("coolors-column")).toBe(true);
 		});
 	});
 
