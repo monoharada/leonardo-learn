@@ -394,18 +394,6 @@ function renderCvdBoundaryRow(
 	// contentContainerをrowに追加（グリッドの2列目: 1fr）
 	row.appendChild(contentContainer);
 
-	// 問題数カウントを表示（グリッドの3列目: auto）
-	const problemCount = result.boundaryValidations.filter(
-		(v) => !v.isDistinguishable,
-	).length;
-	if (problemCount > 0) {
-		const warning = document.createElement("span");
-		warning.className = "dads-a11y-cvd-warning-badge";
-		warning.textContent = `⚠️ ${problemCount}`;
-		warning.title = `${problemCount}箇所の隣接ペアが識別困難`;
-		row.appendChild(warning);
-	}
-
 	return row;
 }
 
