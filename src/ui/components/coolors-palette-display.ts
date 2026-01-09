@@ -84,7 +84,6 @@ function createColorColumn(props: ColorColumnProps): HTMLElement {
 
 	const column = document.createElement("div");
 	column.className = "coolors-column";
-	column.style.flex = "1";
 	column.style.backgroundColor = hex;
 	column.style.display = "flex";
 	column.style.flexDirection = "column";

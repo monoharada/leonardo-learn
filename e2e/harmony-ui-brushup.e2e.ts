@@ -6,7 +6,7 @@
  * Requirements:
  * - Coolors風のメイン表示 + サイドバーレイアウト
  * - サイドバーでハーモニー選択 → メイン表示切替
- * - カラムクリックでコピー → Toast通知
+ * - カラムクリックでカラー詳細モーダル表示
  * - セッション内でのハーモニー記憶
  *
  * 実行: bun run test:e2e -- --grep "harmony-ui-brushup"
@@ -55,9 +55,6 @@ const SELECTORS = {
 	harmonySidebarCardSelected: ".harmony-sidebar__card--selected",
 	harmonySidebarCardName: ".harmony-sidebar__card-name",
 	harmonySidebarSwatches: ".harmony-sidebar__swatches",
-
-	// コピーToast
-	copyToast: ".copy-toast",
 
 	// ブランドカラー入力
 	brandColorInput: "#harmony-color-input",
@@ -142,10 +139,10 @@ test.describe("Coolorsレイアウト表示", () => {
 		const count = await tokenNames.count();
 		expect(count).toBeGreaterThanOrEqual(3);
 
-		// 最初のトークン名は「Brand」
+		// 最初のトークン名は「プライマリー」
 		const firstTokenName = tokenNames.first();
 		const text = await firstTokenName.textContent();
-		expect(text).toBe("Brand");
+		expect(text).toBe("プライマリー");
 	});
 });
 
@@ -210,12 +207,6 @@ test.describe("ハーモニー切替", () => {
 		await switchToView(page, "harmony");
 		await waitForCoolorsLayout(page);
 
-		// 現在のメイン表示の色を取得
-		const initialHex = await page
-			.locator(SELECTORS.coolorsColumnHex)
-			.first()
-			.textContent();
-
 		// 未選択のカードをクリック
 		await page.waitForTimeout(TIMEOUTS.BEFORE_ACTION);
 		const unselectedCard = page
@@ -224,13 +215,8 @@ test.describe("ハーモニー切替", () => {
 		await unselectedCard.click();
 		await page.waitForTimeout(TIMEOUTS.DATA_LOAD);
 
-		// メイン表示の色が更新されたことを確認（色が変わる可能性が高い）
-		const newHex = await page
-			.locator(SELECTORS.coolorsColumnHex)
-			.first()
-			.textContent();
-		// 注: ランダム選択によっては同じ色になる可能性があるため、色の変化は必須ではない
-		// 代わりに、選択状態が変わったことを確認
+		// 選択状態が変わったことを確認
+		// 注: ランダム選択によっては同じ色になる可能性があるため、色の変化ではなく選択状態を検証
 		const newSelectedCard = page.locator(SELECTORS.harmonySidebarCardSelected);
 		await expect(newSelectedCard).toBeVisible();
 	});
@@ -252,54 +238,7 @@ test.describe("ハーモニー切替", () => {
 });
 
 // ============================================================================
-// 4. コピー機能テスト
-// ============================================================================
-
-test.describe("コピー機能", () => {
-	test("カラムクリックでToast通知が表示される", async ({ page }) => {
-		await switchToView(page, "harmony");
-		await waitForCoolorsLayout(page);
-
-		// 最初のカラムをクリック
-		const firstColumn = page.locator(SELECTORS.coolorsColumn).first();
-		await page.waitForTimeout(TIMEOUTS.BEFORE_ACTION);
-		await firstColumn.click();
-		await page.waitForTimeout(TIMEOUTS.AFTER_ACTION);
-
-		// Toast通知が表示されることを確認
-		const toast = page.locator(SELECTORS.copyToast);
-		await expect(toast).toBeVisible({ timeout: 3000 });
-
-		// Toastに「コピーしました」のメッセージが含まれることを確認
-		const toastText = await toast.textContent();
-		expect(toastText).toContain("コピーしました");
-	});
-
-	test("ToastにコピーされたHEX値が表示される", async ({ page }) => {
-		await switchToView(page, "harmony");
-		await waitForCoolorsLayout(page);
-
-		// 最初のカラムのHEX値を取得
-		const firstHex = await page
-			.locator(SELECTORS.coolorsColumnHex)
-			.first()
-			.textContent();
-
-		// カラムをクリック
-		const firstColumn = page.locator(SELECTORS.coolorsColumn).first();
-		await page.waitForTimeout(TIMEOUTS.BEFORE_ACTION);
-		await firstColumn.click();
-		await page.waitForTimeout(TIMEOUTS.AFTER_ACTION);
-
-		// ToastにHEX値が含まれることを確認
-		const toast = page.locator(SELECTORS.copyToast);
-		const toastText = await toast.textContent();
-		expect(toastText?.toLowerCase()).toContain(firstHex?.toLowerCase());
-	});
-});
-
-// ============================================================================
-// 5. アクセシビリティテスト
+// 4. アクセシビリティテスト
 // ============================================================================
 
 test.describe("アクセシビリティ", () => {
@@ -330,24 +269,10 @@ test.describe("アクセシビリティ", () => {
 		const tabindex = await firstColumn.getAttribute("tabindex");
 		expect(tabindex).toBe("0");
 	});
-
-	test("Toastにrole='alert'が設定される", async ({ page }) => {
-		await switchToView(page, "harmony");
-		await waitForCoolorsLayout(page);
-
-		// カラムをクリックしてToastを表示
-		const firstColumn = page.locator(SELECTORS.coolorsColumn).first();
-		await firstColumn.click();
-		await page.waitForTimeout(TIMEOUTS.AFTER_ACTION);
-
-		const toast = page.locator(SELECTORS.copyToast);
-		const role = await toast.getAttribute("role");
-		expect(role).toBe("alert");
-	});
 });
 
 // ============================================================================
-// 6. ブランドカラー変更テスト
+// 5. ブランドカラー変更テスト
 // ============================================================================
 
 test.describe("ブランドカラー変更", () => {

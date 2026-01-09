@@ -1946,6 +1946,7 @@
 	width: 100%;
 	background: var(--color-neutral-solid-gray-50);
 	border-radius: var(--border-radius-8);
+	overflow-x: auto;
 }
 
 .harmony-sidebar__card {
