@@ -16,6 +16,11 @@ import type { HarmonyFilterType } from "@/core/accent/harmony-filter-calculator"
 import { filterByHarmonyType } from "@/core/accent/harmony-filter-service";
 import { getAllHarmonyPalettes } from "@/core/accent/harmony-palette-generator";
 import { Color } from "@/core/color";
+import {
+	getDadsColorsByHue,
+	getDadsHueFromDisplayName,
+	loadDadsTokens,
+} from "@/core/tokens/dads-data-provider";
 import { getRandomDadsColor } from "@/core/tokens/random-color-picker";
 import { toOklch } from "@/utils/color-space";
 import { AccentCandidateGrid } from "../../accent-selector/accent-candidate-grid";
@@ -37,6 +42,7 @@ import {
 import {
 	ALL_HARMONY_TYPES,
 	createHarmonyStateManager,
+	getRandomHarmonyType,
 	type HarmonyPreviewData,
 	type HarmonyStateManager,
 } from "../harmony-state-manager";
@@ -179,12 +185,6 @@ export function renderAccentSelectionView(
 	// ヘッダーセクション（Brand Color入力）
 	const header = createHeader(inputHex, container, callbacks, viewState);
 	container.appendChild(header);
-
-	// 説明文
-	const description = document.createElement("div");
-	description.className = "dads-section__description";
-	description.innerHTML = "<p>ハーモニーを選択してパレットを作成します。</p>";
-	container.appendChild(description);
 
 	// Coolorsモードまたは従来のカードモードで表示
 	if (viewState.useCoolorsMode) {
@@ -333,30 +333,23 @@ async function loadCoolorsPreviews(
 
 	// トークン名を生成
 	const tokenNames = generateTokenNames(currentColors.length);
+	const currentCandidates = paletteCandidatesMap.get(selectedType) ?? [];
+	const primitiveNames = generatePrimitiveNames(
+		currentColors,
+		currentCandidates,
+	);
 
 	// メイン表示を作成
 	const mainDisplay = createCoolorsPaletteDisplay({
 		colors: currentColors,
 		tokenNames,
-		onColorClick: (hex, index) => {
-			// カラー詳細モーダルを開く（読み取り専用モード）
-			const color = new Color(hex);
-			callbacks.onColorClick({
-				stepColor: color,
-				keyColor: color,
-				index: 0,
-				fixedScale: {
-					colors: [color],
-					keyIndex: 0,
-					hexValues: [hex],
-				},
-				paletteInfo: {
-					name: tokenNames[index] ?? `Color ${index + 1}`,
-				},
-				readOnly: true,
-				originalHex: hex,
-			});
-		},
+		primitiveNames,
+		onColorClick: createColorClickHandler(
+			paletteCandidatesMap,
+			selectedType,
+			tokenNames,
+			callbacks,
+		),
 	});
 	mainArea.appendChild(mainDisplay);
 
@@ -379,31 +372,24 @@ async function loadCoolorsPreviews(
 			// メイン表示を更新
 			const newColors = harmonyManager.getPreviewColors(type) ?? [];
 			const newTokenNames = generateTokenNames(newColors.length);
+			const newCandidates = paletteCandidatesMap.get(type) ?? [];
+			const newPrimitiveNames = generatePrimitiveNames(
+				newColors,
+				newCandidates,
+			);
 
 			// 既存のメイン表示を削除して再作成
 			mainArea.replaceChildren();
 			const newMainDisplay = createCoolorsPaletteDisplay({
 				colors: newColors,
 				tokenNames: newTokenNames,
-				onColorClick: (hex, index) => {
-					// カラー詳細モーダルを開く（読み取り専用モード）
-					const color = new Color(hex);
-					callbacks.onColorClick({
-						stepColor: color,
-						keyColor: color,
-						index: 0,
-						fixedScale: {
-							colors: [color],
-							keyIndex: 0,
-							hexValues: [hex],
-						},
-						paletteInfo: {
-							name: newTokenNames[index] ?? `Color ${index + 1}`,
-						},
-						readOnly: true,
-						originalHex: hex,
-					});
-				},
+				primitiveNames: newPrimitiveNames,
+				onColorClick: createColorClickHandler(
+					paletteCandidatesMap,
+					type,
+					newTokenNames,
+					callbacks,
+				),
 			});
 			mainArea.appendChild(newMainDisplay);
 
@@ -429,24 +415,232 @@ async function loadCoolorsPreviews(
 					}
 				},
 			});
-			sidebarArea.appendChild(newSidebar);
+			sidebarArea.appendChild(createSidebarSection(newSidebar));
 
 			// サイドバー選択ではパレットビューへの遷移を行わない
 			// メイン表示の切り替えのみ
 		},
 	});
-	sidebarArea.appendChild(sidebar);
+	sidebarArea.appendChild(createSidebarSection(sidebar));
 }
 
 /**
- * トークン名を生成する
+ * サイドバーセクション（見出し＋サイドバー）を作成する
+ */
+function createSidebarSection(sidebar: HTMLElement): HTMLElement {
+	const section = document.createElement("div");
+	section.className = "harmony-sidebar-section";
+
+	// ハーモニー見出し
+	const heading = document.createElement("h3");
+	heading.className = "harmony-sidebar-section__heading";
+	heading.textContent = "ハーモニー";
+	section.appendChild(heading);
+
+	// サイドバー
+	section.appendChild(sidebar);
+
+	return section;
+}
+
+/**
+ * トークン名を生成する（表示用）
  */
 function generateTokenNames(colorCount: number): string[] {
-	const names = ["Brand"];
+	const names = ["プライマリー"];
 	for (let i = 1; i < colorCount; i++) {
-		names.push(`Accent-${i}`);
+		names.push(`アクセント ${i}`);
 	}
 	return names;
+}
+
+/**
+ * DADSプリミティブトークン名を生成する
+ *
+ * @param colors パレットの色配列
+ * @param candidates ScoredCandidate配列
+ * @returns プリミティブトークン名の配列（例: "green-1200"）
+ */
+function generatePrimitiveNames(
+	colors: string[],
+	candidates: ScoredCandidate[],
+): string[] {
+	return colors.map((hex, index) => {
+		// プライマリー（index === 0）はユーザー入力色なので空欄
+		if (index === 0) return "";
+
+		// HEXから対応するScoredCandidateを検索
+		const candidate = candidates.find(
+			(c) => c.hex.toLowerCase() === hex.toLowerCase(),
+		);
+		if (!candidate) return "";
+
+		// dadsSourceName（例: "Green 1200"）からプリミティブ形式に変換
+		// "Green 1200" → "green-1200"
+		// "Light Blue 600" → "light-blue-600"
+		const match = candidate.dadsSourceName.match(/^(.+?)\s+(\d+)$/);
+		if (!match || !match[1] || !match[2]) return "";
+
+		const hueName = match[1].toLowerCase().replace(/\s+/g, "-");
+		const step = match[2];
+		return `${hueName}-${step}`;
+	});
+}
+
+/**
+ * HEX値からScoredCandidateを検索する
+ */
+function findCandidateByHex(
+	hex: string,
+	candidates: ScoredCandidate[],
+): ScoredCandidate | undefined {
+	return candidates.find((c) => c.hex.toLowerCase() === hex.toLowerCase());
+}
+
+/**
+ * DADSシェードスケールを含むColorDetailModalOptionsを構築する
+ *
+ * @param hex クリックされた色のHEX値
+ * @param index パレット内のインデックス
+ * @param candidates 現在のパレットのScoredCandidate配列
+ * @param tokenName 表示用トークン名（Brand, Accent-1等）
+ */
+async function buildDadsColorDetailOptions(
+	hex: string,
+	index: number,
+	candidates: ScoredCandidate[],
+	tokenName: string,
+): Promise<ColorDetailModalOptions> {
+	const color = new Color(hex);
+
+	// アクセントカラー（index > 0）の場合、ScoredCandidateからDADS情報を取得
+	// ブランドカラー（index === 0）の場合はDADSカラーではない可能性あり
+	const candidate = index > 0 ? findCandidateByHex(hex, candidates) : undefined;
+
+	if (candidate) {
+		// dadsSourceName（例: "Blue 600"）から色相名を抽出
+		const hueNameMatch = candidate.dadsSourceName.match(/^(.+?)\s+\d+$/);
+		const hueDisplayName = hueNameMatch ? hueNameMatch[1] : undefined;
+		const dadsHue = hueDisplayName
+			? getDadsHueFromDisplayName(hueDisplayName)
+			: undefined;
+
+		if (dadsHue) {
+			try {
+				// DADSトークンを読み込み、シェードスケールを取得
+				const tokens = await loadDadsTokens();
+				const colorScale = getDadsColorsByHue(tokens, dadsHue);
+
+				// colorScale.colorsは50→1200の順（明→暗）
+				// ミニスケールで表示するために逆順にする（1200→50: 暗→明）
+				const reversedColors = [...colorScale.colors].reverse();
+				const scaleColors = reversedColors.map((c) => new Color(c.hex));
+				const hexValues = reversedColors.map((c) => c.hex);
+
+				// クリックされた色のインデックスを計算（reverse後）
+				const originalIndex = colorScale.colors.findIndex(
+					(c) => c.scale === candidate.step,
+				);
+				const scaleIndex =
+					originalIndex >= 0 ? colorScale.colors.length - 1 - originalIndex : 0;
+
+				// 代表色としてステップ600を使用（なければクリックした色）
+				const keyColorItem =
+					colorScale.colors.find((c) => c.scale === 600) ||
+					colorScale.colors.find((c) => c.scale === candidate.step);
+				const keyColor = keyColorItem ? new Color(keyColorItem.hex) : color;
+
+				return {
+					stepColor: color,
+					keyColor,
+					index: scaleIndex,
+					fixedScale: {
+						colors: scaleColors,
+						keyIndex: scaleIndex,
+						hexValues,
+					},
+					paletteInfo: {
+						name: tokenName,
+						baseChromaName: colorScale.hueName.en,
+						step: candidate.step,
+					},
+					readOnly: true,
+					originalHex: hex,
+				};
+			} catch (error) {
+				console.warn("Failed to load DADS scale for modal:", error);
+			}
+		}
+	}
+
+	// DADSカラーでない場合（ブランドカラーまたはフォールバック）
+	return {
+		stepColor: color,
+		keyColor: color,
+		index: 0,
+		fixedScale: {
+			colors: [color],
+			keyIndex: 0,
+			hexValues: [hex],
+		},
+		paletteInfo: {
+			name: tokenName,
+		},
+		readOnly: true,
+		originalHex: hex,
+	};
+}
+
+/**
+ * カラークリック時のハンドラを作成する（共通関数）
+ *
+ * 重複していた onColorClick ハンドラロジックを共通化。
+ * DADSシェードモーダルの表示とフォールバック処理を担当。
+ *
+ * @param paletteCandidatesMap ハーモニータイプ別のScoredCandidate配列
+ * @param harmonyType 現在選択中のハーモニータイプ
+ * @param tokenNames トークン名の配列
+ * @param callbacks コールバック関数
+ * @returns onColorClick ハンドラ
+ */
+function createColorClickHandler(
+	paletteCandidatesMap: Map<HarmonyFilterType, ScoredCandidate[]>,
+	harmonyType: HarmonyFilterType,
+	tokenNames: string[],
+	callbacks: AccentSelectionViewCallbacks,
+): (hex: string, index: number) => void {
+	return (hex, index) => {
+		const candidates = paletteCandidatesMap.get(harmonyType) ?? [];
+		buildDadsColorDetailOptions(
+			hex,
+			index,
+			candidates,
+			tokenNames[index] ?? `Color ${index + 1}`,
+		)
+			.then((options) => {
+				callbacks.onColorClick(options);
+			})
+			.catch((error) => {
+				console.error("Failed to build modal options:", error);
+				// フォールバック: シンプルな単色表示
+				const color = new Color(hex);
+				callbacks.onColorClick({
+					stepColor: color,
+					keyColor: color,
+					index: 0,
+					fixedScale: {
+						colors: [color],
+						keyIndex: 0,
+						hexValues: [hex],
+					},
+					paletteInfo: {
+						name: tokenNames[index] ?? `Color ${index + 1}`,
+					},
+					readOnly: true,
+					originalHex: hex,
+				});
+			});
+	};
 }
 
 /**
@@ -674,6 +868,10 @@ function createHeader(
 			// ボタンを無効化してローディング状態にする
 			randomButton.disabled = true;
 			randomButton.textContent = "⏳ 選択中...";
+
+			// ハーモニータイプもランダムに選択
+			const randomHarmonyType = getRandomHarmonyType();
+			viewState.harmonyManager.selectHarmony(randomHarmonyType);
 
 			const randomHex = await getRandomDadsColor();
 			updateColor(randomHex, "picker");

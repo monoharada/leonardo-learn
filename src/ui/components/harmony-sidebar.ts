@@ -46,16 +46,11 @@ export interface HarmonySidebarProps {
 function createSwatches(colors: string[]): HTMLElement {
 	const container = document.createElement("div");
 	container.className = "harmony-sidebar__swatches";
-	container.style.display = "flex";
-	container.style.gap = "2px";
-	container.style.marginTop = "4px";
 
 	for (const color of colors) {
 		const swatch = document.createElement("div");
 		swatch.className = "harmony-sidebar__swatch";
-		swatch.style.width = "16px";
-		swatch.style.height = "16px";
-		swatch.style.borderRadius = "2px";
+		// 背景色のみ動的に設定
 		swatch.style.backgroundColor = color;
 		container.appendChild(swatch);
 	}
@@ -93,18 +88,10 @@ function createHarmonyCard(
 	card.setAttribute("aria-label", `${HARMONY_TYPE_LABELS[type]}ハーモニー`);
 	card.setAttribute("tabindex", "0");
 
-	// スタイル
-	card.style.cursor = "pointer";
-	card.style.padding = "8px 12px";
-	card.style.borderRadius = "4px";
-	card.style.transition = "background-color 0.15s ease";
-
 	// ハーモニー名ラベル
 	const nameLabel = document.createElement("div");
 	nameLabel.className = "harmony-sidebar__card-name";
 	nameLabel.textContent = HARMONY_TYPE_LABELS[type];
-	nameLabel.style.fontSize = "12px";
-	nameLabel.style.fontWeight = isSelected ? "600" : "400";
 	card.appendChild(nameLabel);
 
 	// ミニスウォッチ
@@ -120,6 +107,7 @@ function createHarmonyCard(
 	card.addEventListener("keydown", (event: Event) => {
 		const keyEvent = event as KeyboardEvent;
 		if (keyEvent.key === "Enter" || keyEvent.key === " ") {
+			keyEvent.preventDefault();
 			onSelect(type);
 		}
 	});
@@ -142,13 +130,6 @@ export function createHarmonySidebar(props: HarmonySidebarProps): HTMLElement {
 	// アクセシビリティ属性
 	container.setAttribute("role", "listbox");
 	container.setAttribute("aria-label", "ハーモニータイプ選択");
-
-	// スタイル
-	container.style.display = "flex";
-	container.style.flexDirection = "column";
-	container.style.gap = "4px";
-	container.style.padding = "8px";
-	container.style.overflowY = "auto";
 
 	// 全8種類のハーモニーカードを作成
 	for (const type of ALL_HARMONY_TYPES) {

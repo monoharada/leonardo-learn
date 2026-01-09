@@ -16,6 +16,7 @@ import {
 	generateSystemPalette,
 	HarmonyType,
 } from "@/core/harmony";
+import { HARMONY_TYPE_LABELS } from "../components/harmony-sidebar";
 import { state } from "./state";
 import type { PaletteConfig } from "./types";
 
@@ -24,21 +25,6 @@ import type { PaletteConfig } from "./types";
  * Removes trailing step number (e.g., "Light Blue 600" -> "Light Blue")
  */
 const DADS_STEP_SUFFIX_PATTERN = /\s+\d+$/;
-
-/**
- * ハーモニー名のマッピング
- */
-const HARMONY_NAMES: Record<HarmonyFilterType, string> = {
-	all: "すべて",
-	complementary: "補色",
-	triadic: "トライアド",
-	analogous: "類似色",
-	"split-complementary": "分裂補色",
-	monochromatic: "モノクロマティック",
-	shades: "シェード",
-	compound: "コンパウンド",
-	square: "正方形",
-};
 
 /**
  * ハーモニープレビュー色からPaletteConfig[]を生成する
@@ -84,7 +70,7 @@ export function createPalettesFromHarmonyColors(
 			);
 			const accentPalette: PaletteConfig = {
 				id: `harmony-accent${i + 1}-${timestamp}`,
-				name: `Accent (${HARMONY_NAMES[harmonyType]} ${i + 1})`,
+				name: `Accent (${HARMONY_TYPE_LABELS[harmonyType]} ${i + 1})`,
 				keyColors: [accentColor],
 				ratios: [21, 15, 10, 7, 4.5, 3, 1],
 				harmony: HarmonyType.DADS,

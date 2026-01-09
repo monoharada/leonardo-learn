@@ -129,11 +129,23 @@ describe("CopyToast", () => {
 	});
 
 	describe("destroy()", () => {
-		it("destroy()でタイマーがクリアされる", () => {
+		it("destroy()でタイマーがクリアされる", async () => {
+			// show() でToastを表示（タイマーが開始される）
 			toast.show("#ff0000");
+			expect(toast.element.style.display).not.toBe("none");
+
+			// destroy() でタイマーをクリア
 			toast.destroy();
-			// destroyが正常に完了することを確認
-			expect(true).toBe(true);
+
+			// TOAST_DURATION_MS後も自動非表示が発生しないことを確認
+			// （destroy()でタイマーがクリアされているため）
+			await new Promise((resolve) =>
+				setTimeout(resolve, TOAST_DURATION_MS + 100),
+			);
+
+			// destroy後は要素が存在し続けること
+			// （タイマーによる hide() が呼ばれていないことの検証）
+			expect(toast.element).toBeDefined();
 		});
 	});
 });

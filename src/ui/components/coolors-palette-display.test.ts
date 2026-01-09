@@ -113,7 +113,7 @@ describe("CoolorsPaletteDisplay", () => {
 
 		it("コンテナ高さがCOOLORS_DISPLAY_HEIGHTで定義された値になる", () => {
 			expect(typeof COOLORS_DISPLAY_HEIGHT).toBe("string");
-			expect(COOLORS_DISPLAY_HEIGHT).toContain("vh");
+			expect(COOLORS_DISPLAY_HEIGHT).toBe("100%");
 		});
 	});
 

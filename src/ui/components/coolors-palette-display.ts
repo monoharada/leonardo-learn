@@ -11,7 +11,7 @@
  * コンポーネントの高さ定義
  * min(50vh, 400px) で、ビューポートに応じた適切な高さを確保
  */
-export const COOLORS_DISPLAY_HEIGHT = "min(50vh, 400px)";
+export const COOLORS_DISPLAY_HEIGHT = "100%";
 
 /**
  * CoolorsPaletteDisplayのプロパティ
@@ -21,6 +21,8 @@ export interface CoolorsPaletteDisplayProps {
 	colors: string[];
 	/** トークン名の配列（オプション） */
 	tokenNames?: string[];
+	/** DADSプリミティブトークン名の配列（オプション、例: "green-1200"） */
+	primitiveNames?: string[];
 	/** カラークリック時のコールバック（詳細モーダル表示用） */
 	onColorClick: (hex: string, index: number) => void;
 }
@@ -34,7 +36,7 @@ export interface CoolorsPaletteDisplayProps {
 export function createCoolorsPaletteDisplay(
 	props: CoolorsPaletteDisplayProps,
 ): HTMLElement {
-	const { colors, tokenNames, onColorClick } = props;
+	const { colors, tokenNames, primitiveNames, onColorClick } = props;
 
 	// コンテナ作成
 	const container = document.createElement("div");
@@ -53,6 +55,7 @@ export function createCoolorsPaletteDisplay(
 		const column = createColorColumn({
 			hex,
 			tokenName: tokenNames?.[i],
+			primitiveName: primitiveNames?.[i],
 			index: i,
 			onColorClick,
 		});
@@ -68,6 +71,7 @@ export function createCoolorsPaletteDisplay(
 interface ColorColumnProps {
 	hex: string;
 	tokenName?: string;
+	primitiveName?: string;
 	index: number;
 	onColorClick: (hex: string, index: number) => void;
 }
@@ -76,7 +80,7 @@ interface ColorColumnProps {
  * 単一のカラーカラムを作成する
  */
 function createColorColumn(props: ColorColumnProps): HTMLElement {
-	const { hex, tokenName, index, onColorClick } = props;
+	const { hex, tokenName, primitiveName, index, onColorClick } = props;
 
 	const column = document.createElement("div");
 	column.className = "coolors-column";
@@ -111,6 +115,19 @@ function createColorColumn(props: ColorColumnProps): HTMLElement {
 		tokenLabel.style.marginBottom = "4px";
 		tokenLabel.style.opacity = "0.8";
 		column.appendChild(tokenLabel);
+	}
+
+	// プリミティブトークン名（オプション、空文字列でない場合のみ表示）
+	if (primitiveName) {
+		const primitiveLabel = document.createElement("span");
+		primitiveLabel.className = "coolors-column__primitive-name";
+		primitiveLabel.textContent = primitiveName;
+		primitiveLabel.style.color = textColor;
+		primitiveLabel.style.fontSize = "11px";
+		primitiveLabel.style.marginBottom = "4px";
+		primitiveLabel.style.opacity = "0.7";
+		primitiveLabel.style.fontFamily = "monospace";
+		column.appendChild(primitiveLabel);
 	}
 
 	// HEX値表示

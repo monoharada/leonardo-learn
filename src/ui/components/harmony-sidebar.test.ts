@@ -239,7 +239,7 @@ describe("HarmonySidebar", () => {
 			expect(onSelectMock).toHaveBeenCalledWith("triadic");
 		});
 
-		it("カードにcursor: pointerスタイルが設定される", () => {
+		it("カードにharmony-sidebar__cardクラスが設定される（cursor: pointerはCSSで適用）", () => {
 			const props: HarmonySidebarProps = {
 				selectedType: "complementary",
 				previews: new Map(),
@@ -252,7 +252,7 @@ describe("HarmonySidebar", () => {
 			const card = element.querySelector(
 				".harmony-sidebar__card",
 			) as HTMLElement | null;
-			expect(card?.style.cursor).toBe("pointer");
+			expect(card?.classList.contains("harmony-sidebar__card")).toBe(true);
 		});
 	});
 

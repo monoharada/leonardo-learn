@@ -142,6 +142,8 @@ export interface ColorDetailModalOptions {
 		baseChromaName?: string;
 		/** パレットID（名前編集時に必要） */
 		paletteId?: string;
+		/** DADSステップ番号（50, 100, ..., 1200） */
+		step?: number;
 	};
 	readOnly?: boolean;
 	/** クリックした色の元のHEX値 */
