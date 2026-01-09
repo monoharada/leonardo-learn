@@ -2053,3 +2053,131 @@
 	margin-bottom: 8px;
 	color: var(--color-neutral-solid-gray-700);
 }
+
+/* ============================================
+ * Accessibility View - Sorting Section
+ * Issue #40: アクセシビリティビューの改修
+ * ============================================ */
+
+.dads-a11y-sorting-section {
+	margin-top: 2rem;
+	padding: 1.5rem;
+	background: var(--color-neutral-white);
+	border-radius: var(--border-radius-8);
+	box-shadow: var(--elevation-1);
+}
+
+.dads-a11y-sort-tabs {
+	display: flex;
+	gap: 0.5rem;
+	margin-bottom: 1.5rem;
+	padding: 4px;
+	background: var(--color-neutral-solid-gray-100);
+	border-radius: var(--border-radius-8);
+}
+
+.dads-a11y-sort-tab {
+	flex: 1;
+	padding: 0.5rem 1rem;
+	border: none;
+	border-radius: 6px;
+	background: transparent;
+	color: var(--color-neutral-solid-gray-600);
+	font-size: var(--font-size-14);
+	font-weight: 500;
+	cursor: pointer;
+	transition: all 0.2s ease;
+}
+
+.dads-a11y-sort-tab:hover {
+	color: var(--color-neutral-solid-gray-900);
+	background: var(--color-neutral-solid-gray-50);
+}
+
+.dads-a11y-sort-tab--active {
+	background: var(--color-neutral-white);
+	color: var(--color-neutral-solid-gray-900);
+	font-weight: var(--font-weight-700);
+	box-shadow: var(--elevation-1);
+}
+
+.dads-a11y-sort-tab:focus-visible {
+	outline: 4px solid var(--color-neutral-black);
+	outline-offset: 2px;
+}
+
+.dads-a11y-boundary-container {
+	margin-top: 1rem;
+}
+
+.dads-a11y-boundary__heading {
+	font-size: var(--font-size-16);
+	font-weight: 600;
+	margin: 0 0 1rem 0;
+	color: var(--color-neutral-solid-gray-900);
+}
+
+.dads-a11y-boundary-markers {
+	position: relative;
+	height: 32px;
+	margin-top: 4px;
+}
+
+.dads-a11y-boundary-marker {
+	position: absolute;
+	transform: translateX(-50%);
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+}
+
+.dads-a11y-deltaE-badge {
+	font-size: 11px;
+	font-weight: 600;
+	padding: 2px 8px;
+	border-radius: 12px;
+	white-space: nowrap;
+}
+
+.dads-a11y-deltaE-badge--ok {
+	background: var(--color-primitive-green-100);
+	color: var(--color-semantic-success-1);
+}
+
+.dads-a11y-deltaE-badge--warning {
+	background: var(--color-primitive-red-100);
+	color: var(--color-semantic-error-1);
+}
+
+.dads-a11y-boundary-summary {
+	margin-top: 1rem;
+	padding: 12px 16px;
+	border-radius: var(--border-radius-8);
+	font-size: var(--font-size-14);
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.dads-a11y-boundary-summary--ok {
+	background: #d4edda;
+	color: #155724;
+}
+
+.dads-a11y-boundary-summary--warning {
+	background: #fff3cd;
+	color: #856404;
+}
+
+.dads-a11y-warning-icon,
+.dads-a11y-ok-icon {
+	font-size: 1.2em;
+}
+
+.dads-a11y-notice {
+	padding: 12px;
+	background: var(--color-neutral-solid-gray-100);
+	border-radius: var(--border-radius-8);
+	color: var(--color-neutral-solid-gray-600);
+	font-size: var(--font-size-14);
+}

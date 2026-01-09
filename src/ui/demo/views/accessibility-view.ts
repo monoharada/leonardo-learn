@@ -3,6 +3,7 @@
  *
  * アクセシビリティ分析画面のレンダリングを担当する。
  * CVDシミュレーションによる色の識別性確認と、CUDパレット検証を表示する。
+ * キーカラー＋セマンティックカラーのみを対象とし、3種類の並べ替え検証を提供する。
  *
  * @module @/ui/demo/views/accessibility-view
  * Requirements: 2.1, 2.2, 2.3, 2.4, 5.2, 5.5
@@ -20,18 +21,26 @@ import {
 } from "@/accessibility/distinguishability";
 import { Color } from "@/core/color";
 import { validatePalette } from "@/core/cud/validator";
-import { findColorForContrast } from "@/core/solver";
+import {
+	getAllSortTypes,
+	getSortTypeName,
+	type NamedColor,
+	type SortType,
+	sortColorsWithValidation,
+} from "@/ui/accessibility/color-sorting";
 import {
 	type PaletteColor,
 	showPaletteValidation,
 	snapToCudColor,
 } from "@/ui/cud-components";
-import { getContrastRatios, STEP_NAMES } from "@/ui/style-constants";
 import { parseKeyColor, state } from "../state";
 import type { Color as ColorType } from "../types";
 
 /** 識別困難と判定する色差の閾値 */
 const DISTINGUISHABILITY_THRESHOLD = 3.0;
+
+/** 現在選択中のソートタイプ（モジュールレベルの状態） */
+let currentSortType: SortType = "hue";
 
 /**
  * アクセシビリティビューのヘルパー関数
@@ -220,9 +229,206 @@ export function renderAdjacentShadesAnalysis(
 }
 
 /**
+ * ソートタイプ切り替えUIをレンダリングする
+ *
+ * @param container レンダリング先のコンテナ要素
+ * @param onSortChange ソートタイプ変更時のコールバック
+ */
+function renderSortTabs(
+	container: HTMLElement,
+	onSortChange: (sortType: SortType) => void,
+): void {
+	const tabsContainer = document.createElement("div");
+	tabsContainer.className = "dads-a11y-sort-tabs";
+	tabsContainer.setAttribute("role", "tablist");
+	tabsContainer.setAttribute("aria-label", "並べ替え方法を選択");
+
+	const sortTypes = getAllSortTypes();
+	sortTypes.forEach((sortType) => {
+		const tab = document.createElement("button");
+		tab.className = "dads-a11y-sort-tab";
+		tab.textContent = getSortTypeName(sortType);
+		tab.setAttribute("role", "tab");
+		tab.setAttribute("data-sort-type", sortType);
+		tab.setAttribute(
+			"aria-selected",
+			sortType === currentSortType ? "true" : "false",
+		);
+
+		if (sortType === currentSortType) {
+			tab.classList.add("dads-a11y-sort-tab--active");
+		}
+
+		tab.addEventListener("click", () => {
+			currentSortType = sortType;
+			onSortChange(sortType);
+
+			// タブのアクティブ状態を更新
+			tabsContainer.querySelectorAll(".dads-a11y-sort-tab").forEach((t) => {
+				t.classList.remove("dads-a11y-sort-tab--active");
+				t.setAttribute("aria-selected", "false");
+			});
+			tab.classList.add("dads-a11y-sort-tab--active");
+			tab.setAttribute("aria-selected", "true");
+		});
+
+		tabsContainer.appendChild(tab);
+	});
+
+	container.appendChild(tabsContainer);
+}
+
+/**
+ * 隣接境界検証結果をレンダリングする
+ *
+ * @param container レンダリング先のコンテナ要素
+ * @param colors ソート済み色リスト
+ * @param sortType ソートタイプ
+ */
+function renderBoundaryValidation(
+	container: HTMLElement,
+	colors: NamedColor[],
+	sortType: SortType,
+): void {
+	const result = sortColorsWithValidation(colors, sortType);
+
+	// コンテナをクリア
+	container.innerHTML = "";
+
+	// タイトル
+	const heading = document.createElement("h4");
+	heading.className = "dads-a11y-boundary__heading";
+	heading.textContent = `${getSortTypeName(sortType)}での隣接境界検証`;
+	container.appendChild(heading);
+
+	// 色のストリップ表示
+	const stripRow = document.createElement("div");
+	stripRow.className = "dads-cvd-row";
+
+	const strip = document.createElement("div");
+	strip.className = "dads-cvd-strip";
+
+	result.sortedColors.forEach((item) => {
+		const swatch = document.createElement("div");
+		swatch.className = "dads-cvd-strip__swatch";
+		swatch.style.backgroundColor = item.color.toCss();
+		swatch.title = `${item.name} (${item.color.toHex()})`;
+		swatch.style.color =
+			item.color.contrast(new Color("white")) > 4.5 ? "white" : "black";
+		swatch.textContent = item.name;
+		strip.appendChild(swatch);
+	});
+	stripRow.appendChild(strip);
+	container.appendChild(stripRow);
+
+	// 境界マーカーとΔE値表示
+	const boundaryContainer = document.createElement("div");
+	boundaryContainer.className = "dads-a11y-boundary-markers";
+
+	const segmentWidth = 100 / result.sortedColors.length;
+
+	result.boundaryValidations.forEach((validation) => {
+		const markerPos = (validation.index + 1) * segmentWidth;
+
+		const marker = document.createElement("div");
+		marker.className = "dads-a11y-boundary-marker";
+		marker.style.left = `${markerPos}%`;
+
+		const deltaEBadge = document.createElement("span");
+		deltaEBadge.className = "dads-a11y-deltaE-badge";
+		deltaEBadge.textContent = `ΔE ${validation.deltaE.toFixed(1)}`;
+
+		if (validation.isDistinguishable) {
+			deltaEBadge.classList.add("dads-a11y-deltaE-badge--ok");
+		} else {
+			deltaEBadge.classList.add("dads-a11y-deltaE-badge--warning");
+		}
+
+		marker.appendChild(deltaEBadge);
+		boundaryContainer.appendChild(marker);
+	});
+	container.appendChild(boundaryContainer);
+
+	// サマリー
+	const problemCount = result.boundaryValidations.filter(
+		(v) => !v.isDistinguishable,
+	).length;
+	const summary = document.createElement("div");
+	summary.className = "dads-a11y-boundary-summary";
+
+	if (problemCount > 0) {
+		summary.innerHTML = `<span class="dads-a11y-warning-icon">⚠️</span> ${problemCount}箇所の隣接ペアが識別困難（ΔE &lt; 3.0）です`;
+		summary.classList.add("dads-a11y-boundary-summary--warning");
+	} else {
+		summary.innerHTML =
+			'<span class="dads-a11y-ok-icon">✓</span> すべての隣接ペアが十分に区別できます';
+		summary.classList.add("dads-a11y-boundary-summary--ok");
+	}
+	container.appendChild(summary);
+}
+
+/**
+ * 並べ替え検証セクションをレンダリングする
+ *
+ * @param container レンダリング先のコンテナ要素
+ * @param keyColorsMap キーカラーのマップ
+ */
+function renderSortingValidationSection(
+	container: HTMLElement,
+	keyColorsMap: Record<string, Color>,
+): void {
+	const section = document.createElement("section");
+	section.className = "dads-a11y-sorting-section";
+
+	const heading = document.createElement("h2");
+	heading.textContent = "並べ替え検証 (Sorting Validation)";
+	heading.className = "dads-section__heading";
+	section.appendChild(heading);
+
+	const desc = document.createElement("p");
+	desc.textContent =
+		"キーカラーとセマンティックカラーを異なる基準で並べ替え、隣接する色同士の識別性を検証します。";
+	desc.className = "dads-section__description";
+	section.appendChild(desc);
+
+	// キーカラーをNamedColor形式に変換
+	const namedColors: NamedColor[] = Object.entries(keyColorsMap).map(
+		([name, color]) => ({ name, color }),
+	);
+
+	// 色が2つ未満の場合は検証不要
+	if (namedColors.length < 2) {
+		const notice = document.createElement("p");
+		notice.className = "dads-a11y-notice";
+		notice.textContent = "並べ替え検証には2色以上が必要です。";
+		section.appendChild(notice);
+		container.appendChild(section);
+		return;
+	}
+
+	// ソートタブ
+	const boundaryContainer = document.createElement("div");
+	boundaryContainer.className = "dads-a11y-boundary-container";
+	boundaryContainer.setAttribute("data-testid", "boundary-container");
+
+	// タブコンテナ
+	renderSortTabs(section, (sortType) => {
+		renderBoundaryValidation(boundaryContainer, namedColors, sortType);
+	});
+
+	section.appendChild(boundaryContainer);
+
+	// 初期表示
+	renderBoundaryValidation(boundaryContainer, namedColors, currentSortType);
+
+	container.appendChild(section);
+}
+
+/**
  * アクセシビリティビューをレンダリングする
  *
  * CVDシミュレーションによる色の識別性確認と、CUDパレット検証を表示する。
+ * キーカラー＋セマンティックカラーのみを対象とする。
  *
  * @param container レンダリング先のコンテナ要素
  * @param helpers ヘルパー関数（applySimulationはコールバック経由で渡す）
@@ -264,8 +470,8 @@ export function renderAccessibilityView(
 
 		<h3>確認すべきポイント</h3>
 		<ul>
-			<li><strong>キーカラー間の識別性:</strong> 生成された各パレット（Primary, Secondaryなど）のキーカラー同士が、色覚特性によって混同されないか確認します（全ペアを検証）。</li>
-			<li><strong>階調の識別性:</strong> 各パレット内の隣接するステップ（例: 500と600）が、十分なコントラストを持って区別できるか確認します。</li>
+			<li><strong>キーカラー＋セマンティックカラーの識別性:</strong> 生成された各パレットのキーカラー同士が、色覚特性によって混同されないか確認します。</li>
+			<li><strong>並べ替え検証:</strong> 色相順・色差順・明度順で並べ替え、隣接する色同士の識別性を確認します。</li>
 		</ul>
 
 		<h3>判定ロジックと計算方法</h3>
@@ -281,8 +487,7 @@ export function renderAccessibilityView(
 	// 1. Key Colors Check Section (全ペア検証)
 	const keyColorsSection = document.createElement("section");
 	const keyColorsHeading = document.createElement("h2");
-	keyColorsHeading.textContent =
-		"キーカラーの識別性確認 (Key Colors Harmony Check)";
+	keyColorsHeading.textContent = "キーカラー＋セマンティックカラーの識別性確認";
 	keyColorsHeading.className = "dads-section__heading";
 	keyColorsSection.appendChild(keyColorsHeading);
 
@@ -332,70 +537,8 @@ export function renderAccessibilityView(
 		}
 	}
 
-	// 2. Per-Palette Step Check Section
-	const palettesSection = document.createElement("section");
-	const palettesHeading = document.createElement("h2");
-	palettesHeading.textContent =
-		"パレット階調の識別性確認 (Palette Steps Check)";
-	palettesHeading.className = "dads-section__heading";
-	palettesSection.appendChild(palettesHeading);
-
-	const palettesDesc = document.createElement("p");
-	palettesDesc.textContent =
-		"各パレット内の隣接する階調（シェード）が、多様な色覚特性において区別できるかを確認します。";
-	palettesDesc.className = "dads-section__description";
-	palettesSection.appendChild(palettesDesc);
-
-	state.palettes.forEach((p) => {
-		const pContainer = document.createElement("div");
-		pContainer.className = "dads-a11y-palette-card";
-
-		const pTitle = document.createElement("h3");
-		pTitle.textContent = p.name;
-		pTitle.className = "dads-a11y-palette-card__title";
-		pContainer.appendChild(pTitle);
-
-		// Generate scale
-		const keyColorInput = p.keyColors[0];
-		if (!keyColorInput) return;
-		const { color: hex } = parseKeyColor(keyColorInput);
-		const keyColor = new Color(hex);
-
-		const baseRatios = getContrastRatios(state.contrastIntensity);
-		const bgColor = new Color("#ffffff");
-		const keyContrastRatio = keyColor.contrast(bgColor);
-
-		let keyColorIndex = -1;
-		let minDiff = Infinity;
-		for (let i = 0; i < baseRatios.length; i++) {
-			const diff = Math.abs((baseRatios[i] ?? 0) - keyContrastRatio);
-			if (diff < minDiff) {
-				minDiff = diff;
-				keyColorIndex = i;
-			}
-		}
-		if (keyColorIndex >= 0) {
-			baseRatios[keyColorIndex] = keyContrastRatio;
-		}
-
-		const colors: Color[] = baseRatios.map((ratio, i) => {
-			if (i === keyColorIndex) return keyColor;
-			const solved = findColorForContrast(keyColor, bgColor, ratio);
-			return solved || keyColor;
-		});
-		colors.reverse();
-
-		const shadesList: { name: string; color: Color }[] = [];
-		colors.forEach((c, i) => {
-			shadesList.push({ name: `${STEP_NAMES[i]}`, color: c });
-		});
-
-		// Render analysis for this palette (隣接ペアのみ)
-		renderAdjacentShadesAnalysis(pContainer, shadesList);
-		palettesSection.appendChild(pContainer);
-	});
-
-	container.appendChild(palettesSection);
+	// 2. 並べ替え検証セクション（新規追加）
+	renderSortingValidationSection(container, keyColorsMap);
 
 	// 3. CUDモードがoff以外の場合はCUD検証セクションを追加
 	if (state.cudMode !== "off") {
