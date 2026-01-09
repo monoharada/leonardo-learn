@@ -2181,42 +2181,45 @@
 	font-size: var(--font-size-14);
 }
 
-/* CVD Type Selector for Sorting Validation */
-.dads-a11y-cvd-selector {
+/* CVD Boundary Validation List - All CVD types displayed in a list */
+.dads-a11y-cvd-boundary-list {
 	display: flex;
-	flex-wrap: wrap;
-	gap: 0.5rem;
-	margin-bottom: 1rem;
+	flex-direction: column;
+	gap: 0.75rem;
 }
 
-.dads-a11y-cvd-btn {
-	padding: 6px 12px;
-	border: 1px solid var(--color-neutral-solid-gray-300);
-	border-radius: var(--border-radius-8);
-	background: var(--color-neutral-white);
-	color: var(--color-neutral-solid-gray-600);
-	font-size: var(--font-size-12);
-	font-weight: 500;
-	cursor: pointer;
-	transition: all 0.2s ease;
+.dads-a11y-cvd-boundary-row {
+	display: grid;
+	grid-template-columns: 160px 1fr auto;
+	gap: 12px;
+	align-items: start;
+	padding: 8px 0;
+	border-bottom: 1px solid var(--color-neutral-solid-gray-100);
 }
 
-.dads-a11y-cvd-btn:hover {
-	background: var(--color-neutral-solid-gray-50);
-	border-color: var(--color-neutral-solid-gray-400);
+.dads-a11y-cvd-boundary-row:last-child {
+	border-bottom: none;
 }
 
-.dads-a11y-cvd-btn--active {
-	background: var(--color-neutral-solid-gray-900);
-	border-color: var(--color-neutral-solid-gray-900);
-	color: var(--color-neutral-white);
+.dads-a11y-cvd-label {
+	font-size: var(--font-size-14);
+	font-weight: 600;
+	color: var(--color-neutral-solid-gray-900);
+	padding-top: 4px;
 }
 
-.dads-a11y-cvd-btn--active:hover {
-	background: var(--color-neutral-solid-gray-800);
+.dads-a11y-cvd-boundary-content {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
 }
 
-.dads-a11y-cvd-btn:focus-visible {
-	outline: 2px solid var(--color-neutral-black);
-	outline-offset: 2px;
+.dads-a11y-cvd-warning-badge {
+	font-size: 12px;
+	padding: 2px 8px;
+	background: var(--color-primitive-red-100);
+	color: var(--color-semantic-error-1);
+	border-radius: 12px;
+	white-space: nowrap;
+	align-self: start;
 }
