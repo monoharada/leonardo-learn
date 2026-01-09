@@ -360,7 +360,10 @@ function renderCvdBoundaryRow(
 	});
 	contentContainer.appendChild(boundaryMarkers);
 
-	// 問題数カウントを表示
+	// contentContainerをrowに追加（グリッドの2列目: 1fr）
+	row.appendChild(contentContainer);
+
+	// 問題数カウントを表示（グリッドの3列目: auto）
 	const problemCount = result.boundaryValidations.filter(
 		(v) => !v.isDistinguishable,
 	).length;
@@ -372,7 +375,6 @@ function renderCvdBoundaryRow(
 		row.appendChild(warning);
 	}
 
-	row.appendChild(contentContainer);
 	return row;
 }
 
