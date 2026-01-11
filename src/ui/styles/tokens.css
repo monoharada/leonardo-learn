@@ -219,6 +219,16 @@
 	--color-semantic-warning-orange-2: var(--color-primitive-orange-800);
 
 	/* ============================================
+   * Alert Box Colors (Accessibility View)
+   * ============================================ */
+	--color-alert-warning-bg: #fff3cd;
+	--color-alert-warning-border: #ffc107;
+	--color-alert-warning-text: #856404;
+	--color-alert-success-bg: #d4edda;
+	--color-alert-success-border: #28a745;
+	--color-alert-success-text: #155724;
+
+	/* ============================================
    * Typography
    * ============================================ */
 	--font-weight-400: 400;

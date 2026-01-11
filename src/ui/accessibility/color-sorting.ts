@@ -10,7 +10,10 @@
  * @module @/ui/accessibility/color-sorting
  */
 
-import { calculateSimpleDeltaE as calculateDeltaE } from "@/accessibility/distinguishability";
+import {
+	calculateSimpleDeltaE as calculateDeltaE,
+	DISTINGUISHABILITY_THRESHOLD,
+} from "@/accessibility/distinguishability";
 import type { Color } from "@/core/color";
 
 /**
@@ -54,11 +57,7 @@ export interface SortResult {
 	sortType: SortType;
 }
 
-/**
- * 識別困難と判定する色差の閾値（ΔEOK = OKLabユークリッド距離 × 100）
- * GPT調査結果に基づき5.0を採用（「2色として認識しやすい」境界）
- */
-const DISTINGUISHABILITY_THRESHOLD = 5.0;
+// DISTINGUISHABILITY_THRESHOLD is imported from @/accessibility/distinguishability
 
 /**
  * 色相（Hue）でソートする

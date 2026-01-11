@@ -15,7 +15,10 @@ import {
 	getCVDTypeName,
 	simulateCVD,
 } from "@/accessibility/cvd-simulator";
-import { calculateSimpleDeltaE as calculateDeltaE } from "@/accessibility/distinguishability";
+import {
+	calculateSimpleDeltaE as calculateDeltaE,
+	DISTINGUISHABILITY_THRESHOLD,
+} from "@/accessibility/distinguishability";
 import { Color } from "@/core/color";
 import {
 	getAllSortTypes,
@@ -152,18 +155,13 @@ function detectColorConflicts(
 // Constants
 // ============================================================================
 
-/**
- * 識別困難と判定する色差の閾値（ΔEOK = OKLabユークリッド距離 × 100）
- * 境界検証とCVD混同検出で統一使用
- * GPT調査結果に基づき5.0を採用（「2色として認識しやすい」境界）
- */
-const DISTINGUISHABILITY_THRESHOLD = 5.0;
+// DISTINGUISHABILITY_THRESHOLD is imported from @/accessibility/distinguishability
 
 /**
  * 一般色覚で十分に区別可能と判定する閾値（ΔEOK）
  * これ以上離れている色ペアのみCVD混同チェックを実施
  */
-const NORMAL_DISTINGUISHABLE_THRESHOLD = 10.0;
+const NORMAL_DISTINGUISHABLE_THRESHOLD = DISTINGUISHABILITY_THRESHOLD;
 
 /**
  * CVD混同リスクのペア情報
@@ -176,6 +174,19 @@ interface CvdConfusionPair {
 	cvdType: CVDType;
 	/** シミュレーション後のdeltaE（OKLCH、100倍スケール） */
 	cvdDeltaE: number;
+}
+
+/**
+ * 境界検証の対象タイプ
+ */
+type BoundaryValidationType = CVDType | "normal";
+
+/**
+ * 境界検証の集計結果
+ */
+interface BoundaryValidationSummary {
+	totalIssues: number;
+	issuesByType: Record<BoundaryValidationType, number>;
 }
 
 /** CVDタイプの日本語名マッピング */
@@ -665,6 +676,56 @@ function renderAllCvdBoundaryValidations(
 }
 
 /**
+ * 境界検証結果を集計する
+ *
+ * @param colors 色リスト
+ * @param sortType ソートタイプ
+ * @returns 境界検証の集計結果
+ */
+function getBoundaryValidationSummary(
+	colors: NamedColor[],
+	sortType: SortType,
+): BoundaryValidationSummary {
+	const validationTypes: BoundaryValidationType[] = [
+		"normal",
+		...getAllCVDTypes(),
+	];
+
+	const issuesByType: Record<BoundaryValidationType, number> = {
+		normal: 0,
+		protanopia: 0,
+		deuteranopia: 0,
+		tritanopia: 0,
+		achromatopsia: 0,
+	};
+
+	for (const validationType of validationTypes) {
+		const simulatedColors: NamedColor[] =
+			validationType === "normal"
+				? colors
+				: colors.map((item) => ({
+						name: item.name,
+						color: simulateCVD(item.color, validationType),
+					}));
+
+		const result = sortColorsWithValidation(simulatedColors, sortType);
+		const issueCount = result.boundaryValidations.reduce(
+			(count, validation) => count + (validation.isDistinguishable ? 0 : 1),
+			0,
+		);
+
+		issuesByType[validationType] = issueCount;
+	}
+
+	const totalIssues = Object.values(issuesByType).reduce(
+		(sum, count) => sum + count,
+		0,
+	);
+
+	return { totalIssues, issuesByType };
+}
+
+/**
  * 色覚シミュレーションセクションをレンダリングする
  *
  * @param container レンダリング先のコンテナ要素
@@ -712,19 +773,27 @@ function renderSortingValidationSection(
 
 	/**
 	 * 警告アラートボックスを更新する
-	 * 全CVDタイプでの混同リスク件数を表示
+	 * 境界検証とCVD混同リスクの件数を表示
 	 */
-	const updateAlertBox = () => {
+	const updateAlertBox = (summary: BoundaryValidationSummary) => {
 		// CVD混同リスク（全CVDタイプで混同するペア数）
 		const cvdConfusionCount = cvdConfusionPairs.length;
+		const boundaryIssueCount = summary.totalIssues;
 
-		if (cvdConfusionCount > 0) {
+		if (boundaryIssueCount > 0 || cvdConfusionCount > 0) {
 			alertBox.className = "dads-a11y-alert-box dads-a11y-alert-box--warning";
-			alertBox.innerHTML = `<span class="dads-a11y-alert-icon">⚠</span> <strong>識別困難なペア検出: ${cvdConfusionCount}件</strong><br><span style="font-size: 0.9em; opacity: 0.9;">一部の色覚タイプ（P型/D型/T型/全色盲）で、色ペアが混同される可能性があります。詳細は下記をご確認ください。</span>`;
+			const issueSummary = [
+				boundaryIssueCount > 0 ? `隣接境界 ${boundaryIssueCount}件` : null,
+				cvdConfusionCount > 0 ? `CVD混同 ${cvdConfusionCount}件` : null,
+			]
+				.filter(Boolean)
+				.join(" / ");
+
+			alertBox.innerHTML = `<span class="dads-a11y-alert-icon">⚠</span> <strong>識別困難なペア検出: ${issueSummary}</strong><br><span style="font-size: 0.9em; opacity: 0.9;">隣接境界とCVD混同の詳細は下記をご確認ください。</span>`;
 		} else {
 			alertBox.className = "dads-a11y-alert-box dads-a11y-alert-box--ok";
 			alertBox.innerHTML =
-				'<span class="dads-a11y-alert-icon">✓</span> すべてのペアが十分に区別できます。';
+				'<span class="dads-a11y-alert-icon">✓</span> 隣接境界・CVD混同ともに問題は検出されませんでした。';
 		}
 	};
 
@@ -735,7 +804,8 @@ function renderSortingValidationSection(
 
 	// 更新関数
 	const updateBoundaryValidation = () => {
-		updateAlertBox();
+		const summary = getBoundaryValidationSummary(namedColors, currentSortType);
+		updateAlertBox(summary);
 		renderAllCvdBoundaryValidations(
 			boundaryContainer,
 			namedColors,
@@ -763,9 +833,6 @@ function renderSortingValidationSection(
 		cvdConfusionPairs,
 	);
 	section.appendChild(cvdDetailsContainer);
-
-	// 初期表示時に警告アラートを更新
-	updateAlertBox();
 
 	section.appendChild(boundaryContainer);
 

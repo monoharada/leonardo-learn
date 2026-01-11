@@ -8,6 +8,20 @@
 import { Color } from "../core/color";
 import { type CVDType, getAllCVDTypes, simulateCVD } from "./cvd-simulator";
 
+// ============================================
+// 共有定数
+// ============================================
+
+/**
+ * 識別困難と判定する色差の閾値（ΔEOK = OKLabユークリッド距離 × 100）
+ * GPT調査結果に基づき5.0を採用（「2色として認識しやすい」境界）
+ *
+ * この値は以下のモジュールで共有使用される:
+ * - @/ui/accessibility/color-sorting（境界検証）
+ * - @/ui/demo/views/accessibility-view（CVD混同検出）
+ */
+export const DISTINGUISHABILITY_THRESHOLD = 5.0;
+
 /**
  * 識別性検証の重大度
  */
