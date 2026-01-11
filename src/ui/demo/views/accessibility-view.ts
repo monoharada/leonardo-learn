@@ -2,8 +2,8 @@
  * アクセシビリティビューモジュール
  *
  * アクセシビリティ分析画面のレンダリングを担当する。
- * CVDシミュレーションによる色の識別性確認と、CUDパレット検証を表示する。
- * キーカラー＋セマンティックカラーのみを対象とし、3種類の並べ替え検証を提供する。
+ * CVDシミュレーションによる色の識別性確認とCVD混同リスク検出を表示する。
+ * キーカラー＋セマンティックカラーのみを対象とし、CVDシミュレーションと識別性検証を提供する。
  *
  * @module @/ui/demo/views/accessibility-view
  * Requirements: 2.1, 2.2, 2.3, 2.4, 5.2, 5.5
@@ -15,12 +15,8 @@ import {
 	getCVDTypeName,
 	simulateCVD,
 } from "@/accessibility/cvd-simulator";
-import {
-	calculateDeltaE,
-	checkPaletteDistinguishability,
-} from "@/accessibility/distinguishability";
+import { calculateSimpleDeltaE as calculateDeltaE } from "@/accessibility/distinguishability";
 import { Color } from "@/core/color";
-import { validatePalette } from "@/core/cud/validator";
 import {
 	getAllSortTypes,
 	getSortTypeName,
@@ -28,16 +24,300 @@ import {
 	type SortType,
 	sortColorsWithValidation,
 } from "@/ui/accessibility/color-sorting";
-import {
-	type PaletteColor,
-	showPaletteValidation,
-	snapToCudColor,
-} from "@/ui/cud-components";
 import { parseKeyColor, state } from "../state";
 import type { Color as ColorType } from "../types";
 
-/** 識別困難と判定する色差の閾値 */
-const DISTINGUISHABILITY_THRESHOLD = 3.0;
+// ============================================================================
+// DOM Helper Functions
+// ============================================================================
+
+/**
+ * Create a color swatch element with optional label
+ *
+ * @param color - The color to display
+ * @param name - Optional name for the swatch (displayed as text and in title)
+ * @param showLabel - Whether to display the name as text inside the swatch
+ * @returns The swatch div element
+ */
+function createColorSwatch(
+	color: ColorType,
+	name?: string,
+	showLabel = true,
+): HTMLDivElement {
+	const swatch = document.createElement("div");
+	swatch.className = "dads-cvd-strip__swatch";
+	swatch.style.backgroundColor = color.toCss();
+
+	if (name) {
+		swatch.title = `${name} (${color.toHex()})`;
+		if (showLabel) {
+			swatch.style.color =
+				color.contrast(new Color("white")) > 4.5 ? "white" : "black";
+			swatch.textContent = name;
+		}
+	}
+
+	return swatch;
+}
+
+/**
+ * Create a small color swatch for pair display (no label, just background)
+ *
+ * @param color - The color to display
+ * @returns The swatch span element
+ */
+function createPairSwatch(color: ColorType): HTMLSpanElement {
+	const swatch = document.createElement("span");
+	swatch.className = "dads-a11y-cvd-pair-swatch";
+	swatch.style.backgroundColor = color.toHex();
+	return swatch;
+}
+
+/**
+ * Create conflict indicator elements (line and icon) for a given position
+ *
+ * @param position - The position percentage (0-100)
+ * @param useCalc - Whether to use calc() for positioning (for pixel adjustments)
+ * @returns Object containing line and icon elements
+ */
+function createConflictIndicator(
+	position: number,
+	useCalc = false,
+): { line: HTMLDivElement; icon: HTMLDivElement } {
+	const line = document.createElement("div");
+	line.className = "dads-cvd-conflict-line";
+	line.style.left = useCalc ? `calc(${position}% - 1px)` : `${position}%`;
+
+	const icon = document.createElement("div");
+	icon.className = "dads-cvd-conflict-icon";
+	icon.textContent = "!";
+
+	if (useCalc) {
+		icon.style.left = `calc(${position}% - 10px)`;
+	} else {
+		icon.style.left = `${position}%`;
+		icon.style.transform = "translate(-50%, -50%)";
+	}
+
+	return { line, icon };
+}
+
+/**
+ * Detect conflicts between colors based on delta E threshold
+ *
+ * @param simulatedColors - Array of colors with names
+ * @param adjacentOnly - If true, only check adjacent pairs; if false, check all pairs
+ * @param threshold - Delta E threshold for conflict detection
+ * @returns Array of conflict indices (positions between colors)
+ */
+function detectColorConflicts(
+	simulatedColors: { name: string; color: ColorType }[],
+	adjacentOnly: boolean,
+	threshold: number,
+): number[] {
+	const conflicts: number[] = [];
+
+	if (adjacentOnly) {
+		// Check adjacent pairs only (for shades)
+		for (let i = 0; i < simulatedColors.length - 1; i++) {
+			const item1 = simulatedColors[i];
+			const item2 = simulatedColors[i + 1];
+			if (!item1 || !item2) continue;
+			const deltaE = calculateDeltaE(item1.color, item2.color);
+			if (deltaE < threshold) {
+				conflicts.push(i);
+			}
+		}
+	} else {
+		// Check all pairs (for key colors)
+		for (let i = 0; i < simulatedColors.length; i++) {
+			for (let j = i + 1; j < simulatedColors.length; j++) {
+				const item1 = simulatedColors[i];
+				const item2 = simulatedColors[j];
+				if (!item1 || !item2) continue;
+				const deltaE = calculateDeltaE(item1.color, item2.color);
+				if (deltaE < threshold) {
+					// Record conflict position at the boundary
+					if (!conflicts.includes(i)) conflicts.push(i);
+					if (!conflicts.includes(j - 1) && j === i + 1) conflicts.push(j - 1);
+				}
+			}
+		}
+	}
+
+	return conflicts;
+}
+
+// ============================================================================
+// Constants
+// ============================================================================
+
+/**
+ * 識別困難と判定する色差の閾値（ΔEOK = OKLabユークリッド距離 × 100）
+ * 境界検証とCVD混同検出で統一使用
+ * GPT調査結果に基づき5.0を採用（「2色として認識しやすい」境界）
+ */
+const DISTINGUISHABILITY_THRESHOLD = 5.0;
+
+/**
+ * 一般色覚で十分に区別可能と判定する閾値（ΔEOK）
+ * これ以上離れている色ペアのみCVD混同チェックを実施
+ */
+const NORMAL_DISTINGUISHABLE_THRESHOLD = 10.0;
+
+/**
+ * CVD混同リスクのペア情報
+ */
+interface CvdConfusionPair {
+	/** ペアのインデックス（ソート後配列での位置） */
+	index1: number;
+	index2: number;
+	/** CVDタイプ（全4タイプ対応） */
+	cvdType: CVDType;
+	/** シミュレーション後のdeltaE（OKLCH、100倍スケール） */
+	cvdDeltaE: number;
+}
+
+/** CVDタイプの日本語名マッピング */
+const cvdTypeLabelsJa: Record<CVDType, string> = {
+	protanopia: "P型（1型2色覚）",
+	deuteranopia: "D型（2型2色覚）",
+	tritanopia: "T型（3型2色覚）",
+	achromatopsia: "全色盲",
+};
+
+/**
+ * CVDタイプを日本語名に変換
+ */
+function getCvdTypeLabelJa(cvdType: CVDType): string {
+	return cvdTypeLabelsJa[cvdType];
+}
+
+/**
+ * CVD混同リスクのあるペアを検出する
+ * 全CVDタイプ（P型/D型/T型/全色盲）で識別困難なペアを検出
+ * 境界検証と同じΔEOK（OKLabユークリッド距離 × 100）を使用して一貫性を確保
+ *
+ * @param colors 色リスト
+ * @returns CVD混同リスクのあるペアのリスト
+ */
+function detectCvdConfusionPairs(colors: NamedColor[]): CvdConfusionPair[] {
+	const pairs: CvdConfusionPair[] = [];
+
+	for (let i = 0; i < colors.length; i++) {
+		for (let j = i + 1; j < colors.length; j++) {
+			const color1 = colors[i];
+			const color2 = colors[j];
+			if (!color1 || !color2) continue;
+
+			// 一般色覚でのdeltaE（ΔEOK、100倍スケール）
+			const normalDeltaE = calculateDeltaE(color1.color, color2.color);
+
+			// 一般色覚で十分に区別可能な場合のみCVDチェック
+			// （既に識別困難なペアはCVD関係なく問題）
+			if (normalDeltaE >= NORMAL_DISTINGUISHABLE_THRESHOLD) {
+				// 全CVDタイプでシミュレーション（P型/D型/T型/全色盲）
+				for (const cvdType of getAllCVDTypes()) {
+					const sim1 = simulateCVD(color1.color, cvdType);
+					const sim2 = simulateCVD(color2.color, cvdType);
+					const cvdDeltaE = calculateDeltaE(sim1, sim2);
+
+					// 境界検証と同じ閾値を使用
+					if (cvdDeltaE < DISTINGUISHABILITY_THRESHOLD) {
+						pairs.push({
+							index1: i,
+							index2: j,
+							cvdType,
+							cvdDeltaE,
+						});
+					}
+				}
+			}
+		}
+	}
+
+	return pairs;
+}
+
+/**
+ * CVD混同リスク詳細をハイブリッド形式（2+3）でレンダリングする
+ * - 誰に問題か（P型/D型）を明示
+ * - どの色ペアかを具体的に表示
+ * - 程度をΔE値で補足
+ *
+ * @param container レンダリング先のコンテナ要素
+ * @param colors 色リスト
+ * @param cvdConfusionPairs CVD混同リスクのあるペア
+ */
+function renderCvdConfusionDetails(
+	container: HTMLElement,
+	colors: NamedColor[],
+	cvdConfusionPairs: CvdConfusionPair[],
+): void {
+	if (cvdConfusionPairs.length === 0) {
+		return;
+	}
+
+	// CVDタイプでグループ化（全4タイプ対応）
+	const groupedByType = new Map<CVDType, CvdConfusionPair[]>();
+	for (const pair of cvdConfusionPairs) {
+		const existing = groupedByType.get(pair.cvdType) ?? [];
+		existing.push(pair);
+		groupedByType.set(pair.cvdType, existing);
+	}
+
+	// 詳細セクションコンテナ
+	const detailsSection = document.createElement("div");
+	detailsSection.className = "dads-a11y-cvd-confusion-details";
+
+	// 各CVDタイプごとにセクションを作成
+	for (const [cvdType, pairs] of groupedByType) {
+		const typeSection = document.createElement("div");
+		typeSection.className = "dads-a11y-cvd-type-section";
+
+		// ヘッダー: ⚠ P型（1型2色覚）で混同リスク: 2ペア
+		const header = document.createElement("div");
+		header.className = "dads-a11y-cvd-type-header";
+		header.innerHTML = `<span class="dads-a11y-cvd-type-icon">⚠</span> <strong>${getCvdTypeLabelJa(cvdType)}</strong>で混同リスク: ${pairs.length}ペア`;
+		typeSection.appendChild(header);
+
+		// ペアリスト
+		const pairList = document.createElement("ul");
+		pairList.className = "dads-a11y-cvd-pair-list";
+
+		for (const pair of pairs) {
+			const color1 = colors[pair.index1];
+			const color2 = colors[pair.index2];
+			if (!color1 || !color2) continue;
+
+			const li = document.createElement("li");
+			li.className = "dads-a11y-cvd-pair-item";
+
+			// Build pair item: [swatch1] name1 ↔ name2 [swatch2] (ΔE = x.xx)
+			const swatch1 = createPairSwatch(color1.color);
+			const swatch2 = createPairSwatch(color2.color);
+
+			const text = document.createElement("span");
+			text.className = "dads-a11y-cvd-pair-text";
+			text.innerHTML = `${color1.name} <span class="dads-a11y-cvd-pair-arrow">↔</span> ${color2.name}`;
+
+			const deltaE = document.createElement("span");
+			deltaE.className = "dads-a11y-cvd-pair-deltaE";
+			deltaE.textContent = `（ΔE = ${pair.cvdDeltaE.toFixed(2)}）`;
+
+			li.appendChild(swatch1);
+			li.appendChild(text);
+			li.appendChild(swatch2);
+			li.appendChild(deltaE);
+			pairList.appendChild(li);
+		}
+
+		typeSection.appendChild(pairList);
+		detailsSection.appendChild(typeSection);
+	}
+
+	container.appendChild(detailsSection);
+}
 
 /** 現在選択中のソートタイプ（モジュールレベルの状態） */
 let currentSortType: SortType = "hue";
@@ -65,6 +345,18 @@ function renderEmptyState(container: HTMLElement, viewName: string): void {
 }
 
 /**
+ * 色の入力を統一形式（[name, color]のタプル配列）に正規化する
+ */
+function normalizeColorInput(
+	colorsInput: Record<string, ColorType> | { name: string; color: ColorType }[],
+): [string, ColorType][] {
+	if (Array.isArray(colorsInput)) {
+		return colorsInput.map((item) => [item.name, item.color]);
+	}
+	return Object.entries(colorsInput);
+}
+
+/**
  * 識別性分析をレンダリングする
  *
  * 色のリストをCVDシミュレーションで表示し、識別困難な色ペアに警告を表示する。
@@ -81,13 +373,7 @@ export function renderDistinguishabilityAnalysis(
 ): void {
 	const { adjacentOnly = true } = options;
 	const cvdTypes = getAllCVDTypes();
-
-	let colorEntries: [string, ColorType][];
-	if (Array.isArray(colorsInput)) {
-		colorEntries = colorsInput.map((item) => [item.name, item.color]);
-	} else {
-		colorEntries = Object.entries(colorsInput);
-	}
+	const colorEntries = normalizeColorInput(colorsInput);
 
 	// 1. Normal View
 	const normalRow = document.createElement("div");
@@ -102,14 +388,7 @@ export function renderDistinguishabilityAnalysis(
 	normalStrip.className = "dads-cvd-strip";
 
 	colorEntries.forEach(([name, color]) => {
-		const swatch = document.createElement("div");
-		swatch.className = "dads-cvd-strip__swatch";
-		swatch.style.backgroundColor = color.toCss();
-		swatch.title = `${name} (${color.toHex()})`;
-		swatch.style.color =
-			color.contrast(new Color("white")) > 4.5 ? "white" : "black";
-		swatch.textContent = name;
-		normalStrip.appendChild(swatch);
+		normalStrip.appendChild(createColorSwatch(color, name));
 	});
 	normalRow.appendChild(normalStrip);
 	container.appendChild(normalRow);
@@ -138,38 +417,14 @@ export function renderDistinguishabilityAnalysis(
 			color: simulateCVD(color, type),
 		}));
 
-		// 衝突判定: シミュレーション後の色同士の色差を直接計算（二重シミュレーションを回避）
-		const conflicts: number[] = [];
-		if (adjacentOnly) {
-			// 隣接ペアのみ検証（シェード用）
-			for (let i = 0; i < simulatedColors.length - 1; i++) {
-				const item1 = simulatedColors[i];
-				const item2 = simulatedColors[i + 1];
-				if (!item1 || !item2) continue;
-				const deltaE = calculateDeltaE(item1.color, item2.color);
-				if (deltaE < DISTINGUISHABILITY_THRESHOLD) {
-					conflicts.push(i);
-				}
-			}
-		} else {
-			// 全ペア検証（キーカラー用）
-			for (let i = 0; i < simulatedColors.length; i++) {
-				for (let j = i + 1; j < simulatedColors.length; j++) {
-					const item1 = simulatedColors[i];
-					const item2 = simulatedColors[j];
-					if (!item1 || !item2) continue;
-					const deltaE = calculateDeltaE(item1.color, item2.color);
-					if (deltaE < DISTINGUISHABILITY_THRESHOLD) {
-						// 全ペアモードでは隣接関係を示すためにi側のインデックスを記録
-						// （複数の警告が同じ位置に表示される可能性あり）
-						if (!conflicts.includes(i)) conflicts.push(i);
-						if (!conflicts.includes(j - 1) && j === i + 1)
-							conflicts.push(j - 1);
-					}
-				}
-			}
-		}
+		// 衝突判定: Use extracted helper function
+		const conflicts = detectColorConflicts(
+			simulatedColors,
+			adjacentOnly,
+			DISTINGUISHABILITY_THRESHOLD,
+		);
 
+		// Create swatches for simulated colors (no label, title only)
 		simulatedColors.forEach((item) => {
 			const swatch = document.createElement("div");
 			swatch.className = "dads-cvd-strip__swatch";
@@ -179,7 +434,7 @@ export function renderDistinguishabilityAnalysis(
 		});
 		stripContainer.appendChild(strip);
 
-		// Draw conflict lines
+		// Draw conflict indicators using helper
 		if (conflicts.length > 0) {
 			const overlay = document.createElement("div");
 			overlay.className = "dads-cvd-overlay";
@@ -188,16 +443,8 @@ export function renderDistinguishabilityAnalysis(
 
 			conflicts.forEach((index) => {
 				const leftPos = (index + 1) * segmentWidth;
-
-				const line = document.createElement("div");
-				line.className = "dads-cvd-conflict-line";
-				line.style.left = `calc(${leftPos}% - 1px)`;
+				const { line, icon } = createConflictIndicator(leftPos, true);
 				overlay.appendChild(line);
-
-				const icon = document.createElement("div");
-				icon.className = "dads-cvd-conflict-icon";
-				icon.textContent = "!";
-				icon.style.left = `calc(${leftPos}% - 10px)`;
 				overlay.appendChild(icon);
 			});
 
@@ -325,14 +572,7 @@ function renderCvdBoundaryRow(
 	strip.className = "dads-cvd-strip";
 
 	result.sortedColors.forEach((item) => {
-		const swatch = document.createElement("div");
-		swatch.className = "dads-cvd-strip__swatch";
-		swatch.style.backgroundColor = item.color.toCss();
-		swatch.title = `${item.name} (${item.color.toHex()})`;
-		swatch.style.color =
-			item.color.contrast(new Color("white")) > 4.5 ? "white" : "black";
-		swatch.textContent = item.name;
-		strip.appendChild(swatch);
+		strip.appendChild(createColorSwatch(item.color, item.name));
 	});
 	stripContainer.appendChild(strip);
 
@@ -345,20 +585,9 @@ function renderCvdBoundaryRow(
 	result.boundaryValidations.forEach((validation) => {
 		if (!validation.isDistinguishable) {
 			const markerPos = (validation.index + 1) * segmentWidth;
-
-			// 縦線
-			const conflictLine = document.createElement("div");
-			conflictLine.className = "dads-cvd-conflict-line";
-			conflictLine.style.left = `${markerPos}%`;
-			overlay.appendChild(conflictLine);
-
-			// エクスクラメーションアイコン
-			const conflictIcon = document.createElement("div");
-			conflictIcon.className = "dads-cvd-conflict-icon";
-			conflictIcon.style.left = `${markerPos}%`;
-			conflictIcon.style.transform = "translate(-50%, -50%)";
-			conflictIcon.textContent = "!";
-			overlay.appendChild(conflictIcon);
+			const { line, icon } = createConflictIndicator(markerPos, false);
+			overlay.appendChild(line);
+			overlay.appendChild(icon);
 		}
 	});
 
@@ -432,42 +661,11 @@ function renderAllCvdBoundaryValidations(
 	});
 
 	container.appendChild(listContainer);
-
-	// 全体サマリー
-	const allProblemCount = ["normal" as const, ...cvdTypes].reduce(
-		(count, cvdType) => {
-			const simulatedColors: NamedColor[] =
-				cvdType === "normal"
-					? colors
-					: colors.map((item) => ({
-							name: item.name,
-							color: simulateCVD(item.color, cvdType),
-						}));
-			const result = sortColorsWithValidation(simulatedColors, sortType);
-			return (
-				count +
-				result.boundaryValidations.filter((v) => !v.isDistinguishable).length
-			);
-		},
-		0,
-	);
-
-	const summary = document.createElement("div");
-	summary.className = "dads-a11y-boundary-summary";
-
-	if (allProblemCount > 0) {
-		summary.innerHTML = `<span class="dads-a11y-warning-icon">⚠️</span> 合計${allProblemCount}箇所で識別困難なペアがあります`;
-		summary.classList.add("dads-a11y-boundary-summary--warning");
-	} else {
-		summary.innerHTML =
-			'<span class="dads-a11y-ok-icon">✓</span> すべての色覚特性で隣接ペアが十分に区別できます';
-		summary.classList.add("dads-a11y-boundary-summary--ok");
-	}
-	container.appendChild(summary);
+	// Note: 下部サマリーは削除済み - alert boxに全ペア＋隣接ペアの情報を統合
 }
 
 /**
- * 並べ替え検証セクションをレンダリングする
+ * 色覚シミュレーションセクションをレンダリングする
  *
  * @param container レンダリング先のコンテナ要素
  * @param keyColorsMap キーカラーのマップ
@@ -480,7 +678,7 @@ function renderSortingValidationSection(
 	section.className = "dads-a11y-sorting-section";
 
 	const heading = document.createElement("h2");
-	heading.textContent = "並べ替え検証 (Sorting Validation)";
+	heading.textContent = "色覚シミュレーション (CVD Simulation)";
 	heading.className = "dads-section__heading";
 	section.appendChild(heading);
 
@@ -499,54 +697,36 @@ function renderSortingValidationSection(
 	if (namedColors.length < 2) {
 		const notice = document.createElement("p");
 		notice.className = "dads-a11y-notice";
-		notice.textContent = "並べ替え検証には2色以上が必要です。";
+		notice.textContent = "色覚シミュレーションには2色以上が必要です。";
 		section.appendChild(notice);
 		container.appendChild(section);
 		return;
 	}
 
-	// 警告アラートボックス（上部に表示）
+	// CVD混同リスクのあるペアを検出
+	const cvdConfusionPairs = detectCvdConfusionPairs(namedColors);
+
+	// 警告アラートボックス（tabs下に表示するため、後でappend）
 	const alertBox = document.createElement("div");
 	alertBox.className = "dads-a11y-alert-box";
-	section.appendChild(alertBox);
-
-	/**
-	 * 全CVDタイプの問題数を計算する
-	 */
-	const calculateTotalProblems = (sortType: SortType): number => {
-		const cvdTypes = getAllCVDTypes();
-		return ["normal" as const, ...cvdTypes].reduce((count, cvdType) => {
-			const simulatedColors: NamedColor[] =
-				cvdType === "normal"
-					? namedColors
-					: namedColors.map((item) => ({
-							name: item.name,
-							color: simulateCVD(item.color, cvdType),
-						}));
-			const result = sortColorsWithValidation(simulatedColors, sortType);
-			return (
-				count +
-				result.boundaryValidations.filter((v) => !v.isDistinguishable).length
-			);
-		}, 0);
-	};
 
 	/**
 	 * 警告アラートボックスを更新する
+	 * 全CVDタイプでの混同リスク件数を表示
 	 */
-	const updateAlertBox = (sortType: SortType) => {
-		const totalProblems = calculateTotalProblems(sortType);
-		if (totalProblems > 0) {
+	const updateAlertBox = () => {
+		// CVD混同リスク（全CVDタイプで混同するペア数）
+		const cvdConfusionCount = cvdConfusionPairs.length;
+
+		if (cvdConfusionCount > 0) {
 			alertBox.className = "dads-a11y-alert-box dads-a11y-alert-box--warning";
-			alertBox.innerHTML = `<span class="dads-a11y-alert-icon">⚠</span> <strong>識別困難なペア検出:</strong> ${totalProblems}件のペアがCVD状態で混同される可能性があります。`;
+			alertBox.innerHTML = `<span class="dads-a11y-alert-icon">⚠</span> <strong>識別困難なペア検出: ${cvdConfusionCount}件</strong><br><span style="font-size: 0.9em; opacity: 0.9;">一部の色覚タイプ（P型/D型/T型/全色盲）で、色ペアが混同される可能性があります。詳細は下記をご確認ください。</span>`;
 		} else {
 			alertBox.className = "dads-a11y-alert-box dads-a11y-alert-box--ok";
-			alertBox.innerHTML = `<span class="dads-a11y-alert-icon">✓</span> すべての隣接ペアが十分に区別できます。`;
+			alertBox.innerHTML =
+				'<span class="dads-a11y-alert-icon">✓</span> すべてのペアが十分に区別できます。';
 		}
 	};
-
-	// 初期表示時に警告アラートを更新
-	updateAlertBox(currentSortType);
 
 	// 境界検証コンテナ
 	const boundaryContainer = document.createElement("div");
@@ -555,7 +735,7 @@ function renderSortingValidationSection(
 
 	// 更新関数
 	const updateBoundaryValidation = () => {
-		updateAlertBox(currentSortType);
+		updateAlertBox();
 		renderAllCvdBoundaryValidations(
 			boundaryContainer,
 			namedColors,
@@ -563,10 +743,29 @@ function renderSortingValidationSection(
 		);
 	};
 
-	// ソートタブ
+	// ソートタブ（先にappend）
 	renderSortTabs(section, () => {
 		updateBoundaryValidation();
 	});
+
+	// アラートボックス（tabs下にappend）
+	section.appendChild(alertBox);
+
+	// CVD混同リスク詳細をハイブリッド形式で表示（2+3アプローチ）
+	// - 誰に問題か（P型/D型）を明示
+	// - どの色ペアかを具体的に表示
+	// - 程度をΔE値で補足
+	const cvdDetailsContainer = document.createElement("div");
+	cvdDetailsContainer.className = "dads-a11y-cvd-details-container";
+	renderCvdConfusionDetails(
+		cvdDetailsContainer,
+		namedColors,
+		cvdConfusionPairs,
+	);
+	section.appendChild(cvdDetailsContainer);
+
+	// 初期表示時に警告アラートを更新
+	updateAlertBox();
 
 	section.appendChild(boundaryContainer);
 
@@ -579,7 +778,7 @@ function renderSortingValidationSection(
 /**
  * アクセシビリティビューをレンダリングする
  *
- * CVDシミュレーションによる色の識別性確認と、CUDパレット検証を表示する。
+ * CVDシミュレーションによる色の識別性確認とCVD混同リスク検出を表示する。
  * キーカラー＋セマンティックカラーのみを対象とする。
  *
  * @param container レンダリング先のコンテナ要素
@@ -622,34 +821,21 @@ export function renderAccessibilityView(
 
 		<h3>確認すべきポイント</h3>
 		<ul>
-			<li><strong>キーカラー＋セマンティックカラーの識別性:</strong> 生成された各パレットのキーカラー同士が、色覚特性によって混同されないか確認します。</li>
-			<li><strong>並べ替え検証:</strong> 色相順・色差順・明度順で並べ替え、隣接する色同士の識別性を確認します。</li>
+			<li><strong>色覚シミュレーション:</strong> 各色覚タイプ（P型/D型/T型/全色盲）での見え方をシミュレーションし、識別困難な色ペアを検出します。色相順・色差順・明度順での並べ替え表示にも対応しています。</li>
 		</ul>
 
 		<h3>判定ロジックと計算方法</h3>
 		<ul>
 			<li><strong>シミュレーション手法:</strong> Brettel (1997) および Viénot (1999) のアルゴリズムを使用し、P型（1型）、D型（2型）、T型（3型）、全色盲の知覚を再現しています。</li>
-			<li><strong>色差計算 (DeltaE):</strong> OKLCH色空間におけるユークリッド距離を用いて、色の知覚的な差を計算しています。</li>
-			<li><strong>警告基準:</strong> シミュレーション後の色差（DeltaE）が <strong>3.0未満</strong> の場合、色が識別困難であると判断し、<span class="dads-cvd-conflict-icon" style="display:inline-flex; position:static; transform:none; width:16px; height:16px; font-size:10px; margin:0 4px;">!</span>アイコンで警告を表示します。</li>
+			<li><strong>色差計算 (ΔEOK):</strong> OKLab色空間におけるユークリッド距離（× 100スケール）を用いて、色の知覚的な差を計算しています。</li>
+			<li><strong>警告基準:</strong> シミュレーション後の色差（DeltaE）が <strong>5.0未満</strong> の場合、色が識別困難であると判断し、<span class="dads-cvd-conflict-icon" style="display:inline-flex; position:static; transform:none; width:16px; height:16px; font-size:10px; margin:0 4px;">!</span>アイコンで警告を表示します。</li>
 		</ul>
 	`;
 	explanationSection.appendChild(explanationContent);
 	container.appendChild(explanationSection);
 
-	// 1. Key Colors Check Section (全ペア検証)
-	const keyColorsSection = document.createElement("section");
-	const keyColorsHeading = document.createElement("h2");
-	keyColorsHeading.textContent = "キーカラー＋セマンティックカラーの識別性確認";
-	keyColorsHeading.className = "dads-section__heading";
-	keyColorsSection.appendChild(keyColorsHeading);
-
-	const keyColorsDesc = document.createElement("p");
-	keyColorsDesc.textContent =
-		"生成された各パレットのキーカラー同士が、多様な色覚特性において区別できるかを確認します。";
-	keyColorsDesc.className = "dads-section__description";
-	keyColorsSection.appendChild(keyColorsDesc);
-
-	// Gather key colors
+	// 1. キーカラーを収集（色覚シミュレーションセクションで使用）
+	// Note: UI Refinement - Key Colorsセクションは削除し、全ペア検証はalert boxに統合
 	const keyColorsMap: Record<string, Color> = {};
 	state.palettes.forEach((p) => {
 		const keyColorInput = p.keyColors[0];
@@ -659,164 +845,10 @@ export function renderAccessibilityView(
 		}
 	});
 
-	// Render Key Colors Analysis (全ペア検証)
-	renderDistinguishabilityAnalysis(keyColorsSection, keyColorsMap, {
-		adjacentOnly: false,
-	});
-	container.appendChild(keyColorsSection);
+	// helpers.applySimulationは将来の動的シミュレーション切り替え用に保持
+	// （現在は使用していないが、API互換性のため引数は維持）
+	void helpers;
 
-	// helpersを使用して詳細な全ペア検証結果を表示
-	// （将来的にはhelpersのapplySimulationを活用して動的なシミュレーション切り替えが可能）
-	const keyColorsList = Object.entries(keyColorsMap).map(([name, color]) => ({
-		name,
-		color: helpers.applySimulation(color),
-	}));
-	if (keyColorsList.length > 1) {
-		// 全ペア検証の詳細結果をcheckPaletteDistinguishabilityで取得
-		const fullResult = checkPaletteDistinguishability(keyColorsMap);
-		if (fullResult.problematicPairs.length > 0) {
-			const warningDiv = document.createElement("div");
-			warningDiv.className = "dads-a11y-warning";
-			warningDiv.style.cssText = `
-				padding: 12px;
-				background: #fff3cd;
-				border-radius: 8px;
-				border-left: 4px solid #ffc107;
-				margin-top: 12px;
-			`;
-			warningDiv.innerHTML = `<strong>⚠️ 識別困難なペア検出:</strong> ${fullResult.problematicPairs.length}件のペアがCVD状態で混同される可能性があります。`;
-			keyColorsSection.appendChild(warningDiv);
-		}
-	}
-
-	// 2. 並べ替え検証セクション（新規追加）
+	// 2. 色覚シミュレーションセクション
 	renderSortingValidationSection(container, keyColorsMap);
-
-	// 3. CUDモードがoff以外の場合はCUD検証セクションを追加
-	if (state.cudMode !== "off") {
-		const cudSection = document.createElement("section");
-		cudSection.className = "dads-a11y-cud-section";
-		cudSection.style.marginTop = "32px";
-
-		const cudHeading = document.createElement("h2");
-		cudHeading.textContent =
-			state.cudMode === "strict"
-				? "CUD パレット検証（CUD互換モード：スナップ適用済み）"
-				: "CUD パレット検証 (CVD 混同リスク分析)";
-		cudHeading.className = "dads-section__heading";
-		cudSection.appendChild(cudHeading);
-
-		const cudDesc = document.createElement("p");
-		cudDesc.className = "dads-section__description";
-		cudDesc.textContent =
-			state.cudMode === "strict"
-				? "CUD互換モードでは、すべての色がCUD推奨色20色にスナップされます。"
-				: "CUD推奨配色セットに基づいて、パレット内の色がCVD（色覚多様性）状態で混同されるリスクを検証します。";
-		cudSection.appendChild(cudDesc);
-
-		// パレットの色をPaletteColor形式に変換して検証
-		// ColorRoleは "accent" | "base" | "text" | "background" | "neutral" のみ
-		const paletteColors: PaletteColor[] = state.palettes.map((p) => {
-			const keyColorInput = p.keyColors[0];
-			let { color: hexColor } = parseKeyColor(keyColorInput || "#000000");
-
-			// strictモードの場合はCUD推奨色にスナップ
-			if (state.cudMode === "strict") {
-				const snapResult = snapToCudColor(hexColor, { mode: "strict" });
-				hexColor = snapResult.hex;
-			}
-
-			const name = p.name.toLowerCase();
-			// セマンティック名をColorRoleにマッピング
-			const role: "accent" | "base" | "text" | "background" | "neutral" =
-				name.includes("primary")
-					? "accent"
-					: name.includes("secondary")
-						? "accent"
-						: name.includes("accent")
-							? "accent"
-							: name.includes("success")
-								? "accent"
-								: name.includes("error")
-									? "accent"
-									: name.includes("warning")
-										? "accent"
-										: name.includes("info")
-											? "accent"
-											: name.includes("neutral")
-												? "neutral"
-												: name.includes("background")
-													? "background"
-													: name.includes("text")
-														? "text"
-														: "base";
-			return { hex: hexColor, role };
-		});
-
-		// CUD検証を実行
-		const validationResult = validatePalette(paletteColors);
-
-		// CVD混同リスクの問題を抽出
-		const cvdIssues = validationResult.issues.filter(
-			(issue) => issue.type === "cvd_confusion_risk",
-		);
-
-		if (cvdIssues.length > 0) {
-			const issuesContainer = document.createElement("div");
-			issuesContainer.className = "dads-a11y-cud-issues";
-			issuesContainer.style.cssText = `
-				padding: 16px;
-				background: #fff3cd;
-				border-radius: 8px;
-				border-left: 4px solid #ffc107;
-				margin-top: 12px;
-			`;
-
-			const issuesTitle = document.createElement("h4");
-			issuesTitle.textContent = `⚠️ CVD混同リスク検出 (${cvdIssues.length}件)`;
-			issuesTitle.style.cssText = "margin: 0 0 12px 0; color: #856404;";
-			issuesContainer.appendChild(issuesTitle);
-
-			const issuesList = document.createElement("ul");
-			issuesList.style.cssText = "margin: 0; padding-left: 20px;";
-
-			cvdIssues.forEach((issue) => {
-				const item = document.createElement("li");
-				item.style.marginBottom = "8px";
-				item.innerHTML = `
-					<strong>${issue.colors.join(" ↔ ")}</strong>: ${issue.message}
-					${issue.details ? `<br><small style="color: #666;">詳細: 通常時 ΔE=${(issue.details.normalDeltaE as number)?.toFixed(3)}, CVD後 ΔE=${(issue.details.cvdDeltaE as number)?.toFixed(3)}</small>` : ""}
-				`;
-				issuesList.appendChild(item);
-			});
-
-			issuesContainer.appendChild(issuesList);
-			cudSection.appendChild(issuesContainer);
-		} else {
-			const noIssues = document.createElement("div");
-			noIssues.className = "dads-a11y-cud-ok";
-			noIssues.style.cssText = `
-				padding: 16px;
-				background: #d4edda;
-				border-radius: 8px;
-				border-left: 4px solid #28a745;
-				margin-top: 12px;
-				color: #155724;
-			`;
-			noIssues.innerHTML =
-				"✓ CVD混同リスクは検出されませんでした。パレット内の色はCVD状態でも十分に区別できます。";
-			cudSection.appendChild(noIssues);
-		}
-
-		// 全体検証結果のサマリー
-		const summaryContainer = document.createElement("div");
-		summaryContainer.style.cssText = "margin-top: 16px;";
-
-		const validationContainer = document.createElement("div");
-		showPaletteValidation(paletteColors, validationContainer);
-		summaryContainer.appendChild(validationContainer);
-		cudSection.appendChild(summaryContainer);
-
-		container.appendChild(cudSection);
-	}
 }

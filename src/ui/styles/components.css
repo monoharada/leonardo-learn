@@ -958,11 +958,8 @@
  * ============================================ */
 
 .dads-a11y-explanation {
-	margin-bottom: 3rem;
-	padding: 1.5rem;
-	background: var(--color-neutral-solid-gray-50);
-	border-radius: var(--border-radius-8);
-	border: 1px solid var(--color-neutral-solid-gray-100);
+	margin-bottom: 1.5rem;
+	padding: 0 1.5rem;
 }
 
 .dads-a11y-explanation__heading {
@@ -2060,16 +2057,13 @@
  * ============================================ */
 
 .dads-a11y-sorting-section {
-	margin-top: 2rem;
-	padding: 1.5rem;
-	background: var(--color-neutral-white);
-	border-radius: var(--border-radius-8);
+	padding: 0 1.5rem;
 }
 
 .dads-a11y-sort-tabs {
 	display: flex;
 	gap: 0.5rem;
-	margin-bottom: 1.5rem;
+	margin-bottom: 0.75rem; /* alert boxとの間隔調整（tabs下にalert boxが来るため） */
 	padding: 4px;
 	background: var(--color-neutral-solid-gray-100);
 	border-radius: var(--border-radius-8);
@@ -2185,7 +2179,7 @@
 .dads-a11y-cvd-boundary-list {
 	display: flex;
 	flex-direction: column;
-	gap: 0.75rem;
+	gap: 1rem; /* 視覚的な余裕を確保 */
 }
 
 .dads-a11y-cvd-boundary-row {
@@ -2193,7 +2187,7 @@
 	grid-template-columns: 160px 1fr auto;
 	gap: 12px;
 	align-items: start;
-	padding: 8px 0;
+	padding: 12px 0; /* 視覚的な余裕を確保 */
 	border-bottom: 1px solid var(--color-neutral-solid-gray-100);
 }
 
@@ -2224,16 +2218,20 @@
 	align-self: start;
 }
 
-/* Alert Box - Top warning/success notification */
+/* Alert Box - Top warning/success notification (tabs下に表示) */
 .dads-a11y-alert-box {
 	display: flex;
 	align-items: center;
 	gap: 8px;
 	padding: 12px 16px;
 	border-radius: var(--border-radius-8);
-	margin-bottom: 1.5rem;
+	margin-bottom: 1rem; /* tabs下に配置されるため調整 */
 	font-size: var(--font-size-14);
 	line-height: 1.5;
+	box-shadow: var(--elevation-1);
+	transition:
+		background 0.2s ease,
+		border-color 0.2s ease;
 }
 
 .dads-a11y-alert-box--warning {
@@ -2251,4 +2249,86 @@
 .dads-a11y-alert-icon {
 	font-size: 1.2em;
 	flex-shrink: 0;
+}
+
+/* ============================================
+ * CVD Confusion Details (Hybrid Approach 2+3)
+ * - Shows which CVD type has issues (P型/D型)
+ * - Lists problematic color pairs
+ * - Displays ΔE values for severity
+ * ============================================ */
+
+.dads-a11y-cvd-details-container {
+	margin-bottom: 1rem;
+}
+
+.dads-a11y-cvd-confusion-details {
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+	padding: 1rem;
+	background: #fff3cd;
+	border: 1px solid #ffc107;
+	border-radius: var(--border-radius-8);
+}
+
+.dads-a11y-cvd-type-section {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+}
+
+.dads-a11y-cvd-type-header {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	font-size: var(--font-size-14);
+	color: #856404;
+}
+
+.dads-a11y-cvd-type-icon {
+	font-size: 1.1em;
+}
+
+.dads-a11y-cvd-pair-list {
+	list-style: none;
+	margin: 0;
+	padding: 0 0 0 1.5rem;
+}
+
+.dads-a11y-cvd-pair-item {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0.25rem 0;
+	font-size: var(--font-size-14);
+	color: #856404;
+}
+
+.dads-a11y-cvd-pair-item::before {
+	content: "•";
+	margin-right: 0.25rem;
+}
+
+.dads-a11y-cvd-pair-swatch {
+	width: 16px;
+	height: 16px;
+	border-radius: var(--border-radius-4);
+	border: 1px solid rgba(0, 0, 0, 0.2);
+	flex-shrink: 0;
+}
+
+.dads-a11y-cvd-pair-text {
+	font-weight: 600;
+}
+
+.dads-a11y-cvd-pair-arrow {
+	margin: 0 0.25rem;
+	opacity: 0.7;
+}
+
+.dads-a11y-cvd-pair-deltaE {
+	font-family: var(--font-family-mono, monospace);
+	font-size: 0.85em;
+	opacity: 0.85;
 }

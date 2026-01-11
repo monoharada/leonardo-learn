@@ -10,7 +10,7 @@
  * @module @/ui/accessibility/color-sorting
  */
 
-import { calculateDeltaE } from "@/accessibility/distinguishability";
+import { calculateSimpleDeltaE as calculateDeltaE } from "@/accessibility/distinguishability";
 import type { Color } from "@/core/color";
 
 /**
@@ -38,7 +38,7 @@ export interface BoundaryValidationResult {
 	rightName: string;
 	/** 色差（ΔE） */
 	deltaE: number;
-	/** 識別可能かどうか（ΔE >= 3.0） */
+	/** 識別可能かどうか（ΔEOK >= 5.0） */
 	isDistinguishable: boolean;
 }
 
@@ -54,8 +54,11 @@ export interface SortResult {
 	sortType: SortType;
 }
 
-/** 識別困難と判定する色差の閾値 */
-const DISTINGUISHABILITY_THRESHOLD = 3.0;
+/**
+ * 識別困難と判定する色差の閾値（ΔEOK = OKLabユークリッド距離 × 100）
+ * GPT調査結果に基づき5.0を採用（「2色として認識しやすい」境界）
+ */
+const DISTINGUISHABILITY_THRESHOLD = 5.0;
 
 /**
  * 色相（Hue）でソートする
@@ -170,6 +173,14 @@ export function validateBoundaries(
 	return results;
 }
 
+/** ソート関数のマッピング */
+const sortFunctions: Record<SortType, (colors: NamedColor[]) => NamedColor[]> =
+	{
+		hue: sortByHue,
+		deltaE: sortByDeltaE,
+		lightness: sortByLightness,
+	};
+
 /**
  * 指定されたソートタイプで色をソートし、境界検証を実行する
  *
@@ -181,22 +192,8 @@ export function sortColorsWithValidation(
 	colors: NamedColor[],
 	sortType: SortType,
 ): SortResult {
-	let sortedColors: NamedColor[];
-
-	switch (sortType) {
-		case "hue":
-			sortedColors = sortByHue(colors);
-			break;
-		case "deltaE":
-			sortedColors = sortByDeltaE(colors);
-			break;
-		case "lightness":
-			sortedColors = sortByLightness(colors);
-			break;
-		default:
-			sortedColors = [...colors];
-	}
-
+	const sortFn = sortFunctions[sortType];
+	const sortedColors = sortFn(colors);
 	const boundaryValidations = validateBoundaries(sortedColors);
 
 	return {
@@ -206,6 +203,13 @@ export function sortColorsWithValidation(
 	};
 }
 
+/** ソートタイプの表示名マッピング */
+const sortTypeNames: Record<SortType, string> = {
+	hue: "色相順 (Hue)",
+	deltaE: "色差順 (ΔE)",
+	lightness: "明度順 (Lightness)",
+};
+
 /**
  * ソートタイプの表示名を取得する
  *
@@ -213,16 +217,7 @@ export function sortColorsWithValidation(
  * @returns 表示名（日本語）
  */
 export function getSortTypeName(sortType: SortType): string {
-	switch (sortType) {
-		case "hue":
-			return "色相順 (Hue)";
-		case "deltaE":
-			return "色差順 (ΔE)";
-		case "lightness":
-			return "明度順 (Lightness)";
-		default:
-			return sortType;
-	}
+	return sortTypeNames[sortType];
 }
 
 /**
