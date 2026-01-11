@@ -2053,3 +2053,92 @@
 	margin-bottom: 8px;
 	color: var(--color-neutral-solid-gray-700);
 }
+
+/* ============================================
+ * Background Color Selector
+ * Issue #37: 背景色セレクターの簡素化
+ * ============================================ */
+
+.background-color-selector {
+	display: flex;
+	flex-direction: row;
+	gap: 24px;
+	padding: 8px 16px;
+	background: var(--color-neutral-solid-gray-50);
+	border-radius: var(--border-radius-8);
+}
+
+.background-color-selector__section {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	flex: 1;
+}
+
+.background-color-selector__label {
+	font-size: var(--font-size-14);
+	font-weight: 600;
+	color: var(--color-neutral-solid-gray-700);
+}
+
+.background-color-selector__inputs {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	gap: 12px;
+}
+
+.background-color-selector__color-picker {
+	width: 48px;
+	height: 48px;
+	padding: 0;
+	border: 2px solid var(--color-neutral-solid-gray-200);
+	border-radius: var(--border-radius-8);
+	cursor: pointer;
+	background: none;
+}
+
+.background-color-selector__color-picker::-webkit-color-swatch-wrapper {
+	padding: 2px;
+}
+
+.background-color-selector__color-picker::-webkit-color-swatch {
+	border: none;
+	border-radius: var(--border-radius-4);
+}
+
+.background-color-selector__color-picker:focus-visible {
+	outline: 4px solid var(--color-neutral-black);
+	outline-offset: 2px;
+}
+
+.background-color-selector__hex-input {
+	flex: 1;
+	height: 48px;
+	padding: 0 12px;
+	font-size: var(--font-size-16);
+	font-family: var(--font-family-mono);
+	border: 2px solid var(--color-neutral-solid-gray-200);
+	border-radius: var(--border-radius-8);
+	background: var(--color-neutral-white);
+	color: var(--color-neutral-solid-gray-900);
+}
+
+.background-color-selector__hex-input:focus {
+	outline: none;
+	border-color: var(--color-primitive-blue-900);
+}
+
+.background-color-selector__hex-input:focus-visible {
+	outline: 4px solid var(--color-neutral-black);
+	outline-offset: 2px;
+}
+
+.background-color-selector__error {
+	font-size: var(--font-size-14);
+	color: var(--color-primitive-red-900);
+}
+
+.background-color-selector__error:not(:empty) {
+	margin-top: 4px;
+}
