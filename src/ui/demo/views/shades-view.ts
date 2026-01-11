@@ -90,7 +90,7 @@ export async function renderShadesView(
 
 	// Requirements: 1.1, 5.5 - 背景色セレクターをビュー上部に配置
 	const backgroundSelectorSection = document.createElement("section");
-	backgroundSelectorSection.className = "background-color-selector";
+	backgroundSelectorSection.className = "background-color-selector-wrapper";
 	const backgroundSelector = createBackgroundColorSelector({
 		lightColor: state.lightBackgroundColor,
 		darkColor: state.darkBackgroundColor,
