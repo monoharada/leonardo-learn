@@ -90,7 +90,10 @@ function createColorSection(
 	colorInput.type = "color";
 	colorInput.value = currentColor;
 	colorInput.className = "background-color-selector__color-picker";
-	colorInput.setAttribute("aria-label", `Pick ${mode} background color`);
+	colorInput.setAttribute(
+		"aria-label",
+		mode === "light" ? "Pick light background color" : "Pick dark text color",
+	);
 
 	// HEX入力
 	const errorId = `${uniqueId}-${mode}-error`;
@@ -100,7 +103,9 @@ function createColorSection(
 	hexInput.className = "background-color-selector__hex-input";
 	hexInput.setAttribute(
 		"aria-label",
-		`Enter ${mode} background color in HEX format`,
+		mode === "light"
+			? "Enter light background color in HEX format"
+			: "Enter dark text color in HEX format",
 	);
 	hexInput.setAttribute("aria-describedby", errorId);
 	hexInput.placeholder = mode === "light" ? "#ffffff" : "#000000";

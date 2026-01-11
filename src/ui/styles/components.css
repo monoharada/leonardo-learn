@@ -2059,6 +2059,10 @@
  * Issue #37: 背景色セレクターの簡素化
  * ============================================ */
 
+.background-color-selector-wrapper {
+	margin-bottom: 16px;
+}
+
 .background-color-selector {
 	display: flex;
 	flex-direction: row;
