@@ -5,11 +5,10 @@
  * ライト背景色がメイン、ダーク背景色はコントラスト確認用の補助的な役割。
  *
  * @module @/ui/demo/background-color-selector
- * Requirements: 1.1, 1.2, 1.3, 1.5, 1.6, 2.1, 2.2, 4.1, 4.2, 4.4
+ * Requirements: 1.1, 1.2, 1.3, 1.5, 1.6, 4.1, 4.2, 4.4
  */
 
 import { validateBackgroundColor } from "./state";
-import type { ColorMode } from "./types";
 
 /**
  * デバウンス遅延時間（ミリ秒）
@@ -60,44 +59,6 @@ export interface BackgroundColorSelectorProps {
 }
 
 /**
- * プリセットカラー型
- * Requirements: 2.1
- */
-export interface PresetColor {
-	/** プリセット名 */
-	name: string;
-	/** HEX値 */
-	hex: string;
-	/** 対応するモード */
-	mode: ColorMode;
-}
-
-/**
- * ライト背景色用プリセット
- */
-export const LIGHT_PRESET_COLORS: PresetColor[] = [
-	{ name: "White", hex: "#ffffff", mode: "light" },
-	{ name: "Light Gray", hex: "#f8fafc", mode: "light" },
-];
-
-/**
- * ダーク背景色用プリセット
- */
-export const DARK_PRESET_COLORS: PresetColor[] = [
-	{ name: "Dark Gray", hex: "#18181b", mode: "dark" },
-	{ name: "Black", hex: "#000000", mode: "dark" },
-];
-
-/**
- * 後方互換性のためのプリセット配列
- * @deprecated lightとdark別々のプリセットを使用してください
- */
-export const PRESET_COLORS: PresetColor[] = [
-	...LIGHT_PRESET_COLORS,
-	...DARK_PRESET_COLORS,
-];
-
-/**
  * ユニークIDを生成するカウンター
  */
 let idCounter = 0;
@@ -108,7 +69,6 @@ let idCounter = 0;
 function createColorSection(
 	mode: "light" | "dark",
 	currentColor: string,
-	presets: PresetColor[],
 	onColorChange: (hex: string) => void,
 	uniqueId: string,
 ): HTMLElement {
@@ -118,7 +78,7 @@ function createColorSection(
 	// ラベル
 	const label = document.createElement("label");
 	label.className = "background-color-selector__label";
-	label.textContent = mode === "light" ? "Light Background" : "Dark (Text)";
+	label.textContent = mode === "light" ? "Light (Background)" : "Dark (Text)";
 	section.appendChild(label);
 
 	// 入力コンテナ
@@ -130,7 +90,10 @@ function createColorSection(
 	colorInput.type = "color";
 	colorInput.value = currentColor;
 	colorInput.className = "background-color-selector__color-picker";
-	colorInput.setAttribute("aria-label", `Pick ${mode} background color`);
+	colorInput.setAttribute(
+		"aria-label",
+		mode === "light" ? "Pick light background color" : "Pick dark text color",
+	);
 
 	// HEX入力
 	const errorId = `${uniqueId}-${mode}-error`;
@@ -140,7 +103,9 @@ function createColorSection(
 	hexInput.className = "background-color-selector__hex-input";
 	hexInput.setAttribute(
 		"aria-label",
-		`Enter ${mode} background color in HEX format`,
+		mode === "light"
+			? "Enter light background color in HEX format"
+			: "Enter dark text color in HEX format",
 	);
 	hexInput.setAttribute("aria-describedby", errorId);
 	hexInput.placeholder = mode === "light" ? "#ffffff" : "#000000";
@@ -157,36 +122,7 @@ function createColorSection(
 	errorArea.setAttribute("aria-live", "polite");
 	section.appendChild(errorArea);
 
-	// プリセットボタン
-	const presetsContainer = document.createElement("div");
-	presetsContainer.className = "background-color-selector__presets";
-
 	let lastValidColor = currentColor;
-
-	function updateInputs(hex: string): void {
-		colorInput.value = hex;
-		hexInput.value = hex;
-		lastValidColor = hex;
-		errorArea.textContent = "";
-		onColorChange(hex);
-	}
-
-	for (const preset of presets) {
-		const button = document.createElement("button");
-		button.type = "button";
-		button.className = "background-color-selector__preset-button";
-		button.style.backgroundColor = preset.hex;
-		button.setAttribute("aria-label", `Select ${preset.name}`);
-		button.title = preset.name;
-
-		button.addEventListener("click", () => {
-			updateInputs(preset.hex);
-		});
-
-		presetsContainer.appendChild(button);
-	}
-
-	section.appendChild(presetsContainer);
 
 	// カラーピッカーのイベント
 	colorInput.addEventListener("input", () => {
@@ -241,7 +177,6 @@ export function createBackgroundColorSelector(
 	const lightSection = createColorSection(
 		"light",
 		lightColor,
-		LIGHT_PRESET_COLORS,
 		onLightColorChange,
 		uniqueId,
 	);
@@ -251,7 +186,6 @@ export function createBackgroundColorSelector(
 	const darkSection = createColorSection(
 		"dark",
 		darkColor,
-		DARK_PRESET_COLORS,
 		onDarkColorChange,
 		uniqueId,
 	);

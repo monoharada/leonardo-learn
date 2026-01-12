@@ -4,7 +4,6 @@
  * Task 7.4: 統合テストを作成する
  * - BackgroundColorSelector → DemoState連携の確認
  * - DemoState変更 → View再レンダリングの確認
- * - プリセット選択 → 背景色適用の確認
  * - selector更新 → state反映 → view再計算のフロー検証
  *
  * @module @/ui/demo/background-color-integration.test
@@ -12,12 +11,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import {
-	createBackgroundColorSelector,
-	DARK_PRESET_COLORS,
-	LIGHT_PRESET_COLORS,
-	PRESET_COLORS,
-} from "./background-color-selector";
+import { createBackgroundColorSelector } from "./background-color-selector";
 import {
 	determineColorMode,
 	persistBackgroundColors,
@@ -25,48 +19,16 @@ import {
 	state,
 } from "./state";
 
-// オリジナルのグローバル値を保存
 const originalLocalStorage = globalThis.localStorage;
 const originalDocument = globalThis.document;
 
-/**
- * localStorageのモック実装
- * Bun test環境ではlocalStorageが存在しないため
- */
-function createLocalStorageMock() {
-	const store = new Map<string, string>();
-	return {
-		getItem: (key: string): string | null => store.get(key) ?? null,
-		setItem: (key: string, value: string): void => {
-			store.set(key, value);
-		},
-		removeItem: (key: string): void => {
-			store.delete(key);
-		},
-		clear: (): void => {
-			store.clear();
-		},
-		get length(): number {
-			return store.size;
-		},
-		key: (index: number): string | null => {
-			const keys = Array.from(store.keys());
-			return keys[index] ?? null;
-		},
-	};
-}
-
-/**
- * DOMイベントのモック
- */
-interface MockInputEvent extends Partial<Event> {
+interface MockEvent {
 	type: string;
 	target?: { value?: string };
 }
 
-/**
- * 拡張されたHTMLElement型（モック用）
- */
+type EventHandler = (e?: Event | MockEvent) => void;
+
 interface MockHTMLElement {
 	tagName: string;
 	style: Record<string, string>;
@@ -75,174 +37,151 @@ interface MockHTMLElement {
 	innerHTML: string;
 	children: MockHTMLElement[];
 	attributes: Map<string, string>;
-	eventListeners: Map<string, ((e?: Event | MockInputEvent) => void)[]>;
+	eventListeners: Map<string, EventHandler[]>;
 	value?: string;
 	type?: string;
-	setAttribute: (name: string, value: string) => void;
-	getAttribute: (name: string) => string | null;
-	appendChild: (child: MockHTMLElement) => MockHTMLElement;
-	addEventListener: (
-		event: string,
-		handler: (e?: Event | MockInputEvent) => void,
-	) => void;
-	removeEventListener: (
-		event: string,
-		handler: (e?: Event | MockInputEvent) => void,
-	) => void;
-	dispatchEvent: (event: Event | MockInputEvent) => boolean;
-	querySelector: (selector: string) => MockHTMLElement | null;
-	querySelectorAll: (selector: string) => MockHTMLElement[] & {
-		forEach: (cb: (el: MockHTMLElement) => void) => void;
-	};
-	click?: () => void;
-	focus?: () => void;
-	blur?: () => void;
+	setAttribute(name: string, value: string): void;
+	getAttribute(name: string): string | null;
+	appendChild(child: MockHTMLElement): MockHTMLElement;
+	addEventListener(event: string, handler: EventHandler): void;
+	removeEventListener(event: string, handler: EventHandler): void;
+	dispatchEvent(event: Event | MockEvent): boolean;
+	querySelector(selector: string): MockHTMLElement | null;
+	querySelectorAll(
+		selector: string,
+	): MockHTMLElement[] & { forEach(cb: (el: MockHTMLElement) => void): void };
+	click?(): void;
 }
 
-/**
- * 拡張されたdocumentモック（イベント発火対応）
- */
+function createLocalStorageMock(): Storage {
+	const store = new Map<string, string>();
+	return {
+		getItem: (key: string) => store.get(key) ?? null,
+		setItem: (key: string, value: string) => store.set(key, value),
+		removeItem: (key: string) => store.delete(key),
+		clear: () => store.clear(),
+		get length() {
+			return store.size;
+		},
+		key: (index: number) => Array.from(store.keys())[index] ?? null,
+	} as Storage;
+}
+
+function createMockElement(tagName: string): MockHTMLElement {
+	const element: MockHTMLElement = {
+		tagName: tagName.toUpperCase(),
+		style: {},
+		className: "",
+		textContent: "",
+		innerHTML: "",
+		children: [],
+		attributes: new Map(),
+		eventListeners: new Map(),
+		setAttribute(name, value) {
+			this.attributes.set(name, value);
+			if (name === "value" && this.tagName === "INPUT") this.value = value;
+		},
+		getAttribute(name) {
+			return this.attributes.get(name) ?? null;
+		},
+		appendChild(child) {
+			this.children.push(child);
+			return child;
+		},
+		addEventListener(event, handler) {
+			const handlers = this.eventListeners.get(event) || [];
+			handlers.push(handler);
+			this.eventListeners.set(event, handlers);
+		},
+		removeEventListener(event, handler) {
+			const handlers = this.eventListeners.get(event) || [];
+			const index = handlers.indexOf(handler);
+			if (index > -1) handlers.splice(index, 1);
+		},
+		dispatchEvent(event) {
+			const handlers = this.eventListeners.get(event.type) || [];
+			for (const handler of handlers) handler(event);
+			return true;
+		},
+		querySelector(selector) {
+			return searchElement(this, selector);
+		},
+		querySelectorAll(selector) {
+			const results = collectElements(this, selector);
+			return Object.assign(results, {
+				forEach: (cb: (el: MockHTMLElement) => void) => results.forEach(cb),
+			});
+		},
+	};
+
+	if (tagName === "input") {
+		element.value = "";
+		element.type = "text";
+	}
+	if (tagName === "button") {
+		element.click = function () {
+			this.dispatchEvent({ type: "click" });
+		};
+	}
+
+	return element;
+}
+
+function searchElement(
+	el: MockHTMLElement,
+	selector: string,
+): MockHTMLElement | null {
+	if (matchesSelector(el, selector)) return el;
+	for (const child of el.children) {
+		const found = searchElement(child, selector);
+		if (found) return found;
+	}
+	return null;
+}
+
+function collectElements(
+	el: MockHTMLElement,
+	selector: string,
+): MockHTMLElement[] {
+	const results: MockHTMLElement[] = [];
+	if (matchesSelector(el, selector)) results.push(el);
+	for (const child of el.children) {
+		results.push(...collectElements(child, selector));
+	}
+	return results;
+}
+
+function matchesSelector(el: MockHTMLElement, selector: string): boolean {
+	if (selector.startsWith(".")) {
+		return el.className.includes(selector.slice(1));
+	}
+	if (selector.startsWith("input[type=")) {
+		const typeMatch = selector.match(/input\[type="(.+)"\]/);
+		return !!(typeMatch && el.tagName === "INPUT" && el.type === typeMatch[1]);
+	}
+	return false;
+}
+
 function createDocumentMock() {
 	return {
-		createElement: (tagName: string): MockHTMLElement => {
-			const element: MockHTMLElement = {
-				tagName: tagName.toUpperCase(),
-				style: {},
-				className: "",
-				textContent: "",
-				innerHTML: "",
-				children: [],
-				attributes: new Map(),
-				eventListeners: new Map(),
-
-				setAttribute(name: string, value: string) {
-					this.attributes.set(name, value);
-					if (name === "value" && this.tagName === "INPUT") {
-						this.value = value;
-					}
-				},
-				getAttribute(name: string): string | null {
-					return this.attributes.get(name) ?? null;
-				},
-				appendChild(child: MockHTMLElement) {
-					this.children.push(child);
-					return child;
-				},
-				addEventListener(
-					event: string,
-					handler: (e?: Event | MockInputEvent) => void,
-				) {
-					const handlers = this.eventListeners.get(event) || [];
-					handlers.push(handler);
-					this.eventListeners.set(event, handlers);
-				},
-				removeEventListener(
-					event: string,
-					handler: (e?: Event | MockInputEvent) => void,
-				) {
-					const handlers = this.eventListeners.get(event) || [];
-					const index = handlers.indexOf(handler);
-					if (index > -1) {
-						handlers.splice(index, 1);
-					}
-				},
-				dispatchEvent(event: Event | MockInputEvent) {
-					const handlers = this.eventListeners.get(event.type) || [];
-					for (const handler of handlers) {
-						handler(event);
-					}
-					return true;
-				},
-				querySelector(selector: string): MockHTMLElement | null {
-					// 再帰的にchildrenを検索
-					const search = (
-						el: MockHTMLElement,
-						sel: string,
-					): MockHTMLElement | null => {
-						// クラスセレクタ
-						if (sel.startsWith(".")) {
-							const className = sel.slice(1);
-							if (el.className.includes(className)) {
-								return el;
-							}
-						}
-						// input[type="..."]セレクタ
-						if (sel.startsWith("input[type=")) {
-							const typeMatch = sel.match(/input\[type="(.+)"\]/);
-							if (
-								typeMatch &&
-								el.tagName === "INPUT" &&
-								el.type === typeMatch[1]
-							) {
-								return el;
-							}
-						}
-						for (const child of el.children) {
-							const found = search(child, sel);
-							if (found) return found;
-						}
-						return null;
-					};
-					return search(this, selector);
-				},
-				querySelectorAll(selector: string) {
-					const results: MockHTMLElement[] = [];
-					const search = (el: MockHTMLElement, sel: string) => {
-						if (sel.startsWith(".")) {
-							const className = sel.slice(1);
-							if (el.className.includes(className)) {
-								results.push(el);
-							}
-						}
-						for (const child of el.children) {
-							search(child, sel);
-						}
-					};
-					search(this, selector);
-					return Object.assign(results, {
-						forEach: (cb: (el: MockHTMLElement) => void) => results.forEach(cb),
-					});
-				},
-			};
-
-			// input要素の場合、value属性を追加
-			if (tagName === "input") {
-				element.value = "";
-				element.type = "text";
-			}
-
-			// button要素の場合、clickメソッドを追加
-			if (tagName === "button") {
-				element.click = function () {
-					this.dispatchEvent({ type: "click" });
-				};
-			}
-
-			return element;
-		},
-		getElementById: (_id: string): MockHTMLElement | null => null,
-		body: {
-			appendChild: () => {},
-		},
+		createElement: createMockElement,
+		getElementById: () => null,
+		body: { appendChild: () => {} },
 	};
 }
 
-// localStorageモック
-let localStorageMock: ReturnType<typeof createLocalStorageMock>;
-
-// documentモック
+let localStorageMock: Storage;
 let documentMock: ReturnType<typeof createDocumentMock>;
 
 describe("Background Color Integration Tests (Task 7.4)", () => {
 	beforeEach(() => {
-		// 新しいモックを作成して設定
 		localStorageMock = createLocalStorageMock();
 		documentMock = createDocumentMock();
 
 		(globalThis as unknown as { localStorage: Storage }).localStorage =
-			localStorageMock as Storage;
+			localStorageMock;
 		(globalThis as unknown as { document: typeof documentMock }).document =
-			documentMock as typeof documentMock;
+			documentMock;
 
 		resetState();
 		localStorageMock.clear();
@@ -252,22 +191,53 @@ describe("Background Color Integration Tests (Task 7.4)", () => {
 		resetState();
 		localStorageMock.clear();
 
-		// オリジナルのグローバル値を復元（undefinedの場合も明示的に処理）
 		if (originalLocalStorage !== undefined) {
 			(globalThis as unknown as { localStorage: Storage }).localStorage =
 				originalLocalStorage;
 		} else {
-			// Bun環境で元々未定義だった場合は削除
 			delete (globalThis as unknown as { localStorage?: Storage }).localStorage;
 		}
 		if (originalDocument !== undefined) {
 			(globalThis as unknown as { document: Document }).document =
 				originalDocument;
 		} else {
-			// Bun環境で元々未定義だった場合は削除
 			delete (globalThis as unknown as { document?: Document }).document;
 		}
 	});
+
+	function createColorChangeHandlers() {
+		return {
+			onLightColorChange: (hex: string) => {
+				state.lightBackgroundColor = hex;
+				persistBackgroundColors(
+					state.lightBackgroundColor,
+					state.darkBackgroundColor,
+				);
+			},
+			onDarkColorChange: (hex: string) => {
+				state.darkBackgroundColor = hex;
+				persistBackgroundColors(
+					state.lightBackgroundColor,
+					state.darkBackgroundColor,
+				);
+			},
+		};
+	}
+
+	function createSelector() {
+		const handlers = createColorChangeHandlers();
+		return createBackgroundColorSelector({
+			lightColor: state.lightBackgroundColor,
+			darkColor: state.darkBackgroundColor,
+			...handlers,
+		});
+	}
+
+	function getColorPickers(selector: ReturnType<typeof createSelector>) {
+		return selector.querySelectorAll(
+			".background-color-selector__color-picker",
+		) as MockHTMLElement[];
+	}
 
 	/**
 	 * 1. BackgroundColorSelector → DemoState連携の確認
@@ -275,112 +245,45 @@ describe("Background Color Integration Tests (Task 7.4)", () => {
 	 */
 	describe("BackgroundColorSelector → DemoState Integration", () => {
 		it("should update state when light color picker input event is dispatched", () => {
-			// 初期状態を確認
 			expect(state.lightBackgroundColor).toBe("#ffffff");
 
-			// onLightColorChangeでstateを更新するコールバックを設定
-			const onLightColorChange = (hex: string) => {
-				state.lightBackgroundColor = hex;
-				persistBackgroundColors(
-					state.lightBackgroundColor,
-					state.darkBackgroundColor,
-				);
-			};
-
-			const onDarkColorChange = (hex: string) => {
-				state.darkBackgroundColor = hex;
-				persistBackgroundColors(
-					state.lightBackgroundColor,
-					state.darkBackgroundColor,
-				);
-			};
-
-			// セレクターを作成
-			const selector = createBackgroundColorSelector({
-				lightColor: state.lightBackgroundColor,
-				darkColor: state.darkBackgroundColor,
-				onLightColorChange,
-				onDarkColorChange,
-			});
-
-			// ライト背景用のカラーピッカー入力要素を検索（最初のcolor picker）
-			const colorPickers = selector.querySelectorAll(
-				".background-color-selector__color-picker",
-			) as (MockHTMLElement | null)[];
+			const selector = createSelector();
+			const colorPickers = getColorPickers(selector);
 			expect(colorPickers.length).toBeGreaterThanOrEqual(1);
 
 			const lightColorPicker = colorPickers[0];
-			if (lightColorPicker) {
-				// カラーピッカーのvalue を更新してinputイベントを発火
-				lightColorPicker.value = "#f8fafc";
-				lightColorPicker.dispatchEvent({
-					type: "input",
-					target: { value: "#f8fafc" },
-				});
+			lightColorPicker.value = "#f8fafc";
+			lightColorPicker.dispatchEvent({
+				type: "input",
+				target: { value: "#f8fafc" },
+			});
 
-				// stateが更新されたことを確認
-				expect(state.lightBackgroundColor).toBe("#f8fafc");
+			expect(state.lightBackgroundColor).toBe("#f8fafc");
 
-				// localStorageにも保存されたことを確認
-				const stored = localStorageMock.getItem("leonardo-backgroundColor");
-				expect(stored).not.toBeNull();
-				const parsed = JSON.parse(stored as string);
-				expect(parsed.light).toBe("#f8fafc");
-			}
+			const stored = localStorageMock.getItem("leonardo-backgroundColor");
+			expect(stored).not.toBeNull();
+			expect(JSON.parse(stored as string).light).toBe("#f8fafc");
 		});
 
 		it("should update state when dark color picker input event is dispatched", () => {
-			// 初期状態を確認
 			expect(state.darkBackgroundColor).toBe("#000000");
 
-			const onLightColorChange = (hex: string) => {
-				state.lightBackgroundColor = hex;
-				persistBackgroundColors(
-					state.lightBackgroundColor,
-					state.darkBackgroundColor,
-				);
-			};
-
-			const onDarkColorChange = (hex: string) => {
-				state.darkBackgroundColor = hex;
-				persistBackgroundColors(
-					state.lightBackgroundColor,
-					state.darkBackgroundColor,
-				);
-			};
-
-			// セレクターを作成
-			const selector = createBackgroundColorSelector({
-				lightColor: state.lightBackgroundColor,
-				darkColor: state.darkBackgroundColor,
-				onLightColorChange,
-				onDarkColorChange,
-			});
-
-			// ダーク背景用のカラーピッカー入力要素を検索（2番目のcolor picker）
-			const colorPickers = selector.querySelectorAll(
-				".background-color-selector__color-picker",
-			) as (MockHTMLElement | null)[];
+			const selector = createSelector();
+			const colorPickers = getColorPickers(selector);
 			expect(colorPickers.length).toBeGreaterThanOrEqual(2);
 
 			const darkColorPicker = colorPickers[1];
-			if (darkColorPicker) {
-				// カラーピッカーのvalue を更新してinputイベントを発火
-				darkColorPicker.value = "#18181b";
-				darkColorPicker.dispatchEvent({
-					type: "input",
-					target: { value: "#18181b" },
-				});
+			darkColorPicker.value = "#18181b";
+			darkColorPicker.dispatchEvent({
+				type: "input",
+				target: { value: "#18181b" },
+			});
 
-				// stateが更新されたことを確認
-				expect(state.darkBackgroundColor).toBe("#18181b");
+			expect(state.darkBackgroundColor).toBe("#18181b");
 
-				// localStorageにも保存されたことを確認
-				const stored = localStorageMock.getItem("leonardo-backgroundColor");
-				expect(stored).not.toBeNull();
-				const parsed = JSON.parse(stored as string);
-				expect(parsed.dark).toBe("#18181b");
-			}
+			const stored = localStorageMock.getItem("leonardo-backgroundColor");
+			expect(stored).not.toBeNull();
+			expect(JSON.parse(stored as string).dark).toBe("#18181b");
 		});
 
 		it("should persist colors to localStorage when state is updated", () => {
@@ -410,13 +313,11 @@ describe("Background Color Integration Tests (Task 7.4)", () => {
 			state.lightBackgroundColor = "#f8fafc";
 			state.darkBackgroundColor = "#18181b";
 
-			const onLightColorChange = (_hex: string) => {};
-			const onDarkColorChange = (_hex: string) => {};
 			const selector = createBackgroundColorSelector({
 				lightColor: state.lightBackgroundColor,
 				darkColor: state.darkBackgroundColor,
-				onLightColorChange,
-				onDarkColorChange,
+				onLightColorChange: () => {},
+				onDarkColorChange: () => {},
 			});
 
 			expect(selector).toBeDefined();
@@ -497,136 +398,36 @@ describe("Background Color Integration Tests (Task 7.4)", () => {
 	});
 
 	/**
-	 * 3. プリセット選択 → 背景色適用の確認
-	 * Requirements: 2.1, 2.2, 2.3
-	 */
-	describe("Preset Selection → Background Color Application", () => {
-		it("should have separate light and dark preset colors defined", () => {
-			expect(LIGHT_PRESET_COLORS.length).toBe(2);
-			expect(DARK_PRESET_COLORS.length).toBe(2);
-			expect(PRESET_COLORS.length).toBe(4); // Combined
-		});
-
-		it("should have light presets with light mode", () => {
-			for (const preset of LIGHT_PRESET_COLORS) {
-				expect(preset.mode).toBe("light");
-			}
-		});
-
-		it("should have dark presets with dark mode", () => {
-			for (const preset of DARK_PRESET_COLORS) {
-				expect(preset.mode).toBe("dark");
-			}
-		});
-
-		it("should apply preset color correctly via preset button click", () => {
-			const onLightColorChange = (hex: string) => {
-				state.lightBackgroundColor = hex;
-				persistBackgroundColors(
-					state.lightBackgroundColor,
-					state.darkBackgroundColor,
-				);
-			};
-
-			const onDarkColorChange = (hex: string) => {
-				state.darkBackgroundColor = hex;
-				persistBackgroundColors(
-					state.lightBackgroundColor,
-					state.darkBackgroundColor,
-				);
-			};
-
-			const selector = createBackgroundColorSelector({
-				lightColor: state.lightBackgroundColor,
-				darkColor: state.darkBackgroundColor,
-				onLightColorChange,
-				onDarkColorChange,
-			});
-
-			const presetButtons = selector.querySelectorAll(
-				".background-color-selector__preset-button",
-			);
-
-			// 各セクションに2つずつプリセット = 合計4つ
-			expect(presetButtons.length).toBe(4);
-		});
-
-		it("should match preset mode with determineColorMode result", () => {
-			for (const preset of PRESET_COLORS) {
-				const calculatedMode = determineColorMode(preset.hex);
-				expect(calculatedMode).toBe(preset.mode);
-			}
-		});
-	});
-
-	/**
-	 * 4. Selector更新 → State反映 → View再計算のフロー検証
+	 * 3. Selector更新 → State反映 → View再計算のフロー検証
 	 * Requirements: 5.1, 5.2, 5.5
 	 */
 	describe("Selector Update → State Reflection → View Recalculation Flow", () => {
 		it("should complete full update cycle: selector event → state → persist", () => {
-			const onLightColorChange = (hex: string) => {
-				state.lightBackgroundColor = hex;
-				persistBackgroundColors(
-					state.lightBackgroundColor,
-					state.darkBackgroundColor,
-				);
-			};
-
-			const onDarkColorChange = (hex: string) => {
-				state.darkBackgroundColor = hex;
-				persistBackgroundColors(
-					state.lightBackgroundColor,
-					state.darkBackgroundColor,
-				);
-			};
-
-			const selector = createBackgroundColorSelector({
-				lightColor: state.lightBackgroundColor,
-				darkColor: state.darkBackgroundColor,
-				onLightColorChange,
-				onDarkColorChange,
-			});
-
-			// カラーピッカーでイベント発火
-			const colorPickers = selector.querySelectorAll(
-				".background-color-selector__color-picker",
-			) as (MockHTMLElement | null)[];
+			const selector = createSelector();
+			const colorPickers = getColorPickers(selector);
 			expect(colorPickers.length).toBeGreaterThanOrEqual(1);
 
-			const lightColorPicker = colorPickers[0];
-			lightColorPicker!.value = "#336699";
-			lightColorPicker!.dispatchEvent({
+			colorPickers[0].value = "#336699";
+			colorPickers[0].dispatchEvent({
 				type: "input",
 				target: { value: "#336699" },
 			});
 
 			expect(state.lightBackgroundColor).toBe("#336699");
-
-			const stored = localStorageMock.getItem("leonardo-backgroundColor");
-			const parsed = JSON.parse(stored as string);
-			expect(parsed.light).toBe("#336699");
+			expect(
+				JSON.parse(
+					localStorageMock.getItem("leonardo-backgroundColor") as string,
+				).light,
+			).toBe("#336699");
 		});
 
 		it("should support rapid color changes without losing state", () => {
-			const lightColors = [
-				"#ff0000",
-				"#00ff00",
-				"#0000ff",
-				"#ffff00",
-				"#ff00ff",
-			];
-			const darkColors = [
-				"#110000",
-				"#001100",
-				"#000011",
-				"#111100",
-				"#110011",
-			];
+			const colors = ["#ff0000", "#00ff00", "#0000ff", "#ffff00", "#ff00ff"];
+			const darks = ["#110000", "#001100", "#000011", "#111100", "#110011"];
 
-			for (let i = 0; i < lightColors.length; i++) {
-				state.lightBackgroundColor = lightColors[i];
-				state.darkBackgroundColor = darkColors[i];
+			for (let i = 0; i < colors.length; i++) {
+				state.lightBackgroundColor = colors[i];
+				state.darkBackgroundColor = darks[i];
 			}
 
 			expect(state.lightBackgroundColor).toBe("#ff00ff");
@@ -636,16 +437,14 @@ describe("Background Color Integration Tests (Task 7.4)", () => {
 		it("should reset background colors on resetState", () => {
 			state.lightBackgroundColor = "#aabbcc";
 			state.darkBackgroundColor = "#112233";
-
 			resetState();
-
 			expect(state.lightBackgroundColor).toBe("#ffffff");
 			expect(state.darkBackgroundColor).toBe("#000000");
 		});
 	});
 
 	/**
-	 * 5. 状態の一貫性テスト
+	 * 4. 状態の一貫性テスト
 	 * Requirements: 5.1, 5.2
 	 */
 	describe("State Consistency Tests", () => {
@@ -678,7 +477,7 @@ describe("Background Color Integration Tests (Task 7.4)", () => {
 	});
 
 	/**
-	 * 6. エッジケースとエラーハンドリング
+	 * 5. エッジケースとエラーハンドリング
 	 */
 	describe("Edge Cases and Error Handling", () => {
 		it("should handle lowercase and uppercase hex values consistently", () => {
