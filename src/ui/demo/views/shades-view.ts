@@ -212,6 +212,10 @@ export async function renderShadesView(
 /**
  * セマンティックロールから日本語表示名を生成する
  *
+ * 現在サポートするカテゴリ: primary, accent, secondary
+ * TODO: semantic, link等の追加カテゴリが必要になった場合は
+ *       SemanticRoleCategory型に合わせて拡張する
+ *
  * @param role - セマンティックロール
  * @returns 日本語表示名
  */
@@ -220,6 +224,9 @@ function getRoleDisplayName(role: SemanticRole): string {
 		case "primary":
 			return "プライマリーカラー";
 		case "accent": {
+			// アクセント番号を抽出（例: "Accent 2" → "2"）
+			// 番号が見つからない場合は "1" をデフォルトとする
+			// （単一アクセントの場合や番号なしロール名に対応）
 			const match = role.name.match(/\d+/);
 			const num = match ? match[0] : "1";
 			return `アクセントカラー ${num}`;
@@ -227,6 +234,7 @@ function getRoleDisplayName(role: SemanticRole): string {
 		case "secondary":
 			return "セカンダリーカラー";
 		default:
+			// 未知のカテゴリはfullNameまたはnameをそのまま使用
 			return role.fullName || role.name;
 	}
 }
@@ -333,6 +341,8 @@ export function renderDadsHueSection(
 					colorScale.hue as DadsColorHue,
 					colorItem.scale,
 				);
+				// 防御的チェック: roles[0]の存在確認は型安全性のため
+				// （lookupRolesが空配列以外でundefined要素を返す可能性に備える）
 				if (roles.length > 0 && roles[0]) {
 					displayName = getRoleDisplayName(roles[0]);
 				}
