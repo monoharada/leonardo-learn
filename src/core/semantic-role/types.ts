@@ -31,6 +31,14 @@ export interface SemanticRole {
 	name: string;
 	/** カテゴリ */
 	category: RoleCategory;
+	/**
+	 * ロールの由来
+	 * - dads: DADS公式定義（不変）
+	 * - brand: 生成・選択されたブランドロール
+	 *
+	 * 省略時は互換性のため "brand" 相当として扱う。
+	 */
+	source?: "dads" | "brand";
 	/** semanticカテゴリの場合のサブタイプ */
 	semanticSubType?: SemanticSubType;
 	/** フル表示名（ツールチップ用、フォーマット: "[カテゴリ名] ロール名"） */

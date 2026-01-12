@@ -37,7 +37,7 @@ describe("シェードビュー統合テスト", () => {
 			expect(roleMapping.size).toBeGreaterThan(0);
 		});
 
-		it("DADS以外のハーモニーの場合、空のマッピングが返される", () => {
+		it("DADS以外のハーモニーでも、ブランドロールのマッピングは生成される", () => {
 			const palettes: PaletteInfo[] = [
 				{ name: "Primary", baseChromaName: "Blue", step: 600 },
 			];
@@ -48,7 +48,12 @@ describe("シェードビュー統合テスト", () => {
 			);
 			const roleMapping = mapper.getRoleMapping();
 
-			expect(roleMapping.size).toBe(0);
+			// ブランドロールは全モードで処理される
+			expect(roleMapping.size).toBeGreaterThan(0);
+			expect(roleMapping.has("blue-600")).toBe(true);
+
+			// DADS_COLORSはDADSモードでのみ生成される
+			expect(roleMapping.has("green-600")).toBe(false);
 		});
 
 		it("hue-scale特定可能なブランドロールがDADSキーに統合される", () => {
@@ -116,20 +121,107 @@ describe("シェードビュー統合テスト", () => {
 					"#22C55E",
 				);
 
-				// 【新UI】円形スウォッチクラスが追加されること
+				// Issue #39: セマンティックロール（success等）は円形化しない
+				// プライマリーのみ円形化する新仕様
 				expect(swatchElement.classList.contains("dads-swatch--circular")).toBe(
-					true,
+					false,
 				);
-				// 【新UI】中央ラベルが追加されること
-				expect(
-					swatchElement.querySelector(".dads-swatch__role-label"),
-				).not.toBeNull();
-				// tabindexが設定されていること
+				// tabindexが設定されていること（オーバーレイは適用される）
 				expect(swatchElement.getAttribute("tabindex")).toBe("0");
 			}
 		});
 
-		it("hue-scale特定可能なブランドロールがDADSキーに統合される", () => {
+		it("プライマリーロールのスウォッチは円形化される", () => {
+			const palettes: PaletteInfo[] = [
+				{ name: "Primary", baseChromaName: "Blue", step: 600 },
+			];
+			const mapper = createSemanticRoleMapper(palettes, HarmonyType.DADS);
+
+			// blue-600のロールを取得（Primaryブランドロールが統合されている）
+			const roles = mapper.lookupRoles("blue" as DadsColorHue, 600);
+
+			applyOverlay(
+				swatchElement,
+				"blue" as DadsColorHue,
+				600,
+				roles,
+				false,
+				"#2563EB",
+			);
+
+			// プライマリーロールは円形化される
+			expect(swatchElement.classList.contains("dads-swatch--circular")).toBe(
+				true,
+			);
+			// 中央ラベルが追加されること
+			expect(
+				swatchElement.querySelector(".dads-swatch__role-label"),
+			).not.toBeNull();
+			// tabindexが設定されていること
+			expect(swatchElement.getAttribute("tabindex")).toBe("0");
+		});
+
+		it("アクセントロールのスウォッチは円形化される（Issue #39）", () => {
+			// アクセントロールを直接指定してテスト
+			const accentRoles: SemanticRole[] = [
+				{
+					name: "Accent-1",
+					category: "accent",
+					fullName: "[Accent] Accent-1",
+					shortLabel: "A1",
+				},
+			];
+
+			applyOverlay(
+				swatchElement,
+				"purple" as DadsColorHue,
+				500,
+				accentRoles,
+				false,
+				"#A855F7",
+			);
+
+			// アクセントロールも円形化される（ハーモニー生成ロール）
+			expect(swatchElement.classList.contains("dads-swatch--circular")).toBe(
+				true,
+			);
+			// 中央ラベルが追加されること
+			expect(
+				swatchElement.querySelector(".dads-swatch__role-label"),
+			).not.toBeNull();
+		});
+
+		it("セカンダリーロールのスウォッチは円形化される（Issue #39）", () => {
+			// セカンダリーロールを直接指定してテスト
+			const secondaryRoles: SemanticRole[] = [
+				{
+					name: "Secondary",
+					category: "secondary",
+					fullName: "[Secondary] Secondary",
+					shortLabel: "S",
+				},
+			];
+
+			applyOverlay(
+				swatchElement,
+				"teal" as DadsColorHue,
+				600,
+				secondaryRoles,
+				false,
+				"#14B8A6",
+			);
+
+			// セカンダリーロールも円形化される（ハーモニー生成ロール）
+			expect(swatchElement.classList.contains("dads-swatch--circular")).toBe(
+				true,
+			);
+			// 中央ラベルが追加されること
+			expect(
+				swatchElement.querySelector(".dads-swatch__role-label"),
+			).not.toBeNull();
+		});
+
+		it("hue-scale特定可能なブランドロールがlookupRolesで取得できる", () => {
 			const palettes: PaletteInfo[] = [
 				{ name: "Primary", baseChromaName: "Green", step: 600 },
 			];
@@ -231,11 +323,44 @@ describe("シェードビュー統合テスト", () => {
 
 	describe("CVDシミュレーションモードでの動作（新UI仕様）", () => {
 		// Task 10.1: 新UI仕様に更新
-		// 円形スウォッチのラベル色はインラインスタイルで固定設定
-		it("CVDシミュレーション時もラベル文字色は固定維持される", () => {
+		// Issue #39: プライマリーロールのみ円形化される
+		it("CVDシミュレーション時もプライマリーラベル文字色は固定維持される", () => {
 			const swatchElement = document.createElement("div");
 			swatchElement.className = "dads-swatch";
 
+			// Issue #39: プライマリーロールのみ円形化・ラベル表示される
+			const roles: SemanticRole[] = [
+				{
+					name: "Primary",
+					category: "primary",
+					fullName: "[Primary] Primary",
+					shortLabel: "P",
+				},
+			];
+
+			applyOverlay(
+				swatchElement,
+				"blue" as DadsColorHue,
+				600,
+				roles,
+				false,
+				"#2563EB",
+			);
+
+			// 【新UI】プライマリーロールの場合、中央ラベルが追加されること
+			const label = swatchElement.querySelector(
+				".dads-swatch__role-label",
+			) as HTMLElement;
+			expect(label).not.toBeNull();
+			// ラベルにはインラインスタイルでテキスト色が設定されている
+			expect(label?.style.color).toBeTruthy();
+		});
+
+		it("CVDシミュレーション時もセマンティックロールは円形化されない", () => {
+			const swatchElement = document.createElement("div");
+			swatchElement.className = "dads-swatch";
+
+			// Issue #39: セマンティックロールは円形化しない
 			const roles: SemanticRole[] = [
 				{
 					name: "Success",
@@ -255,13 +380,11 @@ describe("シェードビュー統合テスト", () => {
 				"#22C55E",
 			);
 
-			// 【新UI】中央ラベルが追加されること
-			const label = swatchElement.querySelector(
-				".dads-swatch__role-label",
-			) as HTMLElement;
-			expect(label).not.toBeNull();
-			// ラベルにはインラインスタイルでテキスト色が設定されている
-			expect(label?.style.color).toBeTruthy();
+			// セマンティックロールは円形化されないため、ラベルは追加されない
+			const label = swatchElement.querySelector(".dads-swatch__role-label");
+			expect(label).toBeNull();
+			// ただし、オーバーレイ自体は適用される（tabindexなど）
+			expect(swatchElement.getAttribute("tabindex")).toBe("0");
 		});
 	});
 

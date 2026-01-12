@@ -6,42 +6,46 @@
  * @module @/ui/demo/views/shades-view.test
  */
 
-import { beforeEach, describe, expect, it, mock } from "bun:test";
-import { resetState } from "../state";
+import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
+import { resetState, state } from "../state";
 import type { ShadesViewCallbacks } from "./shades-view";
 import { renderShadesView } from "./shades-view";
 
 // DOM環境のモック設定
-globalThis.document = {
-	createElement: (tag: string) => {
-		const element = {
-			tag,
-			className: "",
-			innerHTML: "",
-			textContent: "",
-			style: {} as Record<string, string>,
-			dataset: {} as Record<string, string>,
-			children: [] as unknown[],
-			appendChild: (child: unknown) => {
-				element.children.push(child);
-				return child;
-			},
-			removeChild: (child: unknown) => {
-				const index = element.children.indexOf(child);
-				if (index > -1) element.children.splice(index, 1);
-				return child;
-			},
-			setAttribute: () => {},
-			getAttribute: () => null,
-			addEventListener: () => {},
-			removeEventListener: () => {},
-			querySelectorAll: () => [],
-		};
-		return element;
-	},
-	getElementById: () => null,
-	body: {},
-} as unknown as Document;
+const originalDocument = globalThis.document;
+
+function createMockDocument(): Document {
+	return {
+		createElement: (tag: string) => {
+			const element = {
+				tag,
+				className: "",
+				innerHTML: "",
+				textContent: "",
+				style: {} as Record<string, string>,
+				dataset: {} as Record<string, string>,
+				children: [] as unknown[],
+				appendChild: (child: unknown) => {
+					element.children.push(child);
+					return child;
+				},
+				removeChild: (child: unknown) => {
+					const index = element.children.indexOf(child);
+					if (index > -1) element.children.splice(index, 1);
+					return child;
+				},
+				setAttribute: () => {},
+				getAttribute: () => null,
+				addEventListener: () => {},
+				removeEventListener: () => {},
+				querySelectorAll: () => [],
+			};
+			return element;
+		},
+		getElementById: () => null,
+		body: {},
+	} as unknown as Document;
+}
 
 // loadDadsTokensのモック
 const mockDadsTokens = {
@@ -67,6 +71,20 @@ const mockDadsTokens = {
 };
 
 // モジュールモック
+let lastRoleMapperArgs:
+	| { palettesInfo: unknown; harmonyType: unknown }
+	| undefined;
+
+const createSemanticRoleMapperMock = mock(
+	(palettesInfo: unknown, harmonyType: unknown) => {
+		lastRoleMapperArgs = { palettesInfo, harmonyType };
+		return {
+			lookupRoles: () => [],
+			lookupUnresolvedBrandRoles: () => [],
+		};
+	},
+);
+
 mock.module("@/core/tokens/dads-data-provider", () => ({
 	loadDadsTokens: mock(() => Promise.resolve(mockDadsTokens)),
 	getAllDadsChromatic: mock(() => [
@@ -80,13 +98,11 @@ mock.module("@/core/tokens/dads-data-provider", () => ({
 			],
 		},
 	]),
+	findDadsColorByHex: mock(() => undefined),
 }));
 
 mock.module("@/core/semantic-role/role-mapper", () => ({
-	createSemanticRoleMapper: mock(() => ({
-		lookupRoles: () => [],
-		lookupUnresolvedBrandRoles: () => [],
-	})),
+	createSemanticRoleMapper: createSemanticRoleMapperMock,
 }));
 
 mock.module("@/accessibility/cvd-simulator", () => ({
@@ -100,6 +116,12 @@ mock.module("@/accessibility/wcag2", () => ({
 describe("shades-view", () => {
 	beforeEach(() => {
 		resetState();
+		lastRoleMapperArgs = undefined;
+		globalThis.document = createMockDocument();
+	});
+
+	afterEach(() => {
+		globalThis.document = originalDocument;
 	});
 
 	describe("renderShadesView", () => {
@@ -129,6 +151,33 @@ describe("shades-view", () => {
 
 			expect(container.className).toBe("dads-section");
 		});
+
+		it("should use state.palettes when shadesPalettes is empty for role mapping", async () => {
+			const container = document.createElement("div") as unknown as HTMLElement;
+			const callbacks: ShadesViewCallbacks = {
+				onColorClick: mock(() => {}),
+			};
+
+			state.shadesPalettes = [];
+			state.palettes = [
+				{
+					id: "p1",
+					name: "Primary",
+					keyColors: ["#111111"],
+					ratios: [21, 15, 10, 7, 4.5, 3, 1],
+					harmony: "analogous" as any,
+					baseChromaName: "Green",
+					step: 1100,
+				},
+			] as any;
+			state.activeId = "p1";
+
+			await renderShadesView(container, callbacks);
+
+			expect(lastRoleMapperArgs?.palettesInfo).toEqual([
+				{ name: "Primary", baseChromaName: "Green", step: 1100 },
+			]);
+		});
 	});
 
 	describe("renderDadsHueSection", () => {
@@ -138,10 +187,10 @@ describe("shades-view", () => {
 		});
 	});
 
-	describe("renderBrandColorSection", () => {
+	describe("renderPrimaryBrandSection", () => {
 		it("should be exported and callable", async () => {
-			const { renderBrandColorSection } = await import("./shades-view");
-			expect(typeof renderBrandColorSection).toBe("function");
+			const { renderPrimaryBrandSection } = await import("./shades-view");
+			expect(typeof renderPrimaryBrandSection).toBe("function");
 		});
 	});
 
@@ -211,25 +260,8 @@ describe("shades-view", () => {
 			expect(content).toContain("persistBackgroundColor");
 		});
 
-		it("should import determineColorMode for mode detection", async () => {
-			const fs = await import("node:fs");
-			const path = await import("node:path");
-			const filePath = path.join(import.meta.dir, "shades-view.ts");
-			const content = fs.readFileSync(filePath, "utf-8");
-
-			// モード判定関数のインポート
-			expect(content).toContain("determineColorMode");
-		});
-
-		it("should use determineColorMode for mode detection", async () => {
-			const fs = await import("node:fs");
-			const path = await import("node:path");
-			const filePath = path.join(import.meta.dir, "shades-view.ts");
-			const content = fs.readFileSync(filePath, "utf-8");
-
-			// determineColorModeでモードを判定
-			expect(content).toContain("determineColorMode");
-		});
+		// NOTE: determineColorModeはスウォッチボーダー機能と共に削除されました
+		// 色は隣接して表示され、ボーダーなしのデザインに変更
 
 		it("should re-render view on background color change", async () => {
 			const fs = await import("node:fs");
@@ -253,40 +285,6 @@ describe("shades-view", () => {
 		});
 	});
 
-	/**
-	 * Task 6.3: スウォッチボーダーのモード対応と低コントラスト強調を実装する
-	 * Requirements: 6.3, 6.4
-	 */
-	describe("swatch border integration (Task 6.3)", () => {
-		it("should import applySwatchBorder from style-constants module", async () => {
-			const fs = await import("node:fs");
-			const path = await import("node:path");
-			const filePath = path.join(import.meta.dir, "shades-view.ts");
-			const content = fs.readFileSync(filePath, "utf-8");
-
-			// applySwatchBorderのインポート
-			expect(content).toContain("applySwatchBorder");
-		});
-
-		it("should apply swatch border based on background color and mode", async () => {
-			const fs = await import("node:fs");
-			const path = await import("node:path");
-			const filePath = path.join(import.meta.dir, "shades-view.ts");
-			const content = fs.readFileSync(filePath, "utf-8");
-
-			// determineColorModeを使用してモードを判定しボーダーを適用
-			expect(content).toContain("determineColorMode");
-		});
-
-		it("should reference Requirements 6.3, 6.4 in comments", async () => {
-			const fs = await import("node:fs");
-			const path = await import("node:path");
-			const filePath = path.join(import.meta.dir, "shades-view.ts");
-			const content = fs.readFileSync(filePath, "utf-8");
-
-			// Requirementsの参照
-			expect(content).toContain("6.3");
-			expect(content).toContain("6.4");
-		});
-	});
+	// NOTE: Task 6.3のスウォッチボーダー機能は削除されました
+	// 色は隣接して表示され、ボーダーなしのデザインに変更
 });

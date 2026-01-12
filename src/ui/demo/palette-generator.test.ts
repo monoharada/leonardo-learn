@@ -8,6 +8,7 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import { HarmonyType } from "@/core/harmony";
 import {
+	createPalettesFromHarmonyColors,
 	handleGenerate,
 	type PaletteGeneratorCallbacks,
 } from "./palette-generator";
@@ -146,6 +147,26 @@ describe("palette-generator", () => {
 			for (const palette of state.shadesPalettes) {
 				expect(palette.ratios).toEqual(expectedRatios);
 			}
+		});
+	});
+
+	describe("createPalettesFromHarmonyColors", () => {
+		it("PrimaryパレットのharmonyはHarmonyFilterTypeから正しく変換される", () => {
+			const palettes = createPalettesFromHarmonyColors(
+				"analogous",
+				["#111111", "#222222"],
+				[{ dadsSourceName: "Green 1100", step: 1100 }] as any,
+			);
+
+			// Primaryは選択ハーモニー（analogous）を持つ
+			expect(palettes[0]?.harmony).toBe(HarmonyType.ANALOGOUS);
+
+			// 派生（Accent）はNONE（Primaryのみがモードを表す）
+			expect(palettes[1]?.harmony).toBe(HarmonyType.NONE);
+
+			// candidates由来のDADSメタデータが反映される
+			expect(palettes[1]?.baseChromaName).toBe("Green");
+			expect(palettes[1]?.step).toBe(1100);
 		});
 	});
 });

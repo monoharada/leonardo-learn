@@ -453,9 +453,9 @@ function createSidebarSection(sidebar: HTMLElement): HTMLElement {
  * トークン名を生成する（表示用）
  */
 function generateTokenNames(colorCount: number): string[] {
-	const names = ["プライマリー"];
+	const names = ["プライマリーカラー"];
 	for (let i = 1; i < colorCount; i++) {
-		names.push(`アクセント ${i}`);
+		names.push(`アクセントカラー ${i}`);
 	}
 	return names;
 }

@@ -276,14 +276,10 @@ describe("AccentSelectorPanel class logic", () => {
 	describe("closePanel", () => {
 		it("should set isOpen to false", async () => {
 			const { AccentSelectorPanel } = await import("./accent-selector-panel");
-			const mockElement = {
-				setAttribute: () => {},
-				innerHTML: "",
-				querySelector: () => null,
-				appendChild: () => {},
-			};
 			const mockContainer = {
-				querySelector: () => mockElement,
+				// documentが存在するテスト環境でも安全に動作するよう、
+				// 既存要素を返さずに新規生成パスを通す
+				querySelector: () => null,
 				appendChild: () => {},
 			} as unknown as HTMLElement;
 

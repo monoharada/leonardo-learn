@@ -16,9 +16,32 @@ import {
 	generateSystemPalette,
 	HarmonyType,
 } from "@/core/harmony";
-import { HARMONY_TYPE_LABELS } from "../components/harmony-sidebar";
 import { state } from "./state";
 import type { PaletteConfig } from "./types";
+
+/**
+ * HarmonyFilterType（アクセント選定UI）→ HarmonyType（生成エンジン）の変換
+ *
+ * Note:
+ * - HarmonyFilterTypeは「候補抽出用」に拡張された種類（monochromatic等）を含む
+ * - HarmonyTypeは「生成エンジン用」であり、未対応のものはNONEにフォールバックする
+ */
+function toHarmonyType(harmonyType: HarmonyFilterType): HarmonyType {
+	switch (harmonyType) {
+		case "complementary":
+			return HarmonyType.COMPLEMENTARY;
+		case "triadic":
+			return HarmonyType.TRIADIC;
+		case "analogous":
+			return HarmonyType.ANALOGOUS;
+		case "split-complementary":
+			return HarmonyType.SPLIT_COMPLEMENTARY;
+		case "square":
+			return HarmonyType.SQUARE;
+		default:
+			return HarmonyType.NONE;
+	}
+}
 
 /**
  * Regex pattern to extract base chroma name from DADS source name
@@ -50,7 +73,7 @@ export function createPalettesFromHarmonyColors(
 			name: "Primary",
 			keyColors: [brandColor],
 			ratios: [21, 15, 10, 7, 4.5, 3, 1],
-			harmony: HarmonyType.DADS,
+			harmony: toHarmonyType(harmonyType),
 		};
 		palettes.push(brandPalette);
 	}
@@ -70,10 +93,10 @@ export function createPalettesFromHarmonyColors(
 			);
 			const accentPalette: PaletteConfig = {
 				id: `harmony-accent${i + 1}-${timestamp}`,
-				name: `Accent (${HARMONY_TYPE_LABELS[harmonyType]} ${i + 1})`,
+				name: `Accent ${i + 1}`,
 				keyColors: [accentColor],
 				ratios: [21, 15, 10, 7, 4.5, 3, 1],
-				harmony: HarmonyType.DADS,
+				harmony: HarmonyType.NONE,
 				baseChromaName,
 				step: candidate?.step,
 			};
