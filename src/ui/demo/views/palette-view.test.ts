@@ -212,40 +212,6 @@ describe("palette-view module", () => {
 		});
 	});
 
-	/**
-	 * Task 6.3: スウォッチボーダーのモード対応と低コントラスト強調を実装する
-	 * Requirements: 6.3, 6.4
-	 */
-	describe("swatch border integration (Task 6.3)", () => {
-		it("should import applySwatchBorder from style-constants module", async () => {
-			const fs = await import("node:fs");
-			const path = await import("node:path");
-			const filePath = path.join(import.meta.dir, "palette-view.ts");
-			const content = fs.readFileSync(filePath, "utf-8");
-
-			// applySwatchBorderのインポート
-			expect(content).toContain("applySwatchBorder");
-		});
-
-		it("should apply swatch border based on background color and mode", async () => {
-			const fs = await import("node:fs");
-			const path = await import("node:path");
-			const filePath = path.join(import.meta.dir, "palette-view.ts");
-			const content = fs.readFileSync(filePath, "utf-8");
-
-			// determineColorModeを使用してモードを判定しボーダーを適用
-			expect(content).toContain("determineColorMode");
-		});
-
-		it("should reference Requirements 6.3, 6.4 in comments", async () => {
-			const fs = await import("node:fs");
-			const path = await import("node:path");
-			const filePath = path.join(import.meta.dir, "palette-view.ts");
-			const content = fs.readFileSync(filePath, "utf-8");
-
-			// Requirementsの参照
-			expect(content).toContain("6.3");
-			expect(content).toContain("6.4");
-		});
-	});
+	// NOTE: Task 6.3のスウォッチボーダー機能は削除されました
+	// 色は隣接して表示され、ボーダーなしのデザインに変更
 });

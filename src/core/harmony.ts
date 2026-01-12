@@ -563,6 +563,7 @@ export function generateHarmonyPalette(
 			keyColor: tokenColor,
 			role,
 			baseChromaName: snappedChroma.displayName,
+			step: token.classification.scale, // Issue #39: DADSトークンのstep値を伝播
 		};
 	};
 

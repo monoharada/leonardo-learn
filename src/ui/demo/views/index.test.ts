@@ -14,13 +14,13 @@ import {
 	// accessibility-view.ts
 	renderAccessibilityView,
 	renderAdjacentShadesAnalysis,
-	renderBrandColorSection,
 	renderDadsHueSection,
 	renderDistinguishabilityAnalysis,
 	// harmony-view.ts
 	renderHarmonyView,
 	// palette-view.ts
 	renderPaletteView,
+	renderPrimaryBrandSection,
 	// shades-view.ts
 	renderShadesView,
 	type ShadesViewCallbacks,
@@ -43,8 +43,8 @@ describe("views/index.ts re-exports", () => {
 		expect(typeof renderDadsHueSection).toBe("function");
 	});
 
-	test("renderBrandColorSection is exported", () => {
-		expect(typeof renderBrandColorSection).toBe("function");
+	test("renderPrimaryBrandSection is exported", () => {
+		expect(typeof renderPrimaryBrandSection).toBe("function");
 	});
 
 	test("renderAccessibilityView is exported", () => {

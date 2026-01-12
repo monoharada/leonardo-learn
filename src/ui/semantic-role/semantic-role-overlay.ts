@@ -17,6 +17,20 @@ import {
 	transformToCircle,
 } from "./circular-swatch-transformer";
 
+/** ハーモニーロールカテゴリ（円形化対象） */
+const HARMONY_CATEGORIES = ["primary", "secondary", "accent"];
+
+/**
+ * hue-scale特定不可のブランドスウォッチかどうか
+ */
+function isUnresolvedBrandSwatch(
+	isBrand: boolean | undefined,
+	dadsHue: DadsColorHue | undefined,
+	scale: number | undefined,
+): boolean {
+	return Boolean(isBrand && (dadsHue === undefined || scale === undefined));
+}
+
 /**
  * スウォッチにセマンティックロールオーバーレイを適用
  *
@@ -51,18 +65,18 @@ export function applyOverlay(
 	// キーボードフォーカス可能にする
 	swatchElement.setAttribute("tabindex", "0");
 
-	// 【新UI】円形化とラベル表示
-	// backgroundColorが指定されていて、かつ hue-scale が特定可能な場合のみ
-	// hue-scale特定不可のブランドロール（isBrand=true かつ dadsHue/scale が undefined）は円形化しない
-	const canCircularize =
+	// 複数ロールから優先ロールを選択
+	const priorityRole = selectPriorityRole(roles);
+
+	// 円形化条件: ブランド由来のハーモニーロール（primary/secondary/accent）のみ
+	// DADS公式ロール（source="dads"）やhue-scale特定不可のブランドロールは円形化しない
+	const shouldCircularize =
 		backgroundColor !== undefined &&
-		!(isBrand && (dadsHue === undefined || scale === undefined));
+		priorityRole.source !== "dads" &&
+		HARMONY_CATEGORIES.includes(priorityRole.category) &&
+		!isUnresolvedBrandSwatch(isBrand, dadsHue, scale);
 
-	if (canCircularize) {
-		// 複数ロールから優先ロールを選択
-		const priorityRole = selectPriorityRole(roles);
-
-		// 円形化とラベル表示
+	if (shouldCircularize) {
 		transformToCircle(swatchElement, priorityRole, backgroundColor);
 	}
 
@@ -148,7 +162,7 @@ export function createAccessibleDescription(
 	isBrand?: boolean,
 ): string | null {
 	// hue-scale特定不可のブランドスウォッチの場合はnull（ARIA ID不要）
-	if (isBrand && (dadsHue === undefined || scale === undefined)) {
+	if (isUnresolvedBrandSwatch(isBrand, dadsHue, scale)) {
 		return null;
 	}
 
