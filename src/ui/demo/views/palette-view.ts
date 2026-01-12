@@ -17,7 +17,7 @@ import { snapToCudColor } from "@/ui/cud-components";
 import { parseColor } from "@/utils/color-space";
 import { createBackgroundColorSelector } from "../background-color-selector";
 import { parseKeyColor, persistBackgroundColors, state } from "../state";
-import type { ColorDetailModalOptions } from "../types";
+import { type ColorDetailModalOptions, stripStepSuffix } from "../types";
 import {
 	createPalettePreview,
 	mapPaletteToPreviewColors,
@@ -310,7 +310,7 @@ function getPrimaryHex(): string {
 	const primaryPalette = state.palettes.find(
 		(p) => p.name === "Primary" || p.name?.startsWith("Primary"),
 	);
-	return primaryPalette?.keyColors[0]?.split("@")[0] || "#00A3BF";
+	return stripStepSuffix(primaryPalette?.keyColors[0] ?? "") || "#00A3BF";
 }
 
 /**
@@ -321,7 +321,8 @@ async function extractPreviewColors(
 	primaryHex: string,
 ): Promise<PalettePreviewColors> {
 	const accentPalette = state.palettes.find((p) => p.name.startsWith("Accent"));
-	const accentHex = accentPalette?.keyColors[0]?.split("@")[0] || "#259063";
+	const accentHex =
+		stripStepSuffix(accentPalette?.keyColors[0] ?? "") || "#259063";
 
 	const warningDef = WARNING_PATTERNS[getResolvedWarningPattern()];
 	const warningScale = getDadsColorsByHue(dadsTokens, warningDef.hue);

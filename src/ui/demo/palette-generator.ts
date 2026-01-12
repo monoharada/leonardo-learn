@@ -21,7 +21,7 @@ import { findDadsColorByHex } from "@/core/tokens/dads-data-provider";
 import type { DadsChromaScale, DadsToken } from "@/core/tokens/types";
 import { HUE_DISPLAY_NAMES } from "./constants";
 import { state } from "./state";
-import type { PaletteConfig } from "./types";
+import { type PaletteConfig, stripStepSuffix } from "./types";
 
 /**
  * HarmonyFilterType（アクセント選定UI）→ HarmonyType（生成エンジン）の変換
@@ -76,7 +76,7 @@ export function createDerivedPalettes(
 	if (!primaryHex) return [];
 
 	// @stepを除去して純粋なHEX値を取得
-	const cleanPrimaryHex = primaryHex.split("@")[0] || primaryHex;
+	const cleanPrimaryHex = stripStepSuffix(primaryHex);
 
 	// DADSモード設定を構築
 	let dadsMode:

@@ -22,6 +22,14 @@ import type { DerivationConfig, DerivedColor, DerivedColorSet } from "./types";
 import { DADS_CONTRAST_DEFAULTS } from "./types";
 
 /**
+ * フォールバック時のHCTトーンオフセット値
+ *
+ * バイナリサーチが失敗した場合に、プライマリまたはセカンダリの
+ * トーンからこの値だけ明るい/暗い方向にずらしてフォールバック色を生成する。
+ */
+const FALLBACK_TONE_OFFSET = 15;
+
+/**
  * 背景がライトモードかどうかを判定
  *
  * OKLCH明度（L値）が0.5を超える場合はライトモード
@@ -352,7 +360,10 @@ function deriveFromDadsTokens(
 		};
 	} else {
 		// フォールバック: HCT-based algorithmic derivation
-		const fallbackToneOffset = secondaryDirection === "lighter" ? 15 : -15;
+		const fallbackToneOffset =
+			secondaryDirection === "lighter"
+				? FALLBACK_TONE_OFFSET
+				: -FALLBACK_TONE_OFFSET;
 		const fallbackTone = primaryTone + fallbackToneOffset;
 		const fallbackColor = fromHct(hue, chroma, fallbackTone);
 		secondary = {
@@ -378,7 +389,10 @@ function deriveFromDadsTokens(
 		};
 	} else {
 		// フォールバック: HCT-based algorithmic derivation
-		const fallbackToneOffset = tertiaryDirection === "lighter" ? 15 : -15;
+		const fallbackToneOffset =
+			tertiaryDirection === "lighter"
+				? FALLBACK_TONE_OFFSET
+				: -FALLBACK_TONE_OFFSET;
 		const fallbackTone = secondary.tone + fallbackToneOffset;
 		const fallbackColor = fromHct(hue, chroma, fallbackTone);
 		tertiary = {
@@ -485,7 +499,10 @@ export function deriveSecondaryTertiary(
 	);
 
 	// フォールバック用のオフセット
-	const secondaryToneOffset = secondaryDirection === "lighter" ? 15 : -15;
+	const secondaryToneOffset =
+		secondaryDirection === "lighter"
+			? FALLBACK_TONE_OFFSET
+			: -FALLBACK_TONE_OFFSET;
 	const secondaryTone =
 		secondaryResult?.tone ?? primaryTone + secondaryToneOffset;
 
@@ -501,7 +518,10 @@ export function deriveSecondaryTertiary(
 	);
 
 	// フォールバック: 探索失敗時は固定オフセットで生成
-	const tertiaryToneOffset = tertiaryDirection === "lighter" ? 15 : -15;
+	const tertiaryToneOffset =
+		tertiaryDirection === "lighter"
+			? FALLBACK_TONE_OFFSET
+			: -FALLBACK_TONE_OFFSET;
 
 	const secondary: DerivedColor = secondaryResult
 		? {

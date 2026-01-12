@@ -207,3 +207,19 @@ export type { Color } from "@/core/color";
 export type { HarmonyType } from "@/core/harmony";
 export type { CudCompatibilityMode } from "@/ui/cud-components";
 export type { ContrastIntensity } from "@/ui/style-constants";
+
+/**
+ * キーカラーから@stepサフィックスを除去してHEX値のみを返す
+ *
+ * @example
+ * stripStepSuffix("#3366cc@500") // => "#3366cc"
+ * stripStepSuffix("#3366cc")     // => "#3366cc"
+ * stripStepSuffix("")            // => ""
+ *
+ * @param keyColor - キーカラー文字列（"#hex" または "#hex@step" 形式）
+ * @returns HEX値のみの文字列
+ */
+export function stripStepSuffix(keyColor: string): string {
+	if (!keyColor) return "";
+	return keyColor.split("@")[0] ?? keyColor;
+}

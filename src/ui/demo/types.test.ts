@@ -5,15 +5,16 @@
  * Requirements: 6.1, 6.3
  */
 import { describe, expect, it } from "bun:test";
-import type {
-	ColorDetailModalOptions,
-	CVDSimulationType,
-	DemoState,
-	HarmonyTypeConfig,
-	KeyColorWithStep,
-	LightnessDistribution,
-	PaletteConfig,
-	ViewMode,
+import {
+	type ColorDetailModalOptions,
+	type CVDSimulationType,
+	type DemoState,
+	type HarmonyTypeConfig,
+	type KeyColorWithStep,
+	type LightnessDistribution,
+	type PaletteConfig,
+	stripStepSuffix,
+	type ViewMode,
 } from "./types";
 
 describe("types.ts", () => {
@@ -140,6 +141,27 @@ describe("types.ts", () => {
 			expect(state.cudMode).toBe("guide");
 			expect(state.lightBackgroundColor).toBe("#ffffff");
 			expect(state.darkBackgroundColor).toBe("#000000");
+		});
+	});
+
+	describe("stripStepSuffix", () => {
+		it("should remove @step suffix from key color", () => {
+			expect(stripStepSuffix("#3366cc@500")).toBe("#3366cc");
+			expect(stripStepSuffix("#ff0000@900")).toBe("#ff0000");
+		});
+
+		it("should return original value when no @step suffix", () => {
+			expect(stripStepSuffix("#3366cc")).toBe("#3366cc");
+			expect(stripStepSuffix("#AABBCC")).toBe("#AABBCC");
+		});
+
+		it("should handle empty string", () => {
+			expect(stripStepSuffix("")).toBe("");
+		});
+
+		it("should handle multiple @ symbols (edge case)", () => {
+			// Only splits on first @
+			expect(stripStepSuffix("#3366cc@500@extra")).toBe("#3366cc");
 		});
 	});
 

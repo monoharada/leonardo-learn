@@ -59,7 +59,28 @@ import {
 	state,
 	validateBackgroundColor,
 } from "../state";
-import type { ColorDetailModalOptions } from "../types";
+import { type ColorDetailModalOptions, stripStepSuffix } from "../types";
+
+/** デフォルト背景色（クリーンアップ用） */
+const DEFAULT_BACKGROUND_COLOR = "#ffffff";
+
+/**
+ * harmony-viewが適用した背景色をリセットする
+ *
+ * ビュー切替時にbody, .dads-main, #main-contentの背景色を
+ * デフォルト値に戻す。navigation.tsから呼び出される。
+ */
+export function cleanupHarmonyViewBackground(): void {
+	const mainContent = document.getElementById("main-content");
+	if (mainContent) {
+		mainContent.style.backgroundColor = DEFAULT_BACKGROUND_COLOR;
+	}
+	const dadsMain = document.querySelector(".dads-main");
+	if (dadsMain instanceof HTMLElement) {
+		dadsMain.style.backgroundColor = DEFAULT_BACKGROUND_COLOR;
+	}
+	document.body.style.backgroundColor = DEFAULT_BACKGROUND_COLOR;
+}
 
 /**
  * アクセント選定ビューのコールバック
@@ -458,10 +479,9 @@ async function loadCoolorsPreviews(
 
 	// state.palettesから表示用データを取得（Secondary/Tertiaryを含む）
 	// keyColorsには@step suffix（例: "#3366cc@500"）が含まれる可能性があるため除去
-	const displayColors = state.palettes.map((p) => {
-		const keyColor = p.keyColors[0] ?? "";
-		return keyColor.split("@")[0] ?? keyColor;
-	});
+	const displayColors = state.palettes.map((p) =>
+		stripStepSuffix(p.keyColors[0] ?? ""),
+	);
 	const tokenNames = state.palettes.map((p) => p.name);
 	// state.palettesからプリミティブ名を生成（Secondary/Tertiaryも含む）
 	const primitiveNames = generatePrimitiveNamesFromPalettes();
@@ -498,10 +518,9 @@ async function loadCoolorsPreviews(
 
 			// state.palettesから表示用データを取得（Secondary/Tertiaryを含む）
 			// keyColorsには@step suffix（例: "#3366cc@500"）が含まれる可能性があるため除去
-			const newDisplayColors = state.palettes.map((p) => {
-				const keyColor = p.keyColors[0] ?? "";
-				return keyColor.split("@")[0] ?? keyColor;
-			});
+			const newDisplayColors = state.palettes.map((p) =>
+				stripStepSuffix(p.keyColors[0] ?? ""),
+			);
 			const newTokenNames = state.palettes.map((p) => p.name);
 			// state.palettesからプリミティブ名を生成（Secondary/Tertiaryも含む）
 			const newPrimitiveNames = generatePrimitiveNamesFromPalettes();
