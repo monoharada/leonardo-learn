@@ -18,12 +18,19 @@ import {
 	type PaletteInfo,
 	type SemanticRoleMapperService,
 } from "@/core/semantic-role/role-mapper";
+import type { SemanticRole } from "@/core/semantic-role/types";
 import type { DadsColorScale } from "@/core/tokens/dads-data-provider";
 import {
+	findDadsColorByHex,
 	getAllDadsChromatic,
 	loadDadsTokens,
 } from "@/core/tokens/dads-data-provider";
-import type { DadsColorHue } from "@/core/tokens/types";
+import type {
+	DadsChromaScale,
+	DadsColorHue,
+	DadsToken,
+} from "@/core/tokens/types";
+import { transformToCircle } from "@/ui/semantic-role/circular-swatch-transformer";
 import { renderBoundaryPills } from "@/ui/semantic-role/contrast-boundary-indicator";
 import { applyOverlay } from "@/ui/semantic-role/semantic-role-overlay";
 import { applySwatchBorder } from "@/ui/style-constants";
@@ -140,8 +147,12 @@ export async function renderShadesView(
 		}
 
 		// Task 4.2: ロールマッピング生成
-		// state.shadesPalettesからPaletteInfo形式に変換
-		const palettesInfo: PaletteInfo[] = state.shadesPalettes.map((p) => ({
+		// state.shadesPalettesが未生成の場合（ハーモニービュー経由など）はstate.palettesを使用
+		const palettesForRoleMapping =
+			state.shadesPalettes.length > 0 ? state.shadesPalettes : state.palettes;
+
+		// PaletteInfo形式に変換（UI層→Core層の最小情報）
+		const palettesInfo: PaletteInfo[] = palettesForRoleMapping.map((p) => ({
 			name: p.name,
 			baseChromaName: p.baseChromaName,
 			step: p.step,
@@ -153,6 +164,29 @@ export async function renderShadesView(
 
 		// SemanticRoleMapperを生成
 		const roleMapper = createSemanticRoleMapper(palettesInfo, harmonyType);
+
+		// ブランドカラーのDADSトークン含有判定
+		let brandDadsMatch:
+			| { hue: DadsColorHue; scale: DadsChromaScale; token: DadsToken }
+			| undefined;
+		let brandHex: string | undefined;
+
+		if (activePalette?.keyColors[0]) {
+			const parsed = parseKeyColor(activePalette.keyColors[0]);
+			brandHex = parsed.color;
+			brandDadsMatch = findDadsColorByHex(dadsTokens, brandHex);
+		}
+
+		// DADSトークンに含まれないブランドカラーの場合、最上部にプライマリーセクションを表示
+		if (brandHex && !brandDadsMatch) {
+			renderPrimaryBrandSection(
+				container,
+				brandHex,
+				activePalette?.name ?? "Brand",
+				roleMapper,
+				callbacks,
+			);
+		}
 
 		// 説明セクション
 		const infoSection = document.createElement("div");
@@ -166,19 +200,14 @@ export async function renderShadesView(
 		container.appendChild(infoSection);
 
 		// 各色相のセクションを描画（Task 4.3: オーバーレイ適用のためにroleMapperを渡す）
+		// brandDadsMatchがある場合は該当スウォッチを円形化
 		for (const colorScale of chromaticScales) {
-			renderDadsHueSection(container, colorScale, roleMapper, callbacks);
-		}
-
-		// ブランドカラーセクション（Task 4.4: ブランドロール表示のためにroleMapperを渡す）
-		if (activePalette?.keyColors[0]) {
-			const { color: brandHex } = parseKeyColor(activePalette.keyColors[0]);
-			renderBrandColorSection(
+			renderDadsHueSection(
 				container,
-				brandHex,
-				activePalette.name,
+				colorScale,
 				roleMapper,
 				callbacks,
+				brandDadsMatch,
 			);
 		}
 	} catch (error) {
@@ -193,12 +222,23 @@ export async function renderShadesView(
 
 /**
  * 色相セクションを描画
+ *
+ * @param container - 描画先コンテナ
+ * @param colorScale - 色相スケール情報
+ * @param roleMapper - セマンティックロールマッパー
+ * @param callbacks - コールバック
+ * @param brandDadsMatch - ブランドカラーがDADSに含まれる場合のマッチ情報（オプション）
  */
 export function renderDadsHueSection(
 	container: HTMLElement,
 	colorScale: DadsColorScale,
 	roleMapper: SemanticRoleMapperService | undefined,
 	callbacks: ShadesViewCallbacks,
+	brandDadsMatch?: {
+		hue: DadsColorHue;
+		scale: DadsChromaScale;
+		token: DadsToken;
+	},
 ): void {
 	const section = document.createElement("section");
 	section.className = "dads-hue-section";
@@ -325,6 +365,22 @@ export function renderDadsHueSection(
 			}
 		}
 
+		// Issue #39: DADSトークンに含まれるブランドカラーを円形化
+		if (
+			brandDadsMatch &&
+			brandDadsMatch.hue === colorScale.hue &&
+			brandDadsMatch.scale === colorItem.scale
+		) {
+			const primaryRole: SemanticRole = {
+				name: "Primary",
+				category: "primary",
+				fullName: "[プライマリー] Primary",
+				shortLabel: "P",
+			};
+			transformToCircle(swatch, primaryRole, colorItem.hex);
+			swatch.dataset.brandPrimary = "true";
+		}
+
 		scaleContainer.appendChild(swatch);
 
 		// Task 10.4: スウォッチ要素をマップに追加（コントラスト境界表示用）
@@ -354,9 +410,18 @@ export function renderDadsHueSection(
 }
 
 /**
- * ブランドカラーセクションを描画
+ * DADSトークンに含まれないブランドカラーのプライマリーセクションを描画
+ *
+ * Issue #39: シェード一覧の最上部に「プライマリー」見出しセクション追加
+ * 単一スウォッチのみ表示（シェード不要）
+ *
+ * @param container - 描画先コンテナ
+ * @param brandHex - ブランドカラーのHEX値
+ * @param brandName - ブランド名
+ * @param roleMapper - セマンティックロールマッパー
+ * @param callbacks - コールバック
  */
-export function renderBrandColorSection(
+export function renderPrimaryBrandSection(
 	container: HTMLElement,
 	brandHex: string,
 	brandName: string,
@@ -364,29 +429,31 @@ export function renderBrandColorSection(
 	_callbacks: ShadesViewCallbacks,
 ): void {
 	const section = document.createElement("section");
-	section.className = "dads-brand-section";
+	section.className = "dads-primary-section";
 
 	const header = document.createElement("h2");
 	header.className = "dads-section__heading";
 	header.innerHTML = `
-		<span class="dads-section__heading-en">Brand Color</span>
-		<span class="dads-section__heading-ja">(${brandName})</span>
+		<span class="dads-section__heading-en">Primary</span>
+		<span class="dads-section__heading-ja">(プライマリー)</span>
 	`;
 	section.appendChild(header);
 
 	const swatchContainer = document.createElement("div");
-	swatchContainer.className = "dads-brand-swatch-container";
+	swatchContainer.className = "dads-primary-swatch-container";
 
 	const swatch = document.createElement("div");
-	swatch.className = "dads-swatch dads-swatch--brand";
+	swatch.className = "dads-swatch dads-swatch--circular dads-swatch--primary";
 
-	// Task 4.1: data-testidを追加（E2Eテスト・オーバーレイ統合用）
-	swatch.dataset.testid = "swatch-brand";
+	// data-testidを追加（E2Eテスト用）
+	swatch.dataset.testid = "swatch-primary";
+	swatch.dataset.brandPrimary = "true";
 
 	const originalColor = new Color(brandHex);
 	const displayColor = applySimulation(originalColor);
 	swatch.style.backgroundColor = displayColor.toCss();
-	// Requirements: 6.3, 6.4 - ブランドスウォッチのモード対応ボーダー
+
+	// モード対応ボーダー
 	const backgroundMode = determineColorMode(state.lightBackgroundColor);
 	applySwatchBorder(
 		swatch,
@@ -405,6 +472,14 @@ export function renderBrandColorSection(
 	).contrast;
 	const textColor = whiteContrast >= blackContrast ? "white" : "black";
 
+	// 「プライマリ」ラベルを追加
+	const roleLabel = document.createElement("span");
+	roleLabel.className = "dads-swatch__role-label";
+	roleLabel.textContent = "プライマリ";
+	roleLabel.style.color = textColor;
+	swatch.appendChild(roleLabel);
+
+	// HEX値ラベル
 	const hexLabel = document.createElement("span");
 	hexLabel.className = "dads-swatch__hex";
 	hexLabel.style.color = textColor;
@@ -412,11 +487,13 @@ export function renderBrandColorSection(
 	swatch.appendChild(hexLabel);
 
 	// title属性を設定（ツールチップ用）
-	swatch.setAttribute("title", brandHex.toUpperCase());
+	swatch.setAttribute("title", `${brandName}: ${brandHex.toUpperCase()}`);
+	swatch.setAttribute(
+		"aria-label",
+		`プライマリーカラー ${brandName}: ${brandHex}`,
+	);
 
-	// Task 4.4: ブランドロール表示を統合
-	// lookupUnresolvedBrandRolesで「brand-unresolved」キーから未解決ブランドロール配列を取得
-	// DADSシェードと同様のドット・バッジ表示スタイルを適用
+	// 未解決ブランドロールのオーバーレイ適用
 	if (roleMapper) {
 		const brandRoles = roleMapper.lookupUnresolvedBrandRoles();
 		if (brandRoles.length > 0) {
@@ -426,11 +503,6 @@ export function renderBrandColorSection(
 
 	swatchContainer.appendChild(swatch);
 	section.appendChild(swatchContainer);
-
-	const note = document.createElement("p");
-	note.className = "dads-brand-section__note";
-	note.textContent = "ブランドカラーのシェード生成は今後の拡張で対応予定です。";
-	section.appendChild(note);
 
 	container.appendChild(section);
 }

@@ -6,42 +6,46 @@
  * @module @/ui/demo/views/shades-view.test
  */
 
-import { beforeEach, describe, expect, it, mock } from "bun:test";
-import { resetState } from "../state";
+import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
+import { resetState, state } from "../state";
 import type { ShadesViewCallbacks } from "./shades-view";
 import { renderShadesView } from "./shades-view";
 
 // DOM環境のモック設定
-globalThis.document = {
-	createElement: (tag: string) => {
-		const element = {
-			tag,
-			className: "",
-			innerHTML: "",
-			textContent: "",
-			style: {} as Record<string, string>,
-			dataset: {} as Record<string, string>,
-			children: [] as unknown[],
-			appendChild: (child: unknown) => {
-				element.children.push(child);
-				return child;
-			},
-			removeChild: (child: unknown) => {
-				const index = element.children.indexOf(child);
-				if (index > -1) element.children.splice(index, 1);
-				return child;
-			},
-			setAttribute: () => {},
-			getAttribute: () => null,
-			addEventListener: () => {},
-			removeEventListener: () => {},
-			querySelectorAll: () => [],
-		};
-		return element;
-	},
-	getElementById: () => null,
-	body: {},
-} as unknown as Document;
+const originalDocument = globalThis.document;
+
+function createMockDocument(): Document {
+	return {
+		createElement: (tag: string) => {
+			const element = {
+				tag,
+				className: "",
+				innerHTML: "",
+				textContent: "",
+				style: {} as Record<string, string>,
+				dataset: {} as Record<string, string>,
+				children: [] as unknown[],
+				appendChild: (child: unknown) => {
+					element.children.push(child);
+					return child;
+				},
+				removeChild: (child: unknown) => {
+					const index = element.children.indexOf(child);
+					if (index > -1) element.children.splice(index, 1);
+					return child;
+				},
+				setAttribute: () => {},
+				getAttribute: () => null,
+				addEventListener: () => {},
+				removeEventListener: () => {},
+				querySelectorAll: () => [],
+			};
+			return element;
+		},
+		getElementById: () => null,
+		body: {},
+	} as unknown as Document;
+}
 
 // loadDadsTokensのモック
 const mockDadsTokens = {
@@ -67,6 +71,20 @@ const mockDadsTokens = {
 };
 
 // モジュールモック
+let lastRoleMapperArgs:
+	| { palettesInfo: unknown; harmonyType: unknown }
+	| undefined;
+
+const createSemanticRoleMapperMock = mock(
+	(palettesInfo: unknown, harmonyType: unknown) => {
+		lastRoleMapperArgs = { palettesInfo, harmonyType };
+		return {
+			lookupRoles: () => [],
+			lookupUnresolvedBrandRoles: () => [],
+		};
+	},
+);
+
 mock.module("@/core/tokens/dads-data-provider", () => ({
 	loadDadsTokens: mock(() => Promise.resolve(mockDadsTokens)),
 	getAllDadsChromatic: mock(() => [
@@ -80,13 +98,11 @@ mock.module("@/core/tokens/dads-data-provider", () => ({
 			],
 		},
 	]),
+	findDadsColorByHex: mock(() => undefined),
 }));
 
 mock.module("@/core/semantic-role/role-mapper", () => ({
-	createSemanticRoleMapper: mock(() => ({
-		lookupRoles: () => [],
-		lookupUnresolvedBrandRoles: () => [],
-	})),
+	createSemanticRoleMapper: createSemanticRoleMapperMock,
 }));
 
 mock.module("@/accessibility/cvd-simulator", () => ({
@@ -100,6 +116,12 @@ mock.module("@/accessibility/wcag2", () => ({
 describe("shades-view", () => {
 	beforeEach(() => {
 		resetState();
+		lastRoleMapperArgs = undefined;
+		globalThis.document = createMockDocument();
+	});
+
+	afterEach(() => {
+		globalThis.document = originalDocument;
 	});
 
 	describe("renderShadesView", () => {
@@ -129,6 +151,33 @@ describe("shades-view", () => {
 
 			expect(container.className).toBe("dads-section");
 		});
+
+		it("should use state.palettes when shadesPalettes is empty for role mapping", async () => {
+			const container = document.createElement("div") as unknown as HTMLElement;
+			const callbacks: ShadesViewCallbacks = {
+				onColorClick: mock(() => {}),
+			};
+
+			state.shadesPalettes = [];
+			state.palettes = [
+				{
+					id: "p1",
+					name: "Primary",
+					keyColors: ["#111111"],
+					ratios: [21, 15, 10, 7, 4.5, 3, 1],
+					harmony: "analogous" as any,
+					baseChromaName: "Green",
+					step: 1100,
+				},
+			] as any;
+			state.activeId = "p1";
+
+			await renderShadesView(container, callbacks);
+
+			expect(lastRoleMapperArgs?.palettesInfo).toEqual([
+				{ name: "Primary", baseChromaName: "Green", step: 1100 },
+			]);
+		});
 	});
 
 	describe("renderDadsHueSection", () => {
@@ -138,10 +187,10 @@ describe("shades-view", () => {
 		});
 	});
 
-	describe("renderBrandColorSection", () => {
+	describe("renderPrimaryBrandSection", () => {
 		it("should be exported and callable", async () => {
-			const { renderBrandColorSection } = await import("./shades-view");
-			expect(typeof renderBrandColorSection).toBe("function");
+			const { renderPrimaryBrandSection } = await import("./shades-view");
+			expect(typeof renderPrimaryBrandSection).toBe("function");
 		});
 	});
 

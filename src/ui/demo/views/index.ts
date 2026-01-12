@@ -30,7 +30,7 @@ export { renderPaletteView } from "./palette-view";
 export type { ShadesViewCallbacks } from "./shades-view";
 // shades-view
 export {
-	renderBrandColorSection,
 	renderDadsHueSection,
+	renderPrimaryBrandSection,
 	renderShadesView,
 } from "./shades-view";

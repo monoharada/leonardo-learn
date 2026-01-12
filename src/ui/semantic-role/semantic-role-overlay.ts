@@ -51,18 +51,18 @@ export function applyOverlay(
 	// キーボードフォーカス可能にする
 	swatchElement.setAttribute("tabindex", "0");
 
-	// 【新UI】円形化とラベル表示
-	// backgroundColorが指定されていて、かつ hue-scale が特定可能な場合のみ
-	// hue-scale特定不可のブランドロール（isBrand=true かつ dadsHue/scale が undefined）は円形化しない
-	const canCircularize =
+	// 複数ロールから優先ロールを選択
+	const priorityRole = selectPriorityRole(roles);
+
+	// 円形化条件: ブランド由来のハーモニーロール（primary/secondary/accent）のみ
+	// DADS公式ロール（source="dads"）やhue-scale特定不可のブランドロールは円形化しない
+	const isCircularizable =
 		backgroundColor !== undefined &&
-		!(isBrand && (dadsHue === undefined || scale === undefined));
+		priorityRole.source !== "dads" &&
+		["primary", "secondary", "accent"].includes(priorityRole.category) &&
+		!(isBrand && dadsHue === undefined);
 
-	if (canCircularize) {
-		// 複数ロールから優先ロールを選択
-		const priorityRole = selectPriorityRole(roles);
-
-		// 円形化とラベル表示
+	if (isCircularizable) {
 		transformToCircle(swatchElement, priorityRole, backgroundColor);
 	}
 

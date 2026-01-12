@@ -1,5 +1,11 @@
-import { describe, expect, test } from "bun:test";
-import { getVibrancyAdjustment } from "./harmony";
+import { beforeAll, describe, expect, test } from "bun:test";
+import { Color } from "./color";
+import {
+	generateHarmonyPalette,
+	getVibrancyAdjustment,
+	HarmonyType,
+	initializeHarmonyDads,
+} from "./harmony";
 
 describe("getVibrancyAdjustment - Boundary Value Tests", () => {
 	describe("Brown Zone (20-60°)", () => {
@@ -238,5 +244,69 @@ describe("getVibrancyAdjustment - Boundary Value Tests", () => {
 			expect(lime121.toneBoost).toBeGreaterThan(0); // ゾーン内部
 			expect(getVibrancyAdjustment(150).toneBoost).toBe(0); // ピークから遠い
 		});
+	});
+});
+
+describe("Issue #39: DADSトークンのstep値がSystemPaletteColorに伝播する", () => {
+	// 共通テストデータ
+	const TEST_BRAND_COLOR = "#2c4100"; // lime系の色
+
+	// ヘルパー: step値が有効なDADS stepであることを検証
+	const expectValidDadsStep = (step: number | undefined) => {
+		expect(step).toBeDefined();
+		expect(typeof step).toBe("number");
+		// DADS stepは100〜2400の範囲
+		expect(step).toBeGreaterThanOrEqual(100);
+		expect(step).toBeLessThanOrEqual(2400);
+	};
+
+	// ヘルパー: DADSトークン由来の色（secondary/accent）をフィルター
+	const filterDadsColors = (
+		palette: ReturnType<typeof generateHarmonyPalette>,
+	) => palette.filter((c) => c.role === "secondary" || c.role === "accent");
+
+	beforeAll(async () => {
+		await initializeHarmonyDads();
+	});
+
+	test("ANALOGOUS ハーモニーでAccent色にstepが設定される", () => {
+		const brandColor = new Color(TEST_BRAND_COLOR);
+		const palette = generateHarmonyPalette(brandColor, HarmonyType.ANALOGOUS);
+
+		expect(palette.length).toBeGreaterThanOrEqual(3);
+
+		const dadsColors = filterDadsColors(palette);
+		expect(dadsColors.length).toBeGreaterThan(0);
+
+		for (const color of dadsColors) {
+			expectValidDadsStep(color.step);
+		}
+	});
+
+	test("COMPLEMENTARY ハーモニーでSecondary色にstepが設定される", () => {
+		const brandColor = new Color(TEST_BRAND_COLOR);
+		const palette = generateHarmonyPalette(
+			brandColor,
+			HarmonyType.COMPLEMENTARY,
+		);
+
+		const secondaryColor = palette.find((c) => c.role === "secondary");
+		expect(secondaryColor).toBeDefined();
+		expectValidDadsStep(secondaryColor?.step);
+	});
+
+	test("TRIADIC ハーモニーでSecondary/Accent色にstepが設定される", () => {
+		const brandColor = new Color(TEST_BRAND_COLOR);
+		const palette = generateHarmonyPalette(brandColor, HarmonyType.TRIADIC);
+
+		expect(palette.length).toBeGreaterThanOrEqual(3);
+
+		// Note: neutral色はDADSトークンからではないためstepは不要
+		const dadsColors = filterDadsColors(palette);
+		expect(dadsColors.length).toBeGreaterThan(0);
+
+		for (const color of dadsColors) {
+			expectValidDadsStep(color.step);
+		}
 	});
 });

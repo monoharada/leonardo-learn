@@ -19,22 +19,51 @@ import { BRAND_UNRESOLVED_KEY } from "./types";
 
 describe("SemanticRoleMapper", () => {
 	describe("generateRoleMapping", () => {
-		it("should return empty map when harmonyType is not DADS", () => {
+		it("should register brand roles for non-DADS harmony types (Issue #39)", () => {
+			const palettes: PaletteInfo[] = [
+				{ name: "Primary", baseChromaName: "Lime", step: 1100 },
+				{ name: "Accent-2", baseChromaName: "Green", step: 1100 },
+			];
+
+			const result = generateRoleMapping(palettes, HarmonyType.ANALOGOUS);
+
+			// DADSではなくても、ブランドロールはhue-scaleに紐付く
+			expect(result.has("green-1100")).toBe(true);
+			const roles = result.get("green-1100");
+			expect(roles?.some((r) => r.name === "Accent-2")).toBe(true);
+		});
+
+		it("should register brand roles even when harmonyType is not DADS", () => {
 			const palettes: PaletteInfo[] = [{ name: "Primary" }];
 			const result = generateRoleMapping(palettes, HarmonyType.COMPLEMENTARY);
-			expect(result.size).toBe(0);
+			// ブランドロールは全モードで処理される（hue-scale不定の場合はbrand-unresolved）
+			expect(result.has(BRAND_UNRESOLVED_KEY)).toBe(true);
+			expect(
+				result.get(BRAND_UNRESOLVED_KEY)?.some((r) => r.name === "Primary"),
+			).toBe(true);
+
+			// DADS_COLORSはDADSモードでのみ生成される
+			expect(result.has("green-600")).toBe(false);
 		});
 
-		it("should return empty map when harmonyType is NONE", () => {
+		it("should register brand roles even when harmonyType is NONE", () => {
 			const palettes: PaletteInfo[] = [{ name: "Primary" }];
 			const result = generateRoleMapping(palettes, HarmonyType.NONE);
-			expect(result.size).toBe(0);
+			expect(result.has(BRAND_UNRESOLVED_KEY)).toBe(true);
+			expect(
+				result.get(BRAND_UNRESOLVED_KEY)?.some((r) => r.name === "Primary"),
+			).toBe(true);
+			expect(result.has("green-600")).toBe(false);
 		});
 
-		it("should return empty map when harmonyType is M3", () => {
+		it("should register brand roles even when harmonyType is M3", () => {
 			const palettes: PaletteInfo[] = [{ name: "Primary" }];
 			const result = generateRoleMapping(palettes, HarmonyType.M3);
-			expect(result.size).toBe(0);
+			expect(result.has(BRAND_UNRESOLVED_KEY)).toBe(true);
+			expect(
+				result.get(BRAND_UNRESOLVED_KEY)?.some((r) => r.name === "Primary"),
+			).toBe(true);
+			expect(result.has("green-600")).toBe(false);
 		});
 
 		it("should generate mapping when harmonyType is DADS", () => {
@@ -95,6 +124,31 @@ describe("SemanticRoleMapper", () => {
 			expect(unresolvedRoles?.length).toBe(2);
 			expect(unresolvedRoles?.some((r) => r.name === "Primary")).toBe(true);
 			expect(unresolvedRoles?.some((r) => r.name === "Secondary")).toBe(true);
+		});
+
+		it("should integrate Accent-* palettes into DADS key (Issue #39)", () => {
+			const palettes: PaletteInfo[] = [
+				{ name: "Primary", baseChromaName: "Blue", step: 600 },
+				{ name: "Accent-1", baseChromaName: "Purple", step: 500 },
+				{ name: "Accent-2", baseChromaName: "Orange", step: 600 },
+			];
+			const result = generateRoleMapping(palettes, HarmonyType.DADS);
+
+			// purple-500にAccent-1が統合される
+			const purpleRoles = result.get("purple-500");
+			expect(purpleRoles).toBeDefined();
+			expect(purpleRoles?.some((r) => r.name === "Accent-1")).toBe(true);
+			expect(purpleRoles?.find((r) => r.name === "Accent-1")?.category).toBe(
+				"accent",
+			);
+
+			// orange-600にAccent-2が統合される
+			const orangeRoles = result.get("orange-600");
+			expect(orangeRoles).toBeDefined();
+			expect(orangeRoles?.some((r) => r.name === "Accent-2")).toBe(true);
+			expect(orangeRoles?.find((r) => r.name === "Accent-2")?.category).toBe(
+				"accent",
+			);
 		});
 
 		it("should set hueScale for brand roles with resolved baseChromaName/step", () => {
