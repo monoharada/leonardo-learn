@@ -84,10 +84,11 @@ export async function runDemo(): Promise<void> {
 	// keyColorsInputが存在し、デフォルト値（#3366cc）のままの場合はランダム選択
 	if (keyColorsInput) {
 		const currentValue = keyColorsInput.value.trim();
-		// デフォルト値の場合はランダムに選択
+		// デフォルト値の場合はランダムに選択（背景色を考慮してコントラスト確保）
 		if (currentValue === "#3366cc" || currentValue === "") {
 			try {
-				const randomHex = await getRandomDadsColor();
+				const backgroundHex = state.lightBackgroundColor || "#ffffff";
+				const randomHex = await getRandomDadsColor({ backgroundHex });
 				keyColorsInput.value = randomHex;
 			} catch (error) {
 				console.warn(

@@ -1090,8 +1090,7 @@ function createHeader(
 			contrastWarning.innerHTML = `
 				<span class="dads-contrast-warning__icon">⚠️</span>
 				<span class="dads-contrast-warning__text">
-					コントラスト比 ${formattedRatio}:1（推奨: 4.5:1以上）。
-					セカンダリ/ターシャリで補完可能です。
+					プライマリーカラーのコントラスト比が${formattedRatio}:1です。（推奨: 4.5:1以上）
 				</span>
 			`;
 			contrastWarning.style.display = "flex";
@@ -1103,62 +1102,79 @@ function createHeader(
 	// 初期表示時にコントラストをチェック
 	updateContrastWarning(inputHex);
 
-	// 要素の組み立て
+	// 要素の組み立て（UX改善: タスクフロー順に配置）
+	// プライマリーカラー入力行（hex + picker のみ）
 	inputRow.appendChild(colorText);
 	inputRow.appendChild(colorPicker);
-	inputRow.appendChild(randomButton);
-	inputRow.appendChild(historyContainer);
 	colorInput.appendChild(colorLabel);
 	colorInput.appendChild(inputRow);
-	colorInput.appendChild(contrastWarning);
-	header.appendChild(colorInput);
+	// contrastWarning は下の行に配置するため、ここでは追加しない
 
-	// アクセントカラー数選択プルダウン
+	// 左グループ（コントラスト関連: 背景色 → プライマリー → ランダム）
+	const leftGroup = document.createElement("div");
+	leftGroup.className = "dads-harmony-header__left-group";
+
+	// 右グループ（設定項目: 履歴 → パレット色数）
+	const rightGroup = document.createElement("div");
+	rightGroup.className = "dads-harmony-header__right-group";
+
+	// アクセントカラー数選択（ラジオボタン）
 	const accentCountInput = document.createElement("div");
 	accentCountInput.className = "dads-harmony-header__accent-count";
 
-	const accentCountLabel = document.createElement("label");
+	const accentCountLabel = document.createElement("span");
 	accentCountLabel.className = "dads-label";
 	accentCountLabel.textContent = "パレット色数";
-	accentCountLabel.htmlFor = "accent-count-select";
 
-	const accentCountSelect = document.createElement("select");
-	accentCountSelect.id = "accent-count-select";
-	accentCountSelect.dataset.testid = "accent-count-select";
-	accentCountSelect.className = "dads-select";
+	const radioGroup = document.createElement("div");
+	radioGroup.className = "dads-segmented-control";
+	radioGroup.setAttribute("role", "radiogroup");
+	radioGroup.setAttribute("aria-label", "パレット色数");
+	radioGroup.dataset.testid = "accent-count-radio-group";
 
 	// 4〜6色（P+S+T + アクセント1〜3）
-	const options = [
-		{ value: 1, label: "4色パレット" },
-		{ value: 2, label: "5色パレット" },
-		{ value: 3, label: "6色パレット" },
+	const radioOptions = [
+		{ value: 1, label: "4色" },
+		{ value: 2, label: "5色" },
+		{ value: 3, label: "6色" },
 	];
 
-	for (const opt of options) {
-		const option = document.createElement("option");
-		option.value = String(opt.value);
-		option.textContent = opt.label;
+	for (const opt of radioOptions) {
+		const radioLabel = document.createElement("label");
+		radioLabel.className = "dads-radio-label";
 		if (opt.value === viewState.accentCount) {
-			option.selected = true;
+			radioLabel.classList.add("dads-radio-label--selected");
 		}
-		accentCountSelect.appendChild(option);
+
+		const radioInput = document.createElement("input");
+		radioInput.type = "radio";
+		radioInput.name = "accent-count";
+		radioInput.value = String(opt.value);
+		radioInput.className = "dads-radio-input";
+		radioInput.checked = opt.value === viewState.accentCount;
+		radioInput.dataset.testid = `accent-count-${opt.value}`;
+
+		radioInput.addEventListener("change", (e) => {
+			const value = Number.parseInt((e.target as HTMLInputElement).value, 10) as
+				| 1
+				| 2
+				| 3;
+			state.accentCount = value;
+			viewState.accentCount = value;
+			renderAccentSelectionView(container, viewState.brandColorHex, callbacks);
+		});
+
+		const labelText = document.createElement("span");
+		labelText.textContent = opt.label;
+
+		radioLabel.appendChild(radioInput);
+		radioLabel.appendChild(labelText);
+		radioGroup.appendChild(radioLabel);
 	}
 
-	// プルダウン変更時のハンドラ
-	accentCountSelect.addEventListener("change", (e) => {
-		const value = Number.parseInt((e.target as HTMLSelectElement).value, 10) as
-			| 1
-			| 2
-			| 3;
-		state.accentCount = value; // グローバル状態に保存
-		viewState.accentCount = value;
-		// ビュー全体を再レンダリング
-		renderAccentSelectionView(container, viewState.brandColorHex, callbacks);
-	});
-
 	accentCountInput.appendChild(accentCountLabel);
-	accentCountInput.appendChild(accentCountSelect);
-	header.appendChild(accentCountInput);
+	accentCountInput.appendChild(radioGroup);
+	// 右グループに追加（後で履歴の後に配置）
 
 	// 背景色セレクター
 	const bgColorInput = document.createElement("div");
@@ -1256,7 +1272,26 @@ function createHeader(
 	bgInputRow.appendChild(bgColorPicker);
 	bgColorInput.appendChild(bgColorLabel);
 	bgColorInput.appendChild(bgInputRow);
-	header.appendChild(bgColorInput);
+
+	// 最終組み立て（UX改善: タスクフロー順）
+	// 左グループ: 背景色 → プライマリーカラー → ランダム
+	leftGroup.appendChild(bgColorInput);
+	leftGroup.appendChild(colorInput);
+	leftGroup.appendChild(randomButton);
+
+	// 右グループ: パレット色数 → 履歴（履歴は最も使用頻度が低いため右端）
+	rightGroup.appendChild(accentCountInput);
+	rightGroup.appendChild(historyContainer);
+
+	// メインコントロール行（左右グループを横並び）
+	const controlsRow = document.createElement("div");
+	controlsRow.className = "dads-harmony-header__controls-row";
+	controlsRow.appendChild(leftGroup);
+	controlsRow.appendChild(rightGroup);
+
+	// ヘッダーに追加（2行構成: コントロール行 + アラート行）
+	header.appendChild(controlsRow);
+	header.appendChild(contrastWarning);
 
 	return header;
 }
