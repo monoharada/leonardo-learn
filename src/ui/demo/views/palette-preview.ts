@@ -1,6 +1,8 @@
 /**
- * パレットプレビュー（擬似ファーストビュー）
- * Happy Hues風の実用的なWebサイトプレビューを生成
+ * パレットプレビュー（DADS HTML / 擬似サイト）
+ *
+ * DADS（デジタル庁デザインシステム）HTML版のコンポーネント実装（Storybookのコードスニペット）を参照し、
+ * 生成した色を適用した擬似サイトを、アプリ内DOMとして構成する。
  *
  * セマンティックカラーの役割:
  * - Error → エラーメッセージ、バリデーションエラー
@@ -11,7 +13,7 @@
  * - Accent → カード背景、アクセント要素
  */
 
-import { wcagContrast } from "culori";
+import { formatHex, oklch, parse, wcagContrast } from "culori";
 import { getContrastTextColor } from "@/ui/semantic-role/circular-swatch-transformer";
 
 /**
@@ -157,256 +159,306 @@ export function mapPaletteToPreviewColors(
 
 		// Primary役割
 		headline: primaryHex,
-		headlineText: headlineText,
+		headlineText,
 		button: primaryHex,
 		buttonText: buttonTextColor,
 
 		// Accent役割
 		card: cardBg,
 		cardAccent: accentHex,
-		cardAccentText: cardAccentText,
+		cardAccentText,
 
 		// セマンティック役割（正しい用途）
 		link: semanticColors.link,
-		linkText: linkText,
+		linkText,
 		error: semanticColors.error,
 		success: semanticColors.success,
 		warning: semanticColors.warning,
 
 		// Logo
 		logo: primaryHex,
-		logoText: logoText,
+		logoText,
 
 		// UI要素
 		border: backgroundColor === "#FFFFFF" ? "#E0E0E0" : "#3A3A3A",
 		inputBackground: backgroundColor,
 		footerBackground: footerBg,
-		footerText: footerText,
+		footerText,
 	};
 }
 
-/**
- * ナビゲーションセクションを作成
- */
-function createNavSection(colors: PalettePreviewColors): HTMLElement {
-	const nav = document.createElement("nav");
-	nav.className = "dads-preview__nav";
-	nav.style.backgroundColor = colors.background;
-	nav.style.borderBottom = `1px solid ${colors.border}`;
-
-	// ロゴ - コントラスト調整済みの色を使用
-	const logo = document.createElement("div");
-	logo.className = "dads-preview__logo";
-	logo.textContent = "ColorPal";
-	logo.style.color = colors.logoText;
-	logo.style.fontWeight = "bold";
-
-	// ナビリンク - コントラスト調整済みの色を使用
-	const links = document.createElement("div");
-	links.className = "dads-preview__nav-links";
-
-	for (const linkText of ["Home", "About", "Contact"]) {
-		const link = document.createElement("a");
-		link.href = "#";
-		link.textContent = linkText;
-		link.style.color = colors.linkText;
-		link.className = "dads-preview__nav-link";
-		links.appendChild(link);
-	}
-
-	nav.appendChild(logo);
-	nav.appendChild(links);
-
-	return nav;
+function clamp01(value: number): number {
+	return Math.min(1, Math.max(0, value));
 }
 
-/**
- * ヒーローセクションを作成
- */
-function createHeroSection(colors: PalettePreviewColors): HTMLElement {
-	const hero = document.createElement("section");
-	hero.className = "dads-preview__hero";
-	hero.style.backgroundColor = colors.background;
+function adjustOklchLightness(hex: string, deltaL: number): string {
+	const parsed = parse(hex);
+	if (!parsed) return hex;
 
-	// タグライン（小さいテキスト）
-	const tagline = document.createElement("span");
-	tagline.className = "dads-preview__tagline";
-	tagline.textContent = "Color System Preview";
-	tagline.style.color = colors.headlineText;
+	const color = oklch(parsed);
+	if (!color) return hex;
 
-	// ヘッドライン - コントラスト調整済みの色を使用
-	const headline = document.createElement("h1");
-	headline.className = "dads-preview__headline";
-	headline.textContent = "Beautiful colors, crafted for your brand";
-	headline.style.color = colors.headlineText;
-
-	// 本文
-	const body = document.createElement("p");
-	body.className = "dads-preview__body";
-	body.textContent =
-		"See how your palette looks in a real design. This preview helps you visualize your color choices in context.";
-	body.style.color = colors.text;
-
-	// CTAボタン
-	const cta = document.createElement("button");
-	cta.className = "dads-preview__cta";
-	cta.textContent = "Get Started";
-	cta.style.backgroundColor = colors.button;
-	cta.style.color = colors.buttonText;
-
-	hero.appendChild(tagline);
-	hero.appendChild(headline);
-	hero.appendChild(body);
-	hero.appendChild(cta);
-
-	return hero;
+	const next = { ...color, l: clamp01(color.l + deltaL) };
+	return formatHex(next) || hex;
 }
 
-/**
- * カードセクションを作成
- */
-function createCardsSection(colors: PalettePreviewColors): HTMLElement {
-	const section = document.createElement("section");
-	section.className = "dads-preview__cards";
-	section.style.backgroundColor = colors.background;
-
-	const cardData = [
-		{
-			icon: "🎨",
-			title: "Design Systems",
-			description: "Build consistent, scalable color palettes for your brand",
-		},
-		{
-			icon: "♿",
-			title: "Accessibility First",
-			description: "WCAG compliant colors that work for everyone",
-		},
-		{
-			icon: "⚡",
-			title: "Fast & Easy",
-			description: "Generate beautiful palettes in seconds",
-		},
-	];
-
-	for (const data of cardData) {
-		const card = document.createElement("div");
-		card.className = "dads-preview__card";
-		card.style.backgroundColor = colors.card;
-		card.style.borderLeft = `4px solid ${colors.cardAccent}`;
-
-		// アイコン
-		const icon = document.createElement("span");
-		icon.className = "dads-preview__card-icon";
-		icon.textContent = data.icon;
-
-		// タイトル - コントラスト調整済みの色を使用
-		const title = document.createElement("h3");
-		title.textContent = data.title;
-		title.style.color = colors.cardAccentText;
-
-		const desc = document.createElement("p");
-		desc.textContent = data.description;
-		desc.style.color = colors.text;
-
-		card.appendChild(icon);
-		card.appendChild(title);
-		card.appendChild(desc);
-		section.appendChild(card);
-	}
-
-	return section;
+function deriveButtonStateColors(primaryHex: string): {
+	hover: string;
+	active: string;
+	outlineHoverBg: string;
+	outlineActiveBg: string;
+} {
+	return {
+		hover: adjustOklchLightness(primaryHex, -0.06),
+		active: adjustOklchLightness(primaryHex, -0.12),
+		outlineHoverBg: adjustOklchLightness(primaryHex, 0.35),
+		outlineActiveBg: adjustOklchLightness(primaryHex, 0.25),
+	};
 }
 
-/**
- * フォームセクションを作成（エラー/成功/警告メッセージ含む）
- */
-function createFormSection(colors: PalettePreviewColors): HTMLElement {
-	const section = document.createElement("section");
-	section.className = "dads-preview__form";
-	section.style.backgroundColor = colors.background;
+function createPreviewIdPrefix(): string {
+	const uuid =
+		typeof crypto !== "undefined" && "randomUUID" in crypto
+			? crypto.randomUUID()
+			: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 
-	// フォームコンテナ
-	const form = document.createElement("div");
-	form.className = "dads-preview__form-container";
-
-	// 入力フィールド
-	const input = document.createElement("input");
-	input.type = "email";
-	input.placeholder = "Enter your email";
-	input.className = "dads-preview__input";
-	input.style.backgroundColor = colors.inputBackground;
-	input.style.borderColor = colors.border;
-	input.style.color = colors.text;
-
-	// 送信ボタン
-	const submit = document.createElement("button");
-	submit.textContent = "Subscribe";
-	submit.className = "dads-preview__submit";
-	submit.style.backgroundColor = colors.button;
-	submit.style.color = colors.buttonText;
-
-	form.appendChild(input);
-	form.appendChild(submit);
-
-	// メッセージ表示エリア（セマンティックカラーを正しい用途で使用）
-	const messages = document.createElement("div");
-	messages.className = "dads-preview__messages";
-
-	// エラーメッセージ
-	const errorMsg = document.createElement("div");
-	errorMsg.className = "dads-preview__message dads-preview__message--error";
-	errorMsg.textContent = "Please enter a valid email";
-	errorMsg.style.color = colors.error;
-
-	// 成功メッセージ
-	const successMsg = document.createElement("div");
-	successMsg.className = "dads-preview__message dads-preview__message--success";
-	successMsg.textContent = "Successfully subscribed!";
-	successMsg.style.color = colors.success;
-
-	// 警告メッセージ
-	const warningMsg = document.createElement("div");
-	warningMsg.className = "dads-preview__message dads-preview__message--warning";
-	warningMsg.textContent = "This email is already registered";
-	warningMsg.style.color = colors.warning;
-
-	messages.appendChild(errorMsg);
-	messages.appendChild(successMsg);
-	messages.appendChild(warningMsg);
-
-	section.appendChild(form);
-	section.appendChild(messages);
-
-	return section;
+	return `palette-preview-${uuid}`;
 }
 
-/**
- * フッターセクションを作成
- */
-function createFooterSection(colors: PalettePreviewColors): HTMLElement {
-	const footer = document.createElement("footer");
-	footer.className = "dads-preview__footer";
-	footer.style.backgroundColor = colors.footerBackground;
-	footer.style.color = colors.footerText;
+function buildDadsPreviewMarkup(ids: {
+	emailInputId: string;
+	supportTextId: string;
+	errorTextId: string;
+	infoCloseLabelId: string;
+	successCloseLabelId: string;
+	warningCloseLabelId: string;
+	errorCloseLabelId: string;
+}): string {
+	return `
+<div class="preview-page">
+	<div class="preview-surface">
+		<header class="preview-header">
+			<a class="preview-brand" href="#" aria-label="ブランドサイト（プレビュー）">
+				<span aria-hidden="true" class="preview-brand__dot"></span>
+				ブランドサイト
+			</a>
+			<nav class="preview-nav" aria-label="サイト内ナビゲーション">
+				<a class="dads-link" href="#">ホーム</a>
+				<a class="dads-link" href="#">サービス</a>
+				<a class="dads-link" href="#">お問い合わせ</a>
+			</nav>
+		</header>
 
-	const copyright = document.createElement("p");
-	copyright.textContent = "© 2024 Color Token Generator";
+		<main class="preview-main">
+			<section class="preview-announcement" aria-label="お知らせ">
+				<div class="dads-notification-banner" data-style="color-chip" data-type="info-1">
+					<h2 class="dads-notification-banner__heading">
+						<svg class="dads-notification-banner__icon" width="24" height="24" viewBox="0 0 24 24" role="img" aria-label="お知らせ">
+							<circle cx="12" cy="12" r="10" fill="currentcolor" />
+							<circle cx="12" cy="8" r="1" fill="Canvas" />
+							<path d="M11 11h2v6h-2z" fill="Canvas" />
+						</svg>
+						<span class="dads-notification-banner__heading-text">次のアップデートを準備中です</span>
+					</h2>
+					<button class="dads-notification-banner__close" type="button" aria-labelledby="${ids.infoCloseLabelId}">
+						<svg class="dads-notification-banner__close-icon" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+							<path d="m6.4 18.6-1-1 5.5-5.6-5.6-5.6 1.1-1 5.6 5.5 5.6-5.6 1 1.1L13 12l5.6 5.6-1 1L12 13l-5.6 5.6Z" fill="currentcolor" />
+						</svg>
+						<span id="${ids.infoCloseLabelId}" class="dads-notification-banner__close-label">閉じる</span>
+					</button>
+					<div class="dads-notification-banner__body">
+						<p class="preview-announcement__meta">
+							<time datetime="2026-01-12">2026年1月12日</time>・ベータ
+						</p>
+						<p>配色の「使われ方」をもっと確かめられるよう、トップページの見せ方を磨いています。</p>
+					</div>
+					<div class="dads-notification-banner__actions">
+						<button class="dads-button" data-size="md" data-type="outline" type="button">詳しく見る</button>
+						<button class="dads-button" data-size="md" data-type="solid-fill" type="button">通知設定</button>
+					</div>
+				</div>
+			</section>
 
-	const links = document.createElement("div");
-	links.className = "dads-preview__footer-links";
+			<section class="preview-hero" aria-label="ヒーロー">
+				<div class="preview-hero__layout">
+					<div class="preview-hero__copy">
+						<hgroup class="dads-heading" data-size="45" data-chip>
+							<p class="dads-heading__shoulder">カラープレビュー</p>
+							<h1 class="dads-heading__heading">DADSコンポーネントで配色を確認</h1>
+						</hgroup>
+						<p class="preview-lead">
+							生成したプライマリ／アクセントを、DADS（デジタル庁デザインシステム）のHTMLコンポーネントへ当てはめたときの見え方を確認します。
+						</p>
+						<p class="preview-kicker">その色は、本当に「押したくなる」ボタンになっていますか？</p>
+						<div class="preview-actions" aria-label="操作">
+							<button class="dads-button" data-size="lg" data-type="solid-fill" type="button">主要操作</button>
+							<button class="dads-button" data-size="lg" data-type="outline" type="button">副次操作</button>
+							<button class="dads-button" data-size="lg" data-type="text" type="button">詳細を見る</button>
+						</div>
+						<div class="preview-hero__link">
+							<a class="dads-link" href="#preview-pickup">ピックアップを見る</a>
+						</div>
+					</div>
+					<div class="preview-hero__visual" aria-hidden="true">
+						<div class="preview-kv" role="img" aria-label="キービジュアル（装飾）">
+							<div class="preview-kv__shape preview-kv__shape--primary"></div>
+							<div class="preview-kv__shape preview-kv__shape--accent"></div>
+							<div class="preview-kv__ring"></div>
+						</div>
+					</div>
+				</div>
+			</section>
 
-	for (const linkText of ["Privacy", "Terms", "Contact"]) {
-		const link = document.createElement("a");
-		link.href = "#";
-		link.textContent = linkText;
-		link.style.color = colors.link;
-		links.appendChild(link);
-	}
+			<section id="preview-pickup" class="preview-section" aria-label="ピックアップ">
+				<hgroup class="dads-heading" data-size="20" data-rule="2">
+					<h2 class="dads-heading__heading">ピックアップ</h2>
+				</hgroup>
+				<div class="preview-section__content">
+					<ul class="preview-resource-grid">
+						<li>
+							<div class="dads-resource-list" data-style="frame">
+								<div class="dads-resource-list__body">
+									<svg width="24" height="24" viewBox="0 0 24 24" fill="currentcolor" aria-hidden="true">
+										<path d="M4.6 20.5c-.5-.1-1-.6-1.1-1l16-16c.5.1.9.6 1 1l-16 16Zm-1.1-6.4v-2L12 3.4h2.1L3.5 14.1Zm0-7.4V5.3c0-1 .8-1.8 1.8-1.8h1.4L3.5 6.7Zm13.8 13.8 3.2-3.2v1.4c0 1-.8 1.8-1.8 1.8h-1.4Zm-7.4 0L20.5 9.9v2L12 20.6H9.9Z" />
+									</svg>
+									<div class="dads-resource-list__contents">
+										<h3 class="dads-resource-list__title">デザイントークン</h3>
+										<div class="dads-resource-list__label">
+											<p>基礎</p>
+										</div>
+										<div class="dads-resource-list__support">
+											<p>色・余白・タイポグラフィなどの共通値</p>
+										</div>
+									</div>
+								</div>
+							</div>
+						</li>
+						<li>
+							<div class="dads-resource-list" data-style="frame">
+								<div class="dads-resource-list__body">
+									<svg width="24" height="24" viewBox="0 0 24 24" fill="currentcolor" aria-hidden="true">
+										<path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm1 15h-2v-2h2v2Zm0-4h-2V7h2v6Z" />
+									</svg>
+									<div class="dads-resource-list__contents">
+										<h3 class="dads-resource-list__title">アクセシビリティ</h3>
+										<div class="dads-resource-list__label">
+											<p>必須</p>
+										</div>
+										<div class="dads-resource-list__support">
+											<p>コントラストや状態表示の見え方を確認</p>
+										</div>
+									</div>
+								</div>
+							</div>
+						</li>
+						<li>
+							<div class="dads-resource-list" data-style="frame">
+								<div class="dads-resource-list__body">
+									<svg width="24" height="24" viewBox="0 0 24 24" fill="currentcolor" aria-hidden="true">
+										<path d="M6 2h9l3 3v17H6V2Zm2 5h8V5H8v2Zm0 4h8V9H8v2Zm0 4h8v-2H8v2Z" />
+									</svg>
+									<div class="dads-resource-list__contents">
+										<h3 class="dads-resource-list__title">ガイドライン</h3>
+										<div class="dads-resource-list__label">
+											<p>近日公開</p>
+										</div>
+										<div class="dads-resource-list__support">
+											<p>配色の使い分け・ルール設計のヒント</p>
+										</div>
+									</div>
+								</div>
+							</div>
+						</li>
+					</ul>
+				</div>
+			</section>
 
-	footer.appendChild(copyright);
-	footer.appendChild(links);
+			<section class="preview-section" aria-label="フォーム">
+				<hgroup class="dads-heading" data-size="20" data-rule="2">
+					<h2 class="dads-heading__heading">入力フォーム</h2>
+				</hgroup>
+				<div class="preview-section__content preview-form">
+					<div class="dads-form-control-label" data-size="md">
+						<label class="dads-form-control-label__label" for="${ids.emailInputId}">
+							メールアドレス
+							<span class="dads-form-control-label__requirement" data-required="true">※必須</span>
+						</label>
+						<p id="${ids.supportTextId}" class="dads-form-control-label__support-text">
+							確認用の通知を送付します。
+						</p>
+						<div>
+							<span class="dads-input-text">
+								<input id="${ids.emailInputId}" class="dads-input-text__input" type="email" data-size="md" aria-invalid="true" aria-describedby="${ids.errorTextId} ${ids.supportTextId}" value="example@" />
+								<span id="${ids.errorTextId}" class="dads-input-text__error-text">＊メールアドレスの形式で入力してください。</span>
+							</span>
+						</div>
+					</div>
+				</div>
+			</section>
 
-	return footer;
+			<section class="preview-section" aria-label="通知">
+				<hgroup class="dads-heading" data-size="20" data-rule="2">
+					<h2 class="dads-heading__heading">通知（セマンティックカラー）</h2>
+				</hgroup>
+				<div class="preview-section__content preview-notifications">
+					<div class="dads-notification-banner" data-style="standard" data-type="success">
+						<h2 class="dads-notification-banner__heading">
+							<svg class="dads-notification-banner__icon" width="24" height="24" viewBox="0 0 24 24" role="img" aria-label="成功">
+								<circle cx="12" cy="12" r="10" fill="currentcolor" />
+								<path d="m17.6 9.6-7 7-4.3-4.3L7.7 11l2.9 2.9 5.7-5.6 1.3 1.4Z" fill="Canvas" />
+							</svg>
+							<span class="dads-notification-banner__heading-text">完了しました</span>
+						</h2>
+						<button class="dads-notification-banner__close" type="button" aria-labelledby="${ids.successCloseLabelId}">
+							<svg class="dads-notification-banner__close-icon" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+								<path d="m6.4 18.6-1-1 5.5-5.6-5.6-5.6 1.1-1 5.6 5.5 5.6-5.6 1 1.1L13 12l5.6 5.6-1 1L12 13l-5.6 5.6Z" fill="currentcolor" />
+							</svg>
+							<span id="${ids.successCloseLabelId}" class="dads-notification-banner__close-label">閉じる</span>
+						</button>
+					</div>
+
+					<div class="dads-notification-banner" data-style="standard" data-type="warning">
+						<h2 class="dads-notification-banner__heading">
+							<svg class="dads-notification-banner__icon" width="24" height="24" viewBox="0 0 24 24" role="img" aria-label="警告">
+								<path d="M1 21 12 2l11 19H1Z" fill="currentcolor" />
+								<path d="M13 15h-2v-5h2v5Z" fill="Canvas" />
+								<circle cx="12" cy="17" r="1" fill="Canvas" />
+							</svg>
+							<span class="dads-notification-banner__heading-text">入力内容を確認してください</span>
+						</h2>
+						<button class="dads-notification-banner__close" type="button" aria-labelledby="${ids.warningCloseLabelId}">
+							<svg class="dads-notification-banner__close-icon" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+								<path d="m6.4 18.6-1-1 5.5-5.6-5.6-5.6 1.1-1 5.6 5.5 5.6-5.6 1 1.1L13 12l5.6 5.6-1 1L12 13l-5.6 5.6Z" fill="currentcolor" />
+							</svg>
+							<span id="${ids.warningCloseLabelId}" class="dads-notification-banner__close-label">閉じる</span>
+						</button>
+					</div>
+
+					<div class="dads-notification-banner" data-style="standard" data-type="error">
+						<h2 class="dads-notification-banner__heading">
+							<svg class="dads-notification-banner__icon" width="24" height="24" viewBox="0 0 24 24" role="img" aria-label="エラー">
+								<path d="M8.25 21 3 15.75v-7.5L8.25 3h7.5L21 8.25v7.5L15.75 21h-7.5Z" fill="currentcolor" />
+								<path d="m12 13.4-2.85 2.85-1.4-1.4L10.6 12 7.75 9.15l1.4-1.4L12 10.6l2.85-2.85 1.4 1.4L13.4 12l2.85 2.85-1.4 1.4L12 13.4Z" fill="Canvas" />
+							</svg>
+							<span class="dads-notification-banner__heading-text">エラーが発生しました</span>
+						</h2>
+						<button class="dads-notification-banner__close" type="button" aria-labelledby="${ids.errorCloseLabelId}">
+							<svg class="dads-notification-banner__close-icon" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+								<path d="m6.4 18.6-1-1 5.5-5.6-5.6-5.6 1.1-1 5.6 5.5 5.6-5.6 1 1.1L13 12l5.6 5.6-1 1L12 13l-5.6 5.6Z" fill="currentcolor" />
+							</svg>
+							<span id="${ids.errorCloseLabelId}" class="dads-notification-banner__close-label">閉じる</span>
+						</button>
+					</div>
+				</div>
+			</section>
+		</main>
+
+		<footer class="preview-footer">
+			<small>© 2026 カラートークン生成ツール（プレビュー）</small>
+		</footer>
+	</div>
+</div>
+`;
 }
 
 /**
@@ -416,14 +468,38 @@ export function createPalettePreview(
 	colors: PalettePreviewColors,
 ): HTMLElement {
 	const container = document.createElement("div");
-	container.className = "dads-preview";
+	container.className = "dads-preview dads-preview--dads-html";
 
-	// 各セクションを追加
-	container.appendChild(createNavSection(colors));
-	container.appendChild(createHeroSection(colors));
-	container.appendChild(createCardsSection(colors));
-	container.appendChild(createFormSection(colors));
-	container.appendChild(createFooterSection(colors));
+	const buttonState = deriveButtonStateColors(colors.button);
+	container.style.setProperty("--preview-bg", colors.background);
+	container.style.setProperty("--preview-text", colors.text);
+	container.style.setProperty("--preview-primary", colors.button);
+	container.style.setProperty("--preview-primary-hover", buttonState.hover);
+	container.style.setProperty("--preview-primary-active", buttonState.active);
+	container.style.setProperty("--preview-on-primary", colors.buttonText);
+	container.style.setProperty(
+		"--preview-outline-hover-bg",
+		buttonState.outlineHoverBg,
+	);
+	container.style.setProperty(
+		"--preview-outline-active-bg",
+		buttonState.outlineActiveBg,
+	);
+	container.style.setProperty("--preview-heading", colors.headlineText);
+	container.style.setProperty("--preview-accent", colors.cardAccent);
+	container.style.setProperty("--preview-success", colors.success);
+	container.style.setProperty("--preview-warning", colors.warning);
+	container.style.setProperty("--preview-error", colors.error);
 
+	const prefix = createPreviewIdPrefix();
+	container.innerHTML = buildDadsPreviewMarkup({
+		emailInputId: `${prefix}-email`,
+		supportTextId: `${prefix}-support-text`,
+		errorTextId: `${prefix}-error-text`,
+		infoCloseLabelId: `${prefix}-info-close-label`,
+		successCloseLabelId: `${prefix}-success-close-label`,
+		warningCloseLabelId: `${prefix}-warning-close-label`,
+		errorCloseLabelId: `${prefix}-error-close-label`,
+	});
 	return container;
 }

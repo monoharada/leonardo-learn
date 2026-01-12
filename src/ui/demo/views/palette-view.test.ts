@@ -234,17 +234,6 @@ describe("palette-view module", () => {
 			expect(content).toContain("Success");
 			expect(content).toContain("Link");
 		});
-
-		it("should support warning pattern selection", async () => {
-			const fs = await import("node:fs");
-			const path = await import("node:path");
-			const filePath = path.join(import.meta.dir, "palette-view.ts");
-			const content = fs.readFileSync(filePath, "utf-8");
-
-			// 警告パターン選択
-			expect(content).toContain("WARNING_PATTERNS");
-			expect(content).toContain("createWarningPatternSelector");
-		});
 	});
 
 	/**

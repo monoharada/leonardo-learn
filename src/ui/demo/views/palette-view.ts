@@ -14,11 +14,10 @@ import {
 } from "@/core/tokens/dads-data-provider";
 import type { DadsColorHue } from "@/core/tokens/types";
 import { snapToCudColor } from "@/ui/cud-components";
-import { handleWarningPatternChange } from "@/ui/semantic-color/semantic-color-section";
 import { parseColor } from "@/utils/color-space";
 import { createBackgroundColorSelector } from "../background-color-selector";
 import { parseKeyColor, persistBackgroundColors, state } from "../state";
-import type { ColorDetailModalOptions, WarningPatternType } from "../types";
+import type { ColorDetailModalOptions } from "../types";
 import {
 	createPalettePreview,
 	mapPaletteToPreviewColors,
@@ -347,51 +346,6 @@ async function extractPreviewColors(
 }
 
 /**
- * 警告パターン選択UIを作成
- */
-function createWarningPatternSelector(
-	onPatternChange: (pattern: WarningPatternType) => void,
-): HTMLElement {
-	const container = document.createElement("div");
-	container.className = "dads-warning-pattern-selector";
-
-	const label = document.createElement("span");
-	label.textContent = "警告色パターン:";
-	label.className = "dads-warning-pattern-selector__label";
-
-	const options: { value: WarningPatternType; label: string }[] = [
-		{ value: "yellow", label: "黄色系 (Pattern 1)" },
-		{ value: "orange", label: "オレンジ系 (Pattern 2)" },
-		{ value: "auto", label: "自動選択 (CUD推奨)" },
-	];
-
-	container.appendChild(label);
-
-	for (const option of options) {
-		const radioLabel = document.createElement("label");
-		radioLabel.className = "dads-warning-pattern-selector__option";
-
-		const radio = document.createElement("input");
-		radio.type = "radio";
-		radio.name = "warningPattern";
-		radio.value = option.value;
-		radio.checked = state.semanticColorConfig.warningPattern === option.value;
-
-		radio.addEventListener("change", () => {
-			if (radio.checked) {
-				onPatternChange(option.value);
-			}
-		});
-
-		radioLabel.appendChild(radio);
-		radioLabel.appendChild(document.createTextNode(` ${option.label}`));
-		container.appendChild(radioLabel);
-	}
-
-	return container;
-}
-
-/**
  * パレットビューをレンダリングする
  *
  * 新UI構成:
@@ -459,22 +413,6 @@ export async function renderPaletteView(
 
 	// 背景色を設定
 	container.style.backgroundColor = state.lightBackgroundColor;
-
-	// 警告パターン選択UI
-	const patternSelector = createWarningPatternSelector(async (pattern) => {
-		const firstPalette = state.palettes[0];
-		const anchorHex = firstPalette?.keyColors[0]?.split("@")[0] || "#000000";
-		const paletteHexes = state.palettes
-			.map((p) => p.keyColors[0]?.split("@")[0])
-			.filter((hex): hex is string => Boolean(hex));
-
-		await handleWarningPatternChange(pattern, anchorHex, paletteHexes);
-
-		void renderPaletteView(container, callbacks).catch((err) => {
-			console.error("Failed to re-render palette view:", err);
-		});
-	});
-	container.appendChild(patternSelector);
 
 	// DADSトークンが利用可能な場合のみプレビューとテーブルを表示
 	if (dadsTokens) {
