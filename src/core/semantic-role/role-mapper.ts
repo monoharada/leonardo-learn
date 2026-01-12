@@ -10,13 +10,15 @@
 import { DADS_COLORS, HarmonyType } from "@/core/harmony";
 import type { DadsColorHue } from "@/core/tokens/types";
 import { chromaNameToDadsHue, normalizeToDadsHue } from "./hue-name-normalizer";
-import type {
-	RoleCategory,
-	RoleMapping,
-	SemanticRole,
-	SemanticSubType,
+import {
+	BRAND_UNRESOLVED_KEY,
+	CATEGORY_SHORT_LABELS,
+	type RoleCategory,
+	type RoleMapping,
+	SEMANTIC_SUBTYPE_LABELS,
+	type SemanticRole,
+	type SemanticSubType,
 } from "./types";
-import { BRAND_UNRESOLVED_KEY } from "./types";
 
 /**
  * DADS公式ロール名セット（重複登録回避用）
@@ -69,26 +71,6 @@ export interface SemanticRoleMapperService {
 }
 
 /**
- * カテゴリ別の短縮ラベル
- */
-const CATEGORY_SHORT_LABELS: Record<RoleCategory, string> = {
-	primary: "P",
-	secondary: "S",
-	accent: "A",
-	semantic: "", // semanticSubTypeで決定
-	link: "L",
-};
-
-/**
- * semanticサブタイプ別の短縮ラベル
- */
-const SEMANTIC_SUBTYPE_LABELS: Record<SemanticSubType, string> = {
-	success: "Su",
-	error: "E",
-	warning: "W",
-};
-
-/**
  * DADS_COLORSのカテゴリからRoleCategoryへの変換
  * Note: DADS_COLORSのカテゴリはRoleCategoryのサブセットなので直接キャスト可能
  */
@@ -107,6 +89,8 @@ function getCategoryDisplayName(category: RoleCategory): string {
 			return "Primary";
 		case "secondary":
 			return "Secondary";
+		case "tertiary":
+			return "Tertiary";
 		case "accent":
 			return "Accent";
 		case "semantic":
@@ -195,6 +179,7 @@ function addRoleToMapping(
 function determineCategoryFromPaletteName(name: string): RoleCategory {
 	if (name === "Primary") return "primary";
 	if (name === "Secondary") return "secondary";
+	if (name === "Tertiary") return "tertiary";
 	return "accent";
 }
 
@@ -240,11 +225,12 @@ export function generateRoleMapping(
 		}
 	}
 
-	// ハーモニー生成ロール検索（Primary, Secondary, Accent-*）
+	// ハーモニー生成ロール検索（Primary, Secondary, Tertiary, Accent-*）
 	const harmonyPalettes = palettes.filter(
 		(p) =>
 			p.name === "Primary" ||
 			p.name === "Secondary" ||
+			p.name === "Tertiary" ||
 			p.name.startsWith("Accent"),
 	);
 

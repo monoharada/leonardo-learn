@@ -232,6 +232,7 @@ describe("CircularSwatchTransformer", () => {
 			expect(ROLE_PRIORITY).toEqual([
 				"primary",
 				"secondary",
+				"tertiary",
 				"accent",
 				"semantic",
 				"link",

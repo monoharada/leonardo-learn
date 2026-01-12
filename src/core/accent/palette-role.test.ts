@@ -160,6 +160,11 @@ describe("PaletteRole", () => {
 	});
 
 	describe("getRolesForCount", () => {
+		it("should return 1 role for count 1", () => {
+			const roles = getRolesForCount("complementary", 1);
+			expect(roles.length).toBe(1);
+		});
+
 		it("should return 2 roles for count 2", () => {
 			const roles = getRolesForCount("complementary", 2);
 			expect(roles.length).toBe(2);
@@ -170,16 +175,6 @@ describe("PaletteRole", () => {
 			expect(roles.length).toBe(3);
 		});
 
-		it("should return 4 roles for count 4", () => {
-			const roles = getRolesForCount("analogous", 4);
-			expect(roles.length).toBe(4);
-		});
-
-		it("should return 5 roles for count 5", () => {
-			const roles = getRolesForCount("split-complementary", 5);
-			expect(roles.length).toBe(5);
-		});
-
 		it("should return PaletteRole objects with id", () => {
 			const roles = getRolesForCount("complementary", 3);
 			for (const role of roles) {
@@ -188,6 +183,12 @@ describe("PaletteRole", () => {
 				expect(role.nameEn).toBeDefined();
 				expect(typeof role.stepOffset).toBe("number");
 			}
+		});
+
+		it("should return correct roles for complementary 1-count", () => {
+			const roles = getRolesForCount("complementary", 1);
+			const ids = roles.map((r) => r.id);
+			expect(ids).toEqual(["accent"]);
 		});
 
 		it("should return correct roles for complementary 2-count", () => {
@@ -202,10 +203,10 @@ describe("PaletteRole", () => {
 			expect(ids).toEqual(["accent", "secondary", "accentLight"]);
 		});
 
-		it("should return correct roles for monochromatic 4-count", () => {
-			const roles = getRolesForCount("monochromatic", 4);
+		it("should return correct roles for monochromatic 1-count", () => {
+			const roles = getRolesForCount("monochromatic", 1);
 			const ids = roles.map((r) => r.id);
-			expect(ids).toEqual(["baseLight", "baseMuted", "baseDark", "accentDark"]);
+			expect(ids).toEqual(["baseMuted"]);
 		});
 
 		it("should include tertiary for square 3-count", () => {
@@ -229,23 +230,21 @@ describe("PaletteRole", () => {
 
 		for (const { name, config } of roleConfigs) {
 			describe(`${name}_ROLE_CONFIG`, () => {
-				it("should have configurations for counts 2, 3, 4, 5", () => {
+				it("should have configurations for counts 1, 2, 3", () => {
+					expect(config[1]).toBeDefined();
 					expect(config[2]).toBeDefined();
 					expect(config[3]).toBeDefined();
-					expect(config[4]).toBeDefined();
-					expect(config[5]).toBeDefined();
 				});
 
 				it("should have increasing role counts", () => {
+					expect(config[1].length).toBe(1);
 					expect(config[2].length).toBe(2);
 					expect(config[3].length).toBe(3);
-					expect(config[4].length).toBe(4);
-					expect(config[5].length).toBe(5);
 				});
 
 				it("should only contain valid role IDs", () => {
 					const validIds = Object.keys(PALETTE_ROLES);
-					for (const count of [2, 3, 4, 5] as const) {
+					for (const count of [1, 2, 3] as const) {
 						for (const roleId of config[count]) {
 							expect(validIds).toContain(roleId);
 						}

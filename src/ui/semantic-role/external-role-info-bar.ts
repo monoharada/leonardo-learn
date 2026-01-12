@@ -36,6 +36,7 @@ export interface UnresolvedRoleItem {
 export const ROLE_CATEGORY_COLORS: Record<RoleCategory, string> = {
 	primary: "#1976D2", // Blue 700
 	secondary: "#7B1FA2", // Purple 700
+	tertiary: "#F57C00", // Orange 700
 	accent: "#00796B", // Teal 700
 	semantic: "#388E3C", // Green 700
 	link: "#0288D1", // Light Blue 700

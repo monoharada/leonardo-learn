@@ -38,6 +38,16 @@ export interface PaletteConfig {
 	baseChromaName?: string;
 	/** DADSモード用のステップ番号（600, 800等） */
 	step?: number;
+	/**
+	 * 導出元情報（Secondary/Tertiaryパレット用）
+	 * Primaryから派生したパレットの場合に設定
+	 */
+	derivedFrom?: {
+		/** 派生元のプライマリパレットID */
+		primaryPaletteId: string;
+		/** 導出タイプ（secondary または tertiary） */
+		derivationType: "secondary" | "tertiary";
+	};
 }
 
 /**
@@ -120,8 +130,8 @@ export interface DemoState {
 	lightBackgroundColor: string;
 	/** ダーク背景色（HEX形式、デフォルト: #000000） */
 	darkBackgroundColor: string;
-	/** アクセントカラー数（2-5）。ブランド+アクセント=3-6色 */
-	accentCount: 2 | 3 | 4 | 5;
+	/** アクセントカラー数（1-3）。P+S+T+アクセント=4-6色 */
+	accentCount: 1 | 2 | 3;
 }
 
 /**
@@ -136,6 +146,8 @@ export interface ColorDetailModalOptions {
 		colors: Color[];
 		keyIndex: number;
 		hexValues?: string[];
+		/** 各色の表示名（カスタムキーカラー用）例: ["プライマリー", "セカンダリー", "ターシャリー"] */
+		names?: string[];
 	};
 	paletteInfo: {
 		name: string;

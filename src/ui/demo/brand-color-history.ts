@@ -15,8 +15,8 @@ export interface BrandColorHistoryEntry {
 	id: string;
 	/** ブランドカラー（HEX形式 #RRGGBB） */
 	brandColorHex: string;
-	/** アクセント色数（2-5） */
-	accentCount: 2 | 3 | 4 | 5;
+	/** アクセント色数（1-3） */
+	accentCount: 1 | 2 | 3;
 	/** タイムスタンプ（ISO 8601形式） */
 	timestamp: string;
 }
@@ -43,14 +43,14 @@ function isValidHex(hex: string): boolean {
 /**
  * 有効なアクセント数かどうかを検証
  * @param count 検証する数値
- * @returns 2-5の範囲内の場合true
+ * @returns 1-3の範囲内の場合true
  */
-function isValidAccentCount(count: unknown): count is 2 | 3 | 4 | 5 {
+function isValidAccentCount(count: unknown): count is 1 | 2 | 3 {
 	return (
 		typeof count === "number" &&
 		Number.isInteger(count) &&
-		count >= 2 &&
-		count <= 5
+		count >= 1 &&
+		count <= 3
 	);
 }
 
@@ -63,7 +63,7 @@ function isValidAccentCount(count: unknown): count is 2 | 3 | 4 | 5 {
  */
 export function createHistoryEntry(
 	hex: string,
-	accentCount: 2 | 3 | 4 | 5,
+	accentCount: 1 | 2 | 3,
 ): BrandColorHistoryEntry {
 	return {
 		id: crypto.randomUUID(),

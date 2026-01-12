@@ -123,6 +123,23 @@ export const HARMONY_TYPES: HarmonyTypeConfig[] = [
 ];
 
 /**
+ * 色相名の英語表示名マッピング（DADS hue → display name）
+ * palette-generator.ts と harmony-view.ts で共有
+ */
+export const HUE_DISPLAY_NAMES: Record<string, string> = {
+	blue: "Blue",
+	"light-blue": "Light Blue",
+	cyan: "Cyan",
+	green: "Green",
+	lime: "Lime",
+	yellow: "Yellow",
+	orange: "Orange",
+	red: "Red",
+	magenta: "Magenta",
+	purple: "Purple",
+};
+
+/**
  * デモ機能の初期状態
  * state.tsのシングルトン初期化に使用
  */
@@ -140,5 +157,5 @@ export const DEFAULT_STATE: DemoState = {
 	cudMode: "guide",
 	lightBackgroundColor: "#ffffff",
 	darkBackgroundColor: "#000000",
-	accentCount: 2,
+	accentCount: 1,
 };

@@ -155,18 +155,30 @@ describe("palette-generator", () => {
 			const palettes = createPalettesFromHarmonyColors(
 				"analogous",
 				["#111111", "#222222"],
-				[{ dadsSourceName: "Green 1100", step: 1100 }] as any,
+				[{ dadsSourceName: "Green 1100", step: 1100 }] as never[],
 			);
 
+			// パレット順序: Primary → Secondary → Tertiary → Accent
 			// Primaryは選択ハーモニー（analogous）を持つ
 			expect(palettes[0]?.harmony).toBe(HarmonyType.ANALOGOUS);
+			expect(palettes[0]?.name).toBe("Primary");
 
-			// 派生（Accent）はNONE（Primaryのみがモードを表す）
+			// Secondary/Tertiaryが導出される
+			expect(palettes[1]?.name).toBe("Secondary");
 			expect(palettes[1]?.harmony).toBe(HarmonyType.NONE);
+			expect(palettes[1]?.derivedFrom?.derivationType).toBe("secondary");
 
-			// candidates由来のDADSメタデータが反映される
-			expect(palettes[1]?.baseChromaName).toBe("Green");
-			expect(palettes[1]?.step).toBe(1100);
+			expect(palettes[2]?.name).toBe("Tertiary");
+			expect(palettes[2]?.harmony).toBe(HarmonyType.NONE);
+			expect(palettes[2]?.derivedFrom?.derivationType).toBe("tertiary");
+
+			// Accent（index 3）はNONE（Primaryのみがモードを表す）
+			expect(palettes[3]?.name).toBe("Accent 1");
+			expect(palettes[3]?.harmony).toBe(HarmonyType.NONE);
+
+			// candidates由来のDADSメタデータがAccentに反映される
+			expect(palettes[3]?.baseChromaName).toBe("Green");
+			expect(palettes[3]?.step).toBe(1100);
 		});
 	});
 });

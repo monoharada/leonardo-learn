@@ -18,7 +18,7 @@ import {
 } from "./circular-swatch-transformer";
 
 /** ハーモニーロールカテゴリ（円形化対象） */
-const HARMONY_CATEGORIES = ["primary", "secondary", "accent"];
+const HARMONY_CATEGORIES = ["primary", "secondary", "tertiary", "accent"];
 
 /**
  * hue-scale特定不可のブランドスウォッチかどうか

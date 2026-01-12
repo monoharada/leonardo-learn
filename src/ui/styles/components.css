@@ -1579,6 +1579,28 @@
 	border-radius: var(--border-radius-4);
 }
 
+/* 背景色セレクター */
+.dads-harmony-header__bg-color {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+}
+
+.dads-harmony-header__bg-color .dads-label {
+	margin-bottom: 0;
+	white-space: nowrap;
+}
+
+.dads-harmony-header__bg-color .dads-form-row {
+	gap: 0.5rem;
+}
+
+.dads-input--bg-color {
+	width: 90px;
+	font-family: var(--font-family-mono, monospace);
+	font-size: var(--font-size-14);
+}
+
 /* ============================================
  * View Switcher - disabled state
  * ============================================ */
@@ -2091,6 +2113,64 @@
 }
 
 /* ============================================
+ * Key Colors Section (P/S/T)
+ * シェードビューの円形キーカラースウォッチ
+ * DADSに含まれない独自色のみ表示
+ * ============================================ */
+
+.dads-key-colors-section {
+	margin-bottom: 1.5rem;
+	padding-bottom: 1rem;
+	border-bottom: 1px solid var(--color-neutral-solid-gray-200);
+}
+
+.dads-key-colors-container {
+	display: flex;
+	gap: 1.5rem;
+	flex-wrap: wrap;
+	align-items: flex-start;
+}
+
+/* 円形キーカラースウォッチ */
+.dads-key-color-swatch {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 4px;
+	width: 100px;
+	height: 100px;
+	border: 3px solid var(--color-neutral-solid-gray-200);
+	border-radius: 50%;
+	cursor: pointer;
+	transition:
+		transform 0.15s ease,
+		box-shadow 0.15s ease;
+}
+
+.dads-key-color-swatch:hover {
+	transform: scale(1.08);
+	box-shadow: var(--elevation-2);
+}
+
+.dads-key-color-swatch:focus-visible {
+	outline: 4px solid var(--color-neutral-black);
+	outline-offset: 2px;
+}
+
+.dads-key-color-swatch__label {
+	font-size: var(--font-size-14);
+	font-weight: var(--font-weight-700);
+	text-align: center;
+}
+
+.dads-key-color-swatch__hex {
+	font-size: var(--font-size-11);
+	font-family: var(--font-family-mono, monospace);
+	text-align: center;
+}
+
+/* ============================================
  * Background Color Selector
  * Issue #37: 背景色セレクターの簡素化
  * ============================================ */
@@ -2463,4 +2543,31 @@
 	font-family: var(--font-family-mono, monospace);
 	font-size: 0.85em;
 	opacity: 0.85;
+}
+
+/* ============================================
+ * Contrast Warning Component
+ * WCAG 4.5:1 未満のコントラスト警告
+ * ============================================ */
+
+.dads-contrast-warning {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	margin-top: 0.5rem;
+	padding: 0.5rem 0.75rem;
+	background: var(--color-primitive-yellow-50, #fffbeb);
+	border: 1px solid var(--color-primitive-yellow-300, #fcd34d);
+	border-radius: var(--border-radius-4, 4px);
+	font-size: var(--font-size-12, 0.75rem);
+	color: var(--color-primitive-yellow-900, #78350f);
+}
+
+.dads-contrast-warning__icon {
+	flex-shrink: 0;
+	font-size: 1rem;
+}
+
+.dads-contrast-warning__text {
+	line-height: 1.4;
 }
