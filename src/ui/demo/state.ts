@@ -9,13 +9,14 @@
  */
 
 import { formatHex, oklch, parse } from "culori";
-import { DEFAULT_STATE } from "./constants";
+import { DEFAULT_SEMANTIC_COLOR_CONFIG, DEFAULT_STATE } from "./constants";
 import type {
 	BackgroundColorValidationResult,
 	ColorMode,
 	DemoState,
 	KeyColorWithStep,
 	PaletteConfig,
+	SemanticColorConfig,
 } from "./types";
 
 /**
@@ -23,6 +24,11 @@ import type {
  * @see Requirements: 5.3
  */
 export const BACKGROUND_COLOR_STORAGE_KEY = "leonardo-backgroundColor";
+
+/**
+ * セマンティックカラー設定のlocalStorageキー
+ */
+export const SEMANTIC_COLOR_CONFIG_STORAGE_KEY = "leonardo-semanticColorConfig";
 
 /**
  * 背景色の永続化データ形式（ライト/ダーク両方）
@@ -243,6 +249,70 @@ export function loadBackgroundColors(): BackgroundColorsData {
 }
 
 /**
+ * セマンティックカラー設定をlocalStorageに永続化する
+ *
+ * @param config セマンティックカラー設定
+ */
+export function persistSemanticColorConfig(config: SemanticColorConfig): void {
+	try {
+		localStorage.setItem(
+			SEMANTIC_COLOR_CONFIG_STORAGE_KEY,
+			JSON.stringify(config),
+		);
+	} catch {
+		// localStorageが利用できない場合は無視
+	}
+}
+
+/**
+ * localStorageからセマンティックカラー設定を読み込む
+ *
+ * 保存された設定を検証し、無効な値の場合はデフォルト値を返す。
+ *
+ * @returns セマンティックカラー設定
+ */
+export function loadSemanticColorConfig(): SemanticColorConfig {
+	try {
+		const stored = localStorage.getItem(SEMANTIC_COLOR_CONFIG_STORAGE_KEY);
+		if (stored === null) {
+			return { ...DEFAULT_SEMANTIC_COLOR_CONFIG };
+		}
+
+		const parsed = JSON.parse(stored) as Record<string, unknown>;
+
+		// warningPatternのバリデーション
+		const validPatterns = ["yellow", "orange", "auto"];
+		if (
+			"warningPattern" in parsed &&
+			typeof parsed.warningPattern === "string" &&
+			validPatterns.includes(parsed.warningPattern)
+		) {
+			const config: SemanticColorConfig = {
+				warningPattern:
+					parsed.warningPattern as SemanticColorConfig["warningPattern"],
+			};
+
+			// resolvedWarningPatternがあれば追加
+			if (
+				"resolvedWarningPattern" in parsed &&
+				typeof parsed.resolvedWarningPattern === "string" &&
+				(parsed.resolvedWarningPattern === "yellow" ||
+					parsed.resolvedWarningPattern === "orange")
+			) {
+				config.resolvedWarningPattern = parsed.resolvedWarningPattern;
+			}
+
+			return config;
+		}
+
+		return { ...DEFAULT_SEMANTIC_COLOR_CONFIG };
+	} catch {
+		// JSON.parseエラーやlocalStorageエラー
+		return { ...DEFAULT_SEMANTIC_COLOR_CONFIG };
+	}
+}
+
+/**
  * デモ機能のグローバル状態（シングルトン）
  *
  * DEFAULT_STATEから初期化し、単一ソースを維持。
@@ -261,6 +331,7 @@ export function loadBackgroundColors(): BackgroundColorsData {
  * - cudMode: CUD対応モード
  * - lightBackgroundColor: ライト背景色（HEX形式、デフォルト: #ffffff）
  * - darkBackgroundColor: ダーク背景色（HEX形式、デフォルト: #000000）
+ * - semanticColorConfig: セマンティックカラー設定（警告色パターン選択）
  */
 export const state: DemoState = {
 	palettes: [...DEFAULT_STATE.palettes],
@@ -277,6 +348,7 @@ export const state: DemoState = {
 	lightBackgroundColor: DEFAULT_STATE.lightBackgroundColor,
 	darkBackgroundColor: DEFAULT_STATE.darkBackgroundColor,
 	accentCount: DEFAULT_STATE.accentCount,
+	semanticColorConfig: { ...DEFAULT_STATE.semanticColorConfig },
 };
 
 /**
@@ -331,4 +403,5 @@ export function resetState(): void {
 	state.lightBackgroundColor = DEFAULT_STATE.lightBackgroundColor;
 	state.darkBackgroundColor = DEFAULT_STATE.darkBackgroundColor;
 	state.accentCount = DEFAULT_STATE.accentCount;
+	state.semanticColorConfig = { ...DEFAULT_STATE.semanticColorConfig };
 }

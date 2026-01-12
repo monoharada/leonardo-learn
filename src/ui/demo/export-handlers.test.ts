@@ -152,4 +152,166 @@ describe("export-handlers", () => {
 			}).not.toThrow();
 		});
 	});
+
+	describe("warning pattern filter", () => {
+		beforeEach(() => {
+			resetState();
+		});
+
+		it("should include Warning-YL palettes when yellow pattern is selected", () => {
+			state.semanticColorConfig.warningPattern = "yellow";
+			state.shadesPalettes = [
+				{
+					id: "warning-yl",
+					name: "Warning-YL1",
+					keyColors: ["#FFD700"],
+					ratios: [21, 15, 10, 7, 4.5, 3, 1],
+					harmony: "none" as never,
+				},
+				{
+					id: "warning-or",
+					name: "Warning-OR1",
+					keyColors: ["#FF8C00"],
+					ratios: [21, 15, 10, 7, 4.5, 3, 1],
+					harmony: "none" as never,
+				},
+			];
+
+			const colors = generateExportColors();
+
+			// 黄色パターンが含まれる
+			expect(
+				Object.keys(colors).some((k) => k.startsWith("warning-yl1-")),
+			).toBe(true);
+			// オレンジパターンは含まれない
+			expect(
+				Object.keys(colors).some((k) => k.startsWith("warning-or1-")),
+			).toBe(false);
+		});
+
+		it("should include Warning-OR palettes when orange pattern is selected", () => {
+			state.semanticColorConfig.warningPattern = "orange";
+			state.shadesPalettes = [
+				{
+					id: "warning-yl",
+					name: "Warning-YL1",
+					keyColors: ["#FFD700"],
+					ratios: [21, 15, 10, 7, 4.5, 3, 1],
+					harmony: "none" as never,
+				},
+				{
+					id: "warning-or",
+					name: "Warning-OR1",
+					keyColors: ["#FF8C00"],
+					ratios: [21, 15, 10, 7, 4.5, 3, 1],
+					harmony: "none" as never,
+				},
+			];
+
+			const colors = generateExportColors();
+
+			// オレンジパターンが含まれる
+			expect(
+				Object.keys(colors).some((k) => k.startsWith("warning-or1-")),
+			).toBe(true);
+			// 黄色パターンは含まれない
+			expect(
+				Object.keys(colors).some((k) => k.startsWith("warning-yl1-")),
+			).toBe(false);
+		});
+
+		it("should use resolved pattern when auto is selected", () => {
+			state.semanticColorConfig.warningPattern = "auto";
+			state.semanticColorConfig.resolvedWarningPattern = "orange";
+			state.shadesPalettes = [
+				{
+					id: "warning-yl",
+					name: "Warning-YL1",
+					keyColors: ["#FFD700"],
+					ratios: [21, 15, 10, 7, 4.5, 3, 1],
+					harmony: "none" as never,
+				},
+				{
+					id: "warning-or",
+					name: "Warning-OR1",
+					keyColors: ["#FF8C00"],
+					ratios: [21, 15, 10, 7, 4.5, 3, 1],
+					harmony: "none" as never,
+				},
+			];
+
+			const colors = generateExportColors();
+
+			// resolvedがorangeなのでオレンジパターンが含まれる
+			expect(
+				Object.keys(colors).some((k) => k.startsWith("warning-or1-")),
+			).toBe(true);
+			// 黄色パターンは含まれない
+			expect(
+				Object.keys(colors).some((k) => k.startsWith("warning-yl1-")),
+			).toBe(false);
+		});
+
+		it("should fallback to yellow when auto has no resolved pattern", () => {
+			state.semanticColorConfig.warningPattern = "auto";
+			state.semanticColorConfig.resolvedWarningPattern = undefined;
+			state.shadesPalettes = [
+				{
+					id: "warning-yl",
+					name: "Warning-YL1",
+					keyColors: ["#FFD700"],
+					ratios: [21, 15, 10, 7, 4.5, 3, 1],
+					harmony: "none" as never,
+				},
+				{
+					id: "warning-or",
+					name: "Warning-OR1",
+					keyColors: ["#FF8C00"],
+					ratios: [21, 15, 10, 7, 4.5, 3, 1],
+					harmony: "none" as never,
+				},
+			];
+
+			const colors = generateExportColors();
+
+			// デフォルトは黄色
+			expect(
+				Object.keys(colors).some((k) => k.startsWith("warning-yl1-")),
+			).toBe(true);
+			// オレンジパターンは含まれない
+			expect(
+				Object.keys(colors).some((k) => k.startsWith("warning-or1-")),
+			).toBe(false);
+		});
+
+		it("should include non-warning palettes regardless of pattern", () => {
+			state.semanticColorConfig.warningPattern = "yellow";
+			state.shadesPalettes = [
+				{
+					id: "primary",
+					name: "Primary",
+					keyColors: ["#0066CC"],
+					ratios: [21, 15, 10, 7, 4.5, 3, 1],
+					harmony: "none" as never,
+				},
+				{
+					id: "error",
+					name: "Error",
+					keyColors: ["#FF0000"],
+					ratios: [21, 15, 10, 7, 4.5, 3, 1],
+					harmony: "none" as never,
+				},
+			];
+
+			const colors = generateExportColors();
+
+			// 警告以外のパレットは常に含まれる
+			expect(Object.keys(colors).some((k) => k.startsWith("primary-"))).toBe(
+				true,
+			);
+			expect(Object.keys(colors).some((k) => k.startsWith("error-"))).toBe(
+				true,
+			);
+		});
+	});
 });

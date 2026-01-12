@@ -723,7 +723,7 @@ function createUpdateDetailHandler(
 			blackLabelEl.textContent = `${state.darkBackgroundColor.toUpperCase()} に対するコントラスト`;
 		}
 
-		// Update card background colors and text styling dynamically
+		// Update contrast card styling for both light and dark backgrounds
 		updateContrastCardStyling("white", state.lightBackgroundColor);
 		updateContrastCardStyling("black", state.darkBackgroundColor);
 

@@ -13,6 +13,7 @@ import type {
 	AccentHarmonyTypeConfig,
 	DemoState,
 	HarmonyTypeConfig,
+	SemanticColorConfig,
 } from "./types";
 
 /**
@@ -140,6 +141,14 @@ export const HUE_DISPLAY_NAMES: Record<string, string> = {
 };
 
 /**
+ * セマンティックカラー設定のデフォルト値
+ * 警告色はCUD分析に基づく自動選択をデフォルトとする
+ */
+export const DEFAULT_SEMANTIC_COLOR_CONFIG: SemanticColorConfig = {
+	warningPattern: "auto",
+};
+
+/**
  * デモ機能の初期状態
  * state.tsのシングルトン初期化に使用
  */
@@ -158,4 +167,5 @@ export const DEFAULT_STATE: DemoState = {
 	lightBackgroundColor: "#ffffff",
 	darkBackgroundColor: "#000000",
 	accentCount: 1,
+	semanticColorConfig: DEFAULT_SEMANTIC_COLOR_CONFIG,
 };

@@ -26,6 +26,45 @@ import { parseKeyColor, state } from "./state";
 export type ExportFormat = "css" | "tailwind" | "json";
 
 /**
+ * 現在の有効な警告パターンを取得
+ *
+ * 自動選択の場合はresolvedWarningPatternを使用
+ */
+function getActiveWarningPattern(): "yellow" | "orange" {
+	const config = state.semanticColorConfig;
+	if (config.warningPattern === "auto") {
+		return config.resolvedWarningPattern || "yellow";
+	}
+	return config.warningPattern;
+}
+
+/**
+ * パレット名が現在の警告パターンに含まれるかを判定
+ *
+ * Warning-YL* / Warning-OR* のフィルタリングに使用
+ *
+ * @param paletteName - パレット名
+ * @returns 含まれる場合true
+ */
+function shouldIncludePalette(paletteName: string): boolean {
+	const lowerName = paletteName.toLowerCase();
+	const activePattern = getActiveWarningPattern();
+
+	// Warning-YL* / Warning-OR* のパターンチェック
+	if (lowerName.includes("warning-yl")) {
+		// 黄色パターンが選択されている場合のみ含める
+		return activePattern === "yellow";
+	}
+	if (lowerName.includes("warning-or")) {
+		// オレンジパターンが選択されている場合のみ含める
+		return activePattern === "orange";
+	}
+
+	// Warning以外は常に含める
+	return true;
+}
+
+/**
  * エクスポート関連DOM要素
  */
 export interface ExportElements {
@@ -54,6 +93,9 @@ export function generateExportColors(): Record<string, Color> {
 		state.shadesPalettes.length > 0 ? state.shadesPalettes : state.palettes;
 
 	for (const p of palettesToExport) {
+		// 警告パターンフィルタ: 選択されていないパターンはスキップ
+		if (!shouldIncludePalette(p.name)) continue;
+
 		const keyColorInput = p.keyColors[0];
 		if (!keyColorInput) continue;
 
