@@ -38,6 +38,16 @@ export interface PaletteConfig {
 	baseChromaName?: string;
 	/** DADSモード用のステップ番号（600, 800等） */
 	step?: number;
+	/**
+	 * 導出元情報（Secondary/Tertiaryパレット用）
+	 * Primaryから派生したパレットの場合に設定
+	 */
+	derivedFrom?: {
+		/** 派生元のプライマリパレットID */
+		primaryPaletteId: string;
+		/** 導出タイプ（secondary または tertiary） */
+		derivationType: "secondary" | "tertiary";
+	};
 }
 
 /**
@@ -153,8 +163,8 @@ export interface DemoState {
 	lightBackgroundColor: string;
 	/** ダーク背景色（HEX形式、デフォルト: #000000） */
 	darkBackgroundColor: string;
-	/** アクセントカラー数（2-5）。ブランド+アクセント=3-6色 */
-	accentCount: 2 | 3 | 4 | 5;
+	/** アクセントカラー数（1-3）。P+S+T+アクセント=4-6色 */
+	accentCount: 1 | 2 | 3;
 	/** セマンティックカラー設定（警告色パターン選択） */
 	semanticColorConfig: SemanticColorConfig;
 }
@@ -171,6 +181,8 @@ export interface ColorDetailModalOptions {
 		colors: Color[];
 		keyIndex: number;
 		hexValues?: string[];
+		/** 各色の表示名（カスタムキーカラー用）例: ["プライマリー", "セカンダリー", "ターシャリー"] */
+		names?: string[];
 	};
 	paletteInfo: {
 		name: string;
@@ -195,3 +207,19 @@ export type { Color } from "@/core/color";
 export type { HarmonyType } from "@/core/harmony";
 export type { CudCompatibilityMode } from "@/ui/cud-components";
 export type { ContrastIntensity } from "@/ui/style-constants";
+
+/**
+ * キーカラーから@stepサフィックスを除去してHEX値のみを返す
+ *
+ * @example
+ * stripStepSuffix("#3366cc@500") // => "#3366cc"
+ * stripStepSuffix("#3366cc")     // => "#3366cc"
+ * stripStepSuffix("")            // => ""
+ *
+ * @param keyColor - キーカラー文字列（"#hex" または "#hex@step" 形式）
+ * @returns HEX値のみの文字列
+ */
+export function stripStepSuffix(keyColor: string): string {
+	if (!keyColor) return "";
+	return keyColor.split("@")[0] ?? keyColor;
+}

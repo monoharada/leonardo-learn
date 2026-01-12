@@ -42,8 +42,14 @@ export interface HarmonyPaletteResult {
 export interface HarmonyPaletteOptions {
 	/** 背景色（コントラスト計算用） */
 	backgroundHex?: string;
-	/** アクセントカラーの数（2〜5、デフォルト2） */
-	accentCount?: 2 | 3 | 4 | 5;
+	/** アクセントカラーの数（1〜3、デフォルト1） */
+	accentCount?: 1 | 2 | 3;
+	/**
+	 * 除外するトークンID（hue-stepの形式）
+	 * P/S/Tで使用されているステップを除外するために使用
+	 * 例: ["blue-600", "blue-500", "blue-200"]
+	 */
+	excludeSteps?: string[];
 }
 
 /**
@@ -261,7 +267,7 @@ function generateComplementaryPalette(
 	const baseStep = baseCandidate.step;
 
 	// 役割に基づいて候補を選択
-	const roles = getRolesForCount("complementary", accentCount as 2 | 3 | 4 | 5);
+	const roles = getRolesForCount("complementary", accentCount as 1 | 2 | 3);
 	const selectedCandidates: ScoredCandidate[] = [];
 	const usedTokenIds = createExclusionSetWithBrandCandidate(
 		brandColorHex,
@@ -283,7 +289,7 @@ function generateComplementaryPalette(
 		}
 	}
 
-	if (selectedCandidates.length < 2) return null;
+	if (selectedCandidates.length < 1) return null;
 
 	// 明度順にソート（明るい方を先に）
 	selectedCandidates.sort((a, b) => {
@@ -337,7 +343,7 @@ function generateMultiDirectionPalette(
 	const baseStep = baseCandidate.step;
 
 	// 役割に基づいて候補を選択
-	const roles = getRolesForCount(harmonyType, accentCount as 2 | 3 | 4 | 5);
+	const roles = getRolesForCount(harmonyType, accentCount as 1 | 2 | 3);
 	const selectedCandidates: ScoredCandidate[] = [];
 	const usedTokenIds = createExclusionSetWithBrandCandidate(
 		brandColorHex,
@@ -360,7 +366,7 @@ function generateMultiDirectionPalette(
 	}
 
 	// 2色未満の場合はエラー
-	if (selectedCandidates.length < 2) return null;
+	if (selectedCandidates.length < 1) return null;
 
 	return {
 		brandColor: brandColorHex,
@@ -384,11 +390,10 @@ function generateMultiDirectionPalette(
  *
  * DADS仕様: 50=最も明るい、1200=最も暗い
  */
-const STEP_TARGETS: Record<2 | 3 | 4 | 5, number[]> = {
+const STEP_TARGETS: Record<1 | 2 | 3, number[]> = {
+	1: [600],
 	2: [200, 900],
 	3: [100, 600, 1000],
-	4: [50, 400, 700, 1100],
-	5: [50, 300, 600, 800, 1100],
 };
 
 /**
@@ -415,7 +420,7 @@ function generateMonochromaticPalette(
 	if (hueCandidates.length === 0) return null;
 
 	// ステップ目標に近い候補を選定
-	const targetSteps = STEP_TARGETS[accentCount as 2 | 3 | 4 | 5];
+	const targetSteps = STEP_TARGETS[accentCount as 1 | 2 | 3];
 	const selectedCandidates: ScoredCandidate[] = [];
 	const usedTokenIds = new Set<string>();
 
@@ -438,7 +443,7 @@ function generateMonochromaticPalette(
 		}
 	}
 
-	if (selectedCandidates.length < 2) return null;
+	if (selectedCandidates.length < 1) return null;
 
 	// 明度順にソート（明るい方を先に）
 	selectedCandidates.sort((a, b) => {
@@ -513,7 +518,7 @@ function generateShadesPalette(
 		}
 	}
 
-	if (selectedCandidates.length < 2) return null;
+	if (selectedCandidates.length < 1) return null;
 
 	// 明度順にソート（明るい方を先に）
 	selectedCandidates.sort((a, b) => {
@@ -566,7 +571,7 @@ function generateCompoundPalette(
 	const baseStep = baseCandidate.step;
 
 	// 役割に基づいて候補を選択
-	const roles = getRolesForCount("compound", accentCount as 2 | 3 | 4 | 5);
+	const roles = getRolesForCount("compound", accentCount as 1 | 2 | 3);
 	const selectedCandidates: ScoredCandidate[] = [];
 	const usedTokenIds = createExclusionSetWithBrandCandidate(
 		brandColorHex,
@@ -588,7 +593,7 @@ function generateCompoundPalette(
 		}
 	}
 
-	if (selectedCandidates.length < 2) return null;
+	if (selectedCandidates.length < 1) return null;
 
 	return {
 		brandColor: brandColorHex,
@@ -623,8 +628,8 @@ export async function getHarmonyPaletteColors(
 		};
 	}
 
-	// アクセントカラーの数（デフォルト2、範囲2-5）
-	const accentCount = Math.max(2, Math.min(5, options?.accentCount ?? 2));
+	// アクセントカラーの数（デフォルト1、範囲1-3）
+	const accentCount = Math.max(1, Math.min(3, options?.accentCount ?? 1));
 
 	// 全候補を取得
 	const candidatesResult = await generateCandidates(brandColorHex, {
@@ -707,8 +712,8 @@ export async function getAllHarmonyPalettes(
 	result?: AllHarmonyPalettesResult;
 	error?: { code: string; message: string };
 }> {
-	// アクセントカラーの数（デフォルト2、範囲2-5）
-	const accentCount = Math.max(2, Math.min(5, options?.accentCount ?? 2));
+	// アクセントカラーの数（デフォルト1、範囲1-3）
+	const accentCount = Math.max(1, Math.min(3, options?.accentCount ?? 1));
 
 	// 全候補を一度だけ取得
 	const candidatesResult = await generateCandidates(brandColorHex, {
@@ -723,7 +728,17 @@ export async function getAllHarmonyPalettes(
 		};
 	}
 
-	const candidates = candidatesResult.result.candidates;
+	// 除外ステップのセットを作成（hue-step形式: "blue-600"）
+	const excludeStepsSet = new Set(
+		options?.excludeSteps?.map((s) => s.toLowerCase()) ?? [],
+	);
+
+	// 除外ステップに含まれる候補をフィルタリング
+	// tokenId形式: "dads-blue-600" → "blue-600" として比較
+	const candidates = candidatesResult.result.candidates.filter((c) => {
+		const stepId = c.tokenId.replace(/^dads-/, "").toLowerCase();
+		return !excludeStepsSet.has(stepId);
+	});
 
 	// 各ハーモニータイプのパレットを生成
 	const result: AllHarmonyPalettesResult = {

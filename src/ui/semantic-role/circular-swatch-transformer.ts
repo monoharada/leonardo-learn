@@ -10,39 +10,25 @@
  */
 
 import { wcagContrast } from "culori";
-import type { RoleCategory, SemanticRole } from "@/core/semantic-role/types";
+import {
+	CATEGORY_SHORT_LABELS,
+	type RoleCategory,
+	SEMANTIC_SUBTYPE_LABELS,
+	type SemanticRole,
+} from "@/core/semantic-role/types";
 
 /**
  * ロール優先順位（高→低）
- * Primary > Secondary > Accent > Semantic > Link
+ * Primary > Secondary > Tertiary > Accent > Semantic > Link
  */
 export const ROLE_PRIORITY: RoleCategory[] = [
 	"primary",
 	"secondary",
+	"tertiary",
 	"accent",
 	"semantic",
 	"link",
 ];
-
-/**
- * カテゴリ別の短縮ラベルマップ
- */
-const CATEGORY_SHORT_LABELS: Record<RoleCategory, string> = {
-	primary: "P",
-	secondary: "S",
-	accent: "A",
-	semantic: "", // semanticSubTypeで決定
-	link: "L",
-};
-
-/**
- * semanticサブタイプ別の短縮ラベルマップ
- */
-const SEMANTIC_SUBTYPE_LABELS: Record<string, string> = {
-	success: "Su",
-	error: "E",
-	warning: "W",
-};
 
 /**
  * カテゴリ別のカタカナ名マップ
@@ -51,6 +37,7 @@ const SEMANTIC_SUBTYPE_LABELS: Record<string, string> = {
 const CATEGORY_KATAKANA: Record<RoleCategory, string> = {
 	primary: "プライマリ",
 	secondary: "セカンダリ",
+	tertiary: "ターシャリ",
 	accent: "アクセント",
 	semantic: "", // semanticSubTypeで決定
 	link: "リンク",

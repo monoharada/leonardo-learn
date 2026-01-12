@@ -1532,14 +1532,90 @@
 
 .dads-harmony-header {
 	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: 2rem;
+	flex-direction: column;
+	gap: 0.75rem;
 	margin-bottom: 1.5rem;
 	padding: 1.5rem;
 	background: var(--color-neutral-white);
 	border-radius: var(--border-radius-8);
-	box-shadow: var(--shadow-subtle);
+}
+
+/* メインコントロール行（左右グループを横並び） */
+.dads-harmony-header__controls-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 2rem;
+	width: 100%;
+}
+
+/* UX改善: 左右グループによる論理的配置 */
+.dads-harmony-header__left-group {
+	display: flex;
+	align-items: center;
+	gap: 1rem;
+}
+
+.dads-harmony-header__right-group {
+	display: flex;
+	align-items: center;
+	gap: 1.5rem;
+}
+
+/* パレット色数ラジオボタングループ */
+.dads-harmony-header__accent-count {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+}
+
+.dads-harmony-header__accent-count .dads-label {
+	margin-bottom: 0;
+	white-space: nowrap;
+}
+
+/* セグメンテッドコントロール（パレット色数選択用） */
+.dads-segmented-control {
+	display: inline-flex;
+	border: 1px solid var(--color-neutral-solid-gray-300);
+	border-radius: var(--border-radius-8);
+	overflow: hidden;
+}
+
+.dads-segmented-control .dads-radio-label {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0.5rem 0.75rem;
+	font-size: var(--font-size-14);
+	cursor: pointer;
+	background: var(--color-neutral-white);
+	border-left: 1px solid var(--color-neutral-solid-gray-300);
+	margin-left: -1px;
+	transition: background-color 0.15s ease;
+	gap: 0;
+}
+
+.dads-segmented-control .dads-radio-label:first-child {
+	border-left: none;
+	margin-left: 0;
+}
+
+.dads-segmented-control .dads-radio-label:hover {
+	background: var(--color-neutral-solid-gray-50);
+}
+
+.dads-segmented-control .dads-radio-label--selected,
+.dads-segmented-control .dads-radio-label:has(.dads-radio-input:checked) {
+	background: var(--color-neutral-solid-gray-900);
+	color: var(--color-neutral-white);
+}
+
+.dads-radio-input {
+	position: absolute;
+	opacity: 0;
+	width: 0;
+	height: 0;
 }
 
 .dads-harmony-header__title {
@@ -1579,6 +1655,28 @@
 .dads-input--color::-webkit-color-swatch {
 	border: none;
 	border-radius: var(--border-radius-4);
+}
+
+/* 背景色セレクター */
+.dads-harmony-header__bg-color {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+}
+
+.dads-harmony-header__bg-color .dads-label {
+	margin-bottom: 0;
+	white-space: nowrap;
+}
+
+.dads-harmony-header__bg-color .dads-form-row {
+	gap: 0.5rem;
+}
+
+.dads-input--bg-color {
+	width: 90px;
+	font-family: var(--font-family-mono, monospace);
+	font-size: var(--font-size-14);
 }
 
 /* ============================================
@@ -2348,6 +2446,121 @@
 	align-items: center;
 	justify-content: center;
 	gap: 4px;
+	cursor: default;
+	transition: transform 0.15s ease;
+}
+
+.dads-swatch--primary:hover {
+	transform: scale(1.05);
+}
+
+/* DADSスケール内の円形プライマリースウォッチ */
+.dads-scale .dads-swatch[data-brand-primary="true"] {
+	border-radius: 50%;
+}
+
+/* ============================================
+ * Key Colors Section (P/S/T)
+ * シェードビューの円形キーカラースウォッチ
+ * DADSに含まれない独自色のみ表示
+ * ============================================ */
+
+.dads-key-colors-section {
+	margin-bottom: 1.5rem;
+	padding-bottom: 1rem;
+	border-bottom: 1px solid var(--color-neutral-solid-gray-200);
+}
+
+.dads-key-colors-container {
+	display: flex;
+	gap: 1.5rem;
+	flex-wrap: wrap;
+	align-items: flex-start;
+}
+
+/* 円形キーカラースウォッチ */
+.dads-key-color-swatch {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 4px;
+	width: 100px;
+	height: 100px;
+	border: 3px solid var(--color-neutral-solid-gray-200);
+	border-radius: 50%;
+	cursor: pointer;
+	transition:
+		transform 0.15s ease,
+		box-shadow 0.15s ease;
+}
+
+.dads-key-color-swatch:hover {
+	transform: scale(1.08);
+	box-shadow: var(--elevation-2);
+}
+
+.dads-key-color-swatch:focus-visible {
+	outline: 4px solid var(--color-neutral-black);
+	outline-offset: 2px;
+}
+
+.dads-key-color-swatch__label {
+	font-size: var(--font-size-14);
+	font-weight: var(--font-weight-700);
+	text-align: center;
+}
+
+.dads-key-color-swatch__hex {
+	font-size: var(--font-size-11);
+	font-family: var(--font-family-mono, monospace);
+	text-align: center;
+}
+
+/* ============================================
+ * Background Color Selector
+ * Issue #37: 背景色セレクターの簡素化
+ * ============================================ */
+
+.background-color-selector-wrapper {
+	margin-bottom: 16px;
+}
+
+.background-color-selector {
+	display: flex;
+	flex-direction: row;
+	gap: 24px;
+	padding: 8px 16px;
+	background: var(--color-neutral-solid-gray-50);
+	border-radius: var(--border-radius-8);
+}
+
+.background-color-selector__section {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	flex: 1;
+}
+
+.background-color-selector__label {
+	font-size: var(--font-size-14);
+	font-weight: 600;
+	color: var(--color-neutral-solid-gray-700);
+}
+
+.background-color-selector__inputs {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	gap: 12px;
+}
+
+.background-color-selector__color-picker {
+	width: 48px;
+	height: 48px;
+	padding: 0;
+	border: 2px solid var(--color-neutral-solid-gray-200);
+	border-radius: var(--border-radius-8);
 	cursor: pointer;
 	transition:
 		transform 0.15s ease,
@@ -3963,4 +4176,30 @@
 
 .dads-token-table__cud {
 	/* CUDバッジセル */
+}
+
+/* ============================================
+ * Contrast Warning Component
+ * WCAG 4.5:1 未満のコントラスト警告
+ * ============================================ */
+
+.dads-contrast-warning {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0.5rem 0.75rem;
+	background: var(--color-primitive-yellow-50, #fffbeb);
+	border: 1px solid var(--color-primitive-yellow-300, #fcd34d);
+	border-radius: var(--border-radius-4, 4px);
+	font-size: var(--font-size-12, 0.75rem);
+	color: var(--color-primitive-yellow-900, #78350f);
+}
+
+.dads-contrast-warning__icon {
+	flex-shrink: 0;
+	font-size: 1rem;
+}
+
+.dads-contrast-warning__text {
+	line-height: 1.4;
 }

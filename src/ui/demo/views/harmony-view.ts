@@ -16,13 +16,18 @@ import type { HarmonyFilterType } from "@/core/accent/harmony-filter-calculator"
 import { filterByHarmonyType } from "@/core/accent/harmony-filter-service";
 import { getAllHarmonyPalettes } from "@/core/accent/harmony-palette-generator";
 import { Color } from "@/core/color";
+import { deriveSecondaryTertiary } from "@/core/key-color-derivation";
 import {
 	findDadsColorByHex,
 	getDadsColorsByHue,
 	getDadsHueFromDisplayName,
 	loadDadsTokens,
 } from "@/core/tokens/dads-data-provider";
-import { getRandomDadsColor } from "@/core/tokens/random-color-picker";
+import {
+	checkContrastCompliance,
+	getRandomDadsColor,
+} from "@/core/tokens/random-color-picker";
+import type { DadsToken } from "@/core/tokens/types";
 import { toOklch } from "@/utils/color-space";
 import { AccentCandidateGrid } from "../../accent-selector/accent-candidate-grid";
 import { HarmonyFilterUI } from "../../accent-selector/harmony-filter-ui";
@@ -40,6 +45,7 @@ import {
 	loadBrandColorHistory,
 	persistBrandColorHistory,
 } from "../brand-color-history";
+import { HUE_DISPLAY_NAMES } from "../constants";
 import {
 	ALL_HARMONY_TYPES,
 	createHarmonyStateManager,
@@ -48,8 +54,33 @@ import {
 	type HarmonyStateManager,
 } from "../harmony-state-manager";
 import { createPalettesFromHarmonyColors } from "../palette-generator";
-import { state } from "../state";
-import type { ColorDetailModalOptions } from "../types";
+import {
+	persistBackgroundColors,
+	state,
+	validateBackgroundColor,
+} from "../state";
+import { type ColorDetailModalOptions, stripStepSuffix } from "../types";
+
+/** デフォルト背景色（クリーンアップ用） */
+const DEFAULT_BACKGROUND_COLOR = "#ffffff";
+
+/**
+ * harmony-viewが適用した背景色をリセットする
+ *
+ * ビュー切替時にbody, .dads-main, #main-contentの背景色を
+ * デフォルト値に戻す。navigation.tsから呼び出される。
+ */
+export function cleanupHarmonyViewBackground(): void {
+	const mainContent = document.getElementById("main-content");
+	if (mainContent) {
+		mainContent.style.backgroundColor = DEFAULT_BACKGROUND_COLOR;
+	}
+	const dadsMain = document.querySelector(".dads-main");
+	if (dadsMain instanceof HTMLElement) {
+		dadsMain.style.backgroundColor = DEFAULT_BACKGROUND_COLOR;
+	}
+	document.body.style.backgroundColor = DEFAULT_BACKGROUND_COLOR;
+}
 
 /**
  * アクセント選定ビューのコールバック
@@ -78,8 +109,8 @@ interface ViewState {
 	filteredCandidates: ScoredCandidate[];
 	isLoading: boolean;
 	error: string | null;
-	/** アクセントカラーの数（2-5、デフォルト2）ブランド+アクセント=3-6色 */
-	accentCount: 2 | 3 | 4 | 5;
+	/** アクセントカラーの数（1-3、デフォルト1）P+S+T+アクセント=4-6色 */
+	accentCount: 1 | 2 | 3;
 	/** ハーモニー状態管理（セッション記憶対応） */
 	harmonyManager: HarmonyStateManager;
 	/** Coolorsモードを使用するかどうか */
@@ -91,6 +122,12 @@ interface ViewState {
  * ビューの再レンダリング間で状態を保持する
  */
 let sharedHarmonyManager: HarmonyStateManager | null = null;
+
+/**
+ * プレビューリクエストの識別子
+ * レースコンディション防止のため、古いリクエストの結果を破棄する
+ */
+let currentPreviewRequestId = 0;
 
 /**
  * 共有ハーモニーマネージャーを取得または作成する
@@ -111,20 +148,78 @@ function getSharedHarmonyManager(): HarmonyStateManager {
  * @param harmonyType 選択されたハーモニータイプ
  * @param colors プレビュー色配列 [brandColor, accent1, accent2, ...]
  * @param candidates アクセント候補（DADSメタデータ抽出用）
+ * @param dadsTokens DADSトークン配列（Secondary/Tertiary導出用）
  */
 function syncStatePalettes(
 	harmonyType: HarmonyFilterType,
 	colors: string[],
 	candidates?: ScoredCandidate[],
+	dadsTokens?: DadsToken[],
 ): void {
+	// 現在の背景色を取得（ライトモードのデフォルト）
+	const backgroundColor = state.lightBackgroundColor || "#ffffff";
 	state.palettes = createPalettesFromHarmonyColors(
 		harmonyType,
 		colors,
 		candidates,
+		backgroundColor,
+		dadsTokens,
 	);
 	if (state.palettes.length > 0 && state.palettes[0]) {
 		state.activeId = state.palettes[0].id;
 	}
+}
+
+/**
+ * P/S/Tで使用されるステップを計算し、除外リストを作成する
+ *
+ * brandColorからSecondary/Tertiaryを導出し、
+ * それらのhue-step（例: "blue-600"）を除外リストとして返す。
+ *
+ * @param brandColorHex ブランドカラー（HEX形式）
+ * @param dadsTokens DADSトークン配列
+ * @returns 除外するステップの配列（例: ["blue-600", "blue-500", "blue-200"]）
+ */
+function computeExcludeSteps(
+	brandColorHex: string,
+	dadsTokens: DadsToken[],
+): string[] {
+	const excludeSteps: string[] = [];
+
+	// プライマリのDADS情報を取得
+	const primaryDadsInfo = findDadsColorByHex(dadsTokens, brandColorHex);
+	if (!primaryDadsInfo) {
+		// DADSトークンでない場合は除外なし
+		return [];
+	}
+
+	// プライマリのステップを除外リストに追加
+	excludeSteps.push(`${primaryDadsInfo.hue}-${primaryDadsInfo.scale}`);
+
+	// Secondary/Tertiaryを導出
+	const backgroundColor = state.lightBackgroundColor || "#ffffff";
+	const baseChromaName =
+		HUE_DISPLAY_NAMES[primaryDadsInfo.hue] || primaryDadsInfo.hue;
+
+	const derived = deriveSecondaryTertiary({
+		primaryColor: brandColorHex,
+		backgroundColor,
+		dadsMode: {
+			tokens: dadsTokens,
+			baseChromaName,
+			primaryStep: primaryDadsInfo.scale,
+		},
+	});
+
+	// Secondary/Tertiaryのステップを除外リストに追加
+	if (derived.secondary.step) {
+		excludeSteps.push(`${primaryDadsInfo.hue}-${derived.secondary.step}`);
+	}
+	if (derived.tertiary.step) {
+		excludeSteps.push(`${primaryDadsInfo.hue}-${derived.tertiary.step}`);
+	}
+
+	return excludeSteps;
 }
 
 /**
@@ -183,7 +278,22 @@ export function renderAccentSelectionView(
 	// コンテナをクリア
 	container.replaceChildren();
 
-	// ヘッダーセクション（Brand Color入力）
+	// 背景色をコンテナ全体と親要素に適用
+	const bgColor = state.lightBackgroundColor || "#ffffff";
+	container.style.backgroundColor = bgColor;
+
+	// 親要素にも背景色を適用（#main-content, .dads-main, body）
+	const mainContent = document.getElementById("main-content");
+	if (mainContent) {
+		mainContent.style.backgroundColor = bgColor;
+	}
+	const dadsMain = document.querySelector(".dads-main");
+	if (dadsMain instanceof HTMLElement) {
+		dadsMain.style.backgroundColor = bgColor;
+	}
+	document.body.style.backgroundColor = bgColor;
+
+	// ヘッダーセクション（プライマリーカラー入力）
 	const header = createHeader(inputHex, container, callbacks, viewState);
 	container.appendChild(header);
 
@@ -262,22 +372,22 @@ function renderCoolorsMode(
 	viewState: ViewState,
 	callbacks: AccentSelectionViewCallbacks,
 ): void {
-	// レイアウトコンテナ
 	const layout = document.createElement("div");
 	layout.className = "coolors-layout";
+	const bgColor = state.lightBackgroundColor || "#ffffff";
+	layout.style.backgroundColor = bgColor;
 	container.appendChild(layout);
 
-	// メインエリア
 	const mainArea = document.createElement("div");
 	mainArea.className = "coolors-layout__main";
+	mainArea.style.backgroundColor = "transparent";
 	layout.appendChild(mainArea);
 
-	// サイドバーエリア
 	const sidebarArea = document.createElement("div");
 	sidebarArea.className = "coolors-layout__sidebar";
+	sidebarArea.style.backgroundColor = "transparent";
 	layout.appendChild(sidebarArea);
 
-	// ローディング表示
 	const loadingEl = document.createElement("div");
 	loadingEl.className = "accent-selection-loading";
 	loadingEl.innerHTML = `
@@ -299,13 +409,27 @@ async function loadCoolorsPreviews(
 	sidebarArea: HTMLElement,
 	callbacks: AccentSelectionViewCallbacks,
 ): Promise<void> {
-	const { harmonyManager, brandColorHex, accentCount } = viewState;
+	// リクエストIDを発行（古いリクエストの結果を破棄するため）
+	const requestId = ++currentPreviewRequestId;
 
-	// 全ハーモニータイプのパレットを取得
-	const result = await getAllHarmonyPalettes(brandColorHex, { accentCount });
+	const { harmonyManager, brandColorHex, accentCount } = viewState;
 
 	// DADSトークンをキャッシュ（プライマリーカラー検索用）
 	const dadsTokensCache = await loadDadsTokens();
+
+	// P/S/Tで使用されるステップを特定して除外リストを作成
+	const excludeSteps = computeExcludeSteps(brandColorHex, dadsTokensCache);
+
+	// 全ハーモニータイプのパレットを取得（P/S/Tステップを除外）
+	const result = await getAllHarmonyPalettes(brandColorHex, {
+		accentCount,
+		excludeSteps,
+	});
+
+	// 古いリクエストの場合は処理を中断（レースコンディション防止）
+	if (requestId !== currentPreviewRequestId) {
+		return;
+	}
 
 	// ローディング表示を削除
 	const loadingEl = mainArea.querySelector(".accent-selection-loading");
@@ -334,19 +458,30 @@ async function loadCoolorsPreviews(
 	// ハーモニータイプを取得（ユーザー選択済みならそれ、未選択ならランダム）
 	const selectedType = harmonyManager.getOrSelectHarmony();
 	const currentColors = harmonyManager.getPreviewColors(selectedType) ?? [];
-
-	// トークン名を生成
-	const tokenNames = generateTokenNames(currentColors.length);
 	const currentCandidates = paletteCandidatesMap.get(selectedType) ?? [];
-	const primitiveNames = generatePrimitiveNames(
+
+	// ★ 先にグローバル状態を同期（Secondary/Tertiaryを含むstate.palettesを生成）
+	// パレットビュー・アクセシビリティビューがこのデータを参照する
+	// DADSトークンを渡してSecondary/TertiaryもDADSステップから選択
+	syncStatePalettes(
+		selectedType,
 		currentColors,
 		currentCandidates,
 		dadsTokensCache,
 	);
 
+	// state.palettesから表示用データを取得（Secondary/Tertiaryを含む）
+	// keyColorsには@step suffix（例: "#3366cc@500"）が含まれる可能性があるため除去
+	const displayColors = state.palettes.map((p) =>
+		stripStepSuffix(p.keyColors[0] ?? ""),
+	);
+	const tokenNames = state.palettes.map((p) => p.name);
+	// state.palettesからプリミティブ名を生成（Secondary/Tertiaryも含む）
+	const primitiveNames = generatePrimitiveNamesFromPalettes();
+
 	// メイン表示を作成
 	const mainDisplay = createCoolorsPaletteDisplay({
-		colors: currentColors,
+		colors: displayColors,
 		tokenNames,
 		primitiveNames,
 		onColorClick: createColorClickHandler(
@@ -358,14 +493,6 @@ async function loadCoolorsPreviews(
 	});
 	mainArea.appendChild(mainDisplay);
 
-	// ★ 初回ロード時にグローバル状態を同期
-	// パレットビュー・アクセシビリティビューがこのデータを参照する
-	syncStatePalettes(
-		selectedType,
-		currentColors,
-		paletteCandidatesMap.get(selectedType),
-	);
-
 	// サイドバーを作成
 	const sidebar = createHarmonySidebar({
 		selectedType,
@@ -376,18 +503,25 @@ async function loadCoolorsPreviews(
 
 			// メイン表示を更新
 			const newColors = harmonyManager.getPreviewColors(type) ?? [];
-			const newTokenNames = generateTokenNames(newColors.length);
 			const newCandidates = paletteCandidatesMap.get(type) ?? [];
-			const newPrimitiveNames = generatePrimitiveNames(
-				newColors,
-				newCandidates,
-				dadsTokensCache,
+
+			// ★ 先にグローバル状態を同期（Secondary/Tertiaryを含むstate.palettesを生成）
+			// DADSトークンを渡してSecondary/TertiaryもDADSステップから選択
+			syncStatePalettes(type, newColors, newCandidates, dadsTokensCache);
+
+			// state.palettesから表示用データを取得（Secondary/Tertiaryを含む）
+			// keyColorsには@step suffix（例: "#3366cc@500"）が含まれる可能性があるため除去
+			const newDisplayColors = state.palettes.map((p) =>
+				stripStepSuffix(p.keyColors[0] ?? ""),
 			);
+			const newTokenNames = state.palettes.map((p) => p.name);
+			// state.palettesからプリミティブ名を生成（Secondary/Tertiaryも含む）
+			const newPrimitiveNames = generatePrimitiveNamesFromPalettes();
 
 			// 既存のメイン表示を削除して再作成
 			mainArea.replaceChildren();
 			const newMainDisplay = createCoolorsPaletteDisplay({
-				colors: newColors,
+				colors: newDisplayColors,
 				tokenNames: newTokenNames,
 				primitiveNames: newPrimitiveNames,
 				onColorClick: createColorClickHandler(
@@ -398,10 +532,6 @@ async function loadCoolorsPreviews(
 				),
 			});
 			mainArea.appendChild(newMainDisplay);
-
-			// ★ サイドバー選択時にグローバル状態を同期
-			// パレットビュー・アクセシビリティビューがこのデータを参照する
-			syncStatePalettes(type, newColors, paletteCandidatesMap.get(type));
 
 			// サイドバーも更新（選択状態を反映）
 			sidebarArea.replaceChildren();
@@ -436,68 +566,35 @@ async function loadCoolorsPreviews(
 function createSidebarSection(sidebar: HTMLElement): HTMLElement {
 	const section = document.createElement("div");
 	section.className = "harmony-sidebar-section";
+	section.style.backgroundColor = "transparent";
 
-	// ハーモニー見出し
 	const heading = document.createElement("h3");
 	heading.className = "harmony-sidebar-section__heading";
 	heading.textContent = "ハーモニー";
 	section.appendChild(heading);
 
-	// サイドバー
+	sidebar.style.backgroundColor = "transparent";
 	section.appendChild(sidebar);
 
 	return section;
 }
 
 /**
- * トークン名を生成する（表示用）
- */
-function generateTokenNames(colorCount: number): string[] {
-	const names = ["プライマリーカラー"];
-	for (let i = 1; i < colorCount; i++) {
-		names.push(`アクセントカラー ${i}`);
-	}
-	return names;
-}
-
-/**
- * DADSプリミティブトークン名を生成する
+ * state.palettesからプリミティブトークン名を生成する
  *
- * @param colors パレットの色配列
- * @param candidates ScoredCandidate配列
- * @param dadsTokensCache DADSトークンのキャッシュ（プライマリーカラー検索用）
- * @returns プリミティブトークン名の配列（例: "green-1200"）
+ * Secondary/Tertiaryを含む全パレットに対して、
+ * baseChromaNameとstepからプリミティブ名を生成する。
+ *
+ * @returns プリミティブトークン名の配列（例: "blue-600", "blue-500", "blue-200"）
  */
-function generatePrimitiveNames(
-	colors: string[],
-	candidates: ScoredCandidate[],
-	dadsTokensCache?: Awaited<ReturnType<typeof loadDadsTokens>>,
-): string[] {
-	return colors.map((hex, index) => {
-		// プライマリー（index === 0）の場合、DADSトークンから検索
-		if (index === 0) {
-			if (!dadsTokensCache) return "";
-			const found = findDadsColorByHex(dadsTokensCache, hex);
-			if (!found) return "";
-			// "blue-600" 形式で返す
-			return `${found.hue}-${found.scale}`;
+function generatePrimitiveNamesFromPalettes(): string[] {
+	return state.palettes.map((palette) => {
+		if (!palette.baseChromaName || !palette.step) {
+			return "";
 		}
-
-		// HEXから対応するScoredCandidateを検索
-		const candidate = candidates.find(
-			(c) => c.hex.toLowerCase() === hex.toLowerCase(),
-		);
-		if (!candidate) return "";
-
-		// dadsSourceName（例: "Green 1200"）からプリミティブ形式に変換
-		// "Green 1200" → "green-1200"
-		// "Light Blue 600" → "light-blue-600"
-		const match = candidate.dadsSourceName.match(/^(.+?)\s+(\d+)$/);
-		if (!match || !match[1] || !match[2]) return "";
-
-		const hueName = match[1].toLowerCase().replace(/\s+/g, "-");
-		const step = match[2];
-		return `${hueName}-${step}`;
+		// "Blue" → "blue", "Light Blue" → "light-blue"
+		const hueLower = palette.baseChromaName.toLowerCase().replace(/\s+/g, "-");
+		return `${hueLower}-${palette.step}`;
 	});
 }
 
@@ -656,7 +753,7 @@ function createColorClickHandler(
 async function loadCardPreviews(
 	cards: HarmonyTypeCard[],
 	brandColorHex: string,
-	accentCount: 2 | 3 | 4 | 5 = 2,
+	accentCount: 1 | 2 | 3 = 1,
 ): Promise<void> {
 	// 全ハーモニータイプのパレットを取得（accentCountを渡す）
 	const result = await getAllHarmonyPalettes(brandColorHex, { accentCount });
@@ -770,13 +867,13 @@ function createHeader(
 	const header = document.createElement("div");
 	header.className = "dads-harmony-header";
 
-	// Brand Color入力
+	// プライマリーカラー入力
 	const colorInput = document.createElement("div");
 	colorInput.className = "dads-harmony-header__input";
 
 	const colorLabel = document.createElement("label");
 	colorLabel.className = "dads-label";
-	colorLabel.textContent = "Brand Color";
+	colorLabel.textContent = "プライマリーカラー";
 	colorLabel.htmlFor = "harmony-color-input";
 
 	const inputRow = document.createElement("div");
@@ -880,7 +977,9 @@ function createHeader(
 			const randomHarmonyType = getRandomHarmonyType();
 			viewState.harmonyManager.selectHarmony(randomHarmonyType);
 
-			const randomHex = await getRandomDadsColor();
+			// 背景色に対してWCAG AA（4.5:1）以上のコントラストを持つ色のみを候補とする
+			const backgroundHex = state.lightBackgroundColor || "#ffffff";
+			const randomHex = await getRandomDadsColor({ backgroundHex });
 			updateColor(randomHex, "picker");
 		} catch (error) {
 			console.error("Failed to get random color:", error);
@@ -945,7 +1044,7 @@ function createHeader(
 		try {
 			const { hex, accentCount } = JSON.parse(value) as {
 				hex: string;
-				accentCount: 2 | 3 | 4 | 5;
+				accentCount: 1 | 2 | 3;
 			};
 
 			// アクセント数を更新
@@ -981,63 +1080,227 @@ function createHeader(
 	historyContainer.appendChild(historySelect);
 	historyContainer.appendChild(clearButton);
 
-	// 要素の組み立て
+	// コントラスト警告要素
+	const contrastWarning = document.createElement("div");
+	contrastWarning.className = "dads-contrast-warning";
+	contrastWarning.style.display = "none";
+	contrastWarning.dataset.testid = "contrast-warning";
+
+	/**
+	 * コントラスト警告を更新する
+	 * ユーザー入力の場合のみ警告を表示（4.5:1未満）
+	 */
+	const updateContrastWarning = (hex: string) => {
+		const backgroundHex = state.lightBackgroundColor || "#ffffff";
+		const { ratio, isCompliant } = checkContrastCompliance(hex, backgroundHex);
+		const formattedRatio = ratio.toFixed(2);
+
+		if (!isCompliant) {
+			contrastWarning.innerHTML = `
+				<span class="dads-contrast-warning__icon">⚠️</span>
+				<span class="dads-contrast-warning__text">
+					プライマリーカラーのコントラスト比が${formattedRatio}:1です。（推奨: 4.5:1以上）
+				</span>
+			`;
+			contrastWarning.style.display = "flex";
+		} else {
+			contrastWarning.style.display = "none";
+		}
+	};
+
+	// 初期表示時にコントラストをチェック
+	updateContrastWarning(inputHex);
+
+	// 要素の組み立て（UX改善: タスクフロー順に配置）
+	// プライマリーカラー入力行（hex + picker のみ）
 	inputRow.appendChild(colorText);
 	inputRow.appendChild(colorPicker);
-	inputRow.appendChild(randomButton);
-	inputRow.appendChild(historyContainer);
 	colorInput.appendChild(colorLabel);
 	colorInput.appendChild(inputRow);
-	header.appendChild(colorInput);
+	// contrastWarning は下の行に配置するため、ここでは追加しない
 
-	// アクセントカラー数選択プルダウン
+	// 左グループ（コントラスト関連: 背景色 → プライマリー → ランダム）
+	const leftGroup = document.createElement("div");
+	leftGroup.className = "dads-harmony-header__left-group";
+
+	// 右グループ（設定項目: 履歴 → パレット色数）
+	const rightGroup = document.createElement("div");
+	rightGroup.className = "dads-harmony-header__right-group";
+
+	// アクセントカラー数選択（ラジオボタン）
 	const accentCountInput = document.createElement("div");
 	accentCountInput.className = "dads-harmony-header__accent-count";
 
-	const accentCountLabel = document.createElement("label");
+	const accentCountLabel = document.createElement("span");
 	accentCountLabel.className = "dads-label";
 	accentCountLabel.textContent = "パレット色数";
-	accentCountLabel.htmlFor = "accent-count-select";
 
-	const accentCountSelect = document.createElement("select");
-	accentCountSelect.id = "accent-count-select";
-	accentCountSelect.dataset.testid = "accent-count-select";
-	accentCountSelect.className = "dads-select";
+	const radioGroup = document.createElement("div");
+	radioGroup.className = "dads-segmented-control";
+	radioGroup.setAttribute("role", "radiogroup");
+	radioGroup.setAttribute("aria-label", "パレット色数");
+	radioGroup.dataset.testid = "accent-count-radio-group";
 
-	// 3〜6色（アクセント2〜5 + ブランド1）
-	const options = [
-		{ value: 2, label: "3色パレット" },
-		{ value: 3, label: "4色パレット" },
-		{ value: 4, label: "5色パレット" },
-		{ value: 5, label: "6色パレット" },
+	// 4〜6色（P+S+T + アクセント1〜3）
+	const radioOptions = [
+		{ value: 1, label: "4色" },
+		{ value: 2, label: "5色" },
+		{ value: 3, label: "6色" },
 	];
 
-	for (const opt of options) {
-		const option = document.createElement("option");
-		option.value = String(opt.value);
-		option.textContent = opt.label;
+	for (const opt of radioOptions) {
+		const radioLabel = document.createElement("label");
+		radioLabel.className = "dads-radio-label";
 		if (opt.value === viewState.accentCount) {
-			option.selected = true;
+			radioLabel.classList.add("dads-radio-label--selected");
 		}
-		accentCountSelect.appendChild(option);
+
+		const radioInput = document.createElement("input");
+		radioInput.type = "radio";
+		radioInput.name = "accent-count";
+		radioInput.value = String(opt.value);
+		radioInput.className = "dads-radio-input";
+		radioInput.checked = opt.value === viewState.accentCount;
+		radioInput.dataset.testid = `accent-count-${opt.value}`;
+
+		radioInput.addEventListener("change", (e) => {
+			const value = Number.parseInt((e.target as HTMLInputElement).value, 10) as
+				| 1
+				| 2
+				| 3;
+			state.accentCount = value;
+			viewState.accentCount = value;
+			renderAccentSelectionView(container, viewState.brandColorHex, callbacks);
+		});
+
+		const labelText = document.createElement("span");
+		labelText.textContent = opt.label;
+
+		radioLabel.appendChild(radioInput);
+		radioLabel.appendChild(labelText);
+		radioGroup.appendChild(radioLabel);
 	}
 
-	// プルダウン変更時のハンドラ
-	accentCountSelect.addEventListener("change", (e) => {
-		const value = Number.parseInt((e.target as HTMLSelectElement).value, 10) as
-			| 2
-			| 3
-			| 4
-			| 5;
-		state.accentCount = value; // グローバル状態に保存
-		viewState.accentCount = value;
-		// ビュー全体を再レンダリング
+	accentCountInput.appendChild(accentCountLabel);
+	accentCountInput.appendChild(radioGroup);
+	// 右グループに追加（後で履歴の後に配置）
+
+	// 背景色セレクター
+	const bgColorInput = document.createElement("div");
+	bgColorInput.className = "dads-harmony-header__bg-color";
+
+	const bgColorLabel = document.createElement("label");
+	bgColorLabel.className = "dads-label";
+	bgColorLabel.textContent = "背景色";
+	bgColorLabel.htmlFor = "background-color-input";
+
+	const bgInputRow = document.createElement("div");
+	bgInputRow.className = "dads-form-row";
+
+	// 背景色テキスト入力
+	const bgColorText = document.createElement("input");
+	bgColorText.type = "text";
+	bgColorText.id = "background-color-input";
+	bgColorText.className = "dads-input dads-input--bg-color";
+	bgColorText.value = state.lightBackgroundColor || "#ffffff";
+	bgColorText.placeholder = "#ffffff";
+	bgColorText.dataset.testid = "background-color-input";
+
+	// 背景色カラーピッカー
+	const bgColorPicker = document.createElement("input");
+	bgColorPicker.type = "color";
+	bgColorPicker.id = "background-color-picker";
+	bgColorPicker.className = "dads-input dads-input--color";
+	bgColorPicker.value = state.lightBackgroundColor || "#ffffff";
+	bgColorPicker.dataset.testid = "background-color-picker";
+
+	/**
+	 * 背景色を更新する
+	 */
+	const updateBackgroundColor = (hex: string) => {
+		// バリデーション
+		const validation = validateBackgroundColor(hex);
+		if (!validation.valid || !validation.hex) {
+			return;
+		}
+
+		const normalizedHex = validation.hex;
+
+		// グローバル状態を更新
+		state.lightBackgroundColor = normalizedHex;
+
+		// 入力フィールドを同期
+		bgColorText.value = normalizedHex;
+		bgColorPicker.value = normalizedHex;
+
+		// localStorageに保存
+		persistBackgroundColors(normalizedHex, state.darkBackgroundColor);
+
+		// コントラスト警告を更新
+		updateContrastWarning(viewState.brandColorHex);
+
+		// ビュー全体を再レンダリング（パレット色の再計算のため）
 		renderAccentSelectionView(container, viewState.brandColorHex, callbacks);
+	};
+
+	// 背景色カラーピッカーのイベント
+	bgColorPicker.addEventListener("input", (e) => {
+		e.stopPropagation();
+		const hex = (e.target as HTMLInputElement).value;
+		bgColorText.value = hex;
 	});
 
-	accentCountInput.appendChild(accentCountLabel);
-	accentCountInput.appendChild(accentCountSelect);
-	header.appendChild(accentCountInput);
+	bgColorPicker.addEventListener("change", (e) => {
+		e.stopPropagation();
+		updateBackgroundColor((e.target as HTMLInputElement).value);
+	});
+
+	bgColorPicker.addEventListener("click", (e) => {
+		e.stopPropagation();
+	});
+
+	bgColorPicker.addEventListener("mousedown", (e) => {
+		e.stopPropagation();
+	});
+
+	// 背景色テキスト入力のイベント
+	bgColorText.addEventListener("input", (e) => {
+		const value = (e.target as HTMLInputElement).value;
+		const validation = validateBackgroundColor(value);
+		if (validation.valid && validation.hex) {
+			bgColorPicker.value = validation.hex;
+		}
+	});
+
+	bgColorText.addEventListener("change", (e) => {
+		const value = (e.target as HTMLInputElement).value;
+		updateBackgroundColor(value);
+	});
+
+	bgInputRow.appendChild(bgColorText);
+	bgInputRow.appendChild(bgColorPicker);
+	bgColorInput.appendChild(bgColorLabel);
+	bgColorInput.appendChild(bgInputRow);
+
+	// 最終組み立て（UX改善: タスクフロー順）
+	// 左グループ: 背景色 → プライマリーカラー → ランダム
+	leftGroup.appendChild(bgColorInput);
+	leftGroup.appendChild(colorInput);
+	leftGroup.appendChild(randomButton);
+
+	// 右グループ: パレット色数 → 履歴（履歴は最も使用頻度が低いため右端）
+	rightGroup.appendChild(accentCountInput);
+	rightGroup.appendChild(historyContainer);
+
+	// メインコントロール行（左右グループを横並び）
+	const controlsRow = document.createElement("div");
+	controlsRow.className = "dads-harmony-header__controls-row";
+	controlsRow.appendChild(leftGroup);
+	controlsRow.appendChild(rightGroup);
+
+	// ヘッダーに追加（2行構成: コントロール行 + アラート行）
+	header.appendChild(controlsRow);
+	header.appendChild(contrastWarning);
 
 	return header;
 }

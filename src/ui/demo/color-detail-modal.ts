@@ -316,12 +316,19 @@ interface PaletteInfo {
 
 /**
  * トークン情報を計算する
+ *
+ * @param _color 色
+ * @param selectedIndex 選択されたインデックス
+ * @param paletteInfo パレット情報
+ * @param keyIndex キーインデックス
+ * @param scaleNames カラーストリップの各色の名前配列（カスタムキーカラー用）
  */
 function calculateTokenInfo(
 	_color: Color,
 	selectedIndex: number,
 	paletteInfo: PaletteInfo,
 	keyIndex = 0,
+	scaleNames?: string[],
 ): {
 	tokenName: string;
 	step: number;
@@ -329,6 +336,19 @@ function calculateTokenInfo(
 } {
 	const tokenIndex = selectedIndex >= 0 ? selectedIndex : keyIndex;
 	const step = STEP_NAMES[tokenIndex] ?? 600;
+
+	// カスタムキーカラー（names配列あり）の場合はトークン名を空にする
+	if (scaleNames && scaleNames.length > 0) {
+		// 選択されたインデックスに対応する名前を使用
+		const nameIndex = selectedIndex >= 0 ? selectedIndex : keyIndex;
+		const chromaDisplayName = scaleNames[nameIndex] ?? paletteInfo.name;
+		return {
+			tokenName: "", // カスタムキーカラーにはDADSトークン名がない
+			step,
+			chromaDisplayName,
+		};
+	}
+
 	const chromaNameLower = (
 		paletteInfo.baseChromaName ||
 		paletteInfo.name ||
@@ -388,6 +408,61 @@ function calculateContrastInfo(
 		level,
 		badgeText,
 	};
+}
+
+/**
+ * コントラストカードの背景色とテキスト色を更新する
+ *
+ * @param prefix - 要素IDのプレフィックス（"white" または "black"）
+ * @param bgHex - 背景色のHEX値
+ */
+function updateContrastCardStyling(prefix: string, bgHex: string): void {
+	const cardEl = document.getElementById(`detail-${prefix}-card`);
+	const labelEl = document.getElementById(`detail-${prefix}-label`);
+
+	if (!cardEl) return;
+
+	cardEl.style.backgroundColor = bgHex;
+
+	const mode = determineColorMode(bgHex);
+	cardEl.dataset.bg = "custom";
+	cardEl.dataset.mode = mode;
+
+	// テキスト色の決定
+	const textColor = mode === "light" ? "#1a1a1a" : "#ffffff";
+	const labelColor = mode === "light" ? "#666666" : "#aaaaaa";
+	const unitColor = mode === "light" ? "#888888" : "#cccccc";
+	const failColor = mode === "light" ? "#dc2626" : "#fca5a5";
+
+	// ラベル色
+	if (labelEl) {
+		labelEl.style.color = labelColor;
+	}
+
+	// コントラスト比テキスト色
+	const ratioEl = document.getElementById(`detail-${prefix}-ratio`);
+	if (ratioEl) {
+		ratioEl.style.color = textColor;
+	}
+
+	// 単位テキスト色
+	const unitEl = cardEl.querySelector(".dads-contrast-card__unit");
+	if (unitEl instanceof HTMLElement) {
+		unitEl.style.color = unitColor;
+	}
+
+	// 失敗アイコン色
+	const failEl = document.getElementById(`detail-${prefix}-fail-icon`);
+	if (failEl) {
+		failEl.style.color = failColor;
+	}
+
+	// ダーク背景のバッジ枠線色
+	const badgeEl = document.getElementById(`detail-${prefix}-badge`);
+	if (badgeEl) {
+		badgeEl.style.borderColor =
+			mode === "dark" ? "rgba(255, 255, 255, 0.3)" : "";
+	}
 }
 
 /**
@@ -531,6 +606,8 @@ interface UpdateDetailHandlerConfig {
 		colors: Color[];
 		keyIndex: number;
 		hexValues?: string[];
+		/** 各色の表示名（カスタムキーカラー用） */
+		names?: string[];
 	};
 	paletteInfo: PaletteInfo;
 	readOnly: boolean;
@@ -577,16 +654,21 @@ function createUpdateDetailHandler(
 		const detailLightness = document.getElementById("detail-lightness");
 		const detailChromaName = document.getElementById("detail-chroma-name");
 
-		const { keyIndex, hexValues } = config.fixedScale;
+		const { keyIndex, hexValues, names } = config.fixedScale;
 		const tokenInfo = calculateTokenInfo(
 			color,
 			selectedIndex,
 			config.paletteInfo,
 			keyIndex,
+			names,
 		);
 
 		if (detailSwatch) detailSwatch.style.backgroundColor = color.toCss();
-		if (detailTokenName) detailTokenName.textContent = tokenInfo.tokenName;
+		// トークン名が空の場合は非表示にする（カスタムキーカラーの場合）
+		if (detailTokenName) {
+			detailTokenName.textContent = tokenInfo.tokenName;
+			detailTokenName.style.display = tokenInfo.tokenName ? "" : "none";
+		}
 
 		// 元のHEX値を優先して使用（変換誤差回避）
 		const displayHex =
@@ -630,6 +712,16 @@ function createUpdateDetailHandler(
 		// Contrast cards - use light/dark background colors from state
 		updateContrastCard(color, state.lightBackgroundColor, "white");
 		updateContrastCard(color, state.darkBackgroundColor, "black");
+
+		// Update card labels to show actual background colors
+		const whiteLabelEl = document.getElementById("detail-white-label");
+		const blackLabelEl = document.getElementById("detail-black-label");
+		if (whiteLabelEl) {
+			whiteLabelEl.textContent = `${state.lightBackgroundColor.toUpperCase()} に対するコントラスト`;
+		}
+		if (blackLabelEl) {
+			blackLabelEl.textContent = `${state.darkBackgroundColor.toUpperCase()} に対するコントラスト`;
+		}
 
 		// Update contrast card styling for both light and dark backgrounds
 		updateContrastCardStyling("white", state.lightBackgroundColor);
@@ -744,48 +836,6 @@ function updateContrastCard(
 			failIcon.style.display = info.level === "error" ? "block" : "none";
 		}
 	}
-}
-
-/**
- * コントラストカードのスタイリングを更新する
- * ラベル、背景色、テキスト色などを設定
- */
-function updateContrastCardStyling(prefix: string, bgHex: string): void {
-	const labelEl = document.getElementById(`detail-${prefix}-label`);
-	const cardEl = document.getElementById(`detail-${prefix}-card`);
-
-	if (labelEl) {
-		labelEl.textContent = `${bgHex.toUpperCase()} に対するコントラスト`;
-	}
-
-	if (!cardEl) return;
-
-	cardEl.style.backgroundColor = bgHex;
-	const colorMode = determineColorMode(bgHex);
-	cardEl.dataset.bg = "custom";
-	cardEl.dataset.mode = colorMode;
-
-	// Mode-based color values
-	const isLight = colorMode === "light";
-	const textColor = isLight ? "#1a1a1a" : "#ffffff";
-	const labelColor = isLight ? "#666666" : "#aaaaaa";
-	const unitColor = isLight ? "#888888" : "#cccccc";
-	const failColor = isLight ? "#dc2626" : "#fca5a5";
-	const badgeBorder = isLight ? "" : "rgba(255, 255, 255, 0.3)";
-
-	if (labelEl) labelEl.style.color = labelColor;
-
-	const ratioEl = document.getElementById(`detail-${prefix}-ratio`);
-	if (ratioEl) ratioEl.style.color = textColor;
-
-	const unitEl = cardEl.querySelector(".dads-contrast-card__unit");
-	if (unitEl instanceof HTMLElement) unitEl.style.color = unitColor;
-
-	const failEl = document.getElementById(`detail-${prefix}-fail-icon`);
-	if (failEl) failEl.style.color = failColor;
-
-	const badgeEl = document.getElementById(`detail-${prefix}-badge`);
-	if (badgeEl) badgeEl.style.borderColor = badgeBorder;
 }
 
 /**

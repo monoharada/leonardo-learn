@@ -10,6 +10,7 @@
 
 import { state } from "./state";
 import type { ViewMode } from "./types";
+import { cleanupHarmonyViewBackground } from "./views/harmony-view";
 
 /**
  * ナビゲーション要素の型定義（モジュール内部用）
@@ -120,6 +121,11 @@ export function updateViewButtons(
 	if (!elements) {
 		// 必須要素がない場合は処理を中断
 		return;
+	}
+
+	// harmony-viewから離れる場合は背景色をリセット
+	if (state.viewMode === "harmony" && mode !== "harmony") {
+		cleanupHarmonyViewBackground();
 	}
 
 	// 状態を更新

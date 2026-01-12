@@ -11,7 +11,9 @@
 import type { ScoredCandidate } from "@/core/accent/accent-candidate-service";
 import type { HarmonyFilterType } from "@/core/accent/harmony-filter-calculator";
 import { HarmonyType, initializeHarmonyDads } from "@/core/harmony";
+import { loadDadsTokens } from "@/core/tokens/dads-data-provider";
 import { getRandomDadsColor } from "@/core/tokens/random-color-picker";
+import type { DadsToken } from "@/core/tokens/types";
 
 /**
  * Regex pattern to extract base chroma name from DADS source name
@@ -55,8 +57,11 @@ export async function runDemo(): Promise<void> {
 	// DADS Harmony Selectorの初期化
 	// これによりハーモニー生成でDADSトークン選択が使用される
 	// 初期化に失敗してもUIは表示される（HCTフォールバック使用）
+	let dadsTokensCache: DadsToken[] = [];
 	try {
 		await initializeHarmonyDads();
+		// DADSトークンをキャッシュ（Secondary/Tertiary導出用）
+		dadsTokensCache = await loadDadsTokens();
 	} catch (error) {
 		console.warn("DADS initialization failed, using HCT fallback:", error);
 	}
@@ -79,10 +84,11 @@ export async function runDemo(): Promise<void> {
 	// keyColorsInputが存在し、デフォルト値（#3366cc）のままの場合はランダム選択
 	if (keyColorsInput) {
 		const currentValue = keyColorsInput.value.trim();
-		// デフォルト値の場合はランダムに選択
+		// デフォルト値の場合はランダムに選択（背景色を考慮してコントラスト確保）
 		if (currentValue === "#3366cc" || currentValue === "") {
 			try {
-				const randomHex = await getRandomDadsColor();
+				const backgroundHex = state.lightBackgroundColor || "#ffffff";
+				const randomHex = await getRandomDadsColor({ backgroundHex });
 				keyColorsInput.value = randomHex;
 			} catch (error) {
 				console.warn(
@@ -115,11 +121,16 @@ export async function runDemo(): Promise<void> {
 		paletteColors: string[],
 		candidates?: ScoredCandidate[],
 	): void => {
+		// 現在の背景色を取得（ライトモードのデフォルト）
+		const backgroundColor = state.lightBackgroundColor || "#ffffff";
 		// 新しい共通関数を使用してパレットを生成
+		// DADSトークンを渡してSecondary/TertiaryもDADSステップから選択
 		state.palettes = createPalettesFromHarmonyColors(
 			harmonyType,
 			paletteColors,
 			candidates,
+			backgroundColor,
+			dadsTokensCache,
 		);
 
 		// アクティブIDを設定（最初のパレットを選択）

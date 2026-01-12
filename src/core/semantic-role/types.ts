@@ -12,6 +12,7 @@
 export type RoleCategory =
 	| "primary"
 	| "secondary"
+	| "tertiary"
 	| "accent"
 	| "semantic"
 	| "link";
@@ -69,3 +70,26 @@ export type RoleMapping = Map<string, SemanticRole[]>;
  * hue-scale特定不可のブランドロール用
  */
 export const BRAND_UNRESOLVED_KEY = "brand-unresolved";
+
+/**
+ * カテゴリ別の短縮ラベルマップ
+ * Requirements: 2.2
+ */
+export const CATEGORY_SHORT_LABELS: Record<RoleCategory, string> = {
+	primary: "P",
+	secondary: "S",
+	tertiary: "T",
+	accent: "A",
+	semantic: "", // semanticSubTypeで決定
+	link: "L",
+};
+
+/**
+ * semanticサブタイプ別の短縮ラベルマップ
+ * Requirements: 2.2
+ */
+export const SEMANTIC_SUBTYPE_LABELS: Record<SemanticSubType, string> = {
+	success: "Su",
+	error: "E",
+	warning: "W",
+};

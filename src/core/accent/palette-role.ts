@@ -133,38 +133,33 @@ export function getPaletteRole(id: PaletteRoleId): PaletteRole {
 }
 
 export type RoleConfigByCount = {
+	1: PaletteRoleId[];
 	2: PaletteRoleId[];
 	3: PaletteRoleId[];
-	4: PaletteRoleId[];
-	5: PaletteRoleId[];
 };
 
 export const COMPLEMENTARY_ROLE_CONFIG: RoleConfigByCount = {
+	1: ["accent"],
 	2: ["accent", "accentDark"],
 	3: ["accent", "accentDark", "baseMuted"],
-	4: ["accent", "accentDark", "baseLight", "baseDark"],
-	5: ["accent", "accentLight", "accentDark", "baseLight", "baseDark"],
 };
 
 export const TRIADIC_ROLE_CONFIG: RoleConfigByCount = {
+	1: ["accent"],
 	2: ["accent", "secondary"],
 	3: ["accent", "secondary", "accentLight"],
-	4: ["accent", "accentDark", "secondary", "secondaryLight"],
-	5: ["accent", "accentLight", "accentDark", "secondary", "secondaryDark"],
 };
 
 export const ANALOGOUS_ROLE_CONFIG: RoleConfigByCount = {
+	1: ["accent"],
 	2: ["accent", "secondary"],
 	3: ["accent", "secondary", "accentDark"],
-	4: ["accent", "accentDark", "secondary", "secondaryDark"],
-	5: ["accent", "accentLight", "accentDark", "secondary", "secondaryLight"],
 };
 
 export const SPLIT_COMPLEMENTARY_ROLE_CONFIG: RoleConfigByCount = {
+	1: ["accent"],
 	2: ["accent", "secondary"],
 	3: ["accent", "secondary", "accentDark"],
-	4: ["accent", "accentDark", "secondary", "secondaryDark"],
-	5: ["accent", "accentLight", "secondary", "secondaryLight", "baseMuted"],
 };
 
 /**
@@ -172,10 +167,9 @@ export const SPLIT_COMPLEMENTARY_ROLE_CONFIG: RoleConfigByCount = {
  * ベース方向のみ使用（hueDirection: "base"）
  */
 export const MONOCHROMATIC_ROLE_CONFIG: RoleConfigByCount = {
+	1: ["baseMuted"],
 	2: ["baseMuted", "baseDark"],
 	3: ["baseLight", "baseMuted", "baseDark"],
-	4: ["baseLight", "baseMuted", "baseDark", "accentDark"],
-	5: ["baseLight", "baseMuted", "baseDark", "accentLight", "accentDark"],
 };
 
 /**
@@ -183,10 +177,9 @@ export const MONOCHROMATIC_ROLE_CONFIG: RoleConfigByCount = {
  * ベース方向のみ使用
  */
 export const SHADES_ROLE_CONFIG: RoleConfigByCount = {
+	1: ["baseMuted"],
 	2: ["baseLight", "baseDark"],
 	3: ["baseLight", "baseMuted", "baseDark"],
-	4: ["baseLight", "baseMuted", "baseDark", "accentDark"],
-	5: ["baseLight", "baseMuted", "baseDark", "accentLight", "accentDark"],
 };
 
 /**
@@ -194,10 +187,9 @@ export const SHADES_ROLE_CONFIG: RoleConfigByCount = {
  * harmony方向[0]=30°、harmony方向[1]=180°
  */
 export const COMPOUND_ROLE_CONFIG: RoleConfigByCount = {
+	1: ["accent"],
 	2: ["accent", "secondary"],
 	3: ["accent", "secondary", "accentDark"],
-	4: ["accent", "accentDark", "secondary", "secondaryDark"],
-	5: ["accent", "accentLight", "accentDark", "secondary", "secondaryDark"],
 };
 
 /**
@@ -206,10 +198,9 @@ export const COMPOUND_ROLE_CONFIG: RoleConfigByCount = {
  * harmony方向[0]=+90°、harmony方向[1]=+180°、harmony方向[2]=+270°
  */
 export const SQUARE_ROLE_CONFIG: RoleConfigByCount = {
+	1: ["accent"],
 	2: ["accent", "secondary"],
 	3: ["accent", "secondary", "tertiary"],
-	4: ["accent", "secondary", "tertiary", "accentDark"],
-	5: ["accent", "accentLight", "secondary", "tertiary", "accentDark"],
 };
 
 export function getRoleConfigForHarmony(
@@ -245,7 +236,7 @@ export function getRoleConfigForHarmony(
 
 export function getRolesForCount(
 	harmonyType: Exclude<HarmonyFilterType, "all">,
-	count: 2 | 3 | 4 | 5,
+	count: 1 | 2 | 3,
 ): PaletteRole[] {
 	return getRoleConfigForHarmony(harmonyType)[count].map((id) =>
 		getPaletteRole(id),

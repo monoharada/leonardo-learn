@@ -16,8 +16,12 @@ import {
 	generateSystemPalette,
 	HarmonyType,
 } from "@/core/harmony";
+import { deriveSecondaryTertiary } from "@/core/key-color-derivation";
+import { findDadsColorByHex } from "@/core/tokens/dads-data-provider";
+import type { DadsChromaScale, DadsToken } from "@/core/tokens/types";
+import { HUE_DISPLAY_NAMES } from "./constants";
 import { state } from "./state";
-import type { PaletteConfig } from "./types";
+import { type PaletteConfig, stripStepSuffix } from "./types";
 
 /**
  * HarmonyFilterType（アクセント選定UI）→ HarmonyType（生成エンジン）の変換
@@ -50,25 +54,135 @@ function toHarmonyType(harmonyType: HarmonyFilterType): HarmonyType {
 const DADS_STEP_SUFFIX_PATTERN = /\s+\d+$/;
 
 /**
+ * プライマリパレットからセカンダリ・ターシャリパレットを導出する
+ *
+ * デジタル庁デザインシステムの仕様に基づき、プライマリカラーと同じ色相で
+ * 異なる明度のセカンダリ・ターシャリカラーを生成する。
+ *
+ * DADSトークンが渡された場合、同じ色相のDADSトークンから選択する。
+ *
+ * @param primaryPalette プライマリパレット
+ * @param backgroundColor 背景色（コントラスト計算用）
+ * @param dadsTokens DADSトークン配列（オプション、渡すとDADSモードで導出）
+ * @returns セカンダリ・ターシャリパレット配列
+ */
+export function createDerivedPalettes(
+	primaryPalette: PaletteConfig,
+	backgroundColor: string,
+	dadsTokens?: DadsToken[],
+): PaletteConfig[] {
+	const timestamp = Date.now();
+	const primaryHex = primaryPalette.keyColors[0];
+	if (!primaryHex) return [];
+
+	// @stepを除去して純粋なHEX値を取得
+	const cleanPrimaryHex = stripStepSuffix(primaryHex);
+
+	// DADSモード設定を構築
+	let dadsMode:
+		| {
+				tokens: DadsToken[];
+				baseChromaName: string;
+				primaryStep?: DadsChromaScale;
+		  }
+		| undefined;
+
+	if (dadsTokens && dadsTokens.length > 0) {
+		// プライマリがDADSトークンかどうかを確認
+		const dadsInfo = findDadsColorByHex(dadsTokens, cleanPrimaryHex);
+		if (dadsInfo) {
+			// DADSトークンが見つかった場合、DADSモードで導出
+			const baseChromaName = HUE_DISPLAY_NAMES[dadsInfo.hue] || dadsInfo.hue;
+			dadsMode = {
+				tokens: dadsTokens,
+				baseChromaName,
+				primaryStep: dadsInfo.scale,
+			};
+		} else if (primaryPalette.baseChromaName) {
+			// baseChromaNameが設定されている場合もDADSモードを使用
+			dadsMode = {
+				tokens: dadsTokens,
+				baseChromaName: primaryPalette.baseChromaName,
+				primaryStep: primaryPalette.step as DadsChromaScale | undefined,
+			};
+		}
+	}
+
+	// プライマリカラーからセカンダリ・ターシャリを導出
+	const derived = deriveSecondaryTertiary({
+		primaryColor: cleanPrimaryHex,
+		backgroundColor,
+		dadsMode,
+	});
+
+	// Secondary パレット構築
+	const secondaryKeyColor = derived.secondary.step
+		? `${derived.secondary.color.toHex()}@${derived.secondary.step}`
+		: derived.secondary.color.toHex();
+
+	const secondaryPalette: PaletteConfig = {
+		id: `derived-secondary-${timestamp}`,
+		name: "Secondary",
+		keyColors: [secondaryKeyColor],
+		ratios: [21, 15, 10, 7, 4.5, 3, 1],
+		harmony: HarmonyType.NONE,
+		baseChromaName: dadsMode?.baseChromaName,
+		step: derived.secondary.step,
+		derivedFrom: {
+			primaryPaletteId: primaryPalette.id,
+			derivationType: "secondary",
+		},
+	};
+
+	// Tertiary パレット構築
+	const tertiaryKeyColor = derived.tertiary.step
+		? `${derived.tertiary.color.toHex()}@${derived.tertiary.step}`
+		: derived.tertiary.color.toHex();
+
+	const tertiaryPalette: PaletteConfig = {
+		id: `derived-tertiary-${timestamp}`,
+		name: "Tertiary",
+		keyColors: [tertiaryKeyColor],
+		ratios: [21, 15, 10, 7, 4.5, 3, 1],
+		harmony: HarmonyType.NONE,
+		baseChromaName: dadsMode?.baseChromaName,
+		step: derived.tertiary.step,
+		derivedFrom: {
+			primaryPaletteId: primaryPalette.id,
+			derivationType: "tertiary",
+		},
+	};
+
+	return [secondaryPalette, tertiaryPalette];
+}
+
+/**
  * ハーモニープレビュー色からPaletteConfig[]を生成する
+ *
+ * パレット順序: Primary → Secondary → Tertiary → Accent 1 → Accent 2 → ...
  *
  * @param harmonyType ハーモニータイプ
  * @param paletteColors プレビュー色配列 [brandColor, accent1, accent2, ...]
  * @param candidates アクセント候補（DADSメタデータ抽出用）
+ * @param backgroundColor 背景色（デフォルト: #ffffff）
+ * @param dadsTokens DADSトークン配列（オプション、渡すとDADSモードで導出）
  * @returns PaletteConfig配列
  */
 export function createPalettesFromHarmonyColors(
 	harmonyType: HarmonyFilterType,
 	paletteColors: string[],
 	candidates?: ScoredCandidate[],
+	backgroundColor = "#ffffff",
+	dadsTokens?: DadsToken[],
 ): PaletteConfig[] {
 	const timestamp = Date.now();
 	const palettes: PaletteConfig[] = [];
 
 	// 1. Brand Color (Primary) - 最初の色
 	const brandColor = paletteColors[0];
+	let brandPalette: PaletteConfig | undefined;
 	if (brandColor) {
-		const brandPalette: PaletteConfig = {
+		brandPalette = {
 			id: `harmony-brand-${timestamp}`,
 			name: "Primary",
 			keyColors: [brandColor],
@@ -78,7 +192,17 @@ export function createPalettesFromHarmonyColors(
 		palettes.push(brandPalette);
 	}
 
-	// 2. アクセントカラー（可変長対応）
+	// 2. Secondary/Tertiary（プライマリから導出）
+	if (brandPalette) {
+		const derivedPalettes = createDerivedPalettes(
+			brandPalette,
+			backgroundColor,
+			dadsTokens,
+		);
+		palettes.push(...derivedPalettes);
+	}
+
+	// 3. アクセントカラー（可変長対応）
 	// candidatesからDADSメタデータ（baseChromaName, step）を抽出
 	const accentColors = paletteColors.slice(1);
 	for (let i = 0; i < accentColors.length; i++) {
