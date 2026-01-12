@@ -958,11 +958,8 @@
  * ============================================ */
 
 .dads-a11y-explanation {
-	margin-bottom: 3rem;
-	padding: 1.5rem;
-	background: var(--color-neutral-solid-gray-50);
-	border-radius: var(--border-radius-8);
-	border: 1px solid var(--color-neutral-solid-gray-100);
+	margin-bottom: 1.5rem;
+	padding: 0 1.5rem;
 }
 
 .dads-a11y-explanation__heading {
@@ -2145,4 +2142,286 @@
 
 .background-color-selector__error:not(:empty) {
 	margin-top: 4px;
+}
+
+/* ============================================
+ * Accessibility View - Sorting Section
+ * Issue #40: アクセシビリティビューの改修
+ * ============================================ */
+
+.dads-a11y-sorting-section {
+	padding: 0 1.5rem;
+}
+
+.dads-a11y-sort-tabs {
+	display: flex;
+	gap: 0.5rem;
+	margin-bottom: 0.75rem; /* alert boxとの間隔調整（tabs下にalert boxが来るため） */
+	padding: 4px;
+	background: var(--color-neutral-solid-gray-100);
+	border-radius: var(--border-radius-8);
+}
+
+.dads-a11y-sort-tab {
+	flex: 1;
+	padding: 0.5rem 1rem;
+	border: none;
+	border-radius: 6px;
+	background: transparent;
+	color: var(--color-neutral-solid-gray-600);
+	font-size: var(--font-size-14);
+	font-weight: 500;
+	cursor: pointer;
+	transition: all 0.2s ease;
+}
+
+.dads-a11y-sort-tab:hover {
+	color: var(--color-neutral-solid-gray-900);
+	background: var(--color-neutral-solid-gray-50);
+}
+
+.dads-a11y-sort-tab--active {
+	background: var(--color-neutral-white);
+	color: var(--color-neutral-solid-gray-900);
+	font-weight: var(--font-weight-700);
+	box-shadow: var(--elevation-1);
+}
+
+.dads-a11y-sort-tab:focus-visible {
+	outline: 4px solid var(--color-neutral-black);
+	outline-offset: 2px;
+}
+
+.dads-a11y-boundary-container {
+	margin-top: 1rem;
+}
+
+.dads-a11y-boundary__heading {
+	font-size: var(--font-size-16);
+	font-weight: 600;
+	margin: 0 0 1rem 0;
+	color: var(--color-neutral-solid-gray-900);
+}
+
+.dads-a11y-boundary-markers {
+	position: relative;
+	height: 32px;
+	margin-top: 4px;
+}
+
+.dads-a11y-boundary-marker {
+	position: absolute;
+	transform: translateX(-50%);
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+}
+
+.dads-a11y-deltaE-badge {
+	font-size: 11px;
+	font-weight: 600;
+	padding: 2px 8px;
+	border-radius: 12px;
+	white-space: nowrap;
+}
+
+.dads-a11y-deltaE-badge--ok {
+	background: var(--color-primitive-green-100);
+	color: var(--color-semantic-success-1);
+}
+
+.dads-a11y-deltaE-badge--warning {
+	background: var(--color-primitive-red-100);
+	color: var(--color-semantic-error-1);
+}
+
+.dads-a11y-boundary-summary {
+	margin-top: 1rem;
+	padding: 12px 16px;
+	border-radius: var(--border-radius-8);
+	font-size: var(--font-size-14);
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.dads-a11y-boundary-summary--ok {
+	background: var(--color-alert-success-bg);
+	color: var(--color-alert-success-text);
+}
+
+.dads-a11y-boundary-summary--warning {
+	background: var(--color-alert-warning-bg);
+	color: var(--color-alert-warning-text);
+}
+
+.dads-a11y-warning-icon,
+.dads-a11y-ok-icon {
+	font-size: 1.2em;
+}
+
+.dads-a11y-notice {
+	padding: 12px;
+	background: var(--color-neutral-solid-gray-100);
+	border-radius: var(--border-radius-8);
+	color: var(--color-neutral-solid-gray-600);
+	font-size: var(--font-size-14);
+}
+
+/* CVD Boundary Validation List - All CVD types displayed in a list */
+.dads-a11y-cvd-boundary-list {
+	display: flex;
+	flex-direction: column;
+	gap: 1rem; /* 視覚的な余裕を確保 */
+}
+
+.dads-a11y-cvd-boundary-row {
+	display: grid;
+	grid-template-columns: 160px 1fr auto;
+	gap: 12px;
+	align-items: start;
+	padding: 12px 0; /* 視覚的な余裕を確保 */
+	border-bottom: 1px solid var(--color-neutral-solid-gray-100);
+}
+
+.dads-a11y-cvd-boundary-row:last-child {
+	border-bottom: none;
+}
+
+.dads-a11y-cvd-label {
+	font-size: var(--font-size-14);
+	font-weight: 600;
+	color: var(--color-neutral-solid-gray-900);
+	padding-top: 4px;
+}
+
+.dads-a11y-cvd-boundary-content {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.dads-a11y-cvd-warning-badge {
+	font-size: 12px;
+	padding: 2px 8px;
+	background: var(--color-primitive-red-100);
+	color: var(--color-semantic-error-1);
+	border-radius: 12px;
+	white-space: nowrap;
+	align-self: start;
+}
+
+/* Alert Box - Top warning/success notification (tabs下に表示) */
+.dads-a11y-alert-box {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 12px 16px;
+	border-radius: var(--border-radius-8);
+	margin-bottom: 1rem; /* tabs下に配置されるため調整 */
+	font-size: var(--font-size-14);
+	line-height: 1.5;
+	box-shadow: var(--elevation-1);
+	transition:
+		background 0.2s ease,
+		border-color 0.2s ease;
+}
+
+.dads-a11y-alert-box--warning {
+	background: var(--color-alert-warning-bg);
+	border: 1px solid var(--color-alert-warning-border);
+	color: var(--color-alert-warning-text);
+}
+
+.dads-a11y-alert-box--ok {
+	background: var(--color-alert-success-bg);
+	border: 1px solid var(--color-alert-success-border);
+	color: var(--color-alert-success-text);
+}
+
+.dads-a11y-alert-icon {
+	font-size: 1.2em;
+	flex-shrink: 0;
+}
+
+/* ============================================
+ * CVD Confusion Details (Hybrid Approach 2+3)
+ * - Shows which CVD type has issues (P型/D型)
+ * - Lists problematic color pairs
+ * - Displays ΔE values for severity
+ * ============================================ */
+
+.dads-a11y-cvd-details-container {
+	margin-bottom: 1rem;
+}
+
+.dads-a11y-cvd-confusion-details {
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+	padding: 1rem;
+	background: var(--color-alert-warning-bg);
+	border: 1px solid var(--color-alert-warning-border);
+	border-radius: var(--border-radius-8);
+}
+
+.dads-a11y-cvd-type-section {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+}
+
+.dads-a11y-cvd-type-header {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	font-size: var(--font-size-14);
+	color: var(--color-alert-warning-text);
+}
+
+.dads-a11y-cvd-type-icon {
+	font-size: 1.1em;
+}
+
+.dads-a11y-cvd-pair-list {
+	list-style: none;
+	margin: 0;
+	padding: 0 0 0 1.5rem;
+}
+
+.dads-a11y-cvd-pair-item {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0.25rem 0;
+	font-size: var(--font-size-14);
+	color: var(--color-alert-warning-text);
+}
+
+.dads-a11y-cvd-pair-item::before {
+	content: "•";
+	margin-right: 0.25rem;
+}
+
+.dads-a11y-cvd-pair-swatch {
+	width: 16px;
+	height: 16px;
+	border-radius: var(--border-radius-4);
+	border: 1px solid rgba(0, 0, 0, 0.2);
+	flex-shrink: 0;
+}
+
+.dads-a11y-cvd-pair-text {
+	font-weight: 600;
+}
+
+.dads-a11y-cvd-pair-arrow {
+	margin: 0 0.25rem;
+	opacity: 0.7;
+}
+
+.dads-a11y-cvd-pair-deltaE {
+	font-family: var(--font-family-mono, monospace);
+	font-size: 0.85em;
+	opacity: 0.85;
 }
