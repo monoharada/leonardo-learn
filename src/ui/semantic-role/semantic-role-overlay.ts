@@ -60,7 +60,7 @@ export function applyOverlay(
 		backgroundColor !== undefined &&
 		priorityRole.source !== "dads" &&
 		["primary", "secondary", "accent"].includes(priorityRole.category) &&
-		!(isBrand && dadsHue === undefined);
+		!(isBrand && (dadsHue === undefined || scale === undefined));
 
 	if (isCircularizable) {
 		transformToCircle(swatchElement, priorityRole, backgroundColor);

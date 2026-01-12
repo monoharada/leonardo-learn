@@ -387,8 +387,9 @@
 }
 
 .dads-swatch:focus-visible {
-	outline: 4px solid var(--color-neutral-white);
-	outline-offset: calc(-1 * 2px);
+	outline: 4px solid var(--color-neutral-black);
+	outline-offset: 2px;
+	box-shadow: 0 0 0 2px var(--color-primitive-yellow-300);
 	z-index: 2;
 }
 

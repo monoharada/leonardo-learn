@@ -255,9 +255,9 @@ describe("Issue #39: DADSトークンのstep値がSystemPaletteColorに伝播す
 	const expectValidDadsStep = (step: number | undefined) => {
 		expect(step).toBeDefined();
 		expect(typeof step).toBe("number");
-		// DADS stepは100〜2400の範囲
-		expect(step).toBeGreaterThanOrEqual(100);
-		expect(step).toBeLessThanOrEqual(2400);
+		// DADS stepは50〜1200の範囲
+		expect(step).toBeGreaterThanOrEqual(50);
+		expect(step).toBeLessThanOrEqual(1200);
 	};
 
 	// ヘルパー: DADSトークン由来の色（secondary/accent）をフィルター

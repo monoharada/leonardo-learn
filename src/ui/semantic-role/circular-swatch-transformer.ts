@@ -136,10 +136,18 @@ export function selectPriorityRole(roles: SemanticRole[]): SemanticRole {
 	}
 
 	// 優先順位に基づいてソート
+	// 1. カテゴリ優先順位（primary > secondary > accent > semantic > link）
+	// 2. 同じカテゴリ内ではbrandをdadsより優先
 	const sorted = [...roles].sort((a, b) => {
 		const priorityA = ROLE_PRIORITY.indexOf(a.category);
 		const priorityB = ROLE_PRIORITY.indexOf(b.category);
-		return priorityA - priorityB;
+		if (priorityA !== priorityB) {
+			return priorityA - priorityB;
+		}
+		// 同じカテゴリ内: brandを優先（source === "brand"なら先に）
+		const sourceA = a.source === "brand" ? 0 : 1;
+		const sourceB = b.source === "brand" ? 0 : 1;
+		return sourceA - sourceB;
 	});
 
 	// ソート結果は必ず1つ以上の要素を持つ

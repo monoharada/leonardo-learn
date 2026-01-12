@@ -22,18 +22,9 @@ import {
 	showPaletteValidation,
 	snapToCudColor,
 } from "@/ui/cud-components";
-import {
-	applySwatchBorder,
-	getContrastRatios,
-	STEP_NAMES,
-} from "@/ui/style-constants";
+import { getContrastRatios, STEP_NAMES } from "@/ui/style-constants";
 import { createBackgroundColorSelector } from "../background-color-selector";
-import {
-	determineColorMode,
-	parseKeyColor,
-	persistBackgroundColors,
-	state,
-} from "../state";
+import { parseKeyColor, persistBackgroundColors, state } from "../state";
 import type { ColorDetailModalOptions, CVDType, PaletteConfig } from "../types";
 
 /**
@@ -204,17 +195,9 @@ function createPaletteCard(
 	const displayColor = applySimulation(new Color(displayHex));
 
 	// スウォッチ
-	// Requirements: 6.3, 6.4 - モード対応ボーダーと低コントラスト強調
 	const swatch = document.createElement("div");
 	swatch.className = "dads-card__swatch";
 	swatch.style.backgroundColor = displayColor.toCss();
-	const backgroundMode = determineColorMode(state.lightBackgroundColor);
-	applySwatchBorder(
-		swatch,
-		displayHex,
-		state.lightBackgroundColor,
-		backgroundMode,
-	);
 
 	// 情報セクション
 	const info = document.createElement("div");

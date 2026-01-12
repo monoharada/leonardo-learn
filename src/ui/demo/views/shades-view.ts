@@ -33,10 +33,8 @@ import type {
 import { transformToCircle } from "@/ui/semantic-role/circular-swatch-transformer";
 import { renderBoundaryPills } from "@/ui/semantic-role/contrast-boundary-indicator";
 import { applyOverlay } from "@/ui/semantic-role/semantic-role-overlay";
-import { applySwatchBorder } from "@/ui/style-constants";
 import { createBackgroundColorSelector } from "../background-color-selector";
 import {
-	determineColorMode,
 	getActivePalette,
 	parseKeyColor,
 	persistBackgroundColors,
@@ -188,17 +186,6 @@ export async function renderShadesView(
 			);
 		}
 
-		// 説明セクション
-		const infoSection = document.createElement("div");
-		infoSection.className = "dads-info-section";
-		infoSection.innerHTML = `
-			<p class="dads-info-section__text">
-				デジタル庁デザインシステム（DADS）のプリミティブカラーです。
-				これらの色はデザイントークンとして定義されており、変更できません。
-			</p>
-		`;
-		container.appendChild(infoSection);
-
 		// 各色相のセクションを描画（Task 4.3: オーバーレイ適用のためにroleMapperを渡す）
 		// brandDadsMatchがある場合は該当スウォッチを円形化
 		for (const colorScale of chromaticScales) {
@@ -258,7 +245,8 @@ export function renderDadsHueSection(
 	const scaleElements = new Map<number, HTMLElement>();
 
 	for (const colorItem of colorScale.colors) {
-		const swatch = document.createElement("div");
+		const swatch = document.createElement("button");
+		swatch.type = "button";
 		swatch.className = "dads-swatch dads-swatch--readonly";
 
 		// Task 4.1: data属性とdata-testidを追加（E2Eテスト・オーバーレイ統合用）
@@ -269,14 +257,6 @@ export function renderDadsHueSection(
 		const originalColor = new Color(colorItem.hex);
 		const displayColor = applySimulation(originalColor);
 		swatch.style.backgroundColor = displayColor.toCss();
-		// Requirements: 6.3, 6.4 - モード対応ボーダーと低コントラスト強調
-		const backgroundMode = determineColorMode(state.lightBackgroundColor);
-		applySwatchBorder(
-			swatch,
-			colorItem.hex,
-			state.lightBackgroundColor,
-			backgroundMode,
-		);
 
 		const whiteContrast = verifyContrast(
 			originalColor,
@@ -366,10 +346,12 @@ export function renderDadsHueSection(
 		}
 
 		// Issue #39: DADSトークンに含まれるブランドカラーを円形化
+		// 注: applyOverlayで既に円形化されている場合はスキップ（二重円形化防止）
 		if (
 			brandDadsMatch &&
 			brandDadsMatch.hue === colorScale.hue &&
-			brandDadsMatch.scale === colorItem.scale
+			brandDadsMatch.scale === colorItem.scale &&
+			!swatch.classList.contains("dads-swatch--circular")
 		) {
 			const primaryRole: SemanticRole = {
 				name: "Primary",
@@ -442,7 +424,8 @@ export function renderPrimaryBrandSection(
 	const swatchContainer = document.createElement("div");
 	swatchContainer.className = "dads-primary-swatch-container";
 
-	const swatch = document.createElement("div");
+	const swatch = document.createElement("button");
+	swatch.type = "button";
 	swatch.className = "dads-swatch dads-swatch--circular dads-swatch--primary";
 
 	// data-testidを追加（E2Eテスト用）
@@ -452,15 +435,6 @@ export function renderPrimaryBrandSection(
 	const originalColor = new Color(brandHex);
 	const displayColor = applySimulation(originalColor);
 	swatch.style.backgroundColor = displayColor.toCss();
-
-	// モード対応ボーダー
-	const backgroundMode = determineColorMode(state.lightBackgroundColor);
-	applySwatchBorder(
-		swatch,
-		brandHex,
-		state.lightBackgroundColor,
-		backgroundMode,
-	);
 
 	const whiteContrast = verifyContrast(
 		originalColor,
