@@ -17,6 +17,20 @@ import {
 	transformToCircle,
 } from "./circular-swatch-transformer";
 
+/** ハーモニーロールカテゴリ（円形化対象） */
+const HARMONY_CATEGORIES = ["primary", "secondary", "accent"];
+
+/**
+ * hue-scale特定不可のブランドスウォッチかどうか
+ */
+function isUnresolvedBrandSwatch(
+	isBrand: boolean | undefined,
+	dadsHue: DadsColorHue | undefined,
+	scale: number | undefined,
+): boolean {
+	return Boolean(isBrand && (dadsHue === undefined || scale === undefined));
+}
+
 /**
  * スウォッチにセマンティックロールオーバーレイを適用
  *
@@ -56,13 +70,13 @@ export function applyOverlay(
 
 	// 円形化条件: ブランド由来のハーモニーロール（primary/secondary/accent）のみ
 	// DADS公式ロール（source="dads"）やhue-scale特定不可のブランドロールは円形化しない
-	const isCircularizable =
+	const shouldCircularize =
 		backgroundColor !== undefined &&
 		priorityRole.source !== "dads" &&
-		["primary", "secondary", "accent"].includes(priorityRole.category) &&
-		!(isBrand && (dadsHue === undefined || scale === undefined));
+		HARMONY_CATEGORIES.includes(priorityRole.category) &&
+		!isUnresolvedBrandSwatch(isBrand, dadsHue, scale);
 
-	if (isCircularizable) {
+	if (shouldCircularize) {
 		transformToCircle(swatchElement, priorityRole, backgroundColor);
 	}
 
@@ -148,7 +162,7 @@ export function createAccessibleDescription(
 	isBrand?: boolean,
 ): string | null {
 	// hue-scale特定不可のブランドスウォッチの場合はnull（ARIA ID不要）
-	if (isBrand && (dadsHue === undefined || scale === undefined)) {
+	if (isUnresolvedBrandSwatch(isBrand, dadsHue, scale)) {
 		return null;
 	}
 

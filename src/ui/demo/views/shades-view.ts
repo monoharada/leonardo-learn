@@ -10,7 +10,6 @@
  */
 
 import { simulateCVD } from "@/accessibility/cvd-simulator";
-import { verifyContrast } from "@/accessibility/wcag2";
 import { Color } from "@/core/color";
 import { calculateBoundaries } from "@/core/semantic-role/contrast-boundary-calculator";
 import {
@@ -30,7 +29,10 @@ import type {
 	DadsColorHue,
 	DadsToken,
 } from "@/core/tokens/types";
-import { transformToCircle } from "@/ui/semantic-role/circular-swatch-transformer";
+import {
+	getContrastTextColor,
+	transformToCircle,
+} from "@/ui/semantic-role/circular-swatch-transformer";
 import { renderBoundaryPills } from "@/ui/semantic-role/contrast-boundary-indicator";
 import { applyOverlay } from "@/ui/semantic-role/semantic-role-overlay";
 import { createBackgroundColorSelector } from "../background-color-selector";
@@ -258,15 +260,7 @@ export function renderDadsHueSection(
 		const displayColor = applySimulation(originalColor);
 		swatch.style.backgroundColor = displayColor.toCss();
 
-		const whiteContrast = verifyContrast(
-			originalColor,
-			new Color("#ffffff"),
-		).contrast;
-		const blackContrast = verifyContrast(
-			originalColor,
-			new Color("#000000"),
-		).contrast;
-		const textColor = whiteContrast >= blackContrast ? "white" : "black";
+		const textColor = getContrastTextColor(colorItem.hex);
 
 		const scaleLabel = document.createElement("span");
 		scaleLabel.className = "dads-swatch__scale";
@@ -436,15 +430,7 @@ export function renderPrimaryBrandSection(
 	const displayColor = applySimulation(originalColor);
 	swatch.style.backgroundColor = displayColor.toCss();
 
-	const whiteContrast = verifyContrast(
-		originalColor,
-		new Color("#ffffff"),
-	).contrast;
-	const blackContrast = verifyContrast(
-		originalColor,
-		new Color("#000000"),
-	).contrast;
-	const textColor = whiteContrast >= blackContrast ? "white" : "black";
+	const textColor = getContrastTextColor(brandHex);
 
 	// 「プライマリ」ラベルを追加
 	const roleLabel = document.createElement("span");

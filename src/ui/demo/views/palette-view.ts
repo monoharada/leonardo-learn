@@ -75,6 +75,52 @@ function getSemanticCategory(name: string): string {
 }
 
 /**
+ * コントラスト比に最も近いインデックスを見つける
+ */
+function findClosestContrastIndex(
+	baseRatios: number[],
+	targetRatio: number,
+): number {
+	let closestIndex = -1;
+	let minDiff = Number.POSITIVE_INFINITY;
+	for (let i = 0; i < baseRatios.length; i++) {
+		const diff = Math.abs((baseRatios[i] ?? 0) - targetRatio);
+		if (diff < minDiff) {
+			minDiff = diff;
+			closestIndex = i;
+		}
+	}
+	return closestIndex;
+}
+
+/**
+ * フォールバックスケールを生成する
+ */
+function generateFallbackScale(
+	keyColor: Color,
+	bgColor: Color,
+	baseRatios: number[],
+): { colors: Color[]; keyIndex: number } {
+	const keyContrastRatio = keyColor.contrast(bgColor);
+	const keyColorIndex = findClosestContrastIndex(baseRatios, keyContrastRatio);
+
+	if (keyColorIndex >= 0) {
+		baseRatios[keyColorIndex] = keyContrastRatio;
+	}
+
+	const colors: Color[] = baseRatios.map((ratio, i) => {
+		if (i === keyColorIndex) return keyColor;
+		return findColorForContrast(keyColor, bgColor, ratio) || keyColor;
+	});
+
+	colors.reverse();
+	return {
+		colors,
+		keyIndex: colors.length - 1 - keyColorIndex,
+	};
+}
+
+/**
  * 固定スケールを計算する
  *
  * Requirements: 5.1 - 背景色に対するコントラスト計算
@@ -128,32 +174,10 @@ function calculateFixedScale(
 
 	// フォールバック: 従来のロジック
 	const baseRatios = getContrastRatios(state.contrastIntensity);
-	const keyContrastRatio = keyColor.contrast(bgColor);
+	const fallback = generateFallbackScale(keyColor, bgColor, baseRatios);
+	const hexValues = fallback.colors.map((c) => c.toHex());
 
-	let keyColorIndex = -1;
-	let minDiff = Number.POSITIVE_INFINITY;
-	for (let i = 0; i < baseRatios.length; i++) {
-		const diff = Math.abs((baseRatios[i] ?? 0) - keyContrastRatio);
-		if (diff < minDiff) {
-			minDiff = diff;
-			keyColorIndex = i;
-		}
-	}
-	if (keyColorIndex >= 0) {
-		baseRatios[keyColorIndex] = keyContrastRatio;
-	}
-
-	const colors: Color[] = baseRatios.map((ratio, i) => {
-		if (i === keyColorIndex) return keyColor;
-		const solved = findColorForContrast(keyColor, bgColor, ratio);
-		return solved || keyColor;
-	});
-
-	colors.reverse();
-	const hexValues = colors.map((c) => c.toHex());
-	const reversedKeyIndex = colors.length - 1 - keyColorIndex;
-
-	return { colors, keyIndex: reversedKeyIndex, hexValues };
+	return { colors: fallback.colors, keyIndex: fallback.keyIndex, hexValues };
 }
 
 /**
@@ -442,98 +466,24 @@ export async function renderPaletteView(
 
 			const { color: hex, step: definedStep } = parseKeyColor(keyColorInput);
 			const originalKeyColor = new Color(hex);
-			// Requirements: 5.1 - ライト背景色を使用
-			const bgColor = new Color(state.lightBackgroundColor);
 
-			let colors: Color[];
-			let keyColorIndex: number;
-			let keyColor: Color;
-
-			// Primaryはブランドカラー（ユーザー入力色）を使用
-			const isPrimary = p.name === "Primary" || p.name?.startsWith("Primary");
-
-			// DADSモード: baseChromaNameがあり、DADSトークンが読み込めた場合（Primaryは除く）
-			if (p.baseChromaName && dadsTokens && !isPrimary) {
-				const dadsHue = getDadsHueFromDisplayName(p.baseChromaName);
-
-				if (dadsHue) {
-					const colorScale = getDadsColorsByHue(dadsTokens, dadsHue);
-					colors = colorScale.colors.map((c) => new Color(c.hex)).reverse();
-
-					keyColorIndex = p.step
-						? STEP_NAMES.findIndex((s) => s === p.step)
-						: 6;
-					if (keyColorIndex === -1) keyColorIndex = 6;
-
-					keyColor = colors[keyColorIndex] ?? originalKeyColor;
-				} else {
-					// フォールバック
-					keyColor = originalKeyColor;
-					const baseRatios = getContrastRatios(state.contrastIntensity);
-					const keyContrastRatio = keyColor.contrast(bgColor);
-
-					keyColorIndex = -1;
-					let minDiff = Number.POSITIVE_INFINITY;
-					for (let i = 0; i < baseRatios.length; i++) {
-						const diff = Math.abs((baseRatios[i] ?? 0) - keyContrastRatio);
-						if (diff < minDiff) {
-							minDiff = diff;
-							keyColorIndex = i;
-						}
-					}
-					if (keyColorIndex >= 0) {
-						baseRatios[keyColorIndex] = keyContrastRatio;
-					}
-
-					colors = baseRatios.map((ratio, i) => {
-						if (i === keyColorIndex) return keyColor;
-						const solved = findColorForContrast(keyColor, bgColor, ratio);
-						return solved || keyColor;
-					});
-					colors.reverse();
-					keyColorIndex = colors.length - 1 - keyColorIndex;
-				}
-			} else {
-				// 非DADSモード
-				keyColor = originalKeyColor;
-				const baseRatios = getContrastRatios(state.contrastIntensity);
-				const keyContrastRatio = keyColor.contrast(bgColor);
-
-				keyColorIndex = -1;
-				let minDiff = Number.POSITIVE_INFINITY;
-				for (let i = 0; i < baseRatios.length; i++) {
-					const diff = Math.abs((baseRatios[i] ?? 0) - keyContrastRatio);
-					if (diff < minDiff) {
-						minDiff = diff;
-						keyColorIndex = i;
-					}
-				}
-				if (keyColorIndex >= 0) {
-					baseRatios[keyColorIndex] = keyContrastRatio;
-				}
-
-				colors = baseRatios.map((ratio, i) => {
-					if (i === keyColorIndex) return keyColor;
-					const solved = findColorForContrast(keyColor, bgColor, ratio);
-					return solved || keyColor;
-				});
-				colors.reverse();
-				keyColorIndex = colors.length - 1 - keyColorIndex;
-			}
-
-			// 固定スケールを計算
+			// 固定スケールを計算（keyColor/keyColorIndexはここから取得）
 			const fixedScale = calculateFixedScale(
-				keyColor,
+				originalKeyColor,
 				p,
 				definedStep,
 				dadsTokens,
 			);
 
+			// keyColorはスケールから取得、またはブランドカラーの場合は元の色
+			const keyColor =
+				fixedScale.colors[fixedScale.keyIndex] ?? originalKeyColor;
+
 			// カードを作成
 			const card = createPaletteCard(
 				p,
 				keyColor,
-				keyColorIndex,
+				fixedScale.keyIndex,
 				fixedScale,
 				definedStep,
 				callbacks,

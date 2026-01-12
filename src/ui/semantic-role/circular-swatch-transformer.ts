@@ -126,13 +126,13 @@ export function getShortLabel(role: SemanticRole, index?: number): string {
  * @throws ロール配列が空の場合はエラー
  */
 export function selectPriorityRole(roles: SemanticRole[]): SemanticRole {
-	if (roles.length === 0) {
+	const first = roles[0];
+	if (first === undefined) {
 		throw new Error("roles array cannot be empty");
 	}
 
-	// 長さチェック済みのため、roles[0]は必ず存在する
 	if (roles.length === 1) {
-		return roles[0] as SemanticRole;
+		return first;
 	}
 
 	// 優先順位に基づいてソート
@@ -150,8 +150,8 @@ export function selectPriorityRole(roles: SemanticRole[]): SemanticRole {
 		return sourceA - sourceB;
 	});
 
-	// ソート結果は必ず1つ以上の要素を持つ
-	return sorted[0] as SemanticRole;
+	// sorted[0]は入力が非空かつソートのため必ず存在
+	return sorted[0] ?? first;
 }
 
 /**
