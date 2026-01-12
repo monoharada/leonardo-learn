@@ -6,6 +6,10 @@
  *
  * NOTE: DOM操作を伴うテストは主にE2Eテスト（Playwright）でカバー。
  * このファイルでは型とエクスポートの確認を行う。
+ *
+ * 新UI構成:
+ * 1. 擬似ファーストビュー（プレビュー）
+ * 2. トークンテーブル形式
  */
 
 import { beforeEach, describe, expect, it } from "bun:test";
@@ -89,34 +93,6 @@ describe("palette-view module", () => {
 		});
 	});
 
-	describe("helper functions", () => {
-		it("should correctly categorize semantic palette names", async () => {
-			// 内部のgetSemanticCategory関数の動作を間接的に検証
-			// 実際のカテゴリ分類はrenderPaletteView内で行われる
-			const { state: _state } = await import("../state");
-
-			// テスト用のパレット名
-			const testNames = [
-				{ name: "Primary", expected: "Primary" },
-				{ name: "Primary Light", expected: "Primary" },
-				{ name: "Success", expected: "Success" },
-				{ name: "Success Dark", expected: "Success" },
-				{ name: "Error", expected: "Error" },
-				{ name: "Warning", expected: "Warning" },
-				{ name: "Link", expected: "Link" },
-				{ name: "Accent", expected: "Accent" },
-				{ name: "Neutral", expected: "Neutral" },
-				{ name: "Neutral Variant", expected: "Neutral" },
-				{ name: "Secondary", expected: "Secondary" },
-				{ name: "Custom", expected: "Custom" },
-			];
-
-			// 各パレット名が適切にカテゴリ分類されることを期待
-			// 実際の検証はE2Eテストで行う
-			expect(testNames.length).toBeGreaterThan(0);
-		});
-	});
-
 	describe("CUD mode handling", () => {
 		it("should support off, guide, and strict CUD modes", async () => {
 			const { state } = await import("../state");
@@ -171,7 +147,7 @@ describe("palette-view module", () => {
 			expect(content).toContain("backgroundColor");
 		});
 
-		it("should use state.lightBackgroundColor for contrast calculations", async () => {
+		it("should use state.lightBackgroundColor for preview colors", async () => {
 			const fs = await import("node:fs");
 			const path = await import("node:path");
 			const filePath = path.join(import.meta.dir, "palette-view.ts");
@@ -191,27 +167,120 @@ describe("palette-view module", () => {
 			expect(content).toContain("5.1");
 		});
 
-		it("should call persistBackgroundColor on color change", async () => {
+		it("should call persistBackgroundColors on color change", async () => {
 			const fs = await import("node:fs");
 			const path = await import("node:path");
 			const filePath = path.join(import.meta.dir, "palette-view.ts");
 			const content = fs.readFileSync(filePath, "utf-8");
 
 			// 背景色変更時に永続化
-			expect(content).toContain("persistBackgroundColor");
+			expect(content).toContain("persistBackgroundColors");
 		});
+	});
 
-		it("should use findColorForContrast for contrast calculations", async () => {
+	/**
+	 * 新UI: 擬似ファーストビュー + トークンテーブル
+	 */
+	describe("new UI components integration", () => {
+		it("should import createPalettePreview from palette-preview module", async () => {
 			const fs = await import("node:fs");
 			const path = await import("node:path");
 			const filePath = path.join(import.meta.dir, "palette-view.ts");
 			const content = fs.readFileSync(filePath, "utf-8");
 
-			// コントラスト計算関数の使用（findColorForContrastで背景色に対するコントラスト計算）
-			expect(content).toContain("findColorForContrast");
+			// 擬似ファーストビュープレビューのインポート
+			expect(content).toContain("createPalettePreview");
+		});
+
+		it("should import createTokenTable from palette-token-table module", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(import.meta.dir, "palette-view.ts");
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// トークンテーブルのインポート
+			expect(content).toContain("createTokenTable");
+		});
+
+		it("should extract semantic token rows", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(import.meta.dir, "palette-view.ts");
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// セマンティックトークン行の抽出関数
+			expect(content).toContain("extractSemanticTokenRows");
+		});
+
+		it("should extract palette token rows (Primary/Accent)", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(import.meta.dir, "palette-view.ts");
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// パレットトークン行の抽出関数
+			expect(content).toContain("extractPaletteTokenRows");
+		});
+
+		it("should define semantic categories (Error, Success, Link)", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(import.meta.dir, "palette-view.ts");
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// セマンティックカテゴリ定義
+			expect(content).toContain("SEMANTIC_CATEGORIES");
+			expect(content).toContain("Error");
+			expect(content).toContain("Success");
+			expect(content).toContain("Link");
 		});
 	});
 
-	// NOTE: Task 6.3のスウォッチボーダー機能は削除されました
-	// 色は隣接して表示され、ボーダーなしのデザインに変更
+	/**
+	 * セマンティックカラーの役割マッピング
+	 */
+	describe("semantic color role mapping", () => {
+		it("should use Error color for error messages", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(import.meta.dir, "palette-preview.ts");
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// Error色の役割
+			expect(content).toContain("error");
+			expect(content).toContain("Error");
+		});
+
+		it("should use Success color for success messages", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(import.meta.dir, "palette-preview.ts");
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// Success色の役割
+			expect(content).toContain("success");
+			expect(content).toContain("Success");
+		});
+
+		it("should use Warning color for warning displays", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(import.meta.dir, "palette-preview.ts");
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// Warning色の役割
+			expect(content).toContain("warning");
+			expect(content).toContain("Warning");
+		});
+
+		it("should use Link color for link text", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(import.meta.dir, "palette-preview.ts");
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// Link色の役割
+			expect(content).toContain("link");
+		});
+	});
 });

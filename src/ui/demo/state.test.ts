@@ -13,9 +13,12 @@ import {
 	determineColorMode,
 	getActivePalette,
 	loadBackgroundColors,
+	loadSemanticColorConfig,
 	parseKeyColor,
 	persistBackgroundColors,
+	persistSemanticColorConfig,
 	resetState,
+	SEMANTIC_COLOR_CONFIG_STORAGE_KEY,
 	state,
 	validateBackgroundColor,
 } from "./state";
@@ -674,6 +677,181 @@ describe("state module", () => {
 			// Should reject 3-char hex and return default
 			expect(result.light).toBe("#ffffff");
 			expect(result.dark).toBe("#000000");
+		});
+	});
+
+	describe("SEMANTIC_COLOR_CONFIG_STORAGE_KEY", () => {
+		it("should be leonardo-semanticColorConfig", () => {
+			expect(SEMANTIC_COLOR_CONFIG_STORAGE_KEY).toBe(
+				"leonardo-semanticColorConfig",
+			);
+		});
+	});
+
+	describe("persistSemanticColorConfig", () => {
+		beforeEach(() => {
+			localStorage.clear();
+		});
+
+		afterEach(() => {
+			localStorage.clear();
+		});
+
+		it("should save yellow pattern to localStorage", () => {
+			persistSemanticColorConfig({ warningPattern: "yellow" });
+
+			const stored = localStorage.getItem(SEMANTIC_COLOR_CONFIG_STORAGE_KEY);
+			expect(stored).not.toBeNull();
+
+			const parsed = JSON.parse(stored!);
+			expect(parsed.warningPattern).toBe("yellow");
+		});
+
+		it("should save orange pattern to localStorage", () => {
+			persistSemanticColorConfig({ warningPattern: "orange" });
+
+			const stored = localStorage.getItem(SEMANTIC_COLOR_CONFIG_STORAGE_KEY);
+			const parsed = JSON.parse(stored!);
+			expect(parsed.warningPattern).toBe("orange");
+		});
+
+		it("should save auto pattern with resolved value", () => {
+			persistSemanticColorConfig({
+				warningPattern: "auto",
+				resolvedWarningPattern: "yellow",
+				autoSelectionDetails: {
+					yellowScore: 75,
+					orangeScore: 65,
+					reason: "黄色パターンが推奨されます",
+				},
+			});
+
+			const stored = localStorage.getItem(SEMANTIC_COLOR_CONFIG_STORAGE_KEY);
+			const parsed = JSON.parse(stored!);
+			expect(parsed.warningPattern).toBe("auto");
+			expect(parsed.resolvedWarningPattern).toBe("yellow");
+			expect(parsed.autoSelectionDetails).toBeDefined();
+		});
+
+		it("should overwrite previous value", () => {
+			persistSemanticColorConfig({ warningPattern: "yellow" });
+			persistSemanticColorConfig({ warningPattern: "orange" });
+
+			const stored = localStorage.getItem(SEMANTIC_COLOR_CONFIG_STORAGE_KEY);
+			const parsed = JSON.parse(stored!);
+			expect(parsed.warningPattern).toBe("orange");
+		});
+	});
+
+	describe("loadSemanticColorConfig", () => {
+		beforeEach(() => {
+			localStorage.clear();
+		});
+
+		afterEach(() => {
+			localStorage.clear();
+		});
+
+		it("should return default values when localStorage is empty", () => {
+			const result = loadSemanticColorConfig();
+			expect(result.warningPattern).toBe("auto");
+		});
+
+		it("should restore yellow pattern from localStorage", () => {
+			localStorage.setItem(
+				SEMANTIC_COLOR_CONFIG_STORAGE_KEY,
+				JSON.stringify({ warningPattern: "yellow" }),
+			);
+
+			const result = loadSemanticColorConfig();
+			expect(result.warningPattern).toBe("yellow");
+		});
+
+		it("should restore orange pattern from localStorage", () => {
+			localStorage.setItem(
+				SEMANTIC_COLOR_CONFIG_STORAGE_KEY,
+				JSON.stringify({ warningPattern: "orange" }),
+			);
+
+			const result = loadSemanticColorConfig();
+			expect(result.warningPattern).toBe("orange");
+		});
+
+		it("should restore auto pattern with resolved value", () => {
+			localStorage.setItem(
+				SEMANTIC_COLOR_CONFIG_STORAGE_KEY,
+				JSON.stringify({
+					warningPattern: "auto",
+					resolvedWarningPattern: "orange",
+				}),
+			);
+
+			const result = loadSemanticColorConfig();
+			expect(result.warningPattern).toBe("auto");
+			expect(result.resolvedWarningPattern).toBe("orange");
+		});
+
+		it("should return default for invalid JSON", () => {
+			localStorage.setItem(SEMANTIC_COLOR_CONFIG_STORAGE_KEY, "invalid-json");
+
+			const result = loadSemanticColorConfig();
+			expect(result.warningPattern).toBe("auto");
+		});
+
+		it("should return default for invalid warningPattern value", () => {
+			localStorage.setItem(
+				SEMANTIC_COLOR_CONFIG_STORAGE_KEY,
+				JSON.stringify({ warningPattern: "invalid" }),
+			);
+
+			const result = loadSemanticColorConfig();
+			expect(result.warningPattern).toBe("auto");
+		});
+
+		it("should return default for missing warningPattern", () => {
+			localStorage.setItem(
+				SEMANTIC_COLOR_CONFIG_STORAGE_KEY,
+				JSON.stringify({ someOtherKey: "value" }),
+			);
+
+			const result = loadSemanticColorConfig();
+			expect(result.warningPattern).toBe("auto");
+		});
+
+		it("should ignore invalid resolvedWarningPattern", () => {
+			localStorage.setItem(
+				SEMANTIC_COLOR_CONFIG_STORAGE_KEY,
+				JSON.stringify({
+					warningPattern: "auto",
+					resolvedWarningPattern: "invalid",
+				}),
+			);
+
+			const result = loadSemanticColorConfig();
+			expect(result.warningPattern).toBe("auto");
+			expect(result.resolvedWarningPattern).toBeUndefined();
+		});
+	});
+
+	describe("state.semanticColorConfig", () => {
+		it("should have default semanticColorConfig", () => {
+			expect(state.semanticColorConfig).toBeDefined();
+			expect(state.semanticColorConfig.warningPattern).toBe("auto");
+		});
+
+		it("should allow mutation of semanticColorConfig", () => {
+			state.semanticColorConfig.warningPattern = "yellow";
+			expect(state.semanticColorConfig.warningPattern).toBe("yellow");
+		});
+
+		it("should reset semanticColorConfig with resetState", () => {
+			state.semanticColorConfig.warningPattern = "orange";
+			state.semanticColorConfig.resolvedWarningPattern = "orange";
+
+			resetState();
+
+			expect(state.semanticColorConfig.warningPattern).toBe("auto");
+			expect(state.semanticColorConfig.resolvedWarningPattern).toBeUndefined();
 		});
 	});
 });

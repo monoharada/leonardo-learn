@@ -70,6 +70,39 @@ export interface BackgroundColorValidationResult {
 export type ViewMode = "harmony" | "palette" | "shades" | "accessibility";
 
 /**
+ * 警告色パターンタイプ
+ * - "yellow": 黄色系（Warning-YL1/YL2: yellow-700/900）
+ * - "orange": オレンジ系（Warning-OR1/OR2: orange-600/800）
+ * - "auto": CUD分析に基づく自動選択
+ */
+export type WarningPatternType = "yellow" | "orange" | "auto";
+
+/**
+ * 自動選択の詳細情報
+ */
+export interface WarningPatternAutoDetails {
+	/** 黄色パターンのスコア（0-100） */
+	yellowScore: number;
+	/** オレンジパターンのスコア（0-100） */
+	orangeScore: number;
+	/** 選択理由の説明 */
+	reason: string;
+}
+
+/**
+ * セマンティックカラー設定
+ * 警告色のパターン選択状態を管理
+ */
+export interface SemanticColorConfig {
+	/** 選択された警告色パターン */
+	warningPattern: WarningPatternType;
+	/** 自動選択時に解決されたパターン（auto時のみ使用） */
+	resolvedWarningPattern?: "yellow" | "orange";
+	/** 自動選択の詳細情報（auto時のみ使用） */
+	autoSelectionDetails?: WarningPatternAutoDetails;
+}
+
+/**
  * ハーモニータイプの設定（カード表示用）
  * @deprecated Section 7以降はAccentHarmonyTypeConfigを使用
  */
@@ -122,6 +155,8 @@ export interface DemoState {
 	darkBackgroundColor: string;
 	/** アクセントカラー数（2-5）。ブランド+アクセント=3-6色 */
 	accentCount: 2 | 3 | 4 | 5;
+	/** セマンティックカラー設定（警告色パターン選択） */
+	semanticColorConfig: SemanticColorConfig;
 }
 
 /**
