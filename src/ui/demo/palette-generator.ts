@@ -16,7 +16,6 @@ import {
 	generateSystemPalette,
 	HarmonyType,
 } from "@/core/harmony";
-import { HARMONY_TYPE_LABELS } from "../components/harmony-sidebar";
 import { state } from "./state";
 import type { PaletteConfig } from "./types";
 
@@ -94,7 +93,7 @@ export function createPalettesFromHarmonyColors(
 			);
 			const accentPalette: PaletteConfig = {
 				id: `harmony-accent${i + 1}-${timestamp}`,
-				name: `Accent (${HARMONY_TYPE_LABELS[harmonyType]} ${i + 1})`,
+				name: `Accent ${i + 1}`,
 				keyColors: [accentColor],
 				ratios: [21, 15, 10, 7, 4.5, 3, 1],
 				harmony: HarmonyType.NONE,

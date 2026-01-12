@@ -210,6 +210,36 @@ export async function renderShadesView(
 }
 
 /**
+ * セマンティックロールから日本語表示名を生成する
+ *
+ * 現在サポートするカテゴリ: primary, accent, secondary
+ * TODO: semantic, link等の追加カテゴリが必要になった場合は
+ *       SemanticRoleCategory型に合わせて拡張する
+ *
+ * @param role - セマンティックロール
+ * @returns 日本語表示名
+ */
+function getRoleDisplayName(role: SemanticRole): string {
+	switch (role.category) {
+		case "primary":
+			return "プライマリーカラー";
+		case "accent": {
+			// アクセント番号を抽出（例: "Accent 2" → "2"）
+			// 番号が見つからない場合は "1" をデフォルトとする
+			// （単一アクセントの場合や番号なしロール名に対応）
+			const match = role.name.match(/\d+/);
+			const num = match ? match[0] : "1";
+			return `アクセントカラー ${num}`;
+		}
+		case "secondary":
+			return "セカンダリーカラー";
+		default:
+			// 未知のカテゴリはfullNameまたはnameをそのまま使用
+			return role.fullName || role.name;
+	}
+}
+
+/**
  * 色相セクションを描画
  *
  * @param container - 描画先コンテナ
@@ -304,6 +334,20 @@ export function renderDadsHueSection(
 				colorScale.colors.find((c) => c.scale === 600) || colorItem;
 			const keyColor = new Color(keyColorItem.hex);
 
+			// Issue #41: 役割がある場合は役割名、ない場合はトークン名を表示
+			let displayName = `${colorScale.hue}-${colorItem.scale}`;
+			if (roleMapper) {
+				const roles = roleMapper.lookupRoles(
+					colorScale.hue as DadsColorHue,
+					colorItem.scale,
+				);
+				// 防御的チェック: roles[0]の存在確認は型安全性のため
+				// （lookupRolesが空配列以外でundefined要素を返す可能性に備える）
+				if (roles.length > 0 && roles[0]) {
+					displayName = getRoleDisplayName(roles[0]);
+				}
+			}
+
 			callbacks.onColorClick({
 				stepColor,
 				keyColor,
@@ -311,7 +355,7 @@ export function renderDadsHueSection(
 				fixedScale: { colors: scaleColors, keyIndex: index, hexValues },
 				originalHex: colorItem.hex,
 				paletteInfo: {
-					name: colorScale.hueName.ja,
+					name: displayName,
 					baseChromaName: colorScale.hueName.en,
 				},
 				readOnly: true,

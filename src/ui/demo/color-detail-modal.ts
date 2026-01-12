@@ -337,14 +337,9 @@ function calculateTokenInfo(
 		.toLowerCase()
 		.replace(/\s+/g, "-");
 
-	let chromaDisplayName: string;
-	if (paletteInfo.baseChromaName && paletteInfo.name) {
-		chromaDisplayName = `${paletteInfo.baseChromaName} | ${paletteInfo.name}`;
-	} else if (paletteInfo.baseChromaName) {
-		chromaDisplayName = paletteInfo.baseChromaName;
-	} else {
-		chromaDisplayName = paletteInfo.name;
-	}
+	// Issue #41: Display only the token name without baseChromaName
+	// e.g., "アクセントカラー 1" instead of "Red | アクセント 1"
+	const chromaDisplayName = paletteInfo.name;
 
 	return {
 		tokenName: `${chromaNameLower}-${step}`,
