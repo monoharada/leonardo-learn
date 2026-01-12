@@ -257,6 +257,21 @@ export function renderAccentSelectionView(
 	// コンテナをクリア
 	container.replaceChildren();
 
+	// 背景色をコンテナ全体と親要素に適用
+	const bgColor = state.lightBackgroundColor || "#ffffff";
+	container.style.backgroundColor = bgColor;
+
+	// 親要素にも背景色を適用（#main-content, .dads-main, body）
+	const mainContent = document.getElementById("main-content");
+	if (mainContent) {
+		mainContent.style.backgroundColor = bgColor;
+	}
+	const dadsMain = document.querySelector(".dads-main");
+	if (dadsMain instanceof HTMLElement) {
+		dadsMain.style.backgroundColor = bgColor;
+	}
+	document.body.style.backgroundColor = bgColor;
+
 	// ヘッダーセクション（プライマリーカラー入力）
 	const header = createHeader(inputHex, container, callbacks, viewState);
 	container.appendChild(header);
@@ -339,18 +354,23 @@ function renderCoolorsMode(
 	// レイアウトコンテナ
 	const layout = document.createElement("div");
 	layout.className = "coolors-layout";
+	// 背景色をレイアウト全体に適用
+	const bgColor = state.lightBackgroundColor || "#ffffff";
+	layout.style.backgroundColor = bgColor;
 	container.appendChild(layout);
 
 	// メインエリア
 	const mainArea = document.createElement("div");
 	mainArea.className = "coolors-layout__main";
-	// 背景色を適用
-	mainArea.style.backgroundColor = state.lightBackgroundColor || "#ffffff";
+	// 背景色を継承（transparent）
+	mainArea.style.backgroundColor = "transparent";
 	layout.appendChild(mainArea);
 
 	// サイドバーエリア
 	const sidebarArea = document.createElement("div");
 	sidebarArea.className = "coolors-layout__sidebar";
+	// 背景色を継承（transparent）
+	sidebarArea.style.backgroundColor = "transparent";
 	layout.appendChild(sidebarArea);
 
 	// ローディング表示
@@ -534,6 +554,8 @@ async function loadCoolorsPreviews(
 function createSidebarSection(sidebar: HTMLElement): HTMLElement {
 	const section = document.createElement("div");
 	section.className = "harmony-sidebar-section";
+	// 背景色を継承（transparent）
+	section.style.backgroundColor = "transparent";
 
 	// ハーモニー見出し
 	const heading = document.createElement("h3");
@@ -541,7 +563,8 @@ function createSidebarSection(sidebar: HTMLElement): HTMLElement {
 	heading.textContent = "ハーモニー";
 	section.appendChild(heading);
 
-	// サイドバー
+	// サイドバー（背景色を継承）
+	sidebar.style.backgroundColor = "transparent";
 	section.appendChild(sidebar);
 
 	return section;
