@@ -1,40 +1,30 @@
 /**
  * パレットビューモジュール
  *
- * パレット詳細画面のレンダリングを担当する。
- * カードクリック時はonColorClickコールバック経由でcolor-detail-modalと接続する。
+ * 新UI: 擬似ファーストビュー + トークンテーブル形式
+ * セマンティックカラーは正しい役割で使用
  *
  * @module @/ui/demo/views/palette-view
  * Requirements: 1.1, 2.1, 2.2, 2.3, 2.4, 5.1, 6.3, 6.4
  */
 
-import { simulateCVD } from "@/accessibility/cvd-simulator";
-import { Color } from "@/core/color";
-import { findColorForContrast } from "@/core/solver";
 import {
 	getDadsColorsByHue,
-	getDadsHueFromDisplayName,
 	loadDadsTokens,
 } from "@/core/tokens/dads-data-provider";
-import {
-	createCudBadge,
-	type PaletteColor,
-	showPaletteValidation,
-	snapToCudColor,
-} from "@/ui/cud-components";
-import {
-	applySwatchBorder,
-	getContrastRatios,
-	STEP_NAMES,
-} from "@/ui/style-constants";
+import type { DadsColorHue } from "@/core/tokens/types";
+import { snapToCudColor } from "@/ui/cud-components";
+import { handleWarningPatternChange } from "@/ui/semantic-color/semantic-color-section";
+import { parseColor } from "@/utils/color-space";
 import { createBackgroundColorSelector } from "../background-color-selector";
+import { parseKeyColor, persistBackgroundColors, state } from "../state";
+import type { ColorDetailModalOptions, WarningPatternType } from "../types";
 import {
-	determineColorMode,
-	parseKeyColor,
-	persistBackgroundColors,
-	state,
-} from "../state";
-import type { ColorDetailModalOptions, CVDType, PaletteConfig } from "../types";
+	createPalettePreview,
+	mapPaletteToPreviewColors,
+	type PalettePreviewColors,
+} from "./palette-preview";
+import { createTokenTable, type TokenTableRow } from "./palette-token-table";
 
 /**
  * パレットビューのコールバック
@@ -42,6 +32,146 @@ import type { ColorDetailModalOptions, CVDType, PaletteConfig } from "../types";
 export interface PaletteViewCallbacks {
 	/** 色クリック時のコールバック（モーダル表示用） */
 	onColorClick: (options: ColorDetailModalOptions) => void;
+}
+
+/**
+ * リンクカラースタイル定義（DADS仕様）
+ * スタイル1: 濃い青系（暗めのPrimary向け）
+ * スタイル2: 中間の青系（標準）
+ * スタイル3: 明るい青系（明るめのPrimary向け）
+ */
+type LinkStyleId = 1 | 2 | 3;
+
+const LINK_STYLES: Record<
+	LinkStyleId,
+	{
+		default: { hue: "blue" | "light-blue"; step: number };
+		visited: { hue: "magenta"; step: number };
+		active: { hue: "orange"; step: number };
+	}
+> = {
+	1: {
+		default: { hue: "blue", step: 1000 },
+		visited: { hue: "magenta", step: 900 },
+		active: { hue: "orange", step: 800 },
+	},
+	2: {
+		default: { hue: "light-blue", step: 900 },
+		visited: { hue: "magenta", step: 1000 },
+		active: { hue: "orange", step: 800 },
+	},
+	3: {
+		default: { hue: "light-blue", step: 800 },
+		visited: { hue: "magenta", step: 1100 },
+		active: { hue: "orange", step: 800 },
+	},
+};
+
+/**
+ * セマンティックカラーカテゴリ定義
+ * UX順序に基づいて配置: Success → Warning → Error（稀）
+ */
+interface SemanticCategory {
+	id: string;
+	name: string;
+	hue: DadsColorHue;
+	steps: number[];
+	tokenNames: string[];
+}
+
+/**
+ * 固定セマンティックカテゴリ（Success, Error）
+ */
+const SEMANTIC_CATEGORIES = {
+	success: {
+		id: "success",
+		name: "Success",
+		hue: "green" as const,
+		steps: [600, 800],
+		tokenNames: ["サクセス1", "サクセス2"],
+	},
+	error: {
+		id: "error",
+		name: "Error",
+		hue: "red" as const,
+		steps: [800, 900],
+		tokenNames: ["エラー1", "エラー2"],
+	},
+} satisfies Record<string, SemanticCategory>;
+
+/**
+ * 警告色パターン定義
+ */
+const WARNING_PATTERNS = {
+	yellow: {
+		id: "warning",
+		name: "Warning",
+		hue: "yellow" as const,
+		steps: [700, 900],
+		tokenNames: ["ワーニング1", "ワーニング2"],
+	},
+	orange: {
+		id: "warning",
+		name: "Warning",
+		hue: "orange" as const,
+		steps: [600, 800],
+		tokenNames: ["ワーニング1", "ワーニング2"],
+	},
+} satisfies Record<"yellow" | "orange", SemanticCategory>;
+
+/**
+ * Primary/Accentカラーに基づいてリンクスタイルを自動選択
+ *
+ * 選択ロジック:
+ * - Primaryの色相がBlue系（230-270）に近い場合 → Light Blue系（Style 2/3）で区別
+ * - Primaryの明度が暗い（L < 0.4）→ Style 1（濃い青）
+ * - Primaryの明度が中間（0.4-0.6）→ Style 2（中間）
+ * - Primaryの明度が明るい（L > 0.6）→ Style 3（明るい青）
+ */
+function selectLinkStyle(primaryHex: string): LinkStyleId {
+	const oklch = parseColor(primaryHex);
+	if (!oklch) return 1;
+
+	const hue = oklch.h ?? 0;
+	const lightness = oklch.l ?? 0.5;
+	const isBlueHue = hue >= 230 && hue <= 270;
+
+	if (isBlueHue) {
+		return lightness > 0.5 ? 3 : 2;
+	}
+	if (lightness < 0.4) return 1;
+	if (lightness > 0.6) return 3;
+	return 2;
+}
+
+/**
+ * 選択されたリンクスタイルからセマンティックカテゴリを生成
+ */
+function getLinkCategories(styleId: LinkStyleId): SemanticCategory[] {
+	const style = LINK_STYLES[styleId];
+	return [
+		{
+			id: "link-default",
+			name: "Link Default",
+			hue: style.default.hue as DadsColorHue,
+			steps: [style.default.step],
+			tokenNames: ["リンク"],
+		},
+		{
+			id: "link-visited",
+			name: "Link Visited",
+			hue: style.visited.hue as DadsColorHue,
+			steps: [style.visited.step],
+			tokenNames: ["リンク:visited"],
+		},
+		{
+			id: "link-active",
+			name: "Link Active",
+			hue: style.active.hue as DadsColorHue,
+			steps: [style.active.step],
+			tokenNames: ["リンク:active"],
+		},
+	];
 }
 
 /**
@@ -59,307 +189,216 @@ function renderEmptyState(container: HTMLElement, viewName: string): void {
 }
 
 /**
- * CVDシミュレーションを適用する
+ * カテゴリからトークン行を生成するヘルパー
  */
-function applySimulation(color: Color): Color {
-	if (state.cvdSimulation === "normal") {
-		return color;
-	}
-	return simulateCVD(color, state.cvdSimulation as CVDType);
-}
+function buildTokenRowsFromCategory(
+	dadsTokens: Awaited<ReturnType<typeof loadDadsTokens>>,
+	category: SemanticCategory,
+): TokenTableRow[] {
+	const colorScale = getDadsColorsByHue(dadsTokens, category.hue);
+	const rows: TokenTableRow[] = [];
 
-/**
- * セマンティックカテゴリを取得する
- */
-function getSemanticCategory(name: string): string {
-	if (name === "Primary" || name.startsWith("Primary")) return "Primary";
-	if (name.startsWith("Success")) return "Success";
-	if (name.startsWith("Error")) return "Error";
-	if (name.startsWith("Warning")) return "Warning";
-	if (name.startsWith("Link")) return "Link";
-	if (name.startsWith("Accent")) return "Accent";
-	if (name === "Neutral" || name === "Neutral Variant") return "Neutral";
-	if (name === "Secondary") return "Secondary";
-	return name;
-}
-
-/**
- * 固定スケールを計算する
- *
- * Requirements: 5.1 - 背景色に対するコントラスト計算
- */
-function calculateFixedScale(
-	keyColor: Color,
-	palette: PaletteConfig,
-	definedStep: number | undefined,
-	dadsTokens: Awaited<ReturnType<typeof loadDadsTokens>> | null,
-): {
-	colors: Color[];
-	keyIndex: number;
-	hexValues: string[];
-	isBrandColor?: boolean;
-} {
-	const isPrimary =
-		palette.name === "Primary" || palette.name?.startsWith("Primary");
-	// Requirements: 5.1 - ライト背景色を使用
-	const bgColor = new Color(state.lightBackgroundColor);
-
-	// Primaryはブランドカラー：シェードなしで単一色のみ返す
-	if (isPrimary) {
-		return {
-			colors: [keyColor],
-			keyIndex: 0,
-			hexValues: [keyColor.toHex()],
-			isBrandColor: true,
-		};
-	}
-
-	// DADSモード判定
-	const dadsStep = palette.step ?? definedStep;
-	if (palette.baseChromaName && dadsTokens) {
-		const dadsHue = getDadsHueFromDisplayName(palette.baseChromaName);
-
-		if (dadsHue) {
-			const colorScale = getDadsColorsByHue(dadsTokens, dadsHue);
-			// colorScale.colorsは50→1200の順（明→暗）だが、
-			// STEP_NAMESは1200→50の順（暗→明）なので逆順にする
-			const colors = colorScale.colors.map((c) => new Color(c.hex)).reverse();
-			const hexValues = colorScale.colors.map((c) => c.hex).reverse();
-
-			let keyColorIndex = dadsStep
-				? STEP_NAMES.findIndex((s) => s === dadsStep)
-				: 6;
-			if (keyColorIndex === -1) keyColorIndex = 6;
-
-			return { colors, keyIndex: keyColorIndex, hexValues };
+	for (let i = 0; i < category.steps.length; i++) {
+		const step = category.steps[i];
+		const tokenName = category.tokenNames[i];
+		const colorEntry = colorScale.colors.find((c) => c.scale === step);
+		if (colorEntry && tokenName) {
+			rows.push({
+				colorSwatch: colorEntry.hex,
+				tokenName,
+				primitiveName: `${category.hue}-${step}`,
+				hex: colorEntry.hex,
+				category: "semantic",
+			});
 		}
 	}
-
-	// フォールバック: 従来のロジック
-	const baseRatios = getContrastRatios(state.contrastIntensity);
-	const keyContrastRatio = keyColor.contrast(bgColor);
-
-	let keyColorIndex = -1;
-	let minDiff = Number.POSITIVE_INFINITY;
-	for (let i = 0; i < baseRatios.length; i++) {
-		const diff = Math.abs((baseRatios[i] ?? 0) - keyContrastRatio);
-		if (diff < minDiff) {
-			minDiff = diff;
-			keyColorIndex = i;
-		}
-	}
-	if (keyColorIndex >= 0) {
-		baseRatios[keyColorIndex] = keyContrastRatio;
-	}
-
-	const colors: Color[] = baseRatios.map((ratio, i) => {
-		if (i === keyColorIndex) return keyColor;
-		const solved = findColorForContrast(keyColor, bgColor, ratio);
-		return solved || keyColor;
-	});
-
-	colors.reverse();
-	const hexValues = colors.map((c) => c.toHex());
-	const reversedKeyIndex = colors.length - 1 - keyColorIndex;
-
-	return { colors, keyIndex: reversedKeyIndex, hexValues };
+	return rows;
 }
 
 /**
- * パレットカードを作成する
+ * 解決済み警告パターンを取得
  */
-function createPaletteCard(
-	palette: PaletteConfig,
-	keyColor: Color,
-	keyColorIndex: number,
-	fixedScale: {
-		colors: Color[];
-		keyIndex: number;
-		hexValues?: string[];
-		isBrandColor?: boolean;
-	},
-	definedStep: number | undefined,
-	callbacks: PaletteViewCallbacks,
-): HTMLButtonElement {
-	const card = document.createElement("button");
-	card.type = "button";
-	card.className = "dads-card";
-	card.dataset.interactive = "true";
-
-	const isPrimary =
-		palette.name === "Primary" || palette.name?.startsWith("Primary");
-
-	// DADSトークンの正確なHEX値を優先使用（Color変換による誤差を回避）
-	// fixedScale.hexValuesがある場合はそれを使用、なければkeyColor.toHex()にフォールバック
-	let displayHex =
-		fixedScale.hexValues?.[fixedScale.keyIndex] ?? keyColor.toHex();
-	let snapInfo: { snapped: boolean; originalHex: string } | null = null;
-	if (state.cudMode === "strict") {
-		const snapResult = snapToCudColor(displayHex, { mode: "strict" });
-		snapInfo = { snapped: snapResult.snapped, originalHex: displayHex };
-		displayHex = snapResult.hex;
+function getResolvedWarningPattern(): "yellow" | "orange" {
+	const pattern = state.semanticColorConfig.warningPattern;
+	if (pattern === "auto") {
+		return state.semanticColorConfig.resolvedWarningPattern || "yellow";
 	}
+	return pattern;
+}
 
-	// CVDシミュレーションを適用
-	const displayColor = applySimulation(new Color(displayHex));
+/**
+ * セマンティックカラーのトークン行を抽出
+ * UX順序: Link → Success → Warning → Error
+ */
+async function extractSemanticTokenRows(
+	dadsTokens: Awaited<ReturnType<typeof loadDadsTokens>>,
+	primaryHex: string,
+): Promise<TokenTableRow[]> {
+	const linkStyleId = selectLinkStyle(primaryHex);
+	const linkCategories = getLinkCategories(linkStyleId);
+	const warningCategory = WARNING_PATTERNS[getResolvedWarningPattern()];
 
-	// スウォッチ
-	// Requirements: 6.3, 6.4 - モード対応ボーダーと低コントラスト強調
-	const swatch = document.createElement("div");
-	swatch.className = "dads-card__swatch";
-	swatch.style.backgroundColor = displayColor.toCss();
-	const backgroundMode = determineColorMode(state.lightBackgroundColor);
-	applySwatchBorder(
-		swatch,
-		displayHex,
-		state.lightBackgroundColor,
-		backgroundMode,
+	// カテゴリを順序通りに処理: Link → Success → Warning → Error
+	const allCategories: SemanticCategory[] = [
+		...linkCategories,
+		SEMANTIC_CATEGORIES.success,
+		warningCategory,
+		SEMANTIC_CATEGORIES.error,
+	];
+
+	return allCategories.flatMap((category) =>
+		buildTokenRowsFromCategory(dadsTokens, category),
 	);
-
-	// 情報セクション
-	const info = document.createElement("div");
-	info.className = "dads-card__body";
-
-	// ステップを計算
-	const step = palette.step ?? definedStep ?? STEP_NAMES[keyColorIndex] ?? 600;
-
-	// トークン名
-	const tokenName = document.createElement("h3");
-	if (isPrimary) {
-		tokenName.textContent = "Brand Color";
-	} else {
-		const chromaNameLower = (palette.baseChromaName || palette.name || "color")
-			.toLowerCase()
-			.replace(/\s+/g, "-");
-		tokenName.textContent = `${chromaNameLower}-${step}`;
-	}
-	tokenName.className = "dads-card__title";
-
-	// HEXコード
-	const hexCode = document.createElement("code");
-	hexCode.textContent = displayHex;
-	hexCode.className = "dads-text-mono";
-
-	info.appendChild(tokenName);
-	info.appendChild(hexCode);
-
-	// strictモードでスナップされた場合は元の色を表示
-	if (snapInfo?.snapped) {
-		const originalHexCode = document.createElement("code");
-		originalHexCode.textContent = `(元: ${snapInfo.originalHex})`;
-		originalHexCode.className = "dads-text-mono";
-		originalHexCode.style.cssText =
-			"font-size: 10px; color: #666; display: block;";
-		info.appendChild(originalHexCode);
-	}
-
-	// CUDモードがoff以外の場合はバッジを追加
-	if (state.cudMode !== "off") {
-		const badge = createCudBadge(displayHex);
-		badge.style.marginTop = "4px";
-		info.appendChild(badge);
-	}
-
-	// CVDモードがアクティブな場合はシミュレーション情報を表示
-	if (state.cvdSimulation !== "normal") {
-		const simInfo = document.createElement("div");
-		simInfo.className = "dads-card__sim-info";
-		simInfo.textContent = `(${displayColor.toHex()})`;
-		info.appendChild(simInfo);
-	}
-
-	card.appendChild(swatch);
-	card.appendChild(info);
-
-	// カードクリック時のハンドラ
-	card.onclick = () => {
-		callbacks.onColorClick({
-			stepColor: keyColor,
-			keyColor,
-			index: keyColorIndex,
-			fixedScale: {
-				colors: fixedScale.colors,
-				keyIndex: fixedScale.keyIndex,
-				hexValues: fixedScale.hexValues,
-			},
-			paletteInfo: {
-				name: palette.name,
-				baseChromaName: palette.baseChromaName,
-				paletteId: palette.id,
-			},
-			readOnly: isPrimary,
-			// originalHexは未指定（旧実装との一致、モーダル内でfixedScale.hexValues優先）
-		});
-	};
-
-	return card;
 }
 
 /**
- * CUD検証パネルを作成する
+ * Primary/Accentのトークン行を抽出
  */
-function createCudValidationPanel(): HTMLElement {
-	const validationSection = document.createElement("section");
-	validationSection.className = "dads-section";
-	validationSection.style.marginTop = "24px";
+function extractPaletteTokenRows(): TokenTableRow[] {
+	const rows: TokenTableRow[] = [];
 
-	const validationHeading = document.createElement("h2");
-	validationHeading.className = "dads-section__heading";
-	validationHeading.textContent =
-		state.cudMode === "strict"
-			? "CUD パレット検証（CUD互換モード：スナップ適用済み）"
-			: "CUD パレット検証";
-	validationSection.appendChild(validationHeading);
+	for (const palette of state.palettes) {
+		const keyColorInput = palette.keyColors[0];
+		if (!keyColorInput) continue;
 
-	// パレットの色をPaletteColor形式に変換
-	const paletteColors: PaletteColor[] = state.palettes.map((p) => {
-		const keyColorInput = p.keyColors[0];
-		let { color: hex } = parseKeyColor(keyColorInput || "#000000");
+		const { color: hex, step: definedStep } = parseKeyColor(keyColorInput);
+		const isPrimary =
+			palette.name === "Primary" || palette.name?.startsWith("Primary");
+		const isAccent = palette.name.startsWith("Accent");
 
-		// strictモードの場合はCUD推奨色にスナップ
+		// CUD strictモードの場合はスナップ
+		let displayHex = hex;
 		if (state.cudMode === "strict") {
 			const snapResult = snapToCudColor(hex, { mode: "strict" });
-			hex = snapResult.hex;
+			displayHex = snapResult.hex;
 		}
 
-		const name = p.name.toLowerCase();
-		// セマンティック名をColorRoleにマッピング
-		const role: "accent" | "base" | "text" | "background" | "neutral" =
-			name.includes("primary")
-				? "accent"
-				: name.includes("secondary")
-					? "accent"
-					: name.includes("accent")
-						? "accent"
-						: name.includes("success")
-							? "accent"
-							: name.includes("error")
-								? "accent"
-								: name.includes("warning")
-									? "accent"
-									: name.includes("info")
-										? "accent"
-										: name.includes("neutral")
-											? "neutral"
-											: name.includes("background")
-												? "background"
-												: name.includes("text")
-													? "text"
-													: "base";
-		return { hex, role };
+		const step = definedStep ?? 600;
+		const chromaName = (palette.baseChromaName || palette.name || "color")
+			.toLowerCase()
+			.replace(/\s+/g, "-");
+
+		if (isPrimary) {
+			rows.push({
+				colorSwatch: displayHex,
+				tokenName: "プライマリ",
+				primitiveName: "brand-color",
+				hex: displayHex,
+				category: "primary",
+			});
+		} else if (isAccent) {
+			// Accent-1, Accent-2 などの番号を抽出
+			const accentMatch = palette.name.match(/Accent.*?(\d+)/);
+			const accentNum = accentMatch ? accentMatch[1] : "1";
+			rows.push({
+				colorSwatch: displayHex,
+				tokenName: `アクセント${accentNum}`,
+				primitiveName: `${chromaName}-${step}`,
+				hex: displayHex,
+				category: "accent",
+			});
+		}
+	}
+
+	return rows;
+}
+
+/**
+ * プレビュー用カラーを抽出
+ */
+async function extractPreviewColors(
+	dadsTokens: Awaited<ReturnType<typeof loadDadsTokens>>,
+): Promise<PalettePreviewColors> {
+	const primaryPalette = state.palettes.find(
+		(p) => p.name === "Primary" || p.name?.startsWith("Primary"),
+	);
+	const primaryHex = primaryPalette?.keyColors[0]?.split("@")[0] || "#00A3BF";
+
+	const accentPalette = state.palettes.find((p) => p.name.startsWith("Accent"));
+	const accentHex = accentPalette?.keyColors[0]?.split("@")[0] || "#259063";
+
+	const warningDef = WARNING_PATTERNS[getResolvedWarningPattern()];
+	const warningScale = getDadsColorsByHue(dadsTokens, warningDef.hue);
+	const warningStep = warningDef.steps[0] || 700;
+
+	const semanticColors = {
+		error:
+			getDadsColorsByHue(dadsTokens, "red").colors.find((c) => c.scale === 800)
+				?.hex || "#FF2800",
+		success:
+			getDadsColorsByHue(dadsTokens, "green").colors.find(
+				(c) => c.scale === 600,
+			)?.hex || "#35A16B",
+		warning:
+			warningScale.colors.find((c) => c.scale === warningStep)?.hex ||
+			"#D7C447",
+		link:
+			getDadsColorsByHue(dadsTokens, "blue").colors.find(
+				(c) => c.scale === 1000,
+			)?.hex || "#0091FF",
+	};
+
+	return mapPaletteToPreviewColors({
+		primaryHex,
+		accentHex,
+		semanticColors,
+		backgroundColor: state.lightBackgroundColor,
 	});
+}
 
-	const validationContainer = document.createElement("div");
-	showPaletteValidation(paletteColors, validationContainer);
-	validationSection.appendChild(validationContainer);
+/**
+ * 警告パターン選択UIを作成
+ */
+function createWarningPatternSelector(
+	onPatternChange: (pattern: WarningPatternType) => void,
+): HTMLElement {
+	const container = document.createElement("div");
+	container.className = "dads-warning-pattern-selector";
 
-	return validationSection;
+	const label = document.createElement("span");
+	label.textContent = "警告色パターン:";
+	label.className = "dads-warning-pattern-selector__label";
+
+	const options: { value: WarningPatternType; label: string }[] = [
+		{ value: "yellow", label: "黄色系 (Pattern 1)" },
+		{ value: "orange", label: "オレンジ系 (Pattern 2)" },
+		{ value: "auto", label: "自動選択 (CUD推奨)" },
+	];
+
+	container.appendChild(label);
+
+	for (const option of options) {
+		const radioLabel = document.createElement("label");
+		radioLabel.className = "dads-warning-pattern-selector__option";
+
+		const radio = document.createElement("input");
+		radio.type = "radio";
+		radio.name = "warningPattern";
+		radio.value = option.value;
+		radio.checked = state.semanticColorConfig.warningPattern === option.value;
+
+		radio.addEventListener("change", () => {
+			if (radio.checked) {
+				onPatternChange(option.value);
+			}
+		});
+
+		radioLabel.appendChild(radio);
+		radioLabel.appendChild(document.createTextNode(` ${option.label}`));
+		container.appendChild(radioLabel);
+	}
+
+	return container;
 }
 
 /**
  * パレットビューをレンダリングする
  *
- * Requirements: 1.1, 5.1 - パレットビューに背景色セレクターを統合する
+ * 新UI構成:
+ * 1. 背景色セレクター
+ * 2. 擬似ファーストビュー（プレビュー）
+ * 3. トークンテーブル
+ * 4. CUD検証パネル
  *
  * @param container レンダリング先のコンテナ要素
  * @param callbacks コールバック関数
@@ -384,49 +423,32 @@ export async function renderPaletteView(
 		console.error("Failed to load DADS tokens for palette view:", error);
 	}
 
-	// パレットをセマンティックカテゴリでグループ化
-	const groupedPalettes = new Map<string, PaletteConfig[]>();
-	for (const p of state.palettes) {
-		const category = getSemanticCategory(p.name);
-		if (!groupedPalettes.has(category)) {
-			groupedPalettes.set(category, []);
-		}
-		groupedPalettes.get(category)?.push(p);
-	}
-
 	// コンテナをクリア
 	container.innerHTML = "";
 
-	// Requirements: 1.1, 5.1 - 背景色セレクターをビュー上部に配置
+	// 背景色セレクター
 	const backgroundSelectorSection = document.createElement("section");
 	backgroundSelectorSection.className = "background-color-selector";
 	const backgroundSelector = createBackgroundColorSelector({
 		lightColor: state.lightBackgroundColor,
 		darkColor: state.darkBackgroundColor,
 		onLightColorChange: (hex: string) => {
-			// ライト背景色を更新
 			state.lightBackgroundColor = hex;
-			// Requirements: 5.1 - localStorageに永続化
 			persistBackgroundColors(
 				state.lightBackgroundColor,
 				state.darkBackgroundColor,
 			);
-			// コンテナの背景色を更新
 			container.style.backgroundColor = hex;
-			// 再レンダリング（コントラスト値更新のため）
 			void renderPaletteView(container, callbacks).catch((err) => {
 				console.error("Failed to re-render palette view:", err);
 			});
 		},
 		onDarkColorChange: (hex: string) => {
-			// ダーク背景色を更新
 			state.darkBackgroundColor = hex;
-			// Requirements: 5.1 - localStorageに永続化
 			persistBackgroundColors(
 				state.lightBackgroundColor,
 				state.darkBackgroundColor,
 			);
-			// 再レンダリング（コントラスト値更新のため）
 			void renderPaletteView(container, callbacks).catch((err) => {
 				console.error("Failed to re-render palette view:", err);
 			});
@@ -435,137 +457,65 @@ export async function renderPaletteView(
 	backgroundSelectorSection.appendChild(backgroundSelector);
 	container.appendChild(backgroundSelectorSection);
 
-	// Requirements: 5.1 - ライト背景色をコンテナの背景に設定
+	// 背景色を設定
 	container.style.backgroundColor = state.lightBackgroundColor;
 
-	// 各グループをレンダリング
-	for (const [category, palettes] of groupedPalettes) {
-		const section = document.createElement("section");
+	// 警告パターン選択UI
+	const patternSelector = createWarningPatternSelector(async (pattern) => {
+		const firstPalette = state.palettes[0];
+		const anchorHex = firstPalette?.keyColors[0]?.split("@")[0] || "#000000";
+		const paletteHexes = state.palettes
+			.map((p) => p.keyColors[0]?.split("@")[0])
+			.filter((hex): hex is string => Boolean(hex));
 
-		// セクション見出し
-		const heading = document.createElement("h2");
-		heading.textContent = category;
-		heading.className = "dads-section__heading";
-		section.appendChild(heading);
+		await handleWarningPatternChange(pattern, anchorHex, paletteHexes);
 
-		// カードコンテナ
-		const cardsContainer = document.createElement("div");
-		cardsContainer.className = "dads-grid";
-		cardsContainer.dataset.columns = "auto-fill";
+		void renderPaletteView(container, callbacks).catch((err) => {
+			console.error("Failed to re-render palette view:", err);
+		});
+	});
+	container.appendChild(patternSelector);
 
-		for (const p of palettes) {
-			const keyColorInput = p.keyColors[0];
-			if (!keyColorInput) continue;
+	// DADSトークンが利用可能な場合のみプレビューとテーブルを表示
+	if (dadsTokens) {
+		// 擬似ファーストビュー（プレビュー）
+		const previewSection = document.createElement("section");
+		previewSection.className = "dads-preview-section";
 
-			const { color: hex, step: definedStep } = parseKeyColor(keyColorInput);
-			const originalKeyColor = new Color(hex);
-			// Requirements: 5.1 - ライト背景色を使用
-			const bgColor = new Color(state.lightBackgroundColor);
+		const previewHeading = document.createElement("h2");
+		previewHeading.className = "dads-section__heading";
+		previewHeading.textContent = "カラープレビュー";
+		previewSection.appendChild(previewHeading);
 
-			let colors: Color[];
-			let keyColorIndex: number;
-			let keyColor: Color;
+		const previewColors = await extractPreviewColors(dadsTokens);
+		const preview = createPalettePreview(previewColors);
+		previewSection.appendChild(preview);
+		container.appendChild(previewSection);
 
-			// Primaryはブランドカラー（ユーザー入力色）を使用
-			const isPrimary = p.name === "Primary" || p.name?.startsWith("Primary");
+		// トークンテーブル
+		const tableSection = document.createElement("section");
+		tableSection.className = "dads-token-table-section";
 
-			// DADSモード: baseChromaNameがあり、DADSトークンが読み込めた場合（Primaryは除く）
-			if (p.baseChromaName && dadsTokens && !isPrimary) {
-				const dadsHue = getDadsHueFromDisplayName(p.baseChromaName);
+		const tableHeading = document.createElement("h2");
+		tableHeading.className = "dads-section__heading";
+		tableHeading.textContent = "トークン一覧";
+		tableSection.appendChild(tableHeading);
 
-				if (dadsHue) {
-					const colorScale = getDadsColorsByHue(dadsTokens, dadsHue);
-					colors = colorScale.colors.map((c) => new Color(c.hex)).reverse();
+		// Primary/Accent を先に、セマンティックトークンを後に配置
+		// UX順序: Primary → Accent → Link → Success → Warning → Error
+		const paletteRows = extractPaletteTokenRows();
 
-					keyColorIndex = p.step
-						? STEP_NAMES.findIndex((s) => s === p.step)
-						: 6;
-					if (keyColorIndex === -1) keyColorIndex = 6;
+		// Primaryカラーを取得してリンクスタイル自動選択に使用
+		const primaryPalette = state.palettes.find(
+			(p) => p.name === "Primary" || p.name?.startsWith("Primary"),
+		);
+		const primaryHex = primaryPalette?.keyColors[0]?.split("@")[0] || "#00A3BF";
 
-					keyColor = colors[keyColorIndex] ?? originalKeyColor;
-				} else {
-					// フォールバック
-					keyColor = originalKeyColor;
-					const baseRatios = getContrastRatios(state.contrastIntensity);
-					const keyContrastRatio = keyColor.contrast(bgColor);
+		const semanticRows = await extractSemanticTokenRows(dadsTokens, primaryHex);
+		const allRows = [...paletteRows, ...semanticRows];
 
-					keyColorIndex = -1;
-					let minDiff = Number.POSITIVE_INFINITY;
-					for (let i = 0; i < baseRatios.length; i++) {
-						const diff = Math.abs((baseRatios[i] ?? 0) - keyContrastRatio);
-						if (diff < minDiff) {
-							minDiff = diff;
-							keyColorIndex = i;
-						}
-					}
-					if (keyColorIndex >= 0) {
-						baseRatios[keyColorIndex] = keyContrastRatio;
-					}
-
-					colors = baseRatios.map((ratio, i) => {
-						if (i === keyColorIndex) return keyColor;
-						const solved = findColorForContrast(keyColor, bgColor, ratio);
-						return solved || keyColor;
-					});
-					colors.reverse();
-					keyColorIndex = colors.length - 1 - keyColorIndex;
-				}
-			} else {
-				// 非DADSモード
-				keyColor = originalKeyColor;
-				const baseRatios = getContrastRatios(state.contrastIntensity);
-				const keyContrastRatio = keyColor.contrast(bgColor);
-
-				keyColorIndex = -1;
-				let minDiff = Number.POSITIVE_INFINITY;
-				for (let i = 0; i < baseRatios.length; i++) {
-					const diff = Math.abs((baseRatios[i] ?? 0) - keyContrastRatio);
-					if (diff < minDiff) {
-						minDiff = diff;
-						keyColorIndex = i;
-					}
-				}
-				if (keyColorIndex >= 0) {
-					baseRatios[keyColorIndex] = keyContrastRatio;
-				}
-
-				colors = baseRatios.map((ratio, i) => {
-					if (i === keyColorIndex) return keyColor;
-					const solved = findColorForContrast(keyColor, bgColor, ratio);
-					return solved || keyColor;
-				});
-				colors.reverse();
-				keyColorIndex = colors.length - 1 - keyColorIndex;
-			}
-
-			// 固定スケールを計算
-			const fixedScale = calculateFixedScale(
-				keyColor,
-				p,
-				definedStep,
-				dadsTokens,
-			);
-
-			// カードを作成
-			const card = createPaletteCard(
-				p,
-				keyColor,
-				keyColorIndex,
-				fixedScale,
-				definedStep,
-				callbacks,
-			);
-
-			cardsContainer.appendChild(card);
-		}
-
-		section.appendChild(cardsContainer);
-		container.appendChild(section);
-	}
-
-	// CUDモードがoff以外の場合は検証パネルを表示
-	if (state.cudMode !== "off" && state.palettes.length > 0) {
-		const validationPanel = createCudValidationPanel();
-		container.appendChild(validationPanel);
+		const table = createTokenTable(allRows);
+		tableSection.appendChild(table);
+		container.appendChild(tableSection);
 	}
 }
