@@ -30,6 +30,35 @@ import { DADS_CONTRAST_DEFAULTS } from "./types";
 const FALLBACK_TONE_OFFSET = 15;
 
 /**
+ * フォールバック色を生成する
+ *
+ * @param hue - 色相
+ * @param chroma - 彩度
+ * @param baseTone - 基準トーン
+ * @param direction - 明度方向
+ * @param bgColor - 背景色（コントラスト計算用）
+ * @returns DerivedColor
+ */
+function createFallbackColor(
+	hue: number,
+	chroma: number,
+	baseTone: number,
+	direction: "lighter" | "darker",
+	bgColor: Color,
+): DerivedColor {
+	const toneOffset =
+		direction === "lighter" ? FALLBACK_TONE_OFFSET : -FALLBACK_TONE_OFFSET;
+	const tone = baseTone + toneOffset;
+	const color = fromHct(hue, chroma, tone);
+	return {
+		color,
+		tone,
+		contrastRatio: color.contrast(bgColor),
+		lightnessDirection: direction,
+	};
+}
+
+/**
  * 背景がライトモードかどうかを判定
  *
  * OKLCH明度（L値）が0.5を超える場合はライトモード
@@ -332,15 +361,12 @@ function deriveFromDadsTokens(
 		excludeSteps,
 	);
 
-	// 方向を決定（既存ロジックと同じ）
+	// 方向を決定
 	const needsLowerContrast = primaryContrast >= secondaryUiContrast;
-	const secondaryDirection: "lighter" | "darker" = isLight
-		? needsLowerContrast
+	const secondaryDirection: "lighter" | "darker" =
+		(isLight && needsLowerContrast) || (!isLight && !needsLowerContrast)
 			? "lighter"
-			: "darker"
-		: needsLowerContrast
-			? "darker"
-			: "lighter";
+			: "darker";
 	const tertiaryDirection: "lighter" | "darker" = isLight
 		? "lighter"
 		: "darker";
@@ -359,19 +385,13 @@ function deriveFromDadsTokens(
 			dadsTokenId: secondaryCandidate.tokenId,
 		};
 	} else {
-		// フォールバック: HCT-based algorithmic derivation
-		const fallbackToneOffset =
-			secondaryDirection === "lighter"
-				? FALLBACK_TONE_OFFSET
-				: -FALLBACK_TONE_OFFSET;
-		const fallbackTone = primaryTone + fallbackToneOffset;
-		const fallbackColor = fromHct(hue, chroma, fallbackTone);
-		secondary = {
-			color: fallbackColor,
-			tone: fallbackTone,
-			contrastRatio: fallbackColor.contrast(bgColor),
-			lightnessDirection: secondaryDirection,
-		};
+		secondary = createFallbackColor(
+			hue,
+			chroma,
+			primaryTone,
+			secondaryDirection,
+			bgColor,
+		);
 	}
 
 	// Tertiary DerivedColor を構築
@@ -388,19 +408,13 @@ function deriveFromDadsTokens(
 			dadsTokenId: tertiaryCandidate.tokenId,
 		};
 	} else {
-		// フォールバック: HCT-based algorithmic derivation
-		const fallbackToneOffset =
-			tertiaryDirection === "lighter"
-				? FALLBACK_TONE_OFFSET
-				: -FALLBACK_TONE_OFFSET;
-		const fallbackTone = secondary.tone + fallbackToneOffset;
-		const fallbackColor = fromHct(hue, chroma, fallbackTone);
-		tertiary = {
-			color: fallbackColor,
-			tone: fallbackTone,
-			contrastRatio: fallbackColor.contrast(bgColor),
-			lightnessDirection: tertiaryDirection,
-		};
+		tertiary = createFallbackColor(
+			hue,
+			chroma,
+			secondary.tone,
+			tertiaryDirection,
+			bgColor,
+		);
 	}
 
 	return {
@@ -470,18 +484,11 @@ export function deriveSecondaryTertiary(
 	const primaryContrast = primaryColor.contrast(bgColor);
 
 	// Secondaryの方向を決定（コントラストベース）
-	// Primaryコントラスト >= 目標 → 目標は「より低いコントラスト」
-	//   → ライト背景: 明るい方向（白に近づく）、ダーク背景: 暗い方向（黒に近づく）
-	// Primaryコントラスト < 目標 → 目標は「より高いコントラスト」
-	//   → ライト背景: 暗い方向、ダーク背景: 明るい方向
 	const needsLowerContrast = primaryContrast >= secondaryUiContrast;
-	const secondaryDirection: "lighter" | "darker" = isLight
-		? needsLowerContrast
+	const secondaryDirection: "lighter" | "darker" =
+		(isLight && needsLowerContrast) || (!isLight && !needsLowerContrast)
 			? "lighter"
-			: "darker"
-		: needsLowerContrast
-			? "darker"
-			: "lighter";
+			: "darker";
 
 	// Tertiaryは常に背景に近づく方向（最低コントラスト）
 	const tertiaryDirection: "lighter" | "darker" = isLight
@@ -517,12 +524,6 @@ export function deriveSecondaryTertiary(
 		secondaryTone,
 	);
 
-	// フォールバック: 探索失敗時は固定オフセットで生成
-	const tertiaryToneOffset =
-		tertiaryDirection === "lighter"
-			? FALLBACK_TONE_OFFSET
-			: -FALLBACK_TONE_OFFSET;
-
 	const secondary: DerivedColor = secondaryResult
 		? {
 				color: secondaryResult.color,
@@ -530,16 +531,13 @@ export function deriveSecondaryTertiary(
 				contrastRatio: secondaryResult.contrast,
 				lightnessDirection: secondaryDirection,
 			}
-		: {
-				color: fromHct(hue, chroma, primaryTone + secondaryToneOffset),
-				tone: primaryTone + secondaryToneOffset,
-				contrastRatio: fromHct(
-					hue,
-					chroma,
-					primaryTone + secondaryToneOffset,
-				).contrast(bgColor),
-				lightnessDirection: secondaryDirection,
-			};
+		: createFallbackColor(
+				hue,
+				chroma,
+				primaryTone,
+				secondaryDirection,
+				bgColor,
+			);
 
 	const tertiary: DerivedColor = tertiaryResult
 		? {
@@ -548,17 +546,13 @@ export function deriveSecondaryTertiary(
 				contrastRatio: tertiaryResult.contrast,
 				lightnessDirection: tertiaryDirection,
 			}
-		: {
-				// Tertiaryのフォールバックも Secondaryからのオフセット
-				color: fromHct(hue, chroma, secondaryTone + tertiaryToneOffset),
-				tone: secondaryTone + tertiaryToneOffset,
-				contrastRatio: fromHct(
-					hue,
-					chroma,
-					secondaryTone + tertiaryToneOffset,
-				).contrast(bgColor),
-				lightnessDirection: tertiaryDirection,
-			};
+		: createFallbackColor(
+				hue,
+				chroma,
+				secondaryTone,
+				tertiaryDirection,
+				bgColor,
+			);
 
 	return {
 		primary: {

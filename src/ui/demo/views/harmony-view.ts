@@ -372,29 +372,22 @@ function renderCoolorsMode(
 	viewState: ViewState,
 	callbacks: AccentSelectionViewCallbacks,
 ): void {
-	// レイアウトコンテナ
 	const layout = document.createElement("div");
 	layout.className = "coolors-layout";
-	// 背景色をレイアウト全体に適用
 	const bgColor = state.lightBackgroundColor || "#ffffff";
 	layout.style.backgroundColor = bgColor;
 	container.appendChild(layout);
 
-	// メインエリア
 	const mainArea = document.createElement("div");
 	mainArea.className = "coolors-layout__main";
-	// 背景色を継承（transparent）
 	mainArea.style.backgroundColor = "transparent";
 	layout.appendChild(mainArea);
 
-	// サイドバーエリア
 	const sidebarArea = document.createElement("div");
 	sidebarArea.className = "coolors-layout__sidebar";
-	// 背景色を継承（transparent）
 	sidebarArea.style.backgroundColor = "transparent";
 	layout.appendChild(sidebarArea);
 
-	// ローディング表示
 	const loadingEl = document.createElement("div");
 	loadingEl.className = "accent-selection-loading";
 	loadingEl.innerHTML = `
@@ -573,16 +566,13 @@ async function loadCoolorsPreviews(
 function createSidebarSection(sidebar: HTMLElement): HTMLElement {
 	const section = document.createElement("div");
 	section.className = "harmony-sidebar-section";
-	// 背景色を継承（transparent）
 	section.style.backgroundColor = "transparent";
 
-	// ハーモニー見出し
 	const heading = document.createElement("h3");
 	heading.className = "harmony-sidebar-section__heading";
 	heading.textContent = "ハーモニー";
 	section.appendChild(heading);
 
-	// サイドバー（背景色を継承）
 	sidebar.style.backgroundColor = "transparent";
 	section.appendChild(sidebar);
 

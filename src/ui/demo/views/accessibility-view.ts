@@ -54,7 +54,6 @@ type BoundaryValidationType = CVDType | "normal";
  */
 interface BoundaryValidationSummary {
 	totalIssues: number;
-	issuesByType: Record<BoundaryValidationType, number>;
 }
 
 /**
@@ -505,13 +504,7 @@ function getBoundaryValidationSummary(
 		...getAllCVDTypes(),
 	];
 
-	const issuesByType: Record<BoundaryValidationType, number> = {
-		normal: 0,
-		protanopia: 0,
-		deuteranopia: 0,
-		tritanopia: 0,
-		achromatopsia: 0,
-	};
+	let totalIssues = 0;
 
 	for (const validationType of validationTypes) {
 		const simulatedColors: NamedColor[] =
@@ -523,20 +516,13 @@ function getBoundaryValidationSummary(
 					}));
 
 		const result = sortColorsWithValidation(simulatedColors, sortType);
-		const issueCount = result.boundaryValidations.reduce(
+		totalIssues += result.boundaryValidations.reduce(
 			(count, validation) => count + (validation.isDistinguishable ? 0 : 1),
 			0,
 		);
-
-		issuesByType[validationType] = issueCount;
 	}
 
-	const totalIssues = Object.values(issuesByType).reduce(
-		(sum, count) => sum + count,
-		0,
-	);
-
-	return { totalIssues, issuesByType };
+	return { totalIssues };
 }
 
 // ============================================================================
