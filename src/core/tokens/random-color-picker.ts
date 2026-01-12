@@ -28,7 +28,19 @@ export interface RandomColorOptions {
 }
 
 /**
+ * トークンとそのコントラスト比を保持する型
+ */
+interface TokenWithContrast {
+	token: DadsToken;
+	contrast: number;
+}
+
+/**
  * DADSの有彩色（chromatic）トークンからランダムに1つ選択する（内部ヘルパー）
+ *
+ * フォールバック動作:
+ * - 指定されたコントラスト比を満たす色がない場合、要件を段階的に緩和
+ * - 最低3:1まで緩和しても見つからない場合、最もコントラストが高い色を選択
  *
  * @param options オプション（背景色指定でコントラストフィルタリング）
  * @returns ランダムに選択されたDADSトークン
@@ -40,9 +52,13 @@ async function selectRandomChromaticToken(
 	const tokens = await loadDadsTokens();
 
 	// chromaticカテゴリのみをフィルター（10色相 × 13スケール = 130色）
-	let chromaticTokens = tokens.filter(
+	const chromaticTokens = tokens.filter(
 		(t) => t.classification.category === "chromatic",
 	);
+
+	if (chromaticTokens.length === 0) {
+		throw new Error("有彩色トークンが見つかりませんでした");
+	}
 
 	// 背景色が指定された場合、コントラスト比でフィルタリング
 	if (options?.backgroundHex) {
@@ -50,20 +66,60 @@ async function selectRandomChromaticToken(
 		const minRatio = options.minContrastRatio ?? WCAG_RATIO_AA;
 
 		if (bgColor) {
-			chromaticTokens = chromaticTokens.filter((token) => {
-				const fgColor = parseColor(token.hex);
-				if (!fgColor) return false;
-				const ratio = getContrast(fgColor, bgColor);
-				return ratio >= minRatio;
-			});
+			// 全トークンのコントラスト比を計算
+			const tokensWithContrast: TokenWithContrast[] = chromaticTokens
+				.map((token) => {
+					const fgColor = parseColor(token.hex);
+					if (!fgColor) return null;
+					const contrast = getContrast(fgColor, bgColor);
+					return { token, contrast };
+				})
+				.filter((item): item is TokenWithContrast => item !== null);
+
+			// 指定されたコントラスト比以上でフィルター
+			let filteredTokens = tokensWithContrast.filter(
+				(item) => item.contrast >= minRatio,
+			);
+
+			// フォールバック: 条件を満たす色がない場合
+			if (filteredTokens.length === 0) {
+				// 段階的にコントラスト要件を緩和（4.5 → 3.0）
+				const FALLBACK_CONTRAST_LEVELS = [3.5, 3.0];
+
+				for (const fallbackRatio of FALLBACK_CONTRAST_LEVELS) {
+					filteredTokens = tokensWithContrast.filter(
+						(item) => item.contrast >= fallbackRatio,
+					);
+					if (filteredTokens.length > 0) {
+						break;
+					}
+				}
+			}
+
+			// それでも見つからない場合、最もコントラストが高い色を選択
+			if (filteredTokens.length === 0 && tokensWithContrast.length > 0) {
+				// コントラストでソートして上位の色から選択（ランダム性を保つため上位10色から選択）
+				tokensWithContrast.sort((a, b) => b.contrast - a.contrast);
+				const topCandidates = tokensWithContrast.slice(0, 10);
+				const randomIndex = Math.floor(Math.random() * topCandidates.length);
+				const selected = topCandidates[randomIndex];
+				if (selected) {
+					return selected.token;
+				}
+			}
+
+			// フィルター済みトークンからランダムに選択
+			if (filteredTokens.length > 0) {
+				const randomIndex = Math.floor(Math.random() * filteredTokens.length);
+				const selected = filteredTokens[randomIndex];
+				if (selected) {
+					return selected.token;
+				}
+			}
 		}
 	}
 
-	if (chromaticTokens.length === 0) {
-		throw new Error("条件を満たす有彩色トークンが見つかりませんでした");
-	}
-
-	// ランダムにトークンを選択
+	// 背景色指定なし、または解析失敗の場合：単純なランダム選択
 	const randomIndex = Math.floor(Math.random() * chromaticTokens.length);
 	const selectedToken = chromaticTokens[randomIndex];
 

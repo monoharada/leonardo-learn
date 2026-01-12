@@ -82,6 +82,16 @@ function applySimulation(color: Color): Color {
 }
 
 /**
+ * キーカラー役割の定義
+ * P/S/T の役割名、短縮ラベル、日本語名を定義
+ */
+const KEY_COLOR_ROLE_DEFINITIONS = [
+	{ name: "Primary", shortLabel: "P", label: "プライマリ" },
+	{ name: "Secondary", shortLabel: "S", label: "セカンダリ" },
+	{ name: "Tertiary", shortLabel: "T", label: "ターシャリ" },
+] as const;
+
+/**
  * Primary/Secondary/Tertiary キーカラースウォッチをレンダリングする
  *
  * DADSトークンに含まれない独自色のみ表示する。
@@ -95,16 +105,6 @@ function renderKeyColorSwatches(
 	callbacks: ShadesViewCallbacks,
 	dadsTokens: DadsToken[],
 ): HTMLElement | null {
-	// P/S/Tパレットを取得
-	const primaryPalette = state.palettes.find((p) => p.name === "Primary");
-	const secondaryPalette = state.palettes.find((p) => p.name === "Secondary");
-	const tertiaryPalette = state.palettes.find((p) => p.name === "Tertiary");
-
-	// パレットがない場合はnullを返す
-	if (!primaryPalette && !secondaryPalette && !tertiaryPalette) {
-		return null;
-	}
-
 	// DADSに含まれない独自色のみをフィルタリング
 	const nonDadsColors: Array<{
 		palette: PaletteConfig;
@@ -112,38 +112,17 @@ function renderKeyColorSwatches(
 		label: string;
 	}> = [];
 
-	if (primaryPalette) {
-		const hex = parseKeyColor(primaryPalette.keyColors[0] ?? "").color;
-		const dadsMatch = findDadsColorByHex(dadsTokens, hex);
-		if (!dadsMatch) {
-			nonDadsColors.push({
-				palette: primaryPalette,
-				shortLabel: "P",
-				label: "プライマリ",
-			});
-		}
-	}
+	for (const role of KEY_COLOR_ROLE_DEFINITIONS) {
+		const palette = state.palettes.find((p) => p.name === role.name);
+		if (!palette) continue;
 
-	if (secondaryPalette) {
-		const hex = parseKeyColor(secondaryPalette.keyColors[0] ?? "").color;
+		const hex = parseKeyColor(palette.keyColors[0] ?? "").color;
 		const dadsMatch = findDadsColorByHex(dadsTokens, hex);
 		if (!dadsMatch) {
 			nonDadsColors.push({
-				palette: secondaryPalette,
-				shortLabel: "S",
-				label: "セカンダリ",
-			});
-		}
-	}
-
-	if (tertiaryPalette) {
-		const hex = parseKeyColor(tertiaryPalette.keyColors[0] ?? "").color;
-		const dadsMatch = findDadsColorByHex(dadsTokens, hex);
-		if (!dadsMatch) {
-			nonDadsColors.push({
-				palette: tertiaryPalette,
-				shortLabel: "T",
-				label: "ターシャリ",
+				palette,
+				shortLabel: role.shortLabel,
+				label: role.label,
 			});
 		}
 	}

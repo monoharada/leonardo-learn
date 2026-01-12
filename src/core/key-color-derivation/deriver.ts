@@ -64,6 +64,11 @@ function fromHct(hue: number, chroma: number, tone: number): Color {
  *
  * バイナリサーチを使用して、目標コントラストに最も近いトーンを見つける。
  *
+ * エッジケース対応:
+ * - 極端なトーン値（0付近、100付近）でも動作
+ * - 探索範囲が縮退している場合は反対方向も探索
+ * - 目標コントラストが達成不可能な場合は最善値を返却
+ *
  * @param hue 色相
  * @param chroma 彩度
  * @param bgColor 背景色
@@ -92,8 +97,22 @@ function findToneForContrast(
 		high = 100;
 	}
 
-	// 範囲が狭すぎる場合は拡張
-	if (high - low < 5) {
+	// エッジケース: 極端な開始トーンで探索範囲が縮退している場合
+	// 縮退の閾値を2に設定（探索に最低限必要な範囲）
+	const MIN_SEARCH_RANGE = 2;
+	const initialRange = high - low;
+
+	if (initialRange < MIN_SEARCH_RANGE) {
+		// 探索範囲が狭すぎる場合、反対方向への探索を許可
+		if (searchDirection === "darker") {
+			// 暗い方向の範囲が狭い → 明るい方向に拡張
+			high = Math.min(startTone + 20, 100);
+		} else {
+			// 明るい方向の範囲が狭い → 暗い方向に拡張
+			low = Math.max(startTone - 20, 0);
+		}
+	} else if (high - low < 5) {
+		// 範囲が狭い（5未満）が縮退はしていない場合、小さく拡張
 		if (searchDirection === "darker") {
 			high = Math.min(startTone + 10, 100);
 		} else {
@@ -101,9 +120,39 @@ function findToneForContrast(
 		}
 	}
 
+	// 探索範囲の両端をまず評価（達成可能性チェック）
+	const lowColor = fromHct(hue, chroma, low);
+	const highColor = fromHct(hue, chroma, high);
+	const lowContrast = lowColor.contrast(bgColor);
+	const highContrast = highColor.contrast(bgColor);
+
+	// 目標コントラストが探索範囲内で達成可能か確認
+	const minContrast = Math.min(lowContrast, highContrast);
+	const maxContrast = Math.max(lowContrast, highContrast);
+	const isTargetAchievable =
+		targetContrast >= minContrast && targetContrast <= maxContrast;
+
 	let bestResult: { tone: number; color: Color; contrast: number } | null =
 		null;
 	let bestDiff = Infinity;
+
+	// 両端を初期候補として評価
+	const lowDiff = Math.abs(lowContrast - targetContrast);
+	const highDiff = Math.abs(highContrast - targetContrast);
+
+	if (lowDiff < bestDiff) {
+		bestDiff = lowDiff;
+		bestResult = { tone: low, color: lowColor, contrast: lowContrast };
+	}
+	if (highDiff < bestDiff) {
+		bestDiff = highDiff;
+		bestResult = { tone: high, color: highColor, contrast: highContrast };
+	}
+
+	// 目標が達成不可能な場合、最善の端点を返却
+	if (!isTargetAchievable) {
+		return bestResult;
+	}
 
 	// バイナリサーチで目標コントラストを探索
 	for (let i = 0; i < 25; i++) {
@@ -119,6 +168,11 @@ function findToneForContrast(
 
 		// 許容誤差内であれば終了
 		if (diff < 0.1) {
+			return bestResult;
+		}
+
+		// 収束判定: 探索範囲が十分狭くなった場合は終了
+		if (high - low < 0.01) {
 			return bestResult;
 		}
 
