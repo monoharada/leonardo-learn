@@ -303,16 +303,23 @@ function extractPaletteTokenRows(): TokenTableRow[] {
 }
 
 /**
+ * Primaryパレットを検索してHEX値を抽出する
+ * "@step"形式の場合はHEX部分のみを返す
+ */
+function getPrimaryHex(): string {
+	const primaryPalette = state.palettes.find(
+		(p) => p.name === "Primary" || p.name?.startsWith("Primary"),
+	);
+	return primaryPalette?.keyColors[0]?.split("@")[0] || "#00A3BF";
+}
+
+/**
  * プレビュー用カラーを抽出
  */
 async function extractPreviewColors(
 	dadsTokens: Awaited<ReturnType<typeof loadDadsTokens>>,
+	primaryHex: string,
 ): Promise<PalettePreviewColors> {
-	const primaryPalette = state.palettes.find(
-		(p) => p.name === "Primary" || p.name?.startsWith("Primary"),
-	);
-	const primaryHex = primaryPalette?.keyColors[0]?.split("@")[0] || "#00A3BF";
-
 	const accentPalette = state.palettes.find((p) => p.name.startsWith("Accent"));
 	const accentHex = accentPalette?.keyColors[0]?.split("@")[0] || "#259063";
 
@@ -425,7 +432,10 @@ export async function renderPaletteView(
 		previewHeading.textContent = "カラープレビュー";
 		previewSection.appendChild(previewHeading);
 
-		const previewColors = await extractPreviewColors(dadsTokens);
+		// Primaryカラーを取得（プレビューとリンクスタイル自動選択で共有）
+		const primaryHex = getPrimaryHex();
+
+		const previewColors = await extractPreviewColors(dadsTokens, primaryHex);
 		const preview = createPalettePreview(previewColors);
 		previewSection.appendChild(preview);
 		container.appendChild(previewSection);
@@ -442,13 +452,6 @@ export async function renderPaletteView(
 		// Primary/Accent を先に、セマンティックトークンを後に配置
 		// UX順序: Primary → Accent → Link → Success → Warning → Error
 		const paletteRows = extractPaletteTokenRows();
-
-		// Primaryカラーを取得してリンクスタイル自動選択に使用
-		const primaryPalette = state.palettes.find(
-			(p) => p.name === "Primary" || p.name?.startsWith("Primary"),
-		);
-		const primaryHex = primaryPalette?.keyColors[0]?.split("@")[0] || "#00A3BF";
-
 		const semanticRows = await extractSemanticTokenRows(dadsTokens, primaryHex);
 		const allRows = [...paletteRows, ...semanticRows];
 

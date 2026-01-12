@@ -512,6 +512,29 @@ function findCandidateByHex(
 }
 
 /**
+ * シンプルな単色モーダルオプションを生成する（フォールバック用）
+ */
+function createSimpleColorDetailOptions(
+	hex: string,
+	tokenName: string,
+): ColorDetailModalOptions {
+	const color = new Color(hex);
+	return {
+		stepColor: color,
+		keyColor: color,
+		index: 0,
+		fixedScale: {
+			colors: [color],
+			keyIndex: 0,
+			hexValues: [hex],
+		},
+		paletteInfo: { name: tokenName },
+		readOnly: true,
+		originalHex: hex,
+	};
+}
+
+/**
  * DADSシェードスケールを含むColorDetailModalOptionsを構築する
  *
  * @param hex クリックされた色のHEX値
@@ -601,34 +624,13 @@ async function buildDadsColorDetailOptions(
 	}
 
 	// DADSカラーでない場合（ブランドカラーまたはフォールバック）
-	return {
-		stepColor: color,
-		keyColor: color,
-		index: 0,
-		fixedScale: {
-			colors: [color],
-			keyIndex: 0,
-			hexValues: [hex],
-		},
-		paletteInfo: {
-			name: tokenName,
-		},
-		readOnly: true,
-		originalHex: hex,
-	};
+	return createSimpleColorDetailOptions(hex, tokenName);
 }
 
 /**
  * カラークリック時のハンドラを作成する（共通関数）
  *
- * 重複していた onColorClick ハンドラロジックを共通化。
  * DADSシェードモーダルの表示とフォールバック処理を担当。
- *
- * @param paletteCandidatesMap ハーモニータイプ別のScoredCandidate配列
- * @param harmonyType 現在選択中のハーモニータイプ
- * @param tokenNames トークン名の配列
- * @param callbacks コールバック関数
- * @returns onColorClick ハンドラ
  */
 function createColorClickHandler(
 	paletteCandidatesMap: Map<HarmonyFilterType, ScoredCandidate[]>,
@@ -637,35 +639,13 @@ function createColorClickHandler(
 	callbacks: AccentSelectionViewCallbacks,
 ): (hex: string, index: number) => void {
 	return (hex, index) => {
+		const tokenName = tokenNames[index] ?? `Color ${index + 1}`;
 		const candidates = paletteCandidatesMap.get(harmonyType) ?? [];
-		buildDadsColorDetailOptions(
-			hex,
-			index,
-			candidates,
-			tokenNames[index] ?? `Color ${index + 1}`,
-		)
-			.then((options) => {
-				callbacks.onColorClick(options);
-			})
+		buildDadsColorDetailOptions(hex, index, candidates, tokenName)
+			.then((options) => callbacks.onColorClick(options))
 			.catch((error) => {
 				console.error("Failed to build modal options:", error);
-				// フォールバック: シンプルな単色表示
-				const color = new Color(hex);
-				callbacks.onColorClick({
-					stepColor: color,
-					keyColor: color,
-					index: 0,
-					fixedScale: {
-						colors: [color],
-						keyIndex: 0,
-						hexValues: [hex],
-					},
-					paletteInfo: {
-						name: tokenNames[index] ?? `Color ${index + 1}`,
-					},
-					readOnly: true,
-					originalHex: hex,
-				});
+				callbacks.onColorClick(createSimpleColorDetailOptions(hex, tokenName));
 			});
 	};
 }

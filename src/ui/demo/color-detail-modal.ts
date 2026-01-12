@@ -631,95 +631,9 @@ function createUpdateDetailHandler(
 		updateContrastCard(color, state.lightBackgroundColor, "white");
 		updateContrastCard(color, state.darkBackgroundColor, "black");
 
-		// Update card labels to show actual background colors
-		const whiteLabelEl = document.getElementById("detail-white-label");
-		const blackLabelEl = document.getElementById("detail-black-label");
-		if (whiteLabelEl) {
-			whiteLabelEl.textContent = `${state.lightBackgroundColor.toUpperCase()} に対するコントラスト`;
-		}
-		if (blackLabelEl) {
-			blackLabelEl.textContent = `${state.darkBackgroundColor.toUpperCase()} に対するコントラスト`;
-		}
-
-		// Update card background colors dynamically
-		const whiteCardEl = document.getElementById("detail-white-card");
-		const blackCardEl = document.getElementById("detail-black-card");
-		if (whiteCardEl) {
-			whiteCardEl.style.backgroundColor = state.lightBackgroundColor;
-			// Set data-bg to custom and data-mode for CSS styling
-			const lightMode = determineColorMode(state.lightBackgroundColor);
-			whiteCardEl.dataset.bg = "custom";
-			whiteCardEl.dataset.mode = lightMode;
-			// Set text colors for all card elements
-			const lightTextColor = lightMode === "light" ? "#1a1a1a" : "#ffffff";
-			const lightLabelColor = lightMode === "light" ? "#666666" : "#aaaaaa";
-			const lightUnitColor = lightMode === "light" ? "#888888" : "#cccccc";
-			// Update label and ratio text colors
-			if (whiteLabelEl) {
-				whiteLabelEl.style.color = lightLabelColor;
-			}
-			const whiteRatioEl = document.getElementById("detail-white-ratio");
-			if (whiteRatioEl) {
-				whiteRatioEl.style.color = lightTextColor;
-			}
-			// Update unit text color
-			const whiteUnitEl = whiteCardEl.querySelector(
-				".dads-contrast-card__unit",
-			);
-			if (whiteUnitEl instanceof HTMLElement) {
-				whiteUnitEl.style.color = lightUnitColor;
-			}
-			// Update fail icon color
-			const whiteFailEl = document.getElementById("detail-white-fail-icon");
-			if (whiteFailEl) {
-				whiteFailEl.style.color = lightMode === "light" ? "#dc2626" : "#fca5a5";
-			}
-			// Update badge border color for dark backgrounds
-			const whiteBadgeEl = document.getElementById("detail-white-badge");
-			if (whiteBadgeEl && lightMode === "dark") {
-				whiteBadgeEl.style.borderColor = "rgba(255, 255, 255, 0.3)";
-			} else if (whiteBadgeEl) {
-				whiteBadgeEl.style.borderColor = "";
-			}
-		}
-		if (blackCardEl) {
-			blackCardEl.style.backgroundColor = state.darkBackgroundColor;
-			// Set data-bg to custom and data-mode for CSS styling
-			const darkMode = determineColorMode(state.darkBackgroundColor);
-			blackCardEl.dataset.bg = "custom";
-			blackCardEl.dataset.mode = darkMode;
-			// Set text colors for all card elements
-			const darkTextColor = darkMode === "light" ? "#1a1a1a" : "#ffffff";
-			const darkLabelColor = darkMode === "light" ? "#666666" : "#aaaaaa";
-			const darkUnitColor = darkMode === "light" ? "#888888" : "#cccccc";
-			// Update label and ratio text colors
-			if (blackLabelEl) {
-				blackLabelEl.style.color = darkLabelColor;
-			}
-			const blackRatioEl = document.getElementById("detail-black-ratio");
-			if (blackRatioEl) {
-				blackRatioEl.style.color = darkTextColor;
-			}
-			// Update unit text color
-			const blackUnitEl = blackCardEl.querySelector(
-				".dads-contrast-card__unit",
-			);
-			if (blackUnitEl instanceof HTMLElement) {
-				blackUnitEl.style.color = darkUnitColor;
-			}
-			// Update fail icon color
-			const blackFailEl = document.getElementById("detail-black-fail-icon");
-			if (blackFailEl) {
-				blackFailEl.style.color = darkMode === "light" ? "#dc2626" : "#fca5a5";
-			}
-			// Update badge border color for dark backgrounds
-			const blackBadgeEl = document.getElementById("detail-black-badge");
-			if (blackBadgeEl && darkMode === "dark") {
-				blackBadgeEl.style.borderColor = "rgba(255, 255, 255, 0.3)";
-			} else if (blackBadgeEl) {
-				blackBadgeEl.style.borderColor = "";
-			}
-		}
+		// Update contrast card styling for both light and dark backgrounds
+		updateContrastCardStyling("white", state.lightBackgroundColor);
+		updateContrastCardStyling("black", state.darkBackgroundColor);
 
 		// Preferred card highlighting - use actual background colors
 		const whiteContrastVal = verifyContrast(
@@ -830,6 +744,48 @@ function updateContrastCard(
 			failIcon.style.display = info.level === "error" ? "block" : "none";
 		}
 	}
+}
+
+/**
+ * コントラストカードのスタイリングを更新する
+ * ラベル、背景色、テキスト色などを設定
+ */
+function updateContrastCardStyling(prefix: string, bgHex: string): void {
+	const labelEl = document.getElementById(`detail-${prefix}-label`);
+	const cardEl = document.getElementById(`detail-${prefix}-card`);
+
+	if (labelEl) {
+		labelEl.textContent = `${bgHex.toUpperCase()} に対するコントラスト`;
+	}
+
+	if (!cardEl) return;
+
+	cardEl.style.backgroundColor = bgHex;
+	const colorMode = determineColorMode(bgHex);
+	cardEl.dataset.bg = "custom";
+	cardEl.dataset.mode = colorMode;
+
+	// Mode-based color values
+	const isLight = colorMode === "light";
+	const textColor = isLight ? "#1a1a1a" : "#ffffff";
+	const labelColor = isLight ? "#666666" : "#aaaaaa";
+	const unitColor = isLight ? "#888888" : "#cccccc";
+	const failColor = isLight ? "#dc2626" : "#fca5a5";
+	const badgeBorder = isLight ? "" : "rgba(255, 255, 255, 0.3)";
+
+	if (labelEl) labelEl.style.color = labelColor;
+
+	const ratioEl = document.getElementById(`detail-${prefix}-ratio`);
+	if (ratioEl) ratioEl.style.color = textColor;
+
+	const unitEl = cardEl.querySelector(".dads-contrast-card__unit");
+	if (unitEl instanceof HTMLElement) unitEl.style.color = unitColor;
+
+	const failEl = document.getElementById(`detail-${prefix}-fail-icon`);
+	if (failEl) failEl.style.color = failColor;
+
+	const badgeEl = document.getElementById(`detail-${prefix}-badge`);
+	if (badgeEl) badgeEl.style.borderColor = badgeBorder;
 }
 
 /**
