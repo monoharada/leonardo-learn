@@ -37,7 +37,6 @@ import { renderBoundaryPills } from "@/ui/semantic-role/contrast-boundary-indica
 import { applyOverlay } from "@/ui/semantic-role/semantic-role-overlay";
 import { createBackgroundColorSelector } from "../background-color-selector";
 import {
-	findPaletteByDadsInfo,
 	getActivePalette,
 	parseKeyColor,
 	persistBackgroundColors,
@@ -211,6 +210,28 @@ export async function renderShadesView(
 }
 
 /**
+ * セマンティックロールから日本語表示名を生成する
+ *
+ * @param role - セマンティックロール
+ * @returns 日本語表示名
+ */
+function getRoleDisplayName(role: SemanticRole): string {
+	switch (role.category) {
+		case "primary":
+			return "プライマリーカラー";
+		case "accent": {
+			const match = role.name.match(/\d+/);
+			const num = match ? match[0] : "1";
+			return `アクセントカラー ${num}`;
+		}
+		case "secondary":
+			return "セカンダリーカラー";
+		default:
+			return role.fullName || role.name;
+	}
+}
+
+/**
  * 色相セクションを描画
  *
  * @param container - 描画先コンテナ
@@ -305,12 +326,17 @@ export function renderDadsHueSection(
 				colorScale.colors.find((c) => c.scale === 600) || colorItem;
 			const keyColor = new Color(keyColorItem.hex);
 
-			// Issue #41: 対応パレットを検索（名前編集を可能にするため）
-			// colorScale.hueName.en（例: "Blue"）とcolorItem.scale（例: 600）で検索
-			const matchedPalette = findPaletteByDadsInfo(
-				colorScale.hueName.en,
-				colorItem.scale,
-			);
+			// Issue #41: 役割がある場合は役割名、ない場合はトークン名を表示
+			let displayName = `${colorScale.hue}-${colorItem.scale}`;
+			if (roleMapper) {
+				const roles = roleMapper.lookupRoles(
+					colorScale.hue as DadsColorHue,
+					colorItem.scale,
+				);
+				if (roles.length > 0 && roles[0]) {
+					displayName = getRoleDisplayName(roles[0]);
+				}
+			}
 
 			callbacks.onColorClick({
 				stepColor,
@@ -319,9 +345,8 @@ export function renderDadsHueSection(
 				fixedScale: { colors: scaleColors, keyIndex: index, hexValues },
 				originalHex: colorItem.hex,
 				paletteInfo: {
-					name: colorScale.hueName.ja,
+					name: displayName,
 					baseChromaName: colorScale.hueName.en,
-					paletteId: matchedPalette?.id, // 対応パレットがあればIDを設定
 				},
 				readOnly: true,
 			});
