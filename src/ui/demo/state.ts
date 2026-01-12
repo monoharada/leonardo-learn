@@ -311,6 +311,38 @@ export function parseKeyColor(input: string): KeyColorWithStep {
 }
 
 /**
+ * DADSトークンのhue/scaleに対応するパレットを検索する
+ *
+ * 同じhue/scaleのパレットが複数存在する場合は、
+ * IDのタイムスタンプ（末尾の数字）が最も大きい（最新）ものを返す。
+ *
+ * @param displayName 色相の英語表示名（例: "Blue", "Red"）
+ * @param scale DADSスケール番号（50, 100, 200, ..., 1200）
+ * @returns 対応するパレット、または見つからない場合はundefined
+ * @see Issue #41: カラー詳細モーダルの統一
+ */
+export function findPaletteByDadsInfo(
+	displayName: string,
+	scale: number,
+): PaletteConfig | undefined {
+	// 同じhue/scaleのパレットを全て取得
+	const matches = state.palettes.filter(
+		(p) => p.baseChromaName === displayName && p.step === scale,
+	);
+
+	if (matches.length === 0) return undefined;
+	if (matches.length === 1) return matches[0];
+
+	// 複数ある場合、IDからタイムスタンプを抽出してソート（降順 = 新しい順）
+	// ID形式: "harmony-accent1-1704067200000"
+	return matches.sort((a, b) => {
+		const tsA = Number.parseInt(a.id.split("-").pop() || "0", 10);
+		const tsB = Number.parseInt(b.id.split("-").pop() || "0", 10);
+		return tsB - tsA;
+	})[0];
+}
+
+/**
  * 状態をデフォルト値にリセットする
  *
  * テスト間での状態リークを防止するために使用。

@@ -37,6 +37,7 @@ import { renderBoundaryPills } from "@/ui/semantic-role/contrast-boundary-indica
 import { applyOverlay } from "@/ui/semantic-role/semantic-role-overlay";
 import { createBackgroundColorSelector } from "../background-color-selector";
 import {
+	findPaletteByDadsInfo,
 	getActivePalette,
 	parseKeyColor,
 	persistBackgroundColors,
@@ -304,6 +305,13 @@ export function renderDadsHueSection(
 				colorScale.colors.find((c) => c.scale === 600) || colorItem;
 			const keyColor = new Color(keyColorItem.hex);
 
+			// Issue #41: 対応パレットを検索（名前編集を可能にするため）
+			// colorScale.hueName.en（例: "Blue"）とcolorItem.scale（例: 600）で検索
+			const matchedPalette = findPaletteByDadsInfo(
+				colorScale.hueName.en,
+				colorItem.scale,
+			);
+
 			callbacks.onColorClick({
 				stepColor,
 				keyColor,
@@ -313,6 +321,7 @@ export function renderDadsHueSection(
 				paletteInfo: {
 					name: colorScale.hueName.ja,
 					baseChromaName: colorScale.hueName.en,
+					paletteId: matchedPalette?.id, // 対応パレットがあればIDを設定
 				},
 				readOnly: true,
 			});

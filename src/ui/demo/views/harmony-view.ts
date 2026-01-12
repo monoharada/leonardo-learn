@@ -48,7 +48,7 @@ import {
 	type HarmonyStateManager,
 } from "../harmony-state-manager";
 import { createPalettesFromHarmonyColors } from "../palette-generator";
-import { state } from "../state";
+import { findPaletteByDadsInfo, state } from "../state";
 import type { ColorDetailModalOptions } from "../types";
 
 /**
@@ -578,6 +578,13 @@ async function buildDadsColorDetailOptions(
 				colorScale.colors.find((c) => c.scale === dadsStep);
 			const keyColor = keyColorItem ? new Color(keyColorItem.hex) : color;
 
+			// Issue #41: アクセントカラー（index > 0）の場合、対応パレットを検索
+			// Primaryカラー（index === 0）はブランドカラーなので対象外
+			const matchedPalette =
+				index > 0
+					? findPaletteByDadsInfo(colorScale.hueName.en, dadsStep)
+					: undefined;
+
 			return {
 				stepColor: color,
 				keyColor,
@@ -591,6 +598,7 @@ async function buildDadsColorDetailOptions(
 					name: tokenName,
 					baseChromaName: colorScale.hueName.en,
 					step: dadsStep,
+					paletteId: matchedPalette?.id, // 対応パレットがあればIDを設定
 				},
 				readOnly: true,
 				originalHex: hex,
