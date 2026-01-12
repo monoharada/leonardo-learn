@@ -67,6 +67,7 @@ mock.module("@/accessibility/distinguishability", () => ({
 	checkPaletteDistinguishability: () => ({ problematicPairs: [] }),
 	calculateDeltaE: () => 5.0, // モックでは常に識別可能な値を返す
 	calculateSimpleDeltaE: () => 5.0, // ΔEOK計算のモック（識別可能な値）
+	DISTINGUISHABILITY_THRESHOLD: 5.0, // 識別可能閾値のモック
 }));
 
 mock.module("@/core/cud/validator", () => ({
@@ -234,8 +235,9 @@ describe("accessibility-view", () => {
 
 			// keyColorsMap生成コードは残っている
 			expect(content).toContain("const keyColorsMap");
+			// viewStateも渡すようにリファクタリングされた
 			expect(content).toContain(
-				"renderSortingValidationSection(container, keyColorsMap)",
+				"renderSortingValidationSection(container, keyColorsMap, viewState)",
 			);
 		});
 
@@ -352,7 +354,11 @@ describe("accessibility-view", () => {
 		it("should have getCvdTypeLabelJa helper for Japanese CVD type names", async () => {
 			const fs = await import("node:fs");
 			const path = await import("node:path");
-			const filePath = path.join(import.meta.dir, "accessibility-view.ts");
+			// getCvdTypeLabelJaはcvd-detection.tsに抽出された
+			const filePath = path.join(
+				import.meta.dir,
+				"../../accessibility/cvd-detection.ts",
+			);
 			const content = fs.readFileSync(filePath, "utf-8");
 
 			// getCvdTypeLabelJa関数が存在すること
@@ -374,13 +380,20 @@ describe("accessibility-view", () => {
 		it("should group CVD confusion pairs by CVD type", async () => {
 			const fs = await import("node:fs");
 			const path = await import("node:path");
-			const filePath = path.join(import.meta.dir, "accessibility-view.ts");
-			const content = fs.readFileSync(filePath, "utf-8");
+			// groupPairsByCvdTypeはcvd-detection.tsに抽出された
+			const cvdDetectionPath = path.join(
+				import.meta.dir,
+				"../../accessibility/cvd-detection.ts",
+			);
+			const cvdDetectionContent = fs.readFileSync(cvdDetectionPath, "utf-8");
 
-			// CVDタイプでグループ化するロジックがあること
-			expect(content).toContain("groupedByType");
 			// CVDTypeを使用してMapでグループ化（全4タイプ対応）
-			expect(content).toContain("Map<CVDType, CvdConfusionPair[]>");
+			expect(cvdDetectionContent).toContain("Map<CVDType, CvdConfusionPair[]>");
+
+			// accessibility-view.tsでgroupedByTypeを使用していること
+			const viewFilePath = path.join(import.meta.dir, "accessibility-view.ts");
+			const viewContent = fs.readFileSync(viewFilePath, "utf-8");
+			expect(viewContent).toContain("groupedByType");
 		});
 
 		it("should display CVD type header with pair count", async () => {
@@ -398,7 +411,8 @@ describe("accessibility-view", () => {
 		it("should display color swatches for each problematic pair", async () => {
 			const fs = await import("node:fs");
 			const path = await import("node:path");
-			const filePath = path.join(import.meta.dir, "accessibility-view.ts");
+			// createPairSwatchはdom-helpers.tsに抽出された
+			const filePath = path.join(import.meta.dir, "../utils/dom-helpers.ts");
 			const content = fs.readFileSync(filePath, "utf-8");
 
 			// 色スウォッチの表示

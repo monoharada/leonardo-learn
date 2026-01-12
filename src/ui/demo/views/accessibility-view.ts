@@ -15,10 +15,7 @@ import {
 	getCVDTypeName,
 	simulateCVD,
 } from "@/accessibility/cvd-simulator";
-import {
-	calculateSimpleDeltaE as calculateDeltaE,
-	DISTINGUISHABILITY_THRESHOLD,
-} from "@/accessibility/distinguishability";
+import { DISTINGUISHABILITY_THRESHOLD } from "@/accessibility/distinguishability";
 import { Color } from "@/core/color";
 import {
 	getAllSortTypes,
@@ -27,154 +24,25 @@ import {
 	type SortType,
 	sortColorsWithValidation,
 } from "@/ui/accessibility/color-sorting";
+import {
+	type CvdConfusionPair,
+	detectColorConflicts,
+	detectCvdConfusionPairs,
+	getCvdTypeLabelJa,
+	groupPairsByCvdType,
+} from "@/ui/accessibility/cvd-detection";
 import { parseKeyColor, state } from "../state";
 import type { Color as ColorType } from "../types";
+import {
+	createColorSwatch,
+	createConflictIndicator,
+	createPairSwatch,
+	renderConflictOverlay,
+} from "../utils/dom-helpers";
 
 // ============================================================================
-// DOM Helper Functions
+// Types
 // ============================================================================
-
-/**
- * Create a color swatch element with optional label
- *
- * @param color - The color to display
- * @param name - Optional name for the swatch (displayed as text and in title)
- * @param showLabel - Whether to display the name as text inside the swatch
- * @returns The swatch div element
- */
-function createColorSwatch(
-	color: ColorType,
-	name?: string,
-	showLabel = true,
-): HTMLDivElement {
-	const swatch = document.createElement("div");
-	swatch.className = "dads-cvd-strip__swatch";
-	swatch.style.backgroundColor = color.toCss();
-
-	if (name) {
-		swatch.title = `${name} (${color.toHex()})`;
-		if (showLabel) {
-			swatch.style.color =
-				color.contrast(new Color("white")) > 4.5 ? "white" : "black";
-			swatch.textContent = name;
-		}
-	}
-
-	return swatch;
-}
-
-/**
- * Create a small color swatch for pair display (no label, just background)
- *
- * @param color - The color to display
- * @returns The swatch span element
- */
-function createPairSwatch(color: ColorType): HTMLSpanElement {
-	const swatch = document.createElement("span");
-	swatch.className = "dads-a11y-cvd-pair-swatch";
-	swatch.style.backgroundColor = color.toHex();
-	return swatch;
-}
-
-/**
- * Create conflict indicator elements (line and icon) for a given position
- *
- * @param position - The position percentage (0-100)
- * @param useCalc - Whether to use calc() for positioning (for pixel adjustments)
- * @returns Object containing line and icon elements
- */
-function createConflictIndicator(
-	position: number,
-	useCalc = false,
-): { line: HTMLDivElement; icon: HTMLDivElement } {
-	const line = document.createElement("div");
-	line.className = "dads-cvd-conflict-line";
-	line.style.left = useCalc ? `calc(${position}% - 1px)` : `${position}%`;
-
-	const icon = document.createElement("div");
-	icon.className = "dads-cvd-conflict-icon";
-	icon.textContent = "!";
-
-	if (useCalc) {
-		icon.style.left = `calc(${position}% - 10px)`;
-	} else {
-		icon.style.left = `${position}%`;
-		icon.style.transform = "translate(-50%, -50%)";
-	}
-
-	return { line, icon };
-}
-
-/**
- * Detect conflicts between colors based on delta E threshold
- *
- * @param simulatedColors - Array of colors with names
- * @param adjacentOnly - If true, only check adjacent pairs; if false, check all pairs
- * @param threshold - Delta E threshold for conflict detection
- * @returns Array of conflict indices (positions between colors)
- */
-function detectColorConflicts(
-	simulatedColors: { name: string; color: ColorType }[],
-	adjacentOnly: boolean,
-	threshold: number,
-): number[] {
-	const conflicts: number[] = [];
-
-	if (adjacentOnly) {
-		// Check adjacent pairs only (for shades)
-		for (let i = 0; i < simulatedColors.length - 1; i++) {
-			const item1 = simulatedColors[i];
-			const item2 = simulatedColors[i + 1];
-			if (!item1 || !item2) continue;
-			const deltaE = calculateDeltaE(item1.color, item2.color);
-			if (deltaE < threshold) {
-				conflicts.push(i);
-			}
-		}
-	} else {
-		// Check all pairs (for key colors)
-		for (let i = 0; i < simulatedColors.length; i++) {
-			for (let j = i + 1; j < simulatedColors.length; j++) {
-				const item1 = simulatedColors[i];
-				const item2 = simulatedColors[j];
-				if (!item1 || !item2) continue;
-				const deltaE = calculateDeltaE(item1.color, item2.color);
-				if (deltaE < threshold) {
-					// Record conflict position at the boundary
-					if (!conflicts.includes(i)) conflicts.push(i);
-					if (!conflicts.includes(j - 1) && j === i + 1) conflicts.push(j - 1);
-				}
-			}
-		}
-	}
-
-	return conflicts;
-}
-
-// ============================================================================
-// Constants
-// ============================================================================
-
-// DISTINGUISHABILITY_THRESHOLD is imported from @/accessibility/distinguishability
-
-/**
- * 一般色覚で十分に区別可能と判定する閾値（ΔEOK）
- * これ以上離れている色ペアのみCVD混同チェックを実施
- */
-const NORMAL_DISTINGUISHABLE_THRESHOLD = DISTINGUISHABILITY_THRESHOLD;
-
-/**
- * CVD混同リスクのペア情報
- */
-interface CvdConfusionPair {
-	/** ペアのインデックス（ソート後配列での位置） */
-	index1: number;
-	index2: number;
-	/** CVDタイプ（全4タイプ対応） */
-	cvdType: CVDType;
-	/** シミュレーション後のdeltaE（OKLCH、100倍スケール） */
-	cvdDeltaE: number;
-}
 
 /**
  * 境界検証の対象タイプ
@@ -189,76 +57,85 @@ interface BoundaryValidationSummary {
 	issuesByType: Record<BoundaryValidationType, number>;
 }
 
-/** CVDタイプの日本語名マッピング */
-const cvdTypeLabelsJa: Record<CVDType, string> = {
-	protanopia: "P型（1型2色覚）",
-	deuteranopia: "D型（2型2色覚）",
-	tritanopia: "T型（3型2色覚）",
-	achromatopsia: "全色盲",
-};
-
 /**
- * CVDタイプを日本語名に変換
- */
-function getCvdTypeLabelJa(cvdType: CVDType): string {
-	return cvdTypeLabelsJa[cvdType];
-}
-
-/**
- * CVD混同リスクのあるペアを検出する
- * 全CVDタイプ（P型/D型/T型/全色盲）で識別困難なペアを検出
- * 境界検証と同じΔEOK（OKLabユークリッド距離 × 100）を使用して一貫性を確保
+ * アクセシビリティビューの状態
  *
- * @param colors 色リスト
- * @returns CVD混同リスクのあるペアのリスト
+ * モジュールレベルの可変状態を避けるため、状態をオブジェクトとして管理する。
  */
-function detectCvdConfusionPairs(colors: NamedColor[]): CvdConfusionPair[] {
-	const pairs: CvdConfusionPair[] = [];
-
-	for (let i = 0; i < colors.length; i++) {
-		for (let j = i + 1; j < colors.length; j++) {
-			const color1 = colors[i];
-			const color2 = colors[j];
-			if (!color1 || !color2) continue;
-
-			// 一般色覚でのdeltaE（ΔEOK、100倍スケール）
-			const normalDeltaE = calculateDeltaE(color1.color, color2.color);
-
-			// 一般色覚で十分に区別可能な場合のみCVDチェック
-			// （既に識別困難なペアはCVD関係なく問題）
-			if (normalDeltaE >= NORMAL_DISTINGUISHABLE_THRESHOLD) {
-				// 全CVDタイプでシミュレーション（P型/D型/T型/全色盲）
-				for (const cvdType of getAllCVDTypes()) {
-					const sim1 = simulateCVD(color1.color, cvdType);
-					const sim2 = simulateCVD(color2.color, cvdType);
-					const cvdDeltaE = calculateDeltaE(sim1, sim2);
-
-					// 境界検証と同じ閾値を使用
-					if (cvdDeltaE < DISTINGUISHABILITY_THRESHOLD) {
-						pairs.push({
-							index1: i,
-							index2: j,
-							cvdType,
-							cvdDeltaE,
-						});
-					}
-				}
-			}
-		}
-	}
-
-	return pairs;
+interface AccessibilityViewState {
+	currentSortType: SortType;
 }
 
 /**
- * CVD混同リスク詳細をハイブリッド形式（2+3）でレンダリングする
+ * アクセシビリティビューのヘルパー関数
+ */
+export interface AccessibilityViewHelpers {
+	/** CVDシミュレーションを適用する関数（純粋関数として渡す） */
+	applySimulation: (color: ColorType) => ColorType;
+}
+
+// ============================================================================
+// State Management
+// ============================================================================
+
+/**
+ * ビュー状態を作成する
+ *
+ * @returns 初期状態のAccessibilityViewState
+ */
+function createViewState(): AccessibilityViewState {
+	return {
+		currentSortType: "hue",
+	};
+}
+
+// ============================================================================
+// Rendering Helpers
+// ============================================================================
+
+/**
+ * 空状態のメッセージを表示する
+ *
+ * @param container - レンダリング先のコンテナ要素
+ * @param viewName - ビュー名
+ */
+function renderEmptyState(container: HTMLElement, viewName: string): void {
+	const empty = document.createElement("div");
+	empty.className = "dads-empty-state";
+	empty.innerHTML = `
+		<p>${viewName}が生成されていません</p>
+		<p>ハーモニービューでスタイルを選択してパレットを生成してください。</p>
+	`;
+	container.innerHTML = "";
+	container.appendChild(empty);
+}
+
+/**
+ * 色の入力を統一形式に正規化する
+ *
+ * @param colorsInput - 色のマップまたは配列
+ * @returns [name, color]のタプル配列
+ */
+function normalizeColorInput(
+	colorsInput: Record<string, ColorType> | { name: string; color: ColorType }[],
+): [string, ColorType][] {
+	if (Array.isArray(colorsInput)) {
+		return colorsInput.map((item) => [item.name, item.color]);
+	}
+	return Object.entries(colorsInput);
+}
+
+/**
+ * CVD混同リスク詳細をレンダリングする
+ *
+ * ハイブリッド形式で表示:
  * - 誰に問題か（P型/D型）を明示
  * - どの色ペアかを具体的に表示
  * - 程度をΔE値で補足
  *
- * @param container レンダリング先のコンテナ要素
- * @param colors 色リスト
- * @param cvdConfusionPairs CVD混同リスクのあるペア
+ * @param container - レンダリング先のコンテナ要素
+ * @param colors - 色リスト
+ * @param cvdConfusionPairs - CVD混同リスクのあるペア
  */
 function renderCvdConfusionDetails(
 	container: HTMLElement,
@@ -269,30 +146,20 @@ function renderCvdConfusionDetails(
 		return;
 	}
 
-	// CVDタイプでグループ化（全4タイプ対応）
-	const groupedByType = new Map<CVDType, CvdConfusionPair[]>();
-	for (const pair of cvdConfusionPairs) {
-		const existing = groupedByType.get(pair.cvdType) ?? [];
-		existing.push(pair);
-		groupedByType.set(pair.cvdType, existing);
-	}
+	const groupedByType = groupPairsByCvdType(cvdConfusionPairs);
 
-	// 詳細セクションコンテナ
 	const detailsSection = document.createElement("div");
 	detailsSection.className = "dads-a11y-cvd-confusion-details";
 
-	// 各CVDタイプごとにセクションを作成
 	for (const [cvdType, pairs] of groupedByType) {
 		const typeSection = document.createElement("div");
 		typeSection.className = "dads-a11y-cvd-type-section";
 
-		// ヘッダー: ⚠ P型（1型2色覚）で混同リスク: 2ペア
 		const header = document.createElement("div");
 		header.className = "dads-a11y-cvd-type-header";
 		header.innerHTML = `<span class="dads-a11y-cvd-type-icon">⚠</span> <strong>${getCvdTypeLabelJa(cvdType)}</strong>で混同リスク: ${pairs.length}ペア`;
 		typeSection.appendChild(header);
 
-		// ペアリスト
 		const pairList = document.createElement("ul");
 		pairList.className = "dads-a11y-cvd-pair-list";
 
@@ -304,7 +171,6 @@ function renderCvdConfusionDetails(
 			const li = document.createElement("li");
 			li.className = "dads-a11y-cvd-pair-item";
 
-			// Build pair item: [swatch1] name1 ↔ name2 [swatch2] (ΔE = x.xx)
 			const swatch1 = createPairSwatch(color1.color);
 			const swatch2 = createPairSwatch(color2.color);
 
@@ -330,42 +196,9 @@ function renderCvdConfusionDetails(
 	container.appendChild(detailsSection);
 }
 
-/** 現在選択中のソートタイプ（モジュールレベルの状態） */
-let currentSortType: SortType = "hue";
-
-/**
- * アクセシビリティビューのヘルパー関数
- */
-export interface AccessibilityViewHelpers {
-	/** CVDシミュレーションを適用する関数（純粋関数として渡す） */
-	applySimulation: (color: ColorType) => ColorType;
-}
-
-/**
- * 空状態のメッセージを表示する
- */
-function renderEmptyState(container: HTMLElement, viewName: string): void {
-	const empty = document.createElement("div");
-	empty.className = "dads-empty-state";
-	empty.innerHTML = `
-		<p>${viewName}が生成されていません</p>
-		<p>ハーモニービューでスタイルを選択してパレットを生成してください。</p>
-	`;
-	container.innerHTML = "";
-	container.appendChild(empty);
-}
-
-/**
- * 色の入力を統一形式（[name, color]のタプル配列）に正規化する
- */
-function normalizeColorInput(
-	colorsInput: Record<string, ColorType> | { name: string; color: ColorType }[],
-): [string, ColorType][] {
-	if (Array.isArray(colorsInput)) {
-		return colorsInput.map((item) => [item.name, item.color]);
-	}
-	return Object.entries(colorsInput);
-}
+// ============================================================================
+// Distinguishability Analysis
+// ============================================================================
 
 /**
  * 識別性分析をレンダリングする
@@ -373,9 +206,9 @@ function normalizeColorInput(
  * 色のリストをCVDシミュレーションで表示し、識別困難な色ペアに警告を表示する。
  * シェードの場合は隣接ペアのみ、キーカラーの場合は全ペアを検証する。
  *
- * @param container レンダリング先のコンテナ要素
- * @param colorsInput 色のマップまたは配列
- * @param options オプション設定
+ * @param container - レンダリング先のコンテナ要素
+ * @param colorsInput - 色のマップまたは配列
+ * @param options - オプション設定
  */
 export function renderDistinguishabilityAnalysis(
 	container: HTMLElement,
@@ -386,7 +219,7 @@ export function renderDistinguishabilityAnalysis(
 	const cvdTypes = getAllCVDTypes();
 	const colorEntries = normalizeColorInput(colorsInput);
 
-	// 1. Normal View
+	// Normal View
 	const normalRow = document.createElement("div");
 	normalRow.className = "dads-cvd-row";
 
@@ -398,17 +231,17 @@ export function renderDistinguishabilityAnalysis(
 	const normalStrip = document.createElement("div");
 	normalStrip.className = "dads-cvd-strip";
 
-	colorEntries.forEach(([name, color]) => {
+	for (const [name, color] of colorEntries) {
 		normalStrip.appendChild(createColorSwatch(color, name));
-	});
+	}
 	normalRow.appendChild(normalStrip);
 	container.appendChild(normalRow);
 
-	// 2. Simulations
+	// CVD Simulations
 	const simContainer = document.createElement("div");
 	simContainer.className = "dads-cvd-simulations";
 
-	cvdTypes.forEach((type: CVDType) => {
+	for (const type of cvdTypes) {
 		const row = document.createElement("div");
 
 		const label = document.createElement("div");
@@ -422,49 +255,38 @@ export function renderDistinguishabilityAnalysis(
 		const strip = document.createElement("div");
 		strip.className = "dads-cvd-strip";
 
-		// シミュレーション後の色を作成（表示用）
 		const simulatedColors = colorEntries.map(([name, color]) => ({
 			name,
 			color: simulateCVD(color, type),
 		}));
 
-		// 衝突判定: Use extracted helper function
 		const conflicts = detectColorConflicts(
 			simulatedColors,
 			adjacentOnly,
 			DISTINGUISHABILITY_THRESHOLD,
 		);
 
-		// Create swatches for simulated colors (no label, title only)
-		simulatedColors.forEach((item) => {
+		for (const item of simulatedColors) {
 			const swatch = document.createElement("div");
 			swatch.className = "dads-cvd-strip__swatch";
 			swatch.style.backgroundColor = item.color.toCss();
 			swatch.title = `${item.name} (Simulated)`;
 			strip.appendChild(swatch);
-		});
+		}
 		stripContainer.appendChild(strip);
 
-		// Draw conflict indicators using helper
 		if (conflicts.length > 0) {
-			const overlay = document.createElement("div");
-			overlay.className = "dads-cvd-overlay";
-
-			const segmentWidth = 100 / simulatedColors.length;
-
-			conflicts.forEach((index) => {
-				const leftPos = (index + 1) * segmentWidth;
-				const { line, icon } = createConflictIndicator(leftPos, true);
-				overlay.appendChild(line);
-				overlay.appendChild(icon);
-			});
-
+			const overlay = renderConflictOverlay(
+				conflicts,
+				simulatedColors.length,
+				true,
+			);
 			stripContainer.appendChild(overlay);
 		}
 
 		row.appendChild(stripContainer);
 		simContainer.appendChild(row);
-	});
+	}
 	container.appendChild(simContainer);
 }
 
@@ -473,27 +295,32 @@ export function renderDistinguishabilityAnalysis(
  *
  * グラデーションのシェードリストで、識別困難なステップを検出して表示する。
  *
- * @param container レンダリング先のコンテナ要素
- * @param colorsInput 色のマップまたは配列
+ * @param container - レンダリング先のコンテナ要素
+ * @param colorsInput - 色のマップまたは配列
  */
 export function renderAdjacentShadesAnalysis(
 	container: HTMLElement,
 	colorsInput: Record<string, ColorType> | { name: string; color: ColorType }[],
 ): void {
-	// シェードは隣接ペアのみを検証
 	renderDistinguishabilityAnalysis(container, colorsInput, {
 		adjacentOnly: true,
 	});
 }
 
+// ============================================================================
+// Boundary Validation
+// ============================================================================
+
 /**
- * ソートタイプ切り替えUIをレンダリングする
+ * ソートタブUIをレンダリングする
  *
- * @param container レンダリング先のコンテナ要素
- * @param onSortChange ソートタイプ変更時のコールバック
+ * @param container - レンダリング先のコンテナ要素
+ * @param viewState - ビュー状態
+ * @param onSortChange - ソートタイプ変更時のコールバック
  */
 function renderSortTabs(
 	container: HTMLElement,
+	viewState: AccessibilityViewState,
 	onSortChange: (sortType: SortType) => void,
 ): void {
 	const tabsContainer = document.createElement("div");
@@ -502,7 +329,7 @@ function renderSortTabs(
 	tabsContainer.setAttribute("aria-label", "並べ替え方法を選択");
 
 	const sortTypes = getAllSortTypes();
-	sortTypes.forEach((sortType) => {
+	for (const sortType of sortTypes) {
 		const tab = document.createElement("button");
 		tab.className = "dads-a11y-sort-tab";
 		tab.textContent = getSortTypeName(sortType);
@@ -510,18 +337,17 @@ function renderSortTabs(
 		tab.setAttribute("data-sort-type", sortType);
 		tab.setAttribute(
 			"aria-selected",
-			sortType === currentSortType ? "true" : "false",
+			sortType === viewState.currentSortType ? "true" : "false",
 		);
 
-		if (sortType === currentSortType) {
+		if (sortType === viewState.currentSortType) {
 			tab.classList.add("dads-a11y-sort-tab--active");
 		}
 
 		tab.addEventListener("click", () => {
-			currentSortType = sortType;
+			viewState.currentSortType = sortType;
 			onSortChange(sortType);
 
-			// タブのアクティブ状態を更新
 			tabsContainer.querySelectorAll(".dads-a11y-sort-tab").forEach((t) => {
 				t.classList.remove("dads-a11y-sort-tab--active");
 				t.setAttribute("aria-selected", "false");
@@ -531,7 +357,7 @@ function renderSortTabs(
 		});
 
 		tabsContainer.appendChild(tab);
-	});
+	}
 
 	container.appendChild(tabsContainer);
 }
@@ -539,9 +365,9 @@ function renderSortTabs(
 /**
  * 単一CVDタイプの境界検証行をレンダリングする
  *
- * @param colors 元の色リスト（シミュレーション前）
- * @param sortType ソートタイプ
- * @param cvdType CVDタイプ（"normal"の場合は通常色覚）
+ * @param colors - 元の色リスト（シミュレーション前）
+ * @param sortType - ソートタイプ
+ * @param cvdType - CVDタイプ（"normal"の場合は通常色覚）
  * @returns 行のHTML要素
  */
 function renderCvdBoundaryRow(
@@ -549,7 +375,6 @@ function renderCvdBoundaryRow(
 	sortType: SortType,
 	cvdType: CVDType | "normal",
 ): HTMLElement {
-	// CVDシミュレーションを適用した色に変換
 	const simulatedColors: NamedColor[] =
 		cvdType === "normal"
 			? colors
@@ -563,53 +388,49 @@ function renderCvdBoundaryRow(
 	const row = document.createElement("div");
 	row.className = "dads-a11y-cvd-boundary-row";
 
-	// ラベル
 	const label = document.createElement("div");
 	label.className = "dads-cvd-row__label";
 	label.textContent =
 		cvdType === "normal" ? "一般色覚 (Normal)" : getCVDTypeName(cvdType);
 	row.appendChild(label);
 
-	// 色のストリップとΔE表示を含むコンテナ
 	const contentContainer = document.createElement("div");
 	contentContainer.className = "dads-a11y-cvd-boundary-content";
 
-	// 色のストリップコンテナ（エラーインジケーター配置用）
 	const stripContainer = document.createElement("div");
 	stripContainer.className = "dads-cvd-strip-container";
 
-	// 色のストリップ表示
 	const strip = document.createElement("div");
 	strip.className = "dads-cvd-strip";
 
-	result.sortedColors.forEach((item) => {
+	for (const item of result.sortedColors) {
 		strip.appendChild(createColorSwatch(item.color, item.name));
-	});
+	}
 	stripContainer.appendChild(strip);
 
-	// エラー境界にインジケーターを表示するオーバーレイ
+	// Error boundary overlay
 	const overlay = document.createElement("div");
 	overlay.className = "dads-cvd-overlay";
 
 	const segmentWidth = 100 / result.sortedColors.length;
 
-	result.boundaryValidations.forEach((validation) => {
+	for (const validation of result.boundaryValidations) {
 		if (!validation.isDistinguishable) {
 			const markerPos = (validation.index + 1) * segmentWidth;
 			const { line, icon } = createConflictIndicator(markerPos, false);
 			overlay.appendChild(line);
 			overlay.appendChild(icon);
 		}
-	});
+	}
 
 	stripContainer.appendChild(overlay);
 	contentContainer.appendChild(stripContainer);
 
-	// 境界マーカーとΔE値表示
+	// Boundary markers with deltaE values
 	const boundaryMarkers = document.createElement("div");
 	boundaryMarkers.className = "dads-a11y-boundary-markers";
 
-	result.boundaryValidations.forEach((validation) => {
+	for (const validation of result.boundaryValidations) {
 		const markerPos = (validation.index + 1) * segmentWidth;
 
 		const marker = document.createElement("div");
@@ -628,10 +449,9 @@ function renderCvdBoundaryRow(
 
 		marker.appendChild(deltaEBadge);
 		boundaryMarkers.appendChild(marker);
-	});
+	}
 	contentContainer.appendChild(boundaryMarkers);
 
-	// contentContainerをrowに追加（グリッドの2列目: 1fr）
 	row.appendChild(contentContainer);
 
 	return row;
@@ -640,46 +460,40 @@ function renderCvdBoundaryRow(
 /**
  * 全CVDタイプの境界検証をレンダリングする
  *
- * @param container レンダリング先のコンテナ要素
- * @param colors 色リスト
- * @param sortType ソートタイプ
+ * @param container - レンダリング先のコンテナ要素
+ * @param colors - 色リスト
+ * @param sortType - ソートタイプ
  */
 function renderAllCvdBoundaryValidations(
 	container: HTMLElement,
 	colors: NamedColor[],
 	sortType: SortType,
 ): void {
-	// コンテナをクリア
 	container.innerHTML = "";
 
-	// タイトル
 	const heading = document.createElement("h4");
 	heading.className = "dads-a11y-boundary__heading";
 	heading.textContent = `${getSortTypeName(sortType)}での隣接境界検証`;
 	container.appendChild(heading);
 
-	// 全CVDタイプの一覧コンテナ
 	const listContainer = document.createElement("div");
 	listContainer.className = "dads-a11y-cvd-boundary-list";
 
-	// 一般色覚
 	listContainer.appendChild(renderCvdBoundaryRow(colors, sortType, "normal"));
 
-	// 各CVDタイプ
 	const cvdTypes = getAllCVDTypes();
-	cvdTypes.forEach((cvdType) => {
+	for (const cvdType of cvdTypes) {
 		listContainer.appendChild(renderCvdBoundaryRow(colors, sortType, cvdType));
-	});
+	}
 
 	container.appendChild(listContainer);
-	// Note: 下部サマリーは削除済み - alert boxに全ペア＋隣接ペアの情報を統合
 }
 
 /**
  * 境界検証結果を集計する
  *
- * @param colors 色リスト
- * @param sortType ソートタイプ
+ * @param colors - 色リスト
+ * @param sortType - ソートタイプ
  * @returns 境界検証の集計結果
  */
 function getBoundaryValidationSummary(
@@ -725,15 +539,21 @@ function getBoundaryValidationSummary(
 	return { totalIssues, issuesByType };
 }
 
+// ============================================================================
+// Main Section Rendering
+// ============================================================================
+
 /**
  * 色覚シミュレーションセクションをレンダリングする
  *
- * @param container レンダリング先のコンテナ要素
- * @param keyColorsMap キーカラーのマップ
+ * @param container - レンダリング先のコンテナ要素
+ * @param keyColorsMap - キーカラーのマップ
+ * @param viewState - ビュー状態
  */
 function renderSortingValidationSection(
 	container: HTMLElement,
 	keyColorsMap: Record<string, Color>,
+	viewState: AccessibilityViewState,
 ): void {
 	const section = document.createElement("section");
 	section.className = "dads-a11y-sorting-section";
@@ -749,12 +569,10 @@ function renderSortingValidationSection(
 	desc.className = "dads-section__description";
 	section.appendChild(desc);
 
-	// キーカラーをNamedColor形式に変換
 	const namedColors: NamedColor[] = Object.entries(keyColorsMap).map(
 		([name, color]) => ({ name, color }),
 	);
 
-	// 色が2つ未満の場合は検証不要
 	if (namedColors.length < 2) {
 		const notice = document.createElement("p");
 		notice.className = "dads-a11y-notice";
@@ -764,19 +582,12 @@ function renderSortingValidationSection(
 		return;
 	}
 
-	// CVD混同リスクのあるペアを検出
 	const cvdConfusionPairs = detectCvdConfusionPairs(namedColors);
 
-	// 警告アラートボックス（tabs下に表示するため、後でappend）
 	const alertBox = document.createElement("div");
 	alertBox.className = "dads-a11y-alert-box";
 
-	/**
-	 * 警告アラートボックスを更新する
-	 * 境界検証とCVD混同リスクの件数を表示
-	 */
-	const updateAlertBox = (summary: BoundaryValidationSummary) => {
-		// CVD混同リスク（全CVDタイプで混同するペア数）
+	function updateAlertBox(summary: BoundaryValidationSummary): void {
 		const cvdConfusionCount = cvdConfusionPairs.length;
 		const boundaryIssueCount = summary.totalIssues;
 
@@ -795,36 +606,31 @@ function renderSortingValidationSection(
 			alertBox.innerHTML =
 				'<span class="dads-a11y-alert-icon">✓</span> 隣接境界・CVD混同ともに問題は検出されませんでした。';
 		}
-	};
+	}
 
-	// 境界検証コンテナ
 	const boundaryContainer = document.createElement("div");
 	boundaryContainer.className = "dads-a11y-boundary-container";
 	boundaryContainer.setAttribute("data-testid", "boundary-container");
 
-	// 更新関数
-	const updateBoundaryValidation = () => {
-		const summary = getBoundaryValidationSummary(namedColors, currentSortType);
+	function updateBoundaryValidation(): void {
+		const summary = getBoundaryValidationSummary(
+			namedColors,
+			viewState.currentSortType,
+		);
 		updateAlertBox(summary);
 		renderAllCvdBoundaryValidations(
 			boundaryContainer,
 			namedColors,
-			currentSortType,
+			viewState.currentSortType,
 		);
-	};
+	}
 
-	// ソートタブ（先にappend）
-	renderSortTabs(section, () => {
+	renderSortTabs(section, viewState, () => {
 		updateBoundaryValidation();
 	});
 
-	// アラートボックス（tabs下にappend）
 	section.appendChild(alertBox);
 
-	// CVD混同リスク詳細をハイブリッド形式で表示（2+3アプローチ）
-	// - 誰に問題か（P型/D型）を明示
-	// - どの色ペアかを具体的に表示
-	// - 程度をΔE値で補足
 	const cvdDetailsContainer = document.createElement("div");
 	cvdDetailsContainer.className = "dads-a11y-cvd-details-container";
 	renderCvdConfusionDetails(
@@ -836,11 +642,14 @@ function renderSortingValidationSection(
 
 	section.appendChild(boundaryContainer);
 
-	// 初期表示（全色覚特性を一覧で表示）
 	updateBoundaryValidation();
 
 	container.appendChild(section);
 }
+
+// ============================================================================
+// Main Export
+// ============================================================================
 
 /**
  * アクセシビリティビューをレンダリングする
@@ -848,28 +657,28 @@ function renderSortingValidationSection(
  * CVDシミュレーションによる色の識別性確認とCVD混同リスク検出を表示する。
  * キーカラー＋セマンティックカラーのみを対象とする。
  *
- * @param container レンダリング先のコンテナ要素
- * @param helpers ヘルパー関数（applySimulationはコールバック経由で渡す）
+ * @param container - レンダリング先のコンテナ要素
+ * @param helpers - ヘルパー関数（applySimulationはコールバック経由で渡す）
  */
 export function renderAccessibilityView(
 	container: HTMLElement,
 	helpers: AccessibilityViewHelpers,
 ): void {
-	// コンテナをクリアして前のビューのDOMが残らないようにする
 	container.innerHTML = "";
 	container.className = "dads-section";
 
 	// Requirements 5.2, 5.5: 画面間での背景色同期
-	// DemoStateのライト背景色をコンテナに適用（パレット/シェードビューと同期）
 	container.style.backgroundColor = state.lightBackgroundColor;
 
-	// パレットが生成されていない場合
 	if (state.palettes.length === 0) {
 		renderEmptyState(container, "アクセシビリティ");
 		return;
 	}
 
-	// 0. Explanation Section
+	// Create view state (replaces module-level mutable state)
+	const viewState = createViewState();
+
+	// Explanation Section
 	const explanationSection = document.createElement("section");
 	explanationSection.className = "dads-a11y-explanation";
 
@@ -901,21 +710,19 @@ export function renderAccessibilityView(
 	explanationSection.appendChild(explanationContent);
 	container.appendChild(explanationSection);
 
-	// 1. キーカラーを収集（色覚シミュレーションセクションで使用）
-	// Note: UI Refinement - Key Colorsセクションは削除し、全ペア検証はalert boxに統合
+	// Collect key colors
 	const keyColorsMap: Record<string, Color> = {};
-	state.palettes.forEach((p) => {
+	for (const p of state.palettes) {
 		const keyColorInput = p.keyColors[0];
 		if (keyColorInput) {
 			const { color: hex } = parseKeyColor(keyColorInput);
 			keyColorsMap[p.name] = new Color(hex);
 		}
-	});
+	}
 
-	// helpers.applySimulationは将来の動的シミュレーション切り替え用に保持
-	// （現在は使用していないが、API互換性のため引数は維持）
+	// helpers.applySimulation is retained for future dynamic simulation switching
 	void helpers;
 
-	// 2. 色覚シミュレーションセクション
-	renderSortingValidationSection(container, keyColorsMap);
+	// CVD Simulation Section
+	renderSortingValidationSection(container, keyColorsMap, viewState);
 }
