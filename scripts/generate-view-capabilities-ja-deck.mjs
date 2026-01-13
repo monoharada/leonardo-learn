@@ -182,16 +182,16 @@ async function main() {
 
 	await renderSlidesPdf();
 
-	// biome-ignore lint/suspicious/noConsoleLog -- CLI output for generated artifacts
+	// biome-ignore lint: CLI output for generated artifacts
 	console.log("Deck generated:");
-	// biome-ignore lint/suspicious/noConsoleLog -- CLI output for generated artifacts
+	// biome-ignore lint: CLI output for generated artifacts
 	console.log(`- PDF: ${PDF_OUT_PATH}`);
-	// biome-ignore lint/suspicious/noConsoleLog -- CLI output for generated artifacts
+	// biome-ignore lint: CLI output for generated artifacts
 	console.log(`- Assets: ${ASSETS_DIR}`);
 }
 
 main().catch((error) => {
-	// biome-ignore lint/suspicious/noConsoleLog -- CLI error output
+	// biome-ignore lint: CLI error output
 	console.error(error);
 	process.exitCode = 1;
 });
