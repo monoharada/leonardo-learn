@@ -1,0 +1,706 @@
+<!doctype html>
+<html lang="ja">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>leonardo-learn ビュー別説明（UX調査用）</title>
+		<style>
+			:root {
+				--slide-width: 13.333in;
+				--slide-height: 7.5in;
+				--slide-padding: 0.6in;
+				--accent: #1d4ed8;
+				--ink: #111827;
+				--muted: #6b7280;
+				--card: #f8fafc;
+				--border: #e5e7eb;
+				--shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+				--slide-count: 9;
+			}
+
+			@page {
+				size: var(--slide-width) var(--slide-height);
+				margin: 0;
+			}
+
+			html,
+			body {
+				margin: 0;
+				padding: 0;
+				background: #0b1220;
+				color: var(--ink);
+				font-family:
+					"Noto Sans JP",
+					"SF Pro Display",
+					-apple-system,
+					BlinkMacSystemFont,
+					"Segoe UI",
+					Roboto,
+					"Helvetica Neue",
+					Arial,
+					"Hiragino Kaku Gothic ProN",
+					"Hiragino Sans",
+					"Yu Gothic",
+					Meiryo,
+					sans-serif;
+			}
+
+			body {
+				counter-reset: slide;
+			}
+
+			.slide {
+				width: var(--slide-width);
+				height: var(--slide-height);
+				box-sizing: border-box;
+				padding: var(--slide-padding);
+				background: #ffffff;
+				position: relative;
+				page-break-after: always;
+				counter-increment: slide;
+			}
+			.slide:last-child {
+				page-break-after: auto;
+			}
+
+			.slide::before {
+				content: "";
+				position: absolute;
+				left: 0;
+				top: 0;
+				right: 0;
+				height: 10px;
+				background: linear-gradient(
+					90deg,
+					var(--accent),
+					#22c55e,
+					#f59e0b,
+					#ef4444
+				);
+				opacity: 0.85;
+			}
+
+			.h1 {
+				font-size: 44px;
+				line-height: 1.15;
+				margin: 0 0 10px 0;
+				letter-spacing: -0.01em;
+			}
+
+			.h2 {
+				font-size: 28px;
+				line-height: 1.2;
+				margin: 0 0 10px 0;
+			}
+
+			.kicker {
+				display: inline-flex;
+				align-items: center;
+				gap: 10px;
+				color: var(--muted);
+				font-size: 16px;
+				margin-bottom: 14px;
+			}
+
+			.kicker-badge {
+				display: inline-flex;
+				align-items: center;
+				border: 1px solid var(--border);
+				border-radius: 999px;
+				padding: 4px 10px;
+				background: #ffffff;
+				color: var(--ink);
+				font-weight: 600;
+				letter-spacing: 0.02em;
+			}
+
+			.meta {
+				color: var(--muted);
+				font-size: 16px;
+				line-height: 1.5;
+			}
+
+			.grid-2 {
+				display: grid;
+				grid-template-columns: 1.22fr 1fr;
+				gap: 22px;
+				align-items: start;
+				margin-top: 18px;
+			}
+
+			.cards {
+				display: grid;
+				gap: 12px;
+			}
+
+			.card {
+				border: 1px solid var(--border);
+				background: var(--card);
+				border-radius: 14px;
+				padding: 14px 16px;
+			}
+
+			.card h3 {
+				font-size: 16px;
+				margin: 0 0 8px 0;
+				display: flex;
+				align-items: center;
+				gap: 8px;
+			}
+
+			.card h3 .dot {
+				width: 10px;
+				height: 10px;
+				border-radius: 999px;
+				background: var(--accent);
+				display: inline-block;
+			}
+
+			.card ul {
+				margin: 0;
+				padding-left: 18px;
+				color: var(--ink);
+				line-height: 1.5;
+				font-size: 14px;
+			}
+			.card li {
+				margin: 2px 0;
+			}
+			.card li strong {
+				font-weight: 700;
+			}
+
+			.figure {
+				border: 1px solid var(--border);
+				border-radius: 14px;
+				overflow: hidden;
+				background: #ffffff;
+				box-shadow: var(--shadow);
+			}
+			.figure img {
+				display: block;
+				width: 100%;
+				height: auto;
+			}
+			.figure figcaption {
+				padding: 10px 12px;
+				font-size: 13px;
+				color: var(--muted);
+				border-top: 1px solid var(--border);
+				background: #ffffff;
+			}
+
+			.list-2col {
+				display: grid;
+				grid-template-columns: 1fr 1fr;
+				gap: 18px;
+				margin-top: 18px;
+			}
+			.panel {
+				border: 1px solid var(--border);
+				border-radius: 14px;
+				padding: 14px 16px;
+				background: #ffffff;
+			}
+			.panel h3 {
+				font-size: 16px;
+				margin: 0 0 8px 0;
+			}
+			.panel ul {
+				margin: 0;
+				padding-left: 18px;
+				font-size: 15px;
+				line-height: 1.55;
+			}
+			.panel li {
+				margin: 4px 0;
+			}
+
+			.flow {
+				margin-top: 18px;
+				display: grid;
+				gap: 12px;
+			}
+			.flow-step {
+				display: grid;
+				grid-template-columns: 240px 1fr;
+				gap: 12px;
+				align-items: baseline;
+				border: 1px solid var(--border);
+				border-radius: 14px;
+				background: #ffffff;
+				padding: 12px 14px;
+			}
+			.flow-step .label {
+				font-weight: 800;
+				color: var(--ink);
+			}
+			.flow-step .desc {
+				color: var(--muted);
+				line-height: 1.45;
+			}
+			.code {
+				font-family:
+					ui-monospace,
+					SFMono-Regular,
+					Menlo,
+					Monaco,
+					Consolas,
+					"Liberation Mono",
+					"Courier New",
+					monospace;
+				font-size: 0.95em;
+			}
+
+			.slide-footer {
+				position: absolute;
+				left: var(--slide-padding);
+				right: var(--slide-padding);
+				bottom: 0.32in;
+				display: flex;
+				justify-content: space-between;
+				align-items: baseline;
+				color: var(--muted);
+				font-size: 12px;
+			}
+			.slide-footer .page::after {
+				content: counter(slide) " / " var(--slide-count);
+			}
+			.slide-footer .src {
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				max-width: 70%;
+			}
+		</style>
+	</head>
+	<body>
+		<!-- Slide 1 -->
+		<section class="slide">
+			<div class="kicker">
+				<span class="kicker-badge">leonardo-learn</span>
+				<span>ビュー別説明（UX調査用）</span>
+			</div>
+			<h1 class="h1">4つの画面（生成/パレット/シェード/アクセシビリティ）の役割整理</h1>
+			<p class="meta">
+				対象: デモアプリ（<span class="code">index.html</span> のナビゲーションで切替）<br />
+				作成日: 2026-01-13（コードベースから整理）
+			</p>
+
+			<div class="list-2col">
+				<div class="panel">
+					<h3>この資料の目的</h3>
+					<ul>
+						<li>各画面の<strong>責務（コンピタンス）</strong>と<strong>できること（ケーパビリティ）</strong>を短時間で把握する</li>
+						<li>FigJamでUX観察・議論するための<strong>共通言語</strong>を作る</li>
+					</ul>
+				</div>
+				<div class="panel">
+					<h3>使い方（UX調査向け）</h3>
+					<ul>
+						<li>「ユーザーのゴール → 操作 → 結果」が自然につながるかを見る</li>
+						<li>各スライドの「観察ポイント」を議論の起点にする</li>
+						<li>必要に応じて<strong>改善案/代替UI案</strong>を書き込む</li>
+					</ul>
+				</div>
+			</div>
+
+			<div class="slide-footer">
+				<div class="page"></div>
+				<div class="src">Source: docs/view-capabilities-ja.md</div>
+			</div>
+		</section>
+
+		<!-- Slide 2 -->
+		<section class="slide">
+			<div class="kicker">
+				<span class="kicker-badge">全体像</span>
+				<span>ビューの関係</span>
+			</div>
+			<h2 class="h2">起点は「生成」→ 以降は状態を読み取って確認/検証する</h2>
+			<p class="meta">
+				基本的に、生成ビューで作られた<span class="code">state.palettes</span>を他ビューが参照します。背景色は複数ビューで共有され、保存されます。
+			</p>
+
+			<div class="flow">
+				<div class="flow-step">
+					<div class="label">① 生成（ハーモニー）</div>
+					<div class="desc">入力色・背景色・色数をもとに候補パレットを作成し、他ビューが使う状態を整える</div>
+				</div>
+				<div class="flow-step">
+					<div class="label">② パレット</div>
+					<div class="desc">UIプレビュー（擬似ページ）とトークン一覧として整理し、実用イメージを確認する</div>
+				</div>
+				<div class="flow-step">
+					<div class="label">③ シェード</div>
+					<div class="desc">DADSシェード全体を一覧し、役割オーバーレイ/境界/詳細確認を行う</div>
+				</div>
+				<div class="flow-step">
+					<div class="label">④ アクセシビリティ</div>
+					<div class="desc">色覚多様性（CVD）を前提に、混同リスクや隣接境界（ΔE）を検証する</div>
+				</div>
+			</div>
+
+			<div class="list-2col">
+				<div class="panel">
+					<h3>主に共有される状態（例）</h3>
+					<ul>
+						<li><span class="code">state.palettes</span>（Primary/Secondary/Tertiary/Accent…）</li>
+						<li><span class="code">state.lightBackgroundColor</span> / <span class="code">state.darkBackgroundColor</span></li>
+						<li><span class="code">state.cvdSimulation</span>（通常/P型/D型/T型/全色盲）</li>
+					</ul>
+				</div>
+				<div class="panel">
+					<h3>UX観察の観点（横断）</h3>
+					<ul>
+						<li>「どこで何を決め、どこで確認するか」が迷わないか</li>
+						<li>操作の結果が、他画面に<strong>いつ/どう反映</strong>されるか理解できるか</li>
+						<li>情報量が多い画面での<strong>視線誘導</strong>（優先順位）が適切か</li>
+					</ul>
+				</div>
+			</div>
+
+			<div class="slide-footer">
+				<div class="page"></div>
+				<div class="src">Routing: src/ui/demo/index.ts / Navigation: src/ui/demo/navigation.ts</div>
+			</div>
+		</section>
+
+		<!-- Slide 3 -->
+		<section class="slide">
+			<div class="kicker">
+				<span class="kicker-badge">共通要素</span>
+				<span>全ビュー横断</span>
+			</div>
+			<h2 class="h2">ナビゲーション・CVD・背景色・色詳細モーダル</h2>
+
+			<div class="list-2col">
+				<div class="panel">
+					<h3>ナビゲーション</h3>
+					<ul>
+						<li>4画面の切替、ボタンのアクティブ状態管理</li>
+						<li>スクリーンリーダー向けの切替通知（ライブリージョン）</li>
+					</ul>
+				</div>
+				<div class="panel">
+					<h3>CVDコントロール（ヘッダー）</h3>
+					<ul>
+						<li>色覚タイプ切替（通常/P型/D型/T型/全色盲）</li>
+						<li>主にシェード表示の見え方に反映</li>
+						<li>アクセシビリティ画面では非表示（画面内で検証を完結させるため）</li>
+					</ul>
+				</div>
+				<div class="panel">
+					<h3>背景色（ライト/ダーク）</h3>
+					<ul>
+						<li>複数画面で共通利用、<span class="code">localStorage</span>に保存</li>
+						<li>コントラスト計算・境界表示・プレビューの前提になる</li>
+					</ul>
+				</div>
+				<div class="panel">
+					<h3>色詳細モーダル</h3>
+					<ul>
+						<li>Harmony/シェードで色クリック → スケール/コントラスト等の詳細確認</li>
+						<li>パレット画面は現状「表示/確認」中心（クリック動線は薄い）</li>
+					</ul>
+				</div>
+			</div>
+
+			<div class="slide-footer">
+				<div class="page"></div>
+				<div class="src">Navigation: src/ui/demo/navigation.ts / CVD: src/ui/demo/cvd-controls.ts</div>
+			</div>
+		</section>
+
+		<!-- Slide 4 -->
+		<section class="slide">
+			<div class="kicker">
+				<span class="kicker-badge">生成</span>
+				<span>ハーモニー（起点画面）</span>
+			</div>
+			<h2 class="h2">入力色・背景色・色数を受け取り、候補パレットを作って共有状態に反映</h2>
+
+			<div class="grid-2">
+				<figure class="figure">
+					<img
+						alt="生成（ハーモニー）ビューのスクリーンショット"
+						src="./view-capabilities-ja-slides-assets/harmony.png"
+					/>
+					<figcaption>生成（ハーモニー）ビュー（例）</figcaption>
+				</figure>
+
+				<div class="cards">
+					<div class="card">
+						<h3><span class="dot"></span>コンピタンス（責務）</h3>
+						<ul>
+							<li>ブランドカラー（プライマリ）と条件をもとに、候補パレットを生成する</li>
+							<li>ハーモニー切替で「今の選択だとどうなるか」を素早く比較できる</li>
+							<li>色詳細（DADSスケール等）へ短距離でアクセスできる</li>
+						</ul>
+					</div>
+					<div class="card">
+						<h3><span class="dot"></span>ケーパビリティ（機能）</h3>
+						<ul>
+							<li>背景色: HEX/OKLCH入力・保存</li>
+							<li>プライマリ色: 入力・ランダム選択・履歴復元</li>
+							<li>色数: 4〜6色相当（P+S+T+Accent1〜3）</li>
+							<li>プレビュー: ハーモニー候補の比較、色クリックでモーダル</li>
+						</ul>
+					</div>
+					<div class="card">
+						<h3><span class="dot"></span>UX観察ポイント</h3>
+						<ul>
+							<li>初期ロード（プレビュー生成中）に<strong>待ち</strong>が生じたときの納得感</li>
+							<li>「生成したら次に何を見ればよいか」が自然に伝わるか</li>
+							<li>警告（コントラスト等）の<strong>意味/次の行動</strong>が明確か</li>
+						</ul>
+					</div>
+				</div>
+			</div>
+
+			<div class="slide-footer">
+				<div class="page"></div>
+				<div class="src">Implementation: src/ui/demo/views/harmony-view.ts</div>
+			</div>
+		</section>
+
+		<!-- Slide 5 -->
+		<section class="slide">
+			<div class="kicker">
+				<span class="kicker-badge">パレット</span>
+				<span>プレビュー＋トークン一覧</span>
+			</div>
+			<h2 class="h2">生成色を「UIの見え方」と「トークン（名前/HEX）」で整理して提示</h2>
+
+			<div class="grid-2">
+				<figure class="figure">
+					<img
+						alt="パレットビューのスクリーンショット"
+						src="./view-capabilities-ja-slides-assets/palette.png"
+					/>
+					<figcaption>パレットビュー（例）</figcaption>
+				</figure>
+
+				<div class="cards">
+					<div class="card">
+						<h3><span class="dot"></span>コンピタンス（責務）</h3>
+						<ul>
+							<li>生成された配色を、擬似UIで<strong>実用イメージ</strong>として確認できるようにする</li>
+							<li>Primary/Accentに加えて、Link/Success/Warning/Error等の<strong>当て方</strong>を提示する</li>
+						</ul>
+					</div>
+					<div class="card">
+						<h3><span class="dot"></span>ケーパビリティ（機能）</h3>
+						<ul>
+							<li>背景色（ライト/ダーク）の調整・保存</li>
+							<li>擬似ページプレビュー（読みづらさはテキスト色を自動調整）</li>
+							<li>トークン一覧（トークン名/プリミティブ名/HEX）</li>
+						</ul>
+					</div>
+					<div class="card">
+						<h3><span class="dot"></span>UX観察ポイント</h3>
+						<ul>
+							<li>プレビューとトークン表の対応が<strong>直感的</strong>に理解できるか</li>
+							<li>「どこで色を変えるか」（生成画面への戻り）が迷わないか</li>
+							<li>パレット画面での色詳細（クリック等）の期待とのギャップがないか</li>
+						</ul>
+					</div>
+				</div>
+			</div>
+
+			<div class="slide-footer">
+				<div class="page"></div>
+				<div class="src">Implementation: src/ui/demo/views/palette-view.ts</div>
+			</div>
+		</section>
+
+		<!-- Slide 6 -->
+		<section class="slide">
+			<div class="kicker">
+				<span class="kicker-badge">シェード</span>
+				<span>DADSスケール一覧＋役割オーバーレイ</span>
+			</div>
+			<h2 class="h2">色相ごとのシェードを一覧し、役割・境界・詳細確認を提供</h2>
+
+			<div class="grid-2">
+				<figure class="figure">
+					<img
+						alt="シェードビューのスクリーンショット"
+						src="./view-capabilities-ja-slides-assets/shades.png"
+					/>
+					<figcaption>シェードビュー（例）</figcaption>
+				</figure>
+
+				<div class="cards">
+					<div class="card">
+						<h3><span class="dot"></span>コンピタンス（責務）</h3>
+						<ul>
+							<li>DADSの全色相スケールを「カタログ」として提供する</li>
+							<li>生成した配色の位置づけ（役割）をオーバーレイで可視化する</li>
+							<li>背景色に対するコントラスト境界（読める/読みにくい）を示す</li>
+						</ul>
+					</div>
+					<div class="card">
+						<h3><span class="dot"></span>ケーパビリティ（機能）</h3>
+						<ul>
+							<li>背景色（ライト/ダーク）の調整・保存</li>
+							<li>CVDシミュレーション表示（ヘッダー切替が反映）</li>
+							<li>境界ピル表示、色クリックで詳細モーダル（スケール比較）</li>
+						</ul>
+					</div>
+					<div class="card">
+						<h3><span class="dot"></span>UX観察ポイント</h3>
+						<ul>
+							<li>情報量が多い中で、探したい色に到達できるか（スクロール疲労）</li>
+							<li>役割オーバーレイの<strong>意味</strong>が一目で理解できるか</li>
+							<li>境界表示が「次にどう調整すべきか」に結びつくか</li>
+						</ul>
+					</div>
+				</div>
+			</div>
+
+			<div class="slide-footer">
+				<div class="page"></div>
+				<div class="src">Implementation: src/ui/demo/views/shades-view.ts</div>
+			</div>
+		</section>
+
+		<!-- Slide 7 -->
+		<section class="slide">
+			<div class="kicker">
+				<span class="kicker-badge">アクセシビリティ</span>
+				<span>CVD混同リスク＋隣接境界検証</span>
+			</div>
+			<h2 class="h2">色覚多様性を前提に「混同しやすい組合せ」を検出・説明する</h2>
+
+			<div class="grid-2">
+				<figure class="figure">
+					<img
+						alt="アクセシビリティビューのスクリーンショット"
+						src="./view-capabilities-ja-slides-assets/accessibility.png"
+					/>
+					<figcaption>アクセシビリティビュー（例）</figcaption>
+				</figure>
+
+				<div class="cards">
+					<div class="card">
+						<h3><span class="dot"></span>コンピタンス（責務）</h3>
+						<ul>
+							<li>CVDシミュレーション下で、混同リスクのある色ペアを特定する</li>
+							<li>並べ替え（ソート）で隣接境界の危険箇所を見つけやすくする</li>
+						</ul>
+					</div>
+					<div class="card">
+						<h3><span class="dot"></span>ケーパビリティ（機能）</h3>
+						<ul>
+							<li>混同リスクのペア提示（色見本＋ΔE）</li>
+							<li>色相/色差/明度などで並べ替え、隣接境界（ΔE）を表示</li>
+							<li>画面内に「判定ロジック/閾値」の説明を持つ</li>
+						</ul>
+					</div>
+					<div class="card">
+						<h3><span class="dot"></span>UX観察ポイント</h3>
+						<ul>
+							<li>専門用語（ΔE、P/D/T型）の理解負荷が高すぎないか</li>
+							<li>検出結果が<strong>行動（何を直すか）</strong>に結びつくか</li>
+							<li>ヘッダーCVD切替が非表示になることが混乱を生まないか</li>
+						</ul>
+					</div>
+				</div>
+			</div>
+
+			<div class="slide-footer">
+				<div class="page"></div>
+				<div class="src">Implementation: src/ui/demo/views/accessibility-view.ts</div>
+			</div>
+		</section>
+
+		<!-- Slide 8 -->
+		<section class="slide">
+			<div class="kicker">
+				<span class="kicker-badge">調査テンプレ</span>
+				<span>FigJamでの観察に使う</span>
+			</div>
+			<h2 class="h2">参加者に渡すタスク例（画面ごとのUX傾向を見つける）</h2>
+
+			<div class="list-2col">
+				<div class="panel">
+					<h3>タスク例（短時間）</h3>
+					<ul>
+						<li>背景色を変えた上で、プライマリ色を1つ選ぶ</li>
+						<li>生成画面で「良さそうな配色」を選び、パレット画面で確認する</li>
+						<li>シェード画面で「読める範囲（境界）」を見つける</li>
+						<li>アクセシビリティ画面で「混同しやすい組合せ」を特定する</li>
+					</ul>
+				</div>
+				<div class="panel">
+					<h3>観察/メモ観点</h3>
+					<ul>
+						<li>どこで迷うか（用語、操作、待ち、画面遷移）</li>
+						<li>「結果がどこに出るか」が分かるか</li>
+						<li>次にすべき行動（調整/再生成）が自明か</li>
+						<li>理解の補助が必要な箇所（例: ΔEの意味）</li>
+					</ul>
+				</div>
+			</div>
+
+			<div class="panel" style="margin-top: 18px">
+				<h3>アウトプット（FigJamで集めたいもの）</h3>
+				<ul>
+					<li>画面ごとの「詰まりポイント」付箋（どの操作で/なぜ）</li>
+					<li>用語/説明の改善候補（短く言い換え）</li>
+					<li>導線の改善候補（ボタン配置、次の推奨アクション提示）</li>
+				</ul>
+			</div>
+
+			<div class="slide-footer">
+				<div class="page"></div>
+				<div class="src">Source: docs/view-capabilities-ja.md</div>
+			</div>
+		</section>
+
+		<!-- Slide 9 -->
+		<section class="slide">
+			<div class="kicker">
+				<span class="kicker-badge">用語</span>
+				<span>最低限の翻訳（議論用）</span>
+			</div>
+			<h2 class="h2">コンピタンス/ケーパビリティと、UX議論で出やすい用語</h2>
+
+			<div class="list-2col">
+				<div class="panel">
+					<h3>この資料の用語</h3>
+					<ul>
+						<li><strong>コンピタンス（責務）</strong>: その画面が「何のために存在するか」</li>
+						<li><strong>ケーパビリティ（機能）</strong>: その画面で「何ができるか」</li>
+						<li><strong>状態（state）</strong>: 画面間で共有されるデータ（例: palettes, 背景色）</li>
+					</ul>
+				</div>
+				<div class="panel">
+					<h3>アクセシビリティ関連</h3>
+					<ul>
+						<li><strong>CVD</strong>: 色覚シミュレーション（P/D/T型、全色盲など）</li>
+						<li><strong>ΔE</strong>: 知覚的な色差（小さいほど見分けにくい）</li>
+						<li><strong>隣接境界</strong>: 並べ替え後に隣り合う色の区別しやすさ</li>
+					</ul>
+				</div>
+			</div>
+
+			<div class="panel" style="margin-top: 18px">
+				<h3>UX観察の補助質問（どの画面でも共通）</h3>
+				<ul>
+					<li>「今の画面でやること」が一言で言えるか</li>
+					<li>操作した直後に「結果が変わった」ことが気づけるか</li>
+					<li>間違えた時に、どこを直せばよいか分かるか</li>
+					<li>説明文は行動につながるか（読んだら次に何をする？）</li>
+				</ul>
+			</div>
+
+			<div class="slide-footer">
+				<div class="page"></div>
+				<div class="src">Deck source: docs/view-capabilities-ja-slides.html</div>
+			</div>
+		</section>
+	</body>
+</html>
+
