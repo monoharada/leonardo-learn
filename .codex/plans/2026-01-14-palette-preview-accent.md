@@ -19,9 +19,9 @@
 - `Accent*` が無い場合、アクセントとして `Secondary` を流用してOK（ただし本来ロジック上はアクセントが必ず存在する想定）。
 
 ## Action items
-1. `src/ui/styles/components.css` の `.preview-kv` を拡大（上限値を 360px → 480px 程度へ）
+1. `src/ui/styles/components.css` の `.preview-kv` を拡大（上限値を 360px → 640px（上限）へ）
 2. `src/ui/demo/views/palette-view.ts` で、アクセントHEXの解決ロジックを追加
-   - 優先順: `Accent*` → `Secondary*` → 既存フォールバック
+   - 優先順: `Accent*`（keyColorあり）→ `Secondary*`（keyColorあり）→ 既存フォールバック
 3. `extractPreviewColors()` と `extractPaletteTokenRows()` に上記ロジックを適用し、アクセントが最低1色必ず表示されるようにする
 4. テストを最小更新（差分ファイル中心）
 
@@ -29,4 +29,3 @@
 - `bun run type-check`
 - `bun test`
 - `bunx biome lint src/ui/styles/components.css src/ui/demo/views/palette-view.ts src/ui/demo/views/palette-view.test.ts`
-

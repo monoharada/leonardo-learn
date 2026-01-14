@@ -258,9 +258,16 @@ async function extractSemanticTokenRows(
 function resolveAccentSourcePalette(
 	palettes: PaletteConfig[],
 ): PaletteConfig | undefined {
+	const hasUsableKeyColor = (palette: PaletteConfig): boolean => {
+		const keyColorInput = palette.keyColors[0];
+		if (!keyColorInput) return false;
+		const hex = stripStepSuffix(keyColorInput);
+		return /^#[0-9A-Fa-f]{6}$/.test(hex);
+	};
+
 	return (
-		palettes.find((p) => p.name.startsWith("Accent")) ??
-		palettes.find((p) => p.name.startsWith("Secondary"))
+		palettes.find((p) => p.name.startsWith("Accent") && hasUsableKeyColor(p)) ??
+		palettes.find((p) => p.name.startsWith("Secondary") && hasUsableKeyColor(p))
 	);
 }
 
@@ -326,28 +333,28 @@ function extractPaletteTokenRows(): TokenTableRow[] {
 	if (!rows.some((row) => row.category === "accent")) {
 		const fallbackPalette = resolveAccentSourcePalette(state.palettes);
 		const keyColorInput = fallbackPalette?.keyColors[0];
-		if (keyColorInput) {
-			const { color: hex, step: definedStep } = parseKeyColor(keyColorInput);
+		const { color: hex, step: definedStep } = keyColorInput
+			? parseKeyColor(keyColorInput)
+			: { color: "#259063", step: undefined };
 
-			const { baseHex, swatchHex } = getSwatchHexWithCudMode(hex);
+		const { baseHex, swatchHex } = getSwatchHexWithCudMode(hex);
 
-			const step = definedStep ?? 600;
-			const chromaName = (
-				fallbackPalette.baseChromaName ||
-				fallbackPalette.name ||
-				"color"
-			)
-				.toLowerCase()
-				.replace(/\s+/g, "-");
+		const step = definedStep ?? 600;
+		const chromaName = (
+			fallbackPalette?.baseChromaName ||
+			fallbackPalette?.name ||
+			"accent-fallback"
+		)
+			.toLowerCase()
+			.replace(/\s+/g, "-");
 
-			rows.push({
-				colorSwatch: swatchHex,
-				tokenName: "アクセント1",
-				primitiveName: `${chromaName}-${step}`,
-				hex: baseHex,
-				category: "accent",
-			});
-		}
+		rows.push({
+			colorSwatch: swatchHex,
+			tokenName: "アクセント1",
+			primitiveName: `${chromaName}-${step}`,
+			hex: baseHex,
+			category: "accent",
+		});
 	}
 
 	return rows;
