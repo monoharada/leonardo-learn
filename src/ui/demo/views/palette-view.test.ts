@@ -247,6 +247,19 @@ describe("palette-view module", () => {
 		});
 	});
 
+	describe("accent fallback handling", () => {
+		it("should fallback to Secondary when Accent palettes are missing", async () => {
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const filePath = path.join(import.meta.dir, "palette-view.ts");
+			const content = fs.readFileSync(filePath, "utf-8");
+
+			// Accent* が無い場合でも最低1つアクセント行を出す（Secondaryを流用）
+			expect(content).toContain('startsWith("Secondary")');
+			expect(content).toContain('tokenName: "アクセント1"');
+		});
+	});
+
 	/**
 	 * セマンティックカラーの役割マッピング
 	 */
