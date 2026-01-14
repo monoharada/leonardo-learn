@@ -139,10 +139,10 @@ test.describe("Coolorsレイアウト表示", () => {
 		const count = await tokenNames.count();
 		expect(count).toBeGreaterThanOrEqual(3);
 
-		// 最初のトークン名は「プライマリー」
+		// 最初のトークン名は「Primary」
 		const firstTokenName = tokenNames.first();
 		const text = await firstTokenName.textContent();
-		expect(text).toBe("プライマリー");
+		expect(text).toBe("Primary");
 	});
 });
 

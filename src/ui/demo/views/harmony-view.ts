@@ -46,6 +46,7 @@ import {
 	persistBrandColorHistory,
 } from "../brand-color-history";
 import { HUE_DISPLAY_NAMES } from "../constants";
+import { getDisplayHex } from "../cvd-controls";
 import {
 	ALL_HARMONY_TYPES,
 	createHarmonyStateManager,
@@ -419,6 +420,36 @@ function renderCoolorsMode(
 /**
  * Coolorsモードのプレビューを読み込み、UIを更新する
  */
+function getStatePaletteDisplayData(getDisplayHexFn: (hex: string) => string): {
+	originalColors: string[];
+	displayColors: string[];
+	tokenNames: string[];
+	primitiveNames: string[];
+} {
+	// state.palettesから表示用データを取得（Secondary/Tertiaryを含む）
+	// keyColorsには@step suffix（例: "#3366cc@500"）が含まれる可能性があるため除去
+	const originalColors = state.palettes.map((p) =>
+		stripStepSuffix(p.keyColors[0] ?? ""),
+	);
+	const displayColors = originalColors.map(getDisplayHexFn);
+	const tokenNames = state.palettes.map((p) => p.name);
+	// state.palettesからプリミティブ名を生成（Secondary/Tertiaryも含む）
+	const primitiveNames = generatePrimitiveNamesFromPalettes();
+
+	return { originalColors, displayColors, tokenNames, primitiveNames };
+}
+
+function toDisplayPreviews(
+	previews: Map<HarmonyFilterType, string[]>,
+	getDisplayHexFn: (hex: string) => string,
+): Map<HarmonyFilterType, string[]> {
+	const displayPreviews = new Map<HarmonyFilterType, string[]>();
+	for (const [type, colors] of previews) {
+		displayPreviews.set(type, colors.map(getDisplayHexFn));
+	}
+	return displayPreviews;
+}
+
 async function loadCoolorsPreviews(
 	viewState: ViewState,
 	mainArea: HTMLElement,
@@ -486,18 +517,13 @@ async function loadCoolorsPreviews(
 		dadsTokensCache,
 	);
 
-	// state.palettesから表示用データを取得（Secondary/Tertiaryを含む）
-	// keyColorsには@step suffix（例: "#3366cc@500"）が含まれる可能性があるため除去
-	const displayColors = state.palettes.map((p) =>
-		stripStepSuffix(p.keyColors[0] ?? ""),
-	);
-	const tokenNames = state.palettes.map((p) => p.name);
-	// state.palettesからプリミティブ名を生成（Secondary/Tertiaryも含む）
-	const primitiveNames = generatePrimitiveNamesFromPalettes();
+	const { originalColors, displayColors, tokenNames, primitiveNames } =
+		getStatePaletteDisplayData(getDisplayHex);
 
 	// メイン表示を作成
 	const mainDisplay = createCoolorsPaletteDisplay({
-		colors: displayColors,
+		colors: originalColors,
+		displayColors,
 		tokenNames,
 		primitiveNames,
 		onColorClick: createColorClickHandler(
@@ -512,7 +538,10 @@ async function loadCoolorsPreviews(
 	// サイドバーを作成
 	const sidebar = createHarmonySidebar({
 		selectedType,
-		previews: harmonyManager.getHarmonyPreviews(),
+		previews: toDisplayPreviews(
+			harmonyManager.getHarmonyPreviews(),
+			getDisplayHex,
+		),
 		onSelect: (type) => {
 			// ユーザー選択を記録
 			harmonyManager.selectHarmony(type);
@@ -525,19 +554,18 @@ async function loadCoolorsPreviews(
 			// DADSトークンを渡してSecondary/TertiaryもDADSステップから選択
 			syncStatePalettes(type, newColors, newCandidates, dadsTokensCache);
 
-			// state.palettesから表示用データを取得（Secondary/Tertiaryを含む）
-			// keyColorsには@step suffix（例: "#3366cc@500"）が含まれる可能性があるため除去
-			const newDisplayColors = state.palettes.map((p) =>
-				stripStepSuffix(p.keyColors[0] ?? ""),
-			);
-			const newTokenNames = state.palettes.map((p) => p.name);
-			// state.palettesからプリミティブ名を生成（Secondary/Tertiaryも含む）
-			const newPrimitiveNames = generatePrimitiveNamesFromPalettes();
+			const {
+				originalColors: newOriginalColors,
+				displayColors: newDisplayColors,
+				tokenNames: newTokenNames,
+				primitiveNames: newPrimitiveNames,
+			} = getStatePaletteDisplayData(getDisplayHex);
 
 			// 既存のメイン表示を削除して再作成
 			mainArea.replaceChildren();
 			const newMainDisplay = createCoolorsPaletteDisplay({
-				colors: newDisplayColors,
+				colors: newOriginalColors,
+				displayColors: newDisplayColors,
 				tokenNames: newTokenNames,
 				primitiveNames: newPrimitiveNames,
 				onColorClick: createColorClickHandler(
@@ -553,7 +581,10 @@ async function loadCoolorsPreviews(
 			sidebarArea.replaceChildren();
 			const newSidebar = createHarmonySidebar({
 				selectedType: type,
-				previews: harmonyManager.getHarmonyPreviews(),
+				previews: toDisplayPreviews(
+					harmonyManager.getHarmonyPreviews(),
+					getDisplayHex,
+				),
 				onSelect: (t) => {
 					// 再帰的に同じ処理を実行（簡易実装）
 					harmonyManager.selectHarmony(t);
@@ -793,7 +824,11 @@ async function loadCardPreviews(
 			const palette = result.result[type as keyof typeof result.result];
 			if (palette) {
 				// ブランドカラー + 全アクセントカラーを設定
-				card.setPreviewColors([palette.brandColor, ...palette.accentColors]);
+				card.setPreviewColors(
+					[palette.brandColor, ...palette.accentColors].map((hex) =>
+						getDisplayHex(hex),
+					),
+				);
 			}
 		}
 	}
@@ -855,7 +890,9 @@ function renderDetailMode(
 	harmonyFilter.setSelectedType(viewState.selectedFilter);
 
 	// AccentCandidateGrid を初期化
-	const candidateGrid = new AccentCandidateGrid(gridContainer);
+	const candidateGrid = new AccentCandidateGrid(gridContainer, {
+		getDisplayHex,
+	});
 	candidateGrid.onSelectCandidate((candidate) => {
 		callbacks.onAccentSelect(candidate);
 	});

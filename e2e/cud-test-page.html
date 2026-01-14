@@ -172,6 +172,7 @@
         import {Color, 
             CUD_MODE_CONFIGS,createAnchorColor, 
             createCudModeSelectorWithPersistence,
+            loadCudMode,
             createModeBadge,
             createOptimizationController,
             createPaletteProcessor,
@@ -180,7 +181,7 @@
         } from '../dist/index.js';
 
         // State
-        let currentMode = 'guide';
+        let currentMode = loadCudMode();
         let currentAnchor = null;
         let currentPalette = ['#FF2800', '#35A16B', '#0041FF', '#FF9900'];
         const processor = null;
@@ -216,10 +217,10 @@
 
             modeStatusEl.dataset.status = 'complete';
             modeStatusEl.textContent = '完了';
-        }, 'guide');
+        });
 
         modeSelectorContainer.appendChild(modeSelector);
-        currentModeEl.textContent = `${CUD_MODE_CONFIGS['guide'].icon} ${CUD_MODE_CONFIGS['guide'].label}`;
+        currentModeEl.textContent = `${CUD_MODE_CONFIGS[currentMode].icon} ${CUD_MODE_CONFIGS[currentMode].label}`;
 
         // Sync color inputs
         anchorColorInput.addEventListener('input', (e) => {
@@ -379,7 +380,7 @@
                 includeCudComments: true,
             });
 
-            exportOutput.value = result;
+            exportOutput.value = result.css;
         });
 
         // Initial preview

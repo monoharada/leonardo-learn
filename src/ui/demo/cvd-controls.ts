@@ -26,6 +26,13 @@ const VALID_CVD_TYPES = new Set<CVDSimulationType>([
 ]);
 
 /**
+ * 表示用HEX変換のキャッシュ
+ *
+ * key: `${normalizedHex}|${cvdType}`
+ */
+const DISPLAY_HEX_CACHE = new Map<string, string>();
+
+/**
  * CVDタイプが有効かどうかを検証する
  * @param type 検証対象のタイプ
  * @returns 有効な場合はtrue
@@ -68,6 +75,33 @@ export function applySimulation(color: Color): Color {
 		return color;
 	}
 	return simulateCVD(color, state.cvdSimulation as CVDType);
+}
+
+/**
+ * 表示用のHEXを生成する（CVDシミュレーション適用）
+ *
+ * state.cvdSimulationが"normal"の場合は入力HEXをそのまま返す。
+ * それ以外の場合はシミュレーション後のHEXを返す。
+ *
+ * NOTE: 生成結果やエクスポート値は変えず、表示（塗り）だけ変えるためのヘルパー。
+ */
+export function getDisplayHex(hex: string): string {
+	const cvdType = state.cvdSimulation;
+	if (cvdType === "normal") return hex;
+
+	const normalizedHex = hex.trim().toLowerCase();
+	const key = `${normalizedHex}|${cvdType}`;
+	const cached = DISPLAY_HEX_CACHE.get(key);
+	if (cached) return cached;
+
+	try {
+		const simulated = simulateCVD(new Color(hex), cvdType as CVDType);
+		const displayHex = simulated.toHex();
+		DISPLAY_HEX_CACHE.set(key, displayHex);
+		return displayHex;
+	} catch {
+		return hex;
+	}
 }
 
 /**

@@ -16,6 +16,7 @@ import type { DadsColorHue } from "@/core/tokens/types";
 import { snapToCudColor } from "@/ui/cud-components";
 import { parseColor } from "@/utils/color-space";
 import { createBackgroundColorSelector } from "../background-color-selector";
+import { getDisplayHex } from "../cvd-controls";
 import { parseKeyColor, persistBackgroundColors, state } from "../state";
 import { type ColorDetailModalOptions, stripStepSuffix } from "../types";
 import {
@@ -203,7 +204,7 @@ function buildTokenRowsFromCategory(
 		const colorEntry = colorScale.colors.find((c) => c.scale === step);
 		if (colorEntry && tokenName) {
 			rows.push({
-				colorSwatch: colorEntry.hex,
+				colorSwatch: getDisplayHex(colorEntry.hex),
 				tokenName,
 				primitiveName: `${category.hue}-${step}`,
 				hex: colorEntry.hex,
@@ -266,11 +267,12 @@ function extractPaletteTokenRows(): TokenTableRow[] {
 		const isAccent = palette.name.startsWith("Accent");
 
 		// CUD strictモードの場合はスナップ
-		let displayHex = hex;
+		let baseHex = hex;
 		if (state.cudMode === "strict") {
 			const snapResult = snapToCudColor(hex, { mode: "strict" });
-			displayHex = snapResult.hex;
+			baseHex = snapResult.hex;
 		}
+		const swatchHex = getDisplayHex(baseHex);
 
 		const step = definedStep ?? 600;
 		const chromaName = (palette.baseChromaName || palette.name || "color")
@@ -279,10 +281,10 @@ function extractPaletteTokenRows(): TokenTableRow[] {
 
 		if (isPrimary) {
 			rows.push({
-				colorSwatch: displayHex,
+				colorSwatch: swatchHex,
 				tokenName: "プライマリ",
 				primitiveName: "brand-color",
-				hex: displayHex,
+				hex: baseHex,
 				category: "primary",
 			});
 		} else if (isAccent) {
@@ -290,10 +292,10 @@ function extractPaletteTokenRows(): TokenTableRow[] {
 			const accentMatch = palette.name.match(/Accent.*?(\d+)/);
 			const accentNum = accentMatch ? accentMatch[1] : "1";
 			rows.push({
-				colorSwatch: displayHex,
+				colorSwatch: swatchHex,
 				tokenName: `アクセント${accentNum}`,
 				primitiveName: `${chromaName}-${step}`,
-				hex: displayHex,
+				hex: baseHex,
 				category: "accent",
 			});
 		}
@@ -437,7 +439,7 @@ export async function renderPaletteView(
 		const primaryHex = getPrimaryHex();
 
 		const previewColors = await extractPreviewColors(dadsTokens, primaryHex);
-		const preview = createPalettePreview(previewColors);
+		const preview = createPalettePreview(previewColors, { getDisplayHex });
 		previewSection.appendChild(preview);
 		container.appendChild(previewSection);
 

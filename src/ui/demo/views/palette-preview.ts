@@ -97,6 +97,11 @@ export interface PalettePreviewColors {
 	footerText: string;
 }
 
+export interface PalettePreviewOptions {
+	/** 表示用のHEX変換関数（例: CVDシミュレーション） */
+	getDisplayHex?: (hex: string) => string;
+}
+
 /**
  * カラーマッピング用入力
  */
@@ -466,30 +471,32 @@ function buildDadsPreviewMarkup(ids: {
  */
 export function createPalettePreview(
 	colors: PalettePreviewColors,
+	options: PalettePreviewOptions = {},
 ): HTMLElement {
 	const container = document.createElement("div");
 	container.className = "dads-preview dads-preview--dads-html";
 
+	const getDisplayHex = options.getDisplayHex ?? ((hex) => hex);
+
 	const buttonState = deriveButtonStateColors(colors.button);
-	container.style.setProperty("--preview-bg", colors.background);
-	container.style.setProperty("--preview-text", colors.text);
-	container.style.setProperty("--preview-primary", colors.button);
-	container.style.setProperty("--preview-primary-hover", buttonState.hover);
-	container.style.setProperty("--preview-primary-active", buttonState.active);
-	container.style.setProperty("--preview-on-primary", colors.buttonText);
-	container.style.setProperty(
-		"--preview-outline-hover-bg",
-		buttonState.outlineHoverBg,
-	);
-	container.style.setProperty(
-		"--preview-outline-active-bg",
-		buttonState.outlineActiveBg,
-	);
-	container.style.setProperty("--preview-heading", colors.headlineText);
-	container.style.setProperty("--preview-accent", colors.cardAccent);
-	container.style.setProperty("--preview-success", colors.success);
-	container.style.setProperty("--preview-warning", colors.warning);
-	container.style.setProperty("--preview-error", colors.error);
+	const previewVars: Record<string, string> = {
+		"--preview-bg": colors.background,
+		"--preview-text": colors.text,
+		"--preview-primary": colors.button,
+		"--preview-primary-hover": buttonState.hover,
+		"--preview-primary-active": buttonState.active,
+		"--preview-on-primary": colors.buttonText,
+		"--preview-outline-hover-bg": buttonState.outlineHoverBg,
+		"--preview-outline-active-bg": buttonState.outlineActiveBg,
+		"--preview-heading": colors.headlineText,
+		"--preview-accent": colors.cardAccent,
+		"--preview-success": colors.success,
+		"--preview-warning": colors.warning,
+		"--preview-error": colors.error,
+	};
+	for (const [name, value] of Object.entries(previewVars)) {
+		container.style.setProperty(name, getDisplayHex(value));
+	}
 
 	const prefix = createPreviewIdPrefix();
 	container.innerHTML = buildDadsPreviewMarkup({

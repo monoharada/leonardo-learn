@@ -38,7 +38,7 @@ import {
 	handleGenerate,
 } from "./palette-generator";
 import { renderSidebar } from "./sidebar";
-import { state } from "./state";
+import { loadBackgroundColors, loadSemanticColorConfig, state } from "./state";
 import type { ColorDetailModalOptions } from "./types";
 import {
 	renderAccentSelectionView,
@@ -77,6 +77,14 @@ export async function runDemo(): Promise<void> {
 
 	// 必須要素のガード
 	if (!app || !paletteListEl) return;
+
+	// ========================================
+	// localStorage から状態を復元
+	// ========================================
+	const restoredBackground = loadBackgroundColors();
+	state.lightBackgroundColor = restoredBackground.light;
+	state.darkBackgroundColor = restoredBackground.dark;
+	state.semanticColorConfig = loadSemanticColorConfig();
 
 	// ========================================
 	// 初期ブランドカラーのランダム選択

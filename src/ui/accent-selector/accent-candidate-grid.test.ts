@@ -8,7 +8,8 @@
  * このファイルでは型とエクスポート、依存関係、ロジックの確認を行う。
  */
 
-import { beforeEach, describe, expect, it } from "bun:test";
+import { afterAll, beforeAll, describe, expect, it } from "bun:test";
+import { JSDOM } from "jsdom";
 import type { ScoredCandidate } from "../../core/accent/accent-candidate-service";
 import type { BalanceScoreResult } from "../../core/accent/balance-score-calculator";
 
@@ -225,5 +226,82 @@ describe("AccentCandidateGrid class logic", () => {
 			expect(breakdownText).toContain("コントラスト");
 			expect(breakdownText).toContain("76");
 		});
+	});
+});
+
+describe("AccentCandidateGrid rendering", () => {
+	let restoreDom: (() => void) | undefined;
+
+	beforeAll(() => {
+		const g = global as unknown as {
+			document?: Document;
+			HTMLElement?: typeof HTMLElement;
+		};
+		const previous = { document: g.document, HTMLElement: g.HTMLElement };
+
+		const dom = new JSDOM("<!DOCTYPE html><html><body></body></html>");
+		g.document = dom.window.document;
+		g.HTMLElement = dom.window.HTMLElement as unknown as typeof HTMLElement;
+
+		restoreDom = () => {
+			g.document = previous.document;
+			g.HTMLElement = previous.HTMLElement;
+		};
+	});
+
+	afterAll(() => {
+		restoreDom?.();
+	});
+
+	it("should apply getDisplayHex only to the swatch, keeping candidate data for selection", async () => {
+		const { AccentCandidateGrid } = await import("./accent-candidate-grid");
+
+		const score: BalanceScoreResult = {
+			total: 75.5,
+			breakdown: {
+				harmonyScore: 80,
+				cudScore: 70,
+				contrastScore: 76,
+			},
+			weights: { harmony: 40, cud: 30, contrast: 30 },
+		};
+		const candidate: ScoredCandidate = {
+			tokenId: "red-500",
+			hex: "#FF0000",
+			nameJa: "レッド 500",
+			nameEn: "Red 500",
+			dadsSourceName: "Red 500",
+			step: 500,
+			score,
+			hue: 30,
+		};
+
+		const container = document.createElement("div");
+		document.body.appendChild(container);
+
+		let selected: ScoredCandidate | null = null;
+		const grid = new AccentCandidateGrid(container, {
+			getDisplayHex: () => "#00ff00",
+		});
+		grid.onSelectCandidate((c) => {
+			selected = c;
+		});
+		grid.setCandidates([candidate]);
+
+		const swatch = container.querySelector(
+			".accent-candidate-card__swatch",
+		) as HTMLElement | null;
+		expect(swatch).not.toBeNull();
+		// JSDOMはHEXをRGBに変換するため、期待値もRGB形式で指定
+		expect(swatch?.style.backgroundColor).toBe("rgb(0, 255, 0)");
+
+		const card = container.querySelector(
+			".accent-candidate-card",
+		) as HTMLElement | null;
+		card?.click();
+
+		expect(selected).not.toBeNull();
+		expect(selected?.hex).toBe("#FF0000");
+		expect(candidate.hex).toBe("#FF0000");
 	});
 });
