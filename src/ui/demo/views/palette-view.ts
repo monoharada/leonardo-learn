@@ -8,6 +8,7 @@
  * Requirements: 1.1, 2.1, 2.2, 2.3, 2.4, 5.1, 6.3, 6.4
  */
 
+import { findNearestChroma } from "@/core/base-chroma";
 import {
 	getDadsColorsByHue,
 	loadDadsTokens,
@@ -188,6 +189,30 @@ function renderEmptyState(container: HTMLElement, viewName: string): void {
 	container.appendChild(empty);
 }
 
+function inferBaseChromaNameFromHex(hex: string): string | null {
+	const oklch = parseColor(hex);
+	if (!oklch) return null;
+	const nearest = findNearestChroma(oklch.h ?? 0);
+	return nearest.displayName;
+}
+
+function getPrimaryPalette() {
+	const primaryByName = state.palettes.find((p) =>
+		p.name.startsWith("Primary"),
+	);
+	if (primaryByName) return primaryByName;
+
+	const derivedPrimaryId = state.palettes.find(
+		(p) => p.derivedFrom?.primaryPaletteId,
+	)?.derivedFrom?.primaryPaletteId;
+	if (derivedPrimaryId) {
+		const primaryById = state.palettes.find((p) => p.id === derivedPrimaryId);
+		if (primaryById) return primaryById;
+	}
+
+	return state.palettes[0];
+}
+
 /**
  * カテゴリからトークン行を生成するヘルパー
  */
@@ -256,6 +281,7 @@ async function extractSemanticTokenRows(
  */
 function extractPaletteTokenRows(): TokenTableRow[] {
 	const rows: TokenTableRow[] = [];
+	const primaryPaletteId = getPrimaryPalette()?.id;
 
 	for (const palette of state.palettes) {
 		const keyColorInput = palette.keyColors[0];
@@ -265,7 +291,9 @@ function extractPaletteTokenRows(): TokenTableRow[] {
 		const paletteName = palette.name;
 		const derivationType = palette.derivedFrom?.derivationType;
 
-		const isPrimary = paletteName.startsWith("Primary");
+		const isPrimary = primaryPaletteId
+			? palette.id === primaryPaletteId
+			: paletteName.startsWith("Primary");
 		const isSecondary =
 			derivationType === "secondary" || paletteName.startsWith("Secondary");
 		const isTertiary =
@@ -281,7 +309,11 @@ function extractPaletteTokenRows(): TokenTableRow[] {
 		const swatchHex = getDisplayHex(baseHex);
 
 		const step = definedStep ?? palette.step ?? 600;
-		const chromaName = (palette.baseChromaName || paletteName)
+		const chromaName = (
+			palette.baseChromaName ||
+			inferBaseChromaNameFromHex(baseHex) ||
+			paletteName
+		)
 			.toLowerCase()
 			.replace(/\s+/g, "-");
 
@@ -321,9 +353,7 @@ function extractPaletteTokenRows(): TokenTableRow[] {
  * "@step"形式の場合はHEX部分のみを返す
  */
 function getPrimaryHex(): string {
-	const primaryPalette = state.palettes.find((p) =>
-		p.name.startsWith("Primary"),
-	);
+	const primaryPalette = getPrimaryPalette();
 	return stripStepSuffix(primaryPalette?.keyColors[0] ?? "") || "#00A3BF";
 }
 

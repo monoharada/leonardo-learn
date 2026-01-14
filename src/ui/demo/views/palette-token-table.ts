@@ -1,6 +1,6 @@
 /**
  * パレットトークンテーブル
- * セマンティックカラー、Primary、Accentをテーブル形式で一覧表示
+ * セマンティックカラー、Primary/Secondary/Tertiary、Accentをテーブル形式で一覧表示
  */
 
 /**
