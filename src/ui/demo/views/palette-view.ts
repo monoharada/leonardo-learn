@@ -8,6 +8,7 @@
  * Requirements: 1.1, 2.1, 2.2, 2.3, 2.4, 5.1, 6.3, 6.4
  */
 
+import { findNearestChroma } from "@/core/base-chroma";
 import {
 	getDadsColorsByHue,
 	loadDadsTokens,
@@ -188,6 +189,30 @@ function renderEmptyState(container: HTMLElement, viewName: string): void {
 	container.appendChild(empty);
 }
 
+function inferBaseChromaNameFromHex(hex: string): string | null {
+	const oklch = parseColor(hex);
+	if (!oklch) return null;
+	const nearest = findNearestChroma(oklch.h ?? 0);
+	return nearest.displayName;
+}
+
+function getPrimaryPalette() {
+	const primaryByName = state.palettes.find((p) =>
+		p.name.startsWith("Primary"),
+	);
+	if (primaryByName) return primaryByName;
+
+	const derivedPrimaryId = state.palettes.find(
+		(p) => p.derivedFrom?.primaryPaletteId,
+	)?.derivedFrom?.primaryPaletteId;
+	if (derivedPrimaryId) {
+		const primaryById = state.palettes.find((p) => p.id === derivedPrimaryId);
+		if (primaryById) return primaryById;
+	}
+
+	return state.palettes[0];
+}
+
 /**
  * カテゴリからトークン行を生成するヘルパー
  */
@@ -252,19 +277,28 @@ async function extractSemanticTokenRows(
 }
 
 /**
- * Primary/Accentのトークン行を抽出
+ * Primary/Secondary/Tertiary/Accentのトークン行を抽出
  */
 function extractPaletteTokenRows(): TokenTableRow[] {
 	const rows: TokenTableRow[] = [];
+	const primaryPaletteId = getPrimaryPalette()?.id;
 
 	for (const palette of state.palettes) {
 		const keyColorInput = palette.keyColors[0];
 		if (!keyColorInput) continue;
 
 		const { color: hex, step: definedStep } = parseKeyColor(keyColorInput);
-		const isPrimary =
-			palette.name === "Primary" || palette.name?.startsWith("Primary");
-		const isAccent = palette.name.startsWith("Accent");
+		const paletteName = palette.name;
+		const derivationType = palette.derivedFrom?.derivationType;
+
+		const isPrimary = primaryPaletteId
+			? palette.id === primaryPaletteId
+			: paletteName.startsWith("Primary");
+		const isSecondary =
+			derivationType === "secondary" || paletteName.startsWith("Secondary");
+		const isTertiary =
+			derivationType === "tertiary" || paletteName.startsWith("Tertiary");
+		const isAccent = paletteName.startsWith("Accent");
 
 		// CUD strictモードの場合はスナップ
 		let baseHex = hex;
@@ -274,22 +308,32 @@ function extractPaletteTokenRows(): TokenTableRow[] {
 		}
 		const swatchHex = getDisplayHex(baseHex);
 
-		const step = definedStep ?? 600;
-		const chromaName = (palette.baseChromaName || palette.name || "color")
+		const step = definedStep ?? palette.step ?? 600;
+		const chromaName = (
+			palette.baseChromaName ||
+			inferBaseChromaNameFromHex(baseHex) ||
+			paletteName
+		)
 			.toLowerCase()
 			.replace(/\s+/g, "-");
 
-		if (isPrimary) {
+		let primaryRoleLabel: "プライマリ" | "セカンダリ" | "ターシャリ" | null =
+			null;
+		if (isPrimary) primaryRoleLabel = "プライマリ";
+		else if (isSecondary) primaryRoleLabel = "セカンダリ";
+		else if (isTertiary) primaryRoleLabel = "ターシャリ";
+
+		if (primaryRoleLabel) {
 			rows.push({
 				colorSwatch: swatchHex,
-				tokenName: "プライマリ",
-				primitiveName: "brand-color",
+				tokenName: primaryRoleLabel,
+				primitiveName: isPrimary ? "brand-color" : `${chromaName}-${step}`,
 				hex: baseHex,
 				category: "primary",
 			});
 		} else if (isAccent) {
 			// Accent-1, Accent-2 などの番号を抽出
-			const accentMatch = palette.name.match(/Accent.*?(\d+)/);
+			const accentMatch = paletteName.match(/Accent.*?(\d+)/);
 			const accentNum = accentMatch ? accentMatch[1] : "1";
 			rows.push({
 				colorSwatch: swatchHex,
@@ -309,9 +353,7 @@ function extractPaletteTokenRows(): TokenTableRow[] {
  * "@step"形式の場合はHEX部分のみを返す
  */
 function getPrimaryHex(): string {
-	const primaryPalette = state.palettes.find(
-		(p) => p.name === "Primary" || p.name?.startsWith("Primary"),
-	);
+	const primaryPalette = getPrimaryPalette();
 	return stripStepSuffix(primaryPalette?.keyColors[0] ?? "") || "#00A3BF";
 }
 
@@ -452,8 +494,8 @@ export async function renderPaletteView(
 		tableHeading.textContent = "トークン一覧";
 		tableSection.appendChild(tableHeading);
 
-		// Primary/Accent を先に、セマンティックトークンを後に配置
-		// UX順序: Primary → Accent → Link → Success → Warning → Error
+		// Primary/Secondary/Tertiary/Accent を先に、セマンティックトークンを後に配置
+		// UX順序: Primary → Secondary → Tertiary → Accent → Link → Success → Warning → Error
 		const paletteRows = extractPaletteTokenRows();
 		const semanticRows = await extractSemanticTokenRows(dadsTokens, primaryHex);
 		const allRows = [...paletteRows, ...semanticRows];
