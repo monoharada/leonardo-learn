@@ -8,8 +8,8 @@
 
 import { defineConfig, devices } from "playwright/test";
 
-const PORT = Number(process.env.PW_PORT ?? "3000");
-const BASE_URL = `http://localhost:${PORT}`;
+const E2E_PORT = process.env.E2E_PORT ?? process.env.PORT ?? "3000";
+const E2E_BASE_URL = `http://localhost:${E2E_PORT}`;
 
 export default defineConfig({
 	testDir: "./e2e",
@@ -20,7 +20,7 @@ export default defineConfig({
 	workers: process.env.CI ? 1 : undefined,
 	reporter: "html",
 	use: {
-		baseURL: BASE_URL,
+		baseURL: E2E_BASE_URL,
 		// CI環境ではストレージ節約のため失敗時のみtrace、ローカルでは常時記録
 		trace: process.env.CI ? "on-first-retry" : "on",
 		video: "on",
@@ -32,8 +32,8 @@ export default defineConfig({
 		},
 	],
 	webServer: {
-		command: `bun run build && npx serve . -l ${PORT}`,
-		url: BASE_URL,
+		command: `bun run build && npx serve . -l ${E2E_PORT}`,
+		url: E2E_BASE_URL,
 		reuseExistingServer: !process.env.CI,
 		timeout: 120 * 1000,
 	},

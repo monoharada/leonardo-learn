@@ -7,6 +7,7 @@
  * - パレット色数ラジオが正しく動作する
  * - 選択した色数が表示に反映される
  * - 濁り防止フィルタが機能している
+ * - 左右矢印キーで切り替えられる
  *
  * 実行: bun run test:e2e -- --grep "harmony-accent-count"
  */
@@ -158,6 +159,42 @@ test.describe("パレット色数変更 (Phase 4: バグ修正)", () => {
 		await page.waitForTimeout(TIMEOUTS.AFTER_ACTION); // 操作後待機
 		await page.waitForTimeout(TIMEOUTS.DATA_LOAD);
 
+		await expect(page.locator(SELECTORS.coolorsColumn)).toHaveCount(6, {
+			timeout: 10000,
+		});
+	});
+
+	test("左右矢印キーで4→5→6色に連続切り替えでき、フォーカスが維持される", async ({
+		page,
+	}) => {
+		await switchToView(page, "harmony");
+		await page.waitForSelector(SELECTORS.coolorsLayout, { timeout: 10000 });
+		await page.waitForTimeout(TIMEOUTS.DATA_LOAD);
+
+		// 4色（デフォルト）にフォーカス
+		await page.locator(SELECTORS.accentCountRadio1).focus();
+
+		// → 5色
+		await page.waitForTimeout(TIMEOUTS.BEFORE_ACTION);
+		await page.keyboard.press("ArrowRight");
+		await expect(page.locator(SELECTORS.accentCountRadio2)).toBeChecked();
+
+		const active1 = await page.evaluate(
+			() => (document.activeElement as HTMLElement | null)?.dataset.testid,
+		);
+		expect(active1).toBe("accent-count-2");
+
+		// → 6色
+		await page.waitForTimeout(TIMEOUTS.BEFORE_ACTION);
+		await page.keyboard.press("ArrowRight");
+		await expect(page.locator(SELECTORS.accentCountRadio3)).toBeChecked();
+
+		const active2 = await page.evaluate(
+			() => (document.activeElement as HTMLElement | null)?.dataset.testid,
+		);
+		expect(active2).toBe("accent-count-3");
+
+		// メイン表示のカラム数も6色に更新される
 		await expect(page.locator(SELECTORS.coolorsColumn)).toHaveCount(6, {
 			timeout: 10000,
 		});
