@@ -12,12 +12,23 @@
  * 2. トークンテーブル形式
  */
 
-import { beforeEach, describe, expect, it } from "bun:test";
-import { resetState } from "../state";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { JSDOM } from "jsdom";
+import { HarmonyType } from "@/core/harmony";
+import { resetState, state } from "../state";
 
 describe("palette-view module", () => {
+	// DOM環境を準備（renderPaletteView の挙動確認用）
+	const originalDocument = globalThis.document;
+	const originalHTMLElement = globalThis.HTMLElement;
+
 	beforeEach(() => {
 		resetState();
+	});
+
+	afterEach(() => {
+		globalThis.document = originalDocument;
+		globalThis.HTMLElement = originalHTMLElement;
 	});
 
 	describe("exports", () => {
@@ -212,7 +223,7 @@ describe("palette-view module", () => {
 			expect(content).toContain("extractSemanticTokenRows");
 		});
 
-		it("should extract palette token rows (Primary/Accent)", async () => {
+		it("should extract palette token rows (Primary/Secondary/Tertiary/Accent)", async () => {
 			const fs = await import("node:fs");
 			const path = await import("node:path");
 			const filePath = path.join(import.meta.dir, "palette-view.ts");
@@ -294,6 +305,74 @@ describe("palette-view module", () => {
 
 			// Link色の役割
 			expect(content).toContain("link");
+		});
+	});
+
+	describe("token table behavior", () => {
+		it("should render Secondary/Tertiary rows when palettes exist", async () => {
+			const dom = new JSDOM("<!DOCTYPE html><html><body></body></html>");
+			globalThis.document = dom.window.document;
+			globalThis.HTMLElement = dom.window.HTMLElement as typeof HTMLElement;
+
+			state.palettes = [
+				{
+					id: "primary-1",
+					name: "Brand A",
+					keyColors: ["#0066cc"],
+					ratios: [21, 15, 10, 7, 4.5, 3, 1],
+					harmony: HarmonyType.NONE,
+				},
+				{
+					id: "secondary-1",
+					name: "Secondary",
+					keyColors: ["#00a3bf"],
+					ratios: [21, 15, 10, 7, 4.5, 3, 1],
+					harmony: HarmonyType.NONE,
+					step: 600,
+					derivedFrom: {
+						primaryPaletteId: "primary-1",
+						derivationType: "secondary",
+					},
+				},
+				{
+					id: "tertiary-1",
+					name: "Tertiary",
+					keyColors: ["#259063"],
+					ratios: [21, 15, 10, 7, 4.5, 3, 1],
+					harmony: HarmonyType.NONE,
+					step: 600,
+					derivedFrom: {
+						primaryPaletteId: "primary-1",
+						derivationType: "tertiary",
+					},
+				},
+			];
+
+			const container = document.createElement("div");
+			const { renderPaletteView } = await import("./palette-view");
+			await renderPaletteView(container, { onColorClick: () => {} });
+
+			const tokenNames = Array.from(
+				container.querySelectorAll(".dads-token-table__token-name"),
+			).map((el) => el.textContent);
+
+			expect(tokenNames).toContain("プライマリ");
+			expect(tokenNames).toContain("セカンダリ");
+			expect(tokenNames).toContain("ターシャリ");
+
+			const secondaryRow = Array.from(
+				container.querySelectorAll(".dads-token-table__row"),
+			).find(
+				(row) =>
+					row.querySelector(".dads-token-table__token-name")?.textContent ===
+					"セカンダリ",
+			);
+			expect(secondaryRow).toBeTruthy();
+
+			const secondaryPrimitive = secondaryRow
+				?.querySelector(".dads-token-table__primitive")
+				?.textContent?.toLowerCase();
+			expect(secondaryPrimitive).not.toBe("secondary-600");
 		});
 	});
 });

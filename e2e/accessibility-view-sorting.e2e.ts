@@ -26,7 +26,7 @@ const SELECTORS = {
 	sortingSection: ".dads-a11y-sorting-section",
 	sortTabs: ".dads-a11y-sort-tabs",
 	sortTab: ".dads-a11y-sort-tab",
-	sortTabActive: ".dads-a11y-sort-tab--active",
+	sortTabSelected: '.dads-a11y-sort-tab[aria-selected="true"]',
 	boundaryContainer: ".dads-a11y-boundary-container",
 	boundaryMarker: ".dads-a11y-boundary-marker",
 	deltaEBadge: ".dads-a11y-deltaE-badge",
@@ -122,7 +122,7 @@ test.describe("アクセシビリティビュー 色の並べ替え機能", () =
 		await switchToAccessibilityView(page);
 
 		// Hueタブがアクティブであることを確認
-		const activeTab = page.locator(SELECTORS.sortTabActive);
+		const activeTab = page.locator(SELECTORS.sortTabSelected);
 		await expect(activeTab).toBeVisible({ timeout: TIMEOUTS.UI_UPDATE });
 
 		const activeTabText = await activeTab.textContent();
@@ -138,7 +138,7 @@ test.describe("アクセシビリティビュー 色の並べ替え機能", () =
 		await clickSortTab(page, 1);
 
 		// ΔEタブがアクティブになっていることを確認
-		const activeTab = page.locator(SELECTORS.sortTabActive);
+		const activeTab = page.locator(SELECTORS.sortTabSelected);
 		const activeTabText = await activeTab.textContent();
 		expect(activeTabText).toContain("色差順");
 
@@ -147,7 +147,7 @@ test.describe("アクセシビリティビュー 色の並べ替え機能", () =
 		await clickSortTab(page, 2);
 
 		// Lightnessタブがアクティブになっていることを確認
-		const newActiveTab = page.locator(SELECTORS.sortTabActive);
+		const newActiveTab = page.locator(SELECTORS.sortTabSelected);
 		const newActiveTabText = await newActiveTab.textContent();
 		expect(newActiveTabText).toContain("明度順");
 	});
@@ -192,8 +192,36 @@ test.describe("ソートタブ切り替えの操作確認", () => {
 			await page.waitForTimeout(TIMEOUTS.AFTER_ACTION);
 
 			// クリックしたタブがアクティブになっていることを確認
-			const activeTab = page.locator(SELECTORS.sortTabActive);
+			const activeTab = page.locator(SELECTORS.sortTabSelected);
 			await expect(activeTab).toBeVisible();
 		}
+	});
+
+	test("左右矢印キーでソートタブが切り替わる", async ({ page }) => {
+		// アクセシビリティビューに切り替え
+		await switchToAccessibilityView(page);
+
+		// Hueタブ（デフォルト）にフォーカス
+		const activeTab = page.locator(SELECTORS.sortTabSelected);
+		await expect(activeTab).toBeVisible({ timeout: TIMEOUTS.UI_UPDATE });
+		await activeTab.focus();
+
+		// → ΔE
+		await page.keyboard.press("ArrowRight");
+		await page.waitForTimeout(TIMEOUTS.AFTER_ACTION);
+		const activeAfterRight = page.locator(SELECTORS.sortTabSelected);
+		await expect(activeAfterRight).toContainText("色差順");
+
+		// → Lightness
+		await page.keyboard.press("ArrowRight");
+		await page.waitForTimeout(TIMEOUTS.AFTER_ACTION);
+		const activeAfterRight2 = page.locator(SELECTORS.sortTabSelected);
+		await expect(activeAfterRight2).toContainText("明度順");
+
+		// ← ΔE
+		await page.keyboard.press("ArrowLeft");
+		await page.waitForTimeout(TIMEOUTS.AFTER_ACTION);
+		const activeAfterLeft = page.locator(SELECTORS.sortTabSelected);
+		await expect(activeAfterLeft).toContainText("色差順");
 	});
 });

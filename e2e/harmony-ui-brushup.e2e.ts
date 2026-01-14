@@ -295,3 +295,32 @@ test.describe("ブランドカラー変更", () => {
 		await expect(page.locator(SELECTORS.harmonySidebar)).toBeVisible();
 	});
 });
+
+// ============================================================================
+// 6. 低画面高での表示崩れ防止
+// ============================================================================
+
+test.describe("低い画面高でも表示が崩れない", () => {
+	test.use({ viewport: { width: 1280, height: 520 } });
+
+	test("HEX値がハーモニー行に隠れない", async ({ page }) => {
+		await switchToView(page, "harmony");
+		await waitForCoolorsLayout(page);
+
+		const hex = page.locator(SELECTORS.coolorsColumnHex).first();
+		const sidebar = page.locator(SELECTORS.coolorsLayoutSidebar);
+		await expect(hex).toBeVisible();
+		await expect(sidebar).toBeVisible();
+
+		const hexBox = await hex.boundingBox();
+		const sidebarBox = await sidebar.boundingBox();
+
+		expect(hexBox).not.toBeNull();
+		expect(sidebarBox).not.toBeNull();
+
+		if (hexBox && sidebarBox) {
+			// ハーモニー行がオーバーレイしていないこと（= HEX表示の下端がサイドバー上端より上）
+			expect(hexBox.y + hexBox.height).toBeLessThanOrEqual(sidebarBox.y + 1);
+		}
+	});
+});

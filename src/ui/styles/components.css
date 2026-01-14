@@ -1582,6 +1582,12 @@
 	overflow: hidden;
 }
 
+.dads-segmented-control:has(:focus-visible) {
+	outline: 4px solid var(--color-neutral-black);
+	outline-offset: 2px;
+	box-shadow: 0 0 0 2px var(--color-primitive-yellow-300);
+}
+
 .dads-segmented-control .dads-radio-label {
 	display: flex;
 	align-items: center;
@@ -1589,6 +1595,7 @@
 	padding: 0.5rem 0.75rem;
 	font-size: var(--font-size-14);
 	cursor: pointer;
+	border: none;
 	background: var(--color-neutral-white);
 	border-left: 1px solid var(--color-neutral-solid-gray-300);
 	margin-left: -1px;
@@ -1606,7 +1613,8 @@
 }
 
 .dads-segmented-control .dads-radio-label--selected,
-.dads-segmented-control .dads-radio-label:has(.dads-radio-input:checked) {
+.dads-segmented-control .dads-radio-label:has(.dads-radio-input:checked),
+.dads-segmented-control [role="tab"][aria-selected="true"] {
 	background: var(--color-neutral-solid-gray-900);
 	color: var(--color-neutral-white);
 }
@@ -1988,7 +1996,7 @@
 .coolors-display {
 	display: flex;
 	width: 100%;
-	height: min(70vh, 600px);
+	height: 100%;
 	border-radius: var(--border-radius-8);
 	overflow: hidden;
 	box-shadow: var(--shadow-subtle);
@@ -4211,41 +4219,16 @@
 
 .dads-a11y-sort-tabs {
 	display: flex;
-	gap: 0.5rem;
+	width: 100%;
 	margin-bottom: 0.75rem; /* alert boxとの間隔調整（tabs下にalert boxが来るため） */
-	padding: 4px;
-	background: var(--color-neutral-solid-gray-100);
-	border-radius: var(--border-radius-8);
 }
 
 .dads-a11y-sort-tab {
 	flex: 1;
-	padding: 0.5rem 1rem;
-	border: none;
-	border-radius: 6px;
-	background: transparent;
-	color: var(--color-neutral-solid-gray-600);
-	font-size: var(--font-size-14);
-	font-weight: 500;
-	cursor: pointer;
-	transition: all 0.2s ease;
-}
-
-.dads-a11y-sort-tab:hover {
-	color: var(--color-neutral-solid-gray-900);
-	background: var(--color-neutral-solid-gray-50);
-}
-
-.dads-a11y-sort-tab--active {
-	background: var(--color-neutral-white);
-	color: var(--color-neutral-solid-gray-900);
-	font-weight: var(--font-weight-700);
-	box-shadow: var(--elevation-1);
 }
 
 .dads-a11y-sort-tab:focus-visible {
-	outline: 4px solid var(--color-neutral-black);
-	outline-offset: 2px;
+	outline: none;
 }
 
 .dads-a11y-boundary-container {
