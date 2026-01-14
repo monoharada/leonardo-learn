@@ -19,7 +19,11 @@ import { parseColor } from "@/utils/color-space";
 import { createBackgroundColorSelector } from "../background-color-selector";
 import { getDisplayHex } from "../cvd-controls";
 import { parseKeyColor, persistBackgroundColors, state } from "../state";
-import { type ColorDetailModalOptions, stripStepSuffix } from "../types";
+import {
+	type ColorDetailModalOptions,
+	type PaletteConfig,
+	stripStepSuffix,
+} from "../types";
 import {
 	createPalettePreview,
 	mapPaletteToPreviewColors,
@@ -276,6 +280,39 @@ async function extractSemanticTokenRows(
 	);
 }
 
+function resolveAccentSourcePalette(
+	palettes: PaletteConfig[],
+): PaletteConfig | undefined {
+	const hasUsableKeyColor = (palette: PaletteConfig): boolean => {
+		const keyColorInput = palette.keyColors[0];
+		if (!keyColorInput) return false;
+		const hex = stripStepSuffix(keyColorInput);
+		return /^#[0-9A-Fa-f]{6}$/.test(hex);
+	};
+
+	return (
+		palettes.find((p) => p.name.startsWith("Accent") && hasUsableKeyColor(p)) ??
+		palettes.find(
+			(p) =>
+				(p.derivedFrom?.derivationType === "secondary" ||
+					p.name.startsWith("Secondary")) &&
+				hasUsableKeyColor(p),
+		)
+	);
+}
+
+function getSwatchHexWithCudMode(hex: string): {
+	baseHex: string;
+	swatchHex: string;
+} {
+	let baseHex = hex;
+	if (state.cudMode === "strict") {
+		const snapResult = snapToCudColor(hex, { mode: "strict" });
+		baseHex = snapResult.hex;
+	}
+	return { baseHex, swatchHex: getDisplayHex(baseHex) };
+}
+
 /**
  * Primary/Secondary/Tertiary/Accentのトークン行を抽出
  */
@@ -300,13 +337,7 @@ function extractPaletteTokenRows(): TokenTableRow[] {
 			derivationType === "tertiary" || paletteName.startsWith("Tertiary");
 		const isAccent = paletteName.startsWith("Accent");
 
-		// CUD strictモードの場合はスナップ
-		let baseHex = hex;
-		if (state.cudMode === "strict") {
-			const snapResult = snapToCudColor(hex, { mode: "strict" });
-			baseHex = snapResult.hex;
-		}
-		const swatchHex = getDisplayHex(baseHex);
+		const { baseHex, swatchHex } = getSwatchHexWithCudMode(hex);
 
 		const step = definedStep ?? palette.step ?? 600;
 		const chromaName = (
@@ -331,18 +362,51 @@ function extractPaletteTokenRows(): TokenTableRow[] {
 				hex: baseHex,
 				category: "primary",
 			});
-		} else if (isAccent) {
-			// Accent-1, Accent-2 などの番号を抽出
-			const accentMatch = paletteName.match(/Accent.*?(\d+)/);
-			const accentNum = accentMatch ? accentMatch[1] : "1";
-			rows.push({
-				colorSwatch: swatchHex,
-				tokenName: `アクセント${accentNum}`,
-				primitiveName: `${chromaName}-${step}`,
-				hex: baseHex,
-				category: "accent",
-			});
+			continue;
 		}
+
+		if (!isAccent) continue;
+
+		// Accent-1, Accent-2 などの番号を抽出
+		const accentMatch = paletteName.match(/Accent.*?(\d+)/);
+		const accentNum = accentMatch ? accentMatch[1] : "1";
+		rows.push({
+			colorSwatch: swatchHex,
+			tokenName: `アクセント${accentNum}`,
+			primitiveName: `${chromaName}-${step}`,
+			hex: baseHex,
+			category: "accent",
+		});
+	}
+
+	// Accent* が存在しない場合でも、最低1色はアクセントを表示する
+	// ロジック上はアクセントが必ず存在する想定だが、旧フロー等の保険としてSecondaryを流用する
+	if (!rows.some((row) => row.category === "accent")) {
+		const fallbackPalette = resolveAccentSourcePalette(state.palettes);
+		const keyColorInput = fallbackPalette?.keyColors[0];
+		const { color: hex, step: definedStep } = keyColorInput
+			? parseKeyColor(keyColorInput)
+			: { color: "#259063", step: undefined };
+
+		const { baseHex, swatchHex } = getSwatchHexWithCudMode(hex);
+
+		const step = definedStep ?? fallbackPalette?.step ?? 600;
+		const chromaName = (
+			fallbackPalette?.baseChromaName ||
+			inferBaseChromaNameFromHex(baseHex) ||
+			fallbackPalette?.name ||
+			"accent-fallback"
+		)
+			.toLowerCase()
+			.replace(/\s+/g, "-");
+
+		rows.push({
+			colorSwatch: swatchHex,
+			tokenName: "アクセント1",
+			primitiveName: `${chromaName}-${step}`,
+			hex: baseHex,
+			category: "accent",
+		});
 	}
 
 	return rows;
@@ -364,7 +428,7 @@ async function extractPreviewColors(
 	dadsTokens: Awaited<ReturnType<typeof loadDadsTokens>>,
 	primaryHex: string,
 ): Promise<PalettePreviewColors> {
-	const accentPalette = state.palettes.find((p) => p.name.startsWith("Accent"));
+	const accentPalette = resolveAccentSourcePalette(state.palettes);
 	const accentHex =
 		stripStepSuffix(accentPalette?.keyColors[0] ?? "") || "#259063";
 
