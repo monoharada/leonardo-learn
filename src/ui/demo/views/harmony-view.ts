@@ -130,6 +130,13 @@ let sharedHarmonyManager: HarmonyStateManager | null = null;
 let currentPreviewRequestId = 0;
 
 /**
+ * パレット色数変更後にフォーカスを復元するための一時領域
+ *
+ * 再レンダリングでDOMが差し替わるため、変更後の連続キーボード操作（←/→）が途切れないようにする。
+ */
+let pendingAccentCountFocus: 1 | 2 | 3 | null = null;
+
+/**
  * 共有ハーモニーマネージャーを取得または作成する
  */
 function getSharedHarmonyManager(): HarmonyStateManager {
@@ -296,6 +303,15 @@ export function renderAccentSelectionView(
 	// ヘッダーセクション（プライマリーカラー入力）
 	const header = createHeader(inputHex, container, callbacks, viewState);
 	container.appendChild(header);
+
+	// パレット色数変更後は、再レンダリング後に同じコントロールへフォーカスを復元する
+	if (pendingAccentCountFocus) {
+		const target = container.querySelector<HTMLInputElement>(
+			`[data-testid="accent-count-${pendingAccentCountFocus}"]`,
+		);
+		pendingAccentCountFocus = null;
+		target?.focus({ preventScroll: true });
+	}
 
 	// Coolorsモードまたは従来のカードモードで表示
 	if (viewState.useCoolorsMode) {
@@ -1168,6 +1184,7 @@ function createHeader(
 				| 1
 				| 2
 				| 3;
+			pendingAccentCountFocus = value;
 			state.accentCount = value;
 			viewState.accentCount = value;
 			renderAccentSelectionView(container, viewState.brandColorHex, callbacks);

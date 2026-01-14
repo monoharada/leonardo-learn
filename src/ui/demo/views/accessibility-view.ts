@@ -323,14 +323,32 @@ function renderSortTabs(
 	onSortChange: (sortType: SortType) => void,
 ): void {
 	const tabsContainer = document.createElement("div");
-	tabsContainer.className = "dads-a11y-sort-tabs";
+	tabsContainer.className = "dads-a11y-sort-tabs dads-segmented-control";
 	tabsContainer.setAttribute("role", "tablist");
 	tabsContainer.setAttribute("aria-label", "並べ替え方法を選択");
+
+	function setActiveTab(
+		activeTab: HTMLButtonElement,
+		sortType: SortType,
+	): void {
+		viewState.currentSortType = sortType;
+		onSortChange(sortType);
+
+		tabsContainer
+			.querySelectorAll<HTMLButtonElement>(".dads-a11y-sort-tab")
+			.forEach((t) => {
+				t.setAttribute("aria-selected", "false");
+				t.tabIndex = -1;
+			});
+
+		activeTab.setAttribute("aria-selected", "true");
+		activeTab.tabIndex = 0;
+	}
 
 	const sortTypes = getAllSortTypes();
 	for (const sortType of sortTypes) {
 		const tab = document.createElement("button");
-		tab.className = "dads-a11y-sort-tab";
+		tab.className = "dads-a11y-sort-tab dads-radio-label";
 		tab.textContent = getSortTypeName(sortType);
 		tab.setAttribute("role", "tab");
 		tab.setAttribute("data-sort-type", sortType);
@@ -340,23 +358,56 @@ function renderSortTabs(
 		);
 
 		if (sortType === viewState.currentSortType) {
-			tab.classList.add("dads-a11y-sort-tab--active");
+			tab.tabIndex = 0;
+		} else {
+			tab.tabIndex = -1;
 		}
 
 		tab.addEventListener("click", () => {
-			viewState.currentSortType = sortType;
-			onSortChange(sortType);
-
-			tabsContainer.querySelectorAll(".dads-a11y-sort-tab").forEach((t) => {
-				t.classList.remove("dads-a11y-sort-tab--active");
-				t.setAttribute("aria-selected", "false");
-			});
-			tab.classList.add("dads-a11y-sort-tab--active");
-			tab.setAttribute("aria-selected", "true");
+			setActiveTab(tab, sortType);
 		});
 
 		tabsContainer.appendChild(tab);
 	}
+
+	// キーボード操作（tablist）
+	tabsContainer.addEventListener("keydown", (e) => {
+		const target = e.target as HTMLElement | null;
+		if (!target || target.getAttribute("role") !== "tab") return;
+
+		const tabs = Array.from(
+			tabsContainer.querySelectorAll<HTMLButtonElement>('[role="tab"]'),
+		);
+		const currentIndex = tabs.indexOf(target as HTMLButtonElement);
+		if (currentIndex < 0) return;
+
+		let nextIndex = currentIndex;
+		switch (e.key) {
+			case "ArrowLeft":
+				nextIndex = currentIndex > 0 ? currentIndex - 1 : tabs.length - 1;
+				break;
+			case "ArrowRight":
+				nextIndex = currentIndex < tabs.length - 1 ? currentIndex + 1 : 0;
+				break;
+			case "Home":
+				nextIndex = 0;
+				break;
+			case "End":
+				nextIndex = tabs.length - 1;
+				break;
+			default:
+				return;
+		}
+
+		const nextTab = tabs[nextIndex];
+		if (!nextTab) return;
+
+		e.preventDefault();
+		nextTab.focus();
+
+		const nextSortType = nextTab.getAttribute("data-sort-type") as SortType;
+		setActiveTab(nextTab, nextSortType);
+	});
 
 	container.appendChild(tabsContainer);
 }
