@@ -43,7 +43,9 @@ async function runCommand(cmd, args, options = {}) {
 		child.on("error", reject);
 		child.on("close", (code) => {
 			if (code === 0) return resolve();
-			reject(new Error(`${cmd} ${args.join(" ")} failed with exit code ${code}`));
+			reject(
+				new Error(`${cmd} ${args.join(" ")} failed with exit code ${code}`),
+			);
 		});
 	});
 }
