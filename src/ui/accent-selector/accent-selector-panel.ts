@@ -30,6 +30,14 @@ import {
 	WeightSliderUI,
 } from "./weight-slider-ui";
 
+export interface AccentSelectorPanelOptions {
+	/**
+	 * スウォッチ表示用のHEX変換関数
+	 * 候補データ（candidate.hex）自体は変更せず、塗りだけ変える。
+	 */
+	getDisplayHex?: (hex: string) => string;
+}
+
 /**
  * パネル状態
  */
@@ -67,6 +75,7 @@ const DEFAULT_WEIGHTS: ScoreWeights = {
 export class AccentSelectorPanel {
 	private container: HTMLElement;
 	private state: AccentSelectorPanelState;
+	private readonly getDisplayHex: (hex: string) => string;
 
 	// 子コンポーネント
 	private grid: AccentCandidateGrid | null = null;
@@ -77,8 +86,12 @@ export class AccentSelectorPanel {
 	// 全候補（フィルタ前）
 	private allCandidates: ScoredCandidate[] = [];
 
-	constructor(container: HTMLElement) {
+	constructor(
+		container: HTMLElement,
+		options: AccentSelectorPanelOptions = {},
+	) {
 		this.container = container;
+		this.getDisplayHex = options.getDisplayHex ?? ((hex) => hex);
 		this.state = {
 			isOpen: false,
 			isLoading: false,
@@ -332,7 +345,9 @@ export class AccentSelectorPanel {
 		const gridContainer = document.createElement("div");
 		gridContainer.className = "accent-selector-panel__grid";
 		content.appendChild(gridContainer);
-		this.grid = new AccentCandidateGrid(gridContainer);
+		this.grid = new AccentCandidateGrid(gridContainer, {
+			getDisplayHex: this.getDisplayHex,
+		});
 		this.grid.setCandidates(this.state.candidates);
 		this.grid.onSelectCandidate((candidate) => {
 			this.handleCandidateSelect(candidate);

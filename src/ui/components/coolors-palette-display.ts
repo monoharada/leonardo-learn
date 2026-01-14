@@ -15,8 +15,10 @@ import { getContrastTextColor } from "@/ui/semantic-role/circular-swatch-transfo
  * CoolorsPaletteDisplayのプロパティ
  */
 export interface CoolorsPaletteDisplayProps {
-	/** 表示する色の配列（HEX形式） */
+	/** 元の色（HEX形式、クリック時に渡す） */
 	colors: string[];
+	/** 表示用の色（HEX形式、背景に塗る）。未指定の場合はcolorsを使用 */
+	displayColors?: string[];
 	/** トークン名の配列（オプション） */
 	tokenNames?: string[];
 	/** DADSプリミティブトークン名の配列（オプション、例: "green-1200"） */
@@ -34,7 +36,8 @@ export interface CoolorsPaletteDisplayProps {
 export function createCoolorsPaletteDisplay(
 	props: CoolorsPaletteDisplayProps,
 ): HTMLElement {
-	const { colors, tokenNames, primitiveNames, onColorClick } = props;
+	const { colors, displayColors, tokenNames, primitiveNames, onColorClick } =
+		props;
 
 	// コンテナ作成（スタイルはCSSで定義）
 	const container = document.createElement("div");
@@ -44,9 +47,11 @@ export function createCoolorsPaletteDisplay(
 	for (let i = 0; i < colors.length; i++) {
 		const hex = colors[i];
 		if (!hex) continue;
+		const displayHex = displayColors?.[i] ?? hex;
 
 		const column = createColorColumn({
 			hex,
+			displayHex,
 			tokenName: tokenNames?.[i],
 			primitiveName: primitiveNames?.[i],
 			index: i,
@@ -63,6 +68,7 @@ export function createCoolorsPaletteDisplay(
  */
 interface ColorColumnProps {
 	hex: string;
+	displayHex: string;
 	tokenName?: string;
 	primitiveName?: string;
 	index: number;
@@ -73,11 +79,12 @@ interface ColorColumnProps {
  * 単一のカラーカラムを作成する
  */
 function createColorColumn(props: ColorColumnProps): HTMLElement {
-	const { hex, tokenName, primitiveName, index, onColorClick } = props;
+	const { hex, displayHex, tokenName, primitiveName, index, onColorClick } =
+		props;
 
 	const column = document.createElement("div");
 	column.className = "coolors-column";
-	column.style.backgroundColor = hex; // 動的な背景色のみインラインで設定
+	column.style.backgroundColor = displayHex; // 動的な背景色のみインラインで設定
 
 	// ホバー用のdata属性
 	column.setAttribute("data-hoverable", "true");
@@ -89,7 +96,7 @@ function createColorColumn(props: ColorColumnProps): HTMLElement {
 
 	// テキスト色を背景色に基づいて決定（WCAGコントラスト比で最適な方を選択）
 	const textColor =
-		getContrastTextColor(hex) === "black" ? "#000000" : "#ffffff";
+		getContrastTextColor(displayHex) === "black" ? "#000000" : "#ffffff";
 
 	// トークン名（オプション）
 	if (tokenName) {

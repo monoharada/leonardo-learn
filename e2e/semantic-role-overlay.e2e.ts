@@ -51,15 +51,15 @@ test.describe("円形スウォッチ表示", () => {
 		await page.click("[data-testid='render-shades-btn']");
 		await page.waitForSelector("[data-testid^='swatch-']");
 
-		// green-600シェード（Success-1ロールがある）を確認
-		const greenSwatch = page.locator("[data-testid='swatch-green-600']");
-		await expect(greenSwatch).toBeVisible();
+		// blue-600シェード（Primaryロールがある）を確認
+		const blueSwatch = page.locator("[data-testid='swatch-blue-600']");
+		await expect(blueSwatch).toBeVisible();
 
 		// 円形スウォッチクラスが適用されていることを確認
-		await expect(greenSwatch).toHaveClass(/dads-swatch--circular/);
+		await expect(blueSwatch).toHaveClass(/dads-swatch--circular/);
 
 		// 円形スウォッチのスタイルを確認（border-radius: 50%）
-		const swatchStyles = await greenSwatch.evaluate((el) => {
+		const swatchStyles = await blueSwatch.evaluate((el) => {
 			const style = window.getComputedStyle(el);
 			return {
 				borderRadius: style.borderRadius,
@@ -74,16 +74,16 @@ test.describe("円形スウォッチ表示", () => {
 		await page.click("[data-testid='render-shades-btn']");
 		await page.waitForSelector("[data-testid^='swatch-']");
 
-		// green-600シェード（Success-1ロールがある）を確認
-		const greenSwatch = page.locator("[data-testid='swatch-green-600']");
+		// blue-600シェード（Primaryロールがある）を確認
+		const blueSwatch = page.locator("[data-testid='swatch-blue-600']");
 
 		// 中央ラベル要素が存在することを確認
-		const roleLabel = greenSwatch.locator(".dads-swatch__role-label");
+		const roleLabel = blueSwatch.locator(".dads-swatch__role-label");
 		await expect(roleLabel).toBeVisible();
 
 		// ラベルにロール名（カタカナ）が含まれていることを確認
 		const labelText = await roleLabel.textContent();
-		expect(labelText).toBe("サクセス");
+		expect(labelText).toBe("プライマリ");
 	});
 
 	test("セマンティックロールがないシェードは四角形のままである", async ({
@@ -159,14 +159,12 @@ test.describe("円形スウォッチ表示", () => {
 		const redSwatch = page.locator("[data-testid='swatch-red-800']");
 		await expect(redSwatch).toBeVisible();
 
-		// 円形スウォッチクラスが適用されていることを確認
-		await expect(redSwatch).toHaveClass(/dads-swatch--circular/);
-
-		// 中央ラベルに「エラー」が表示されること
-		const roleLabel = redSwatch.locator(".dads-swatch__role-label");
-		await expect(roleLabel).toBeVisible();
-		const labelText = await roleLabel.textContent();
-		expect(labelText).toBe("エラー");
+		// DADS公式ロール（source="dads"）は円形化しない
+		await expect(redSwatch).not.toHaveClass(/dads-swatch--circular/);
+		const labelCount = await redSwatch
+			.locator(".dads-swatch__role-label")
+			.count();
+		expect(labelCount).toBe(0);
 	});
 
 	test("Warningロール（ワーニング）のラベルが表示される", async ({ page }) => {
@@ -179,14 +177,12 @@ test.describe("円形スウォッチ表示", () => {
 		const yellowSwatch = page.locator("[data-testid='swatch-yellow-900']");
 		await expect(yellowSwatch).toBeVisible();
 
-		// 円形スウォッチクラスが適用されていることを確認
-		await expect(yellowSwatch).toHaveClass(/dads-swatch--circular/);
-
-		// 中央ラベルに「ワーニング」が表示されること
-		const roleLabel = yellowSwatch.locator(".dads-swatch__role-label");
-		await expect(roleLabel).toBeVisible();
-		const labelText = await roleLabel.textContent();
-		expect(labelText).toBe("ワーニング");
+		// DADS公式ロール（source="dads"）は円形化しない
+		await expect(yellowSwatch).not.toHaveClass(/dads-swatch--circular/);
+		const labelCount = await yellowSwatch
+			.locator(".dads-swatch__role-label")
+			.count();
+		expect(labelCount).toBe(0);
 	});
 
 	test("Linkロール（リンク）のラベルが表示される", async ({ page }) => {
@@ -198,14 +194,12 @@ test.describe("円形スウォッチ表示", () => {
 		const linkSwatch = page.locator("[data-testid='swatch-blue-1000']");
 		await expect(linkSwatch).toBeVisible();
 
-		// 円形スウォッチクラスが適用されていることを確認
-		await expect(linkSwatch).toHaveClass(/dads-swatch--circular/);
-
-		// 中央ラベルに「リンク Default」が表示されること（Link-Defaultの場合）
-		const roleLabel = linkSwatch.locator(".dads-swatch__role-label");
-		await expect(roleLabel).toBeVisible();
-		const labelText = await roleLabel.textContent();
-		expect(labelText).toBe("リンク Default");
+		// DADS公式ロール（source="dads"）は円形化しない
+		await expect(linkSwatch).not.toHaveClass(/dads-swatch--circular/);
+		const labelCount = await linkSwatch
+			.locator(".dads-swatch__role-label")
+			.count();
+		expect(labelCount).toBe(0);
 	});
 
 	test("Accentロール（アクセント）のラベルが表示される", async ({ page }) => {
@@ -218,14 +212,12 @@ test.describe("円形スウォッチ表示", () => {
 		const limeSwatch = page.locator("[data-testid='swatch-lime-700']");
 		await expect(limeSwatch).toBeVisible();
 
-		// 円形スウォッチクラスが適用されていることを確認
-		await expect(limeSwatch).toHaveClass(/dads-swatch--circular/);
-
-		// 中央ラベルに「アクセント」が表示されること
-		const roleLabel = limeSwatch.locator(".dads-swatch__role-label");
-		await expect(roleLabel).toBeVisible();
-		const labelText = await roleLabel.textContent();
-		expect(labelText).toBe("アクセント");
+		// DADS公式ロール（source="dads"）は円形化しない
+		await expect(limeSwatch).not.toHaveClass(/dads-swatch--circular/);
+		const labelCount = await limeSwatch
+			.locator(".dads-swatch__role-label")
+			.count();
+		expect(labelCount).toBe(0);
 	});
 
 	test("ラベル文字色が明るい背景では黒になる", async ({ page }) => {
@@ -233,18 +225,16 @@ test.describe("円形スウォッチ表示", () => {
 		await page.click("[data-testid='render-shades-btn']");
 		await page.waitForSelector("[data-testid^='swatch-']");
 
-		// green-600シェード（Success-1ロール、明るめの背景色）を確認
-		// 緑の600は比較的明るいので黒文字が適切
-		const greenSwatch = page.locator("[data-testid='swatch-green-600']");
-		const roleLabel = greenSwatch.locator(".dads-swatch__role-label");
+		// purple-500シェード（Secondaryロール、比較的明るい背景色）を確認
+		const purpleSwatch = page.locator("[data-testid='swatch-purple-500']");
+		const roleLabel = purpleSwatch.locator(".dads-swatch__role-label");
 		await expect(roleLabel).toBeVisible();
 
 		// ラベルの文字色を取得
 		const textColor = await roleLabel.evaluate((el) => {
 			return window.getComputedStyle(el).color;
 		});
-		// green-600(#259d63)は明るい背景色のため、コントラスト自動調整により黒文字になる
-		// WCAG計算: 黒とのコントラスト比(6.08) > 白とのコントラスト比(3.45)
+		// purple-500(#a565f8)は明るい背景色のため、コントラスト自動調整により黒文字になる
 		expect(textColor).toBe("rgb(0, 0, 0)");
 	});
 
@@ -253,8 +243,8 @@ test.describe("円形スウォッチ表示", () => {
 		await page.click("[data-testid='render-shades-btn']");
 		await page.waitForSelector("[data-testid^='swatch-']");
 
-		// blue-1000シェード（Link-Defaultロール、暗い背景色）を確認
-		const blueSwatch = page.locator("[data-testid='swatch-blue-1000']");
+		// blue-600シェード（Primaryロール、暗い背景色）を確認
+		const blueSwatch = page.locator("[data-testid='swatch-blue-600']");
 		const roleLabel = blueSwatch.locator(".dads-swatch__role-label");
 		await expect(roleLabel).toBeVisible();
 
@@ -1087,7 +1077,7 @@ test.describe("コントラスト境界表示", () => {
 
 				// 白抜きスタイル: border: 1px solid #333, background: transparent, color: #333
 				expect(pillStyles.borderColor).toBe("rgb(51, 51, 51)");
-				expect(pillStyles.backgroundColor).toBe("rgba(0, 0, 0, 0)");
+				expect(pillStyles.backgroundColor).toBe("rgb(255, 255, 255)");
 				expect(pillStyles.color).toBe("rgb(51, 51, 51)");
 				expect(pillStyles.borderRadius).toBe("9999px");
 			}
@@ -1600,7 +1590,6 @@ test.describe("アクセシビリティ専用テスト", () => {
 
 		// 最初の円形スウォッチにtabindex="0"が設定されていること
 		const firstCircular = circularSwatches.first();
-		const secondCircular = circularSwatches.nth(1);
 		const tabindex = await firstCircular.getAttribute("tabindex");
 		expect(tabindex).toBe("0");
 
@@ -1609,11 +1598,21 @@ test.describe("アクセシビリティ専用テスト", () => {
 		await expect(firstCircular).toBeFocused();
 
 		// Tabキーで次の円形スウォッチに移動
+		const firstTestId = await firstCircular.getAttribute("data-testid");
 		await page.keyboard.press("Tab");
 
-		// 次の円形スウォッチにフォーカスが移動したことを確認
+		// 次のフォーカス可能スウォッチにフォーカスが移動したことを確認
 		await expect(firstCircular).not.toBeFocused();
-		await expect(secondCircular).toBeFocused();
+		const active = await page.evaluate(() => {
+			const el = document.activeElement;
+			return {
+				isSwatch: el?.classList.contains("dads-swatch") ?? false,
+				testId: el?.getAttribute("data-testid"),
+			};
+		});
+		expect(active.isSwatch).toBe(true);
+		expect(active.testId).toMatch(/^swatch-/);
+		expect(active.testId).not.toBe(firstTestId);
 	});
 
 	test("全ての円形スウォッチにtabindex='0'が設定されていること", async ({

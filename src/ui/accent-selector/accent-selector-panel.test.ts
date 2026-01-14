@@ -9,6 +9,9 @@
  */
 
 import { beforeEach, describe, expect, it } from "bun:test";
+import { JSDOM } from "jsdom";
+import type { ScoredCandidate } from "../../core/accent/accent-candidate-service";
+import type { BalanceScoreResult } from "../../core/accent/balance-score-calculator";
 import { clearErrorState } from "../../core/accent/error-state";
 
 describe("AccentSelectorPanel module", () => {
@@ -330,5 +333,77 @@ describe("AccentSelectorPanel error scenarios", () => {
 			expect(panel.getState().isOpen).toBe(true);
 			expect(panel.getState().error?.code).toBe("BRAND_COLOR_NOT_SET");
 		});
+	});
+});
+
+describe("AccentSelectorPanel render integration", () => {
+	it("should apply getDisplayHex only to the swatch, keeping candidate data for selection", async () => {
+		const g = globalThis as unknown as {
+			document?: Document;
+			HTMLElement?: typeof HTMLElement;
+		};
+		const previous = { document: g.document, HTMLElement: g.HTMLElement };
+
+		const dom = new JSDOM("<!DOCTYPE html><html><body></body></html>");
+		g.document = dom.window.document;
+		g.HTMLElement = dom.window.HTMLElement as unknown as typeof HTMLElement;
+
+		try {
+			const { AccentSelectorPanel } = await import("./accent-selector-panel");
+
+			const score: BalanceScoreResult = {
+				total: 75.5,
+				breakdown: {
+					harmonyScore: 80,
+					cudScore: 70,
+					contrastScore: 76,
+				},
+				weights: { harmony: 40, cud: 30, contrast: 30 },
+			};
+			const candidate: ScoredCandidate = {
+				tokenId: "red-500",
+				hex: "#FF0000",
+				nameJa: "レッド 500",
+				nameEn: "Red 500",
+				dadsSourceName: "Red 500",
+				step: 500,
+				score,
+				hue: 30,
+			};
+
+			const container = document.createElement("div");
+			document.body.appendChild(container);
+
+			const panel = new AccentSelectorPanel(container, {
+				getDisplayHex: () => "#00ff00",
+			});
+			(
+				panel as unknown as { state: { candidates: ScoredCandidate[] } }
+			).state.candidates = [candidate];
+			(panel as unknown as { state: { isLoading: boolean } }).state.isLoading =
+				false;
+			(panel as unknown as { state: { error: unknown } }).state.error = null;
+			panel.render();
+
+			const swatch = container.querySelector(
+				".accent-candidate-card__swatch",
+			) as HTMLElement | null;
+			expect(swatch).not.toBeNull();
+			// JSDOMはHEXをRGBに変換するため、期待値もRGB形式で指定
+			expect(swatch?.style.backgroundColor).toBe("rgb(0, 255, 0)");
+
+			const card = container.querySelector(
+				".accent-candidate-card",
+			) as HTMLElement | null;
+			card?.click();
+
+			const selected = panel.getPaletteIntegration().getSelectedAccents();
+			expect(selected.length).toBe(1);
+			expect(selected[0]?.hex).toBe("#FF0000");
+			expect(candidate.hex).toBe("#FF0000");
+		} finally {
+			g.document = previous.document;
+			g.HTMLElement = previous.HTMLElement;
+		}
 	});
 });

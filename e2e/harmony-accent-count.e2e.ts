@@ -4,8 +4,8 @@
  * Phase 2-4: パレット色数選択機能のE2Eテスト
  *
  * Requirements:
- * - パレット色数プルダウンが正しく動作する
- * - 選択した色数がカードに反映される
+ * - パレット色数ラジオが正しく動作する
+ * - 選択した色数が表示に反映される
  * - 濁り防止フィルタが機能している
  *
  * 実行: bun run test:e2e -- --grep "harmony-accent-count"
@@ -41,14 +41,19 @@ const SELECTORS = {
 	viewHarmonyBtn: "#view-harmony",
 	viewPaletteBtn: "#view-palette",
 
-	// ハーモニーカード
-	harmonyCardArea: ".harmony-card-area",
-	harmonyTypeCards: ".harmony-type-cards",
-	harmonyTypeCard: ".harmony-type-card",
-	harmonyTypeCardSwatch: ".harmony-type-card__swatch",
+	// Coolors表示
+	coolorsLayout: ".coolors-layout",
+	coolorsColumn: ".coolors-column",
 
-	// パレット色数プルダウン（CLAUDE.md準拠: data-testidを使用）
-	accentCountSelect: '[data-testid="accent-count-select"]',
+	// ハーモニーサイドバー（プレビュー）
+	harmonySidebarCard: ".harmony-sidebar__card",
+	harmonySidebarSwatch: ".harmony-sidebar__swatch",
+
+	// パレット色数（CLAUDE.md準拠: data-testidを使用）
+	accentCountRadioGroup: '[data-testid="accent-count-radio-group"]',
+	accentCountRadio1: '[data-testid="accent-count-1"]',
+	accentCountRadio2: '[data-testid="accent-count-2"]',
+	accentCountRadio3: '[data-testid="accent-count-3"]',
 
 	// ブランドカラー入力
 	brandColorInput: "#harmony-color-input",
@@ -71,33 +76,31 @@ test.beforeEach(async ({ page }) => {
 // ============================================================================
 
 test.describe("パレット色数プルダウン表示 (Phase 2)", () => {
-	test("パレット色数プルダウンが表示される", async ({ page }) => {
+	test("パレット色数ラジオが表示される", async ({ page }) => {
 		await switchToView(page, "harmony");
 		await page.waitForTimeout(TIMEOUTS.UI_UPDATE);
 
-		const accentCountSelect = page.locator(SELECTORS.accentCountSelect);
-		await expect(accentCountSelect).toBeVisible({ timeout: 5000 });
+		const radioGroup = page.locator(SELECTORS.accentCountRadioGroup);
+		await expect(radioGroup).toBeVisible({ timeout: 5000 });
 	});
 
-	test("プルダウンに4つの選択肢がある（3〜6色）", async ({ page }) => {
+	test("ラジオに3つの選択肢がある（4〜6色）", async ({ page }) => {
 		await switchToView(page, "harmony");
 		await page.waitForTimeout(TIMEOUTS.UI_UPDATE);
 
-		const accentCountSelect = page.locator(SELECTORS.accentCountSelect);
-		const options = accentCountSelect.locator("option");
-		const optionCount = await options.count();
+		const radioGroup = page.locator(SELECTORS.accentCountRadioGroup);
+		const radios = radioGroup.locator('input[type="radio"]');
+		const radioCount = await radios.count();
 
-		expect(optionCount).toBe(4); // 3色, 4色, 5色, 6色
+		expect(radioCount).toBe(3); // 4色, 5色, 6色
 	});
 
-	test("デフォルトは3色パレットが選択されている", async ({ page }) => {
+	test("デフォルトは4色パレットが選択されている", async ({ page }) => {
 		await switchToView(page, "harmony");
 		await page.waitForTimeout(TIMEOUTS.UI_UPDATE);
 
-		const accentCountSelect = page.locator(SELECTORS.accentCountSelect);
-		const selectedValue = await accentCountSelect.inputValue();
-
-		expect(selectedValue).toBe("2"); // accentCount=2 → ブランド+2アクセント=3色
+		const accentCountRadio = page.locator(SELECTORS.accentCountRadio1);
+		await expect(accentCountRadio).toBeChecked(); // accentCount=1 → P/S/T + Accent1 = 4色
 	});
 });
 
@@ -106,141 +109,91 @@ test.describe("パレット色数プルダウン表示 (Phase 2)", () => {
 // ============================================================================
 
 test.describe("パレット色数変更 (Phase 4: バグ修正)", () => {
-	test("4色パレット選択でカードに4色表示される", async ({ page }) => {
+	test("4色パレット選択でメイン表示が4カラムになる", async ({ page }) => {
 		await switchToView(page, "harmony");
+		await page.waitForSelector(SELECTORS.coolorsLayout, { timeout: 10000 });
 		await page.waitForTimeout(TIMEOUTS.DATA_LOAD);
 
 		// 4色パレットを選択
-		// Note: ネイティブ<select>のドロップダウンは動画に映らないことがある
-		// クリックでフォーカスを示し、selectOption()で確実に選択する
-		const accentCountSelect = page.locator(SELECTORS.accentCountSelect);
 		await page.waitForTimeout(TIMEOUTS.BEFORE_ACTION); // 操作前待機
 
-		// クリックしてフォーカスを示す（動画に映る）
-		await accentCountSelect.click();
-		await page.waitForTimeout(500);
-
-		// selectOption()で確実に選択（値の変化は動画に映る）
-		await accentCountSelect.selectOption("3"); // accentCount=3 → 4色
+		await selectAccentCount(page, 1); // 4色
 
 		await page.waitForTimeout(TIMEOUTS.AFTER_ACTION); // 操作後待機
 		await page.waitForTimeout(TIMEOUTS.DATA_LOAD);
 
-		// 最初のハーモニーカードのスウォッチ数を確認
-		const firstCard = page
-			.locator(`${SELECTORS.harmonyTypeCard}:not(.harmony-type-card--detail)`)
-			.first();
-		await expect(firstCard).toBeVisible({ timeout: 5000 });
-
-		const swatches = firstCard.locator(SELECTORS.harmonyTypeCardSwatch);
-		const swatchCount = await swatches.count();
-
-		expect(swatchCount).toBe(4);
+		await expect(page.locator(SELECTORS.coolorsColumn)).toHaveCount(4, {
+			timeout: 10000,
+		});
 	});
 
-	test("5色パレット選択でカードに5色表示される", async ({ page }) => {
+	test("5色パレット選択でメイン表示が5カラムになる", async ({ page }) => {
 		await switchToView(page, "harmony");
+		await page.waitForSelector(SELECTORS.coolorsLayout, { timeout: 10000 });
 		await page.waitForTimeout(TIMEOUTS.DATA_LOAD);
 
 		// 5色パレットを選択
-		const accentCountSelect = page.locator(SELECTORS.accentCountSelect);
 		await page.waitForTimeout(TIMEOUTS.BEFORE_ACTION); // 操作前待機
 
-		// クリックしてフォーカスを示す
-		await accentCountSelect.click();
-		await page.waitForTimeout(500);
-
-		// selectOption()で確実に選択
-		await accentCountSelect.selectOption("4"); // accentCount=4 → 5色
+		await selectAccentCount(page, 2); // 5色
 
 		await page.waitForTimeout(TIMEOUTS.AFTER_ACTION); // 操作後待機
 		await page.waitForTimeout(TIMEOUTS.DATA_LOAD);
 
-		// 最初のハーモニーカードのスウォッチ数を確認
-		const firstCard = page
-			.locator(`${SELECTORS.harmonyTypeCard}:not(.harmony-type-card--detail)`)
-			.first();
-		const swatches = firstCard.locator(SELECTORS.harmonyTypeCardSwatch);
-		const swatchCount = await swatches.count();
-
-		expect(swatchCount).toBe(5);
+		await expect(page.locator(SELECTORS.coolorsColumn)).toHaveCount(5, {
+			timeout: 10000,
+		});
 	});
 
-	test("6色パレット選択でカードに6色表示される", async ({ page }) => {
+	test("6色パレット選択でメイン表示が6カラムになる", async ({ page }) => {
 		await switchToView(page, "harmony");
+		await page.waitForSelector(SELECTORS.coolorsLayout, { timeout: 10000 });
 		await page.waitForTimeout(TIMEOUTS.DATA_LOAD);
 
 		// 6色パレットを選択
-		const accentCountSelect = page.locator(SELECTORS.accentCountSelect);
 		await page.waitForTimeout(TIMEOUTS.BEFORE_ACTION); // 操作前待機
 
-		// クリックしてフォーカスを示す
-		await accentCountSelect.click();
-		await page.waitForTimeout(500);
-
-		// selectOption()で確実に選択
-		await accentCountSelect.selectOption("5"); // accentCount=5 → 6色
+		await selectAccentCount(page, 3); // 6色
 
 		await page.waitForTimeout(TIMEOUTS.AFTER_ACTION); // 操作後待機
 		await page.waitForTimeout(TIMEOUTS.DATA_LOAD);
 
-		// 最初のハーモニーカードのスウォッチ数を確認
-		const firstCard = page
-			.locator(`${SELECTORS.harmonyTypeCard}:not(.harmony-type-card--detail)`)
-			.first();
-		const swatches = firstCard.locator(SELECTORS.harmonyTypeCardSwatch);
-		const swatchCount = await swatches.count();
-
-		expect(swatchCount).toBe(6);
+		await expect(page.locator(SELECTORS.coolorsColumn)).toHaveCount(6, {
+			timeout: 10000,
+		});
 	});
 
-	test("プルダウン変更後も選択値が維持される（Phase 4修正確認）", async ({
-		page,
-	}) => {
+	test("変更後も選択値が維持される（Phase 4修正確認）", async ({ page }) => {
 		await switchToView(page, "harmony");
+		await page.waitForSelector(SELECTORS.coolorsLayout, { timeout: 10000 });
 		await page.waitForTimeout(TIMEOUTS.DATA_LOAD);
 
 		// 5色パレットを選択
-		const accentCountSelect = page.locator(SELECTORS.accentCountSelect);
 		await page.waitForTimeout(TIMEOUTS.BEFORE_ACTION); // 操作前待機
 
-		// クリックしてフォーカスを示す
-		await accentCountSelect.click();
-		await page.waitForTimeout(500);
-
-		// selectOption()で確実に選択
-		await accentCountSelect.selectOption("4"); // accentCount=4 → 5色
+		await selectAccentCount(page, 2); // 5色
 
 		await page.waitForTimeout(TIMEOUTS.AFTER_ACTION); // 操作後待機
 		await page.waitForTimeout(TIMEOUTS.DATA_LOAD);
 
 		// 選択値が維持されているか確認
-		const selectedValueAfterChange = await accentCountSelect.inputValue();
-		expect(selectedValueAfterChange).toBe("4");
+		await expect(page.locator(SELECTORS.accentCountRadio2)).toBeChecked();
 
-		// カードのスウォッチ数も5色であることを再確認
-		const firstCard = page
-			.locator(`${SELECTORS.harmonyTypeCard}:not(.harmony-type-card--detail)`)
-			.first();
-		const swatches = firstCard.locator(SELECTORS.harmonyTypeCardSwatch);
-		const swatchCount = await swatches.count();
-		expect(swatchCount).toBe(5);
+		// メイン表示のカラム数も5色であることを再確認
+		await expect(page.locator(SELECTORS.coolorsColumn)).toHaveCount(5, {
+			timeout: 10000,
+		});
 	});
 
 	test("ブランドカラー変更後も色数選択が維持される", async ({ page }) => {
 		await switchToView(page, "harmony");
+		await page.waitForSelector(SELECTORS.coolorsLayout, { timeout: 10000 });
 		await page.waitForTimeout(TIMEOUTS.DATA_LOAD);
 
 		// まず4色パレットを選択
-		const accentCountSelect = page.locator(SELECTORS.accentCountSelect);
 		await page.waitForTimeout(TIMEOUTS.BEFORE_ACTION); // 操作前待機
 
-		// クリックしてフォーカスを示す
-		await accentCountSelect.click();
-		await page.waitForTimeout(500);
-
-		// selectOption()で確実に選択
-		await accentCountSelect.selectOption("3"); // accentCount=3 → 4色
+		await selectAccentCount(page, 1); // 4色
 
 		await page.waitForTimeout(TIMEOUTS.AFTER_ACTION); // 操作後待機
 		await page.waitForTimeout(TIMEOUTS.UI_UPDATE);
@@ -256,16 +209,12 @@ test.describe("パレット色数変更 (Phase 4: バグ修正)", () => {
 		await page.waitForTimeout(TIMEOUTS.DATA_LOAD);
 
 		// 色数選択が4色のままであることを確認
-		const selectedValue = await accentCountSelect.inputValue();
-		expect(selectedValue).toBe("3");
+		await expect(page.locator(SELECTORS.accentCountRadio1)).toBeChecked();
 
-		// カードのスウォッチ数も4色であることを確認
-		const firstCard = page
-			.locator(`${SELECTORS.harmonyTypeCard}:not(.harmony-type-card--detail)`)
-			.first();
-		const swatches = firstCard.locator(SELECTORS.harmonyTypeCardSwatch);
-		const swatchCount = await swatches.count();
-		expect(swatchCount).toBe(4);
+		// メイン表示のカラム数も4色であることを確認
+		await expect(page.locator(SELECTORS.coolorsColumn)).toHaveCount(4, {
+			timeout: 10000,
+		});
 	});
 });
 
@@ -292,7 +241,7 @@ test.describe("濁り防止フィルタ (Phase 3: Adobe Color戦略)", () => {
 		);
 		await expect(complementaryCard).toBeVisible({ timeout: 5000 });
 
-		const swatches = complementaryCard.locator(SELECTORS.harmonyTypeCardSwatch);
+		const swatches = complementaryCard.locator(SELECTORS.harmonySidebarSwatch);
 		const swatchColors: string[] = [];
 
 		const swatchCount = await swatches.count();
@@ -334,12 +283,10 @@ test.describe("濁り防止フィルタ (Phase 3: Adobe Color戦略)", () => {
 		await page.waitForTimeout(TIMEOUTS.DATA_LOAD);
 
 		// ハーモニーカードのスウォッチ色を取得
-		const firstCard = page
-			.locator(`${SELECTORS.harmonyTypeCard}:not(.harmony-type-card--detail)`)
-			.first();
+		const firstCard = page.locator(SELECTORS.harmonySidebarCard).first();
 		await expect(firstCard).toBeVisible({ timeout: 5000 });
 
-		const swatches = firstCard.locator(SELECTORS.harmonyTypeCardSwatch);
+		const swatches = firstCard.locator(SELECTORS.harmonySidebarSwatch);
 		const swatchCount = await swatches.count();
 
 		// 各スウォッチの明度をチェック
@@ -379,4 +326,11 @@ async function switchToView(
 	const buttonId = `#view-${view}`;
 	await page.click(buttonId);
 	await page.waitForTimeout(TIMEOUTS.VIEW_SWITCH);
+}
+
+async function selectAccentCount(page: Page, value: 1 | 2 | 3): Promise<void> {
+	// input自体は視覚的に非表示のため、labelをクリックする
+	await page
+		.locator(`label:has([data-testid="accent-count-${value}"])`)
+		.click();
 }

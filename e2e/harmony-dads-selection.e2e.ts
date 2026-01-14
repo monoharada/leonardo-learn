@@ -30,8 +30,9 @@ const TIMEOUTS = {
 const SELECTORS = {
 	harmonyView: "#harmony-view",
 	viewHarmonyBtn: "#view-harmony",
-	harmonyTypeCard: ".harmony-type-card",
-	harmonyTypeCardSwatch: ".harmony-type-card__swatch",
+	harmonySidebarCard: ".harmony-sidebar__card",
+	harmonySidebarSwatch: ".harmony-sidebar__swatch",
+	accentCountRadio3: '[data-testid="accent-count-3"]',
 	brandColorInput: "#harmony-color-input",
 	dadsSection: ".dads-section",
 };
@@ -61,7 +62,7 @@ test.describe("DADS Harmony Selection - Basic (Issue #29)", () => {
 		await expect(complementaryCard).toBeVisible({ timeout: 5000 });
 
 		// スウォッチがあることを確認
-		const swatches = complementaryCard.locator(SELECTORS.harmonyTypeCardSwatch);
+		const swatches = complementaryCard.locator(SELECTORS.harmonySidebarSwatch);
 		const swatchCount = await swatches.count();
 		expect(swatchCount).toBeGreaterThanOrEqual(2);
 	});
@@ -75,7 +76,7 @@ test.describe("DADS Harmony Selection - Basic (Issue #29)", () => {
 		await expect(triadicCard).toBeVisible({ timeout: 5000 });
 
 		// スウォッチがあることを確認
-		const swatches = triadicCard.locator(SELECTORS.harmonyTypeCardSwatch);
+		const swatches = triadicCard.locator(SELECTORS.harmonySidebarSwatch);
 		const swatchCount = await swatches.count();
 		expect(swatchCount).toBeGreaterThanOrEqual(2);
 	});
@@ -89,7 +90,7 @@ test.describe("DADS Harmony Selection - Basic (Issue #29)", () => {
 		await expect(analogousCard).toBeVisible({ timeout: 5000 });
 
 		// スウォッチがあることを確認
-		const swatches = analogousCard.locator(SELECTORS.harmonyTypeCardSwatch);
+		const swatches = analogousCard.locator(SELECTORS.harmonySidebarSwatch);
 		const swatchCount = await swatches.count();
 		expect(swatchCount).toBeGreaterThanOrEqual(2);
 	});
@@ -106,7 +107,7 @@ test.describe("DADS Harmony Selection - Basic (Issue #29)", () => {
 
 		// スウォッチがあることを確認
 		const swatches = splitComplementaryCard.locator(
-			SELECTORS.harmonyTypeCardSwatch,
+			SELECTORS.harmonySidebarSwatch,
 		);
 		const swatchCount = await swatches.count();
 		expect(swatchCount).toBeGreaterThanOrEqual(2);
@@ -132,7 +133,7 @@ test.describe("DADS Harmony Selection - Color Relationships (Issue #29)", () => 
 		const complementaryCard = page.locator(
 			'[data-harmony-type="complementary"]',
 		);
-		const swatches = complementaryCard.locator(SELECTORS.harmonyTypeCardSwatch);
+		const swatches = complementaryCard.locator(SELECTORS.harmonySidebarSwatch);
 
 		// 1番目（ブランド）と2番目（補色）の色を取得
 		const colors = await getSwatchColors(swatches);
@@ -159,7 +160,7 @@ test.describe("DADS Harmony Selection - Color Relationships (Issue #29)", () => 
 
 		// 類似色カードを取得
 		const analogousCard = page.locator('[data-harmony-type="analogous"]');
-		const swatches = analogousCard.locator(SELECTORS.harmonyTypeCardSwatch);
+		const swatches = analogousCard.locator(SELECTORS.harmonySidebarSwatch);
 
 		// 全ての色を取得
 		const colors = await getSwatchColors(swatches);
@@ -184,9 +185,14 @@ test.describe("DADS Harmony Selection - Color Relationships (Issue #29)", () => 
 		await brandColorInput.fill("#0056FF");
 		await page.waitForTimeout(TIMEOUTS.DATA_LOAD);
 
+		// 3色以上の色相関係を確認できるよう、最大色数にする
+		// input自体は視覚的に非表示のため、labelをクリックする
+		await page.locator(`label:has(${SELECTORS.accentCountRadio3})`).click();
+		await page.waitForTimeout(TIMEOUTS.DATA_LOAD);
+
 		// トライアドカードを取得
 		const triadicCard = page.locator('[data-harmony-type="triadic"]');
-		const swatches = triadicCard.locator(SELECTORS.harmonyTypeCardSwatch);
+		const swatches = triadicCard.locator(SELECTORS.harmonySidebarSwatch);
 
 		// 全ての色を取得
 		const colors = await getSwatchColors(swatches);
@@ -222,14 +228,12 @@ test.describe("DADS Harmony Selection - Color Quality (Issue #29)", () => {
 		await page.waitForTimeout(TIMEOUTS.DATA_LOAD);
 
 		// 全てのハーモニーカードの色をチェック
-		const cards = page.locator(
-			`${SELECTORS.harmonyTypeCard}:not(.harmony-type-card--detail)`,
-		);
+		const cards = page.locator(SELECTORS.harmonySidebarCard);
 		const cardCount = await cards.count();
 
 		for (let c = 0; c < Math.min(cardCount, 4); c++) {
 			const card = cards.nth(c);
-			const swatches = card.locator(SELECTORS.harmonyTypeCardSwatch);
+			const swatches = card.locator(SELECTORS.harmonySidebarSwatch);
 			const colors = await getSwatchColors(swatches);
 
 			for (const color of colors) {
@@ -248,7 +252,7 @@ test.describe("DADS Harmony Selection - Color Quality (Issue #29)", () => {
 		const complementaryCard = page.locator(
 			'[data-harmony-type="complementary"]',
 		);
-		const swatches = complementaryCard.locator(SELECTORS.harmonyTypeCardSwatch);
+		const swatches = complementaryCard.locator(SELECTORS.harmonySidebarSwatch);
 
 		// 最初の色を記録
 		const colorsBefore = await getSwatchColors(swatches);

@@ -41,7 +41,8 @@ const SELECTORS = {
 	historyClearButton: '[data-testid="brand-color-history-clear"]',
 	harmonyView: "#harmony-view",
 	dadsSection: ".dads-section",
-	accentCountSelect: '[data-testid="accent-count-select"]',
+	accentCountRadio1: '[data-testid="accent-count-1"]',
+	accentCountRadio3: '[data-testid="accent-count-3"]',
 };
 
 /**
@@ -223,28 +224,27 @@ test.describe("履歴選択で色復元", () => {
 		await page.waitForTimeout(TIMEOUTS.DATA_LOAD);
 
 		const colorInput = page.locator(SELECTORS.brandColorInput);
-		const accentCountSelect = page.locator(SELECTORS.accentCountSelect);
 		const historySelect = page.locator(SELECTORS.historySelect);
 
-		// 3色パレット（アクセント2）で色を入力
-		await accentCountSelect.selectOption("2");
+		// 4色パレット（アクセント1）で色を入力
+		// input自体は視覚的に非表示のため、labelをクリックする
+		await page.locator(`label:has(${SELECTORS.accentCountRadio1})`).click();
 		await page.waitForTimeout(TIMEOUTS.UI_UPDATE);
 		await colorInput.fill("#ff0000");
 		await page.waitForTimeout(TIMEOUTS.DATA_LOAD);
 
-		// 5色パレット（アクセント4）で別の色を入力
-		await accentCountSelect.selectOption("4");
+		// 6色パレット（アクセント3）で別の色を入力
+		await page.locator(`label:has(${SELECTORS.accentCountRadio3})`).click();
 		await page.waitForTimeout(TIMEOUTS.UI_UPDATE);
 		await colorInput.fill("#0000ff");
 		await page.waitForTimeout(TIMEOUTS.DATA_LOAD);
 
-		// 履歴から最初の色（#ff0000 + 3色パレット）を選択
+		// 履歴から最初の色（#ff0000 + 4色パレット）を選択
 		await historySelect.selectOption({ index: 2 });
 		await page.waitForTimeout(TIMEOUTS.DATA_LOAD);
 
 		// アクセント数も復元されることを確認
-		const selectedAccentCount = await accentCountSelect.inputValue();
-		expect(selectedAccentCount).toBe("2");
+		await expect(page.locator(SELECTORS.accentCountRadio1)).toBeChecked();
 	});
 });
 
