@@ -4,7 +4,7 @@
  * Coolors風のフルブリードカラム表示を実現するUIコンポーネント。
  * 各色を縦カラムで表示し、クリックでカラー詳細モーダルを開く。
  *
- * 高さはCSSで `height: min(50vh, 400px)` として定義。
+ * 高さはCSS側で管理し、親コンテナの高さに追従する。
  *
  * @module @/ui/components/coolors-palette-display
  */
