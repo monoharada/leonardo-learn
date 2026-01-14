@@ -2735,7 +2735,7 @@
 
 .dads-preview--dads-html .preview-hero__layout {
 	display: grid;
-	grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+	grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
 	align-items: start;
 	gap: 1.5rem;
 }
@@ -2793,7 +2793,7 @@
 }
 
 .dads-preview--dads-html .preview-kv {
-	width: min(360px, 100%);
+	width: min(640px, 100%);
 	aspect-ratio: 4 / 3;
 	border-radius: 1rem;
 	border: 1px solid var(--color-neutral-solid-gray-200);
@@ -2805,7 +2805,6 @@
 .dads-preview--dads-html .preview-kv__shape {
 	position: absolute;
 	border-radius: 9999px;
-	filter: saturate(1.05);
 }
 
 .dads-preview--dads-html .preview-kv__shape--primary {
@@ -2814,7 +2813,6 @@
 	top: -150px;
 	right: -140px;
 	background: var(--preview-primary, var(--color-primitive-blue-900));
-	opacity: 0.18;
 }
 
 .dads-preview--dads-html .preview-kv__shape--accent {
@@ -2823,7 +2821,6 @@
 	bottom: -150px;
 	left: -140px;
 	background: var(--preview-accent, var(--color-primitive-blue-200));
-	opacity: 0.16;
 }
 
 .dads-preview--dads-html .preview-kv__ring {
@@ -2835,7 +2832,6 @@
 	transform: translate(-50%, -50%);
 	border-radius: 9999px;
 	border: 0.5rem solid var(--preview-primary, var(--color-primitive-blue-900));
-	opacity: 0.12;
 }
 
 .dads-preview--dads-html .preview-actions .dads-button {
