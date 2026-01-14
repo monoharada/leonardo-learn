@@ -35,8 +35,8 @@ const SELECTORS = {
 	brandColorPicker: "#harmony-color-picker",
 	harmonyView: "#harmony-view",
 	viewHarmonyBtn: "#view-harmony",
-	harmonyTypeCard: ".harmony-type-card",
-	harmonyTypeCardSwatch: ".harmony-type-card__swatch",
+	harmonySidebarCard: ".harmony-sidebar__card",
+	harmonySidebarSwatch: ".harmony-sidebar__swatch",
 	dadsSection: ".dads-section",
 	keyColorsInput: "#keyColors",
 };
@@ -198,7 +198,7 @@ test.describe("カードプレビュー更新 (PR #32)", () => {
 		await expect(complementaryCard).toBeVisible({ timeout: 5000 });
 
 		// スウォッチの色を記録
-		const swatches = complementaryCard.locator(SELECTORS.harmonyTypeCardSwatch);
+		const swatches = complementaryCard.locator(SELECTORS.harmonySidebarSwatch);
 		const colorsBefore = await getSwatchColors(swatches);
 		expect(colorsBefore.length).toBeGreaterThanOrEqual(2);
 

@@ -1,16 +1,12 @@
 /**
  * Background Color Change E2E Tests
  *
- * Task 7.3: E2Eテストを作成する
- * - カラーピッカーで色選択後、コントラスト値が更新されることを確認
- * - HEX入力後、デバウンスを経て更新されることを確認
- * - ページリロード後、背景色が復元されることを確認
- * - ビュー切替後、背景色が維持されることを確認
+ * 現行の背景色セレクター（Light/Dark 2セクション）に追従したE2E。
  *
- * Requirements: 4.1, 4.2, 5.2, 5.3
+ * - カラーピッカー/HEX入力で背景色が更新されること
+ * - localStorage 永続化とリロード復元
+ * - ビュー切替後も値が維持されること
  *
- * Note: これらのテストはアプリケーションの非同期レンダリングに依存するため、
- * 開発サーバーが起動している環境で実行する必要があります。
  * 実行: bun run test:e2e -- --grep "background-color"
  */
 
@@ -26,326 +22,181 @@ const TEST_COLORS = {
 	customRed: "#cc3300",
 };
 
-/**
- * ビュータイプ
- */
 type ViewType = "harmony" | "palette" | "shades" | "accessibility";
 
-/**
- * 背景色セレクターのセレクター定数
- */
+const STORAGE_KEY = "leonardo-backgroundColor";
+
 const SELECTORS = {
-	colorPicker: ".background-color-selector__color-picker",
-	hexInput: ".background-color-selector__hex-input",
-	presetButtons: ".background-color-selector__preset-button",
-	presetsContainer: ".background-color-selector__presets",
-	selector: ".background-color-selector",
-	preview: ".background-color-selector__preview",
+	app: "#app",
+	layout: ".dads-layout",
+	lightColorPicker: 'input[aria-label="Pick light background color"]',
+	darkColorPicker: 'input[aria-label="Pick dark text color"]',
+	lightHexInput:
+		'input[aria-label="Enter light background color in HEX format"]',
+	darkHexInput: 'input[aria-label="Enter dark text color in HEX format"]',
 };
 
-// ============================================================================
-// Test Setup
-// ============================================================================
-
 test.beforeEach(async ({ page }) => {
-	// Navigate to the main page
 	await page.goto("/");
+	await page.waitForSelector(SELECTORS.layout, { timeout: 15000 });
 
-	// Wait for the page to be fully loaded
-	await page.waitForSelector(".dads-layout", { timeout: 15000 });
-
-	// Clear localStorage to ensure clean state
-	await page.evaluate(() => {
-		localStorage.removeItem("leonardo-backgroundColor");
-	});
+	// localStorageをクリアしてから再ロード（初期化の読み込みを揃える）
+	await page.evaluate((key) => localStorage.removeItem(key), STORAGE_KEY);
+	await page.reload();
+	await page.waitForSelector(SELECTORS.layout, { timeout: 15000 });
 });
 
 // ============================================================================
-// 1. カラーピッカーで色選択後、コントラスト値が更新される (Req 4.1)
+// 1. 表示テスト
 // ============================================================================
 
-test.describe("カラーピッカーによる背景色変更 (Requirement 4.1)", () => {
-	test("パレットビューでカラーピッカーが表示される", async ({ page }) => {
-		// パレットビューに切り替え
+test.describe("背景色セレクター表示 (background-color)", () => {
+	test("パレットビューでLight/Darkの入力が表示される", async ({ page }) => {
 		await switchToView(page, "palette");
 
-		// 背景色セレクターが存在することを確認
-		const colorPicker = page.locator(SELECTORS.colorPicker);
-		await expect(colorPicker).toBeVisible({ timeout: 15000 });
+		await expect(page.locator(SELECTORS.lightColorPicker)).toBeVisible();
+		await expect(page.locator(SELECTORS.darkColorPicker)).toBeVisible();
+		await expect(page.locator(SELECTORS.lightHexInput)).toBeVisible();
+		await expect(page.locator(SELECTORS.darkHexInput)).toBeVisible();
 	});
 
-	test("シェードビューでカラーピッカーが表示される", async ({ page }) => {
-		// シェードビューに切り替え
+	test("シェードビューでLight/Darkの入力が表示される", async ({ page }) => {
 		await switchToView(page, "shades");
 
-		// 背景色セレクターが存在することを確認
-		const colorPicker = page.locator(SELECTORS.colorPicker);
-		await expect(colorPicker).toBeVisible({ timeout: 15000 });
-	});
-
-	test("カラーピッカーで色を選択すると値とプレビューが更新される", async ({
-		page,
-	}) => {
-		// パレットビューに切り替え
-		await switchToView(page, "palette");
-
-		const colorPicker = page.locator(SELECTORS.colorPicker);
-		await expect(colorPicker).toBeVisible({ timeout: 15000 });
-
-		// プレビュー要素を取得
-		const preview = page.locator(SELECTORS.preview);
-
-		// カラーピッカーで暗い色を選択
-		await colorPicker.fill(TEST_COLORS.darkGray);
-
-		// 値が更新されたことを確認
-		const updatedValue = await colorPicker.inputValue();
-		expect(updatedValue.toLowerCase()).toBe(TEST_COLORS.darkGray);
-
-		// プレビューの背景色が更新されたことを確認 (Req 4.1: コントラスト値更新の前提)
-		await page.waitForTimeout(100);
-		const previewBg = await preview.evaluate((el) => {
-			return window.getComputedStyle(el).backgroundColor;
-		});
-		// darkGray (#18181b) → rgb(24, 24, 27) に変換されることを期待
-		expect(previewBg).not.toBe("rgb(255, 255, 255)");
+		await expect(page.locator(SELECTORS.lightColorPicker)).toBeVisible();
+		await expect(page.locator(SELECTORS.darkColorPicker)).toBeVisible();
+		await expect(page.locator(SELECTORS.lightHexInput)).toBeVisible();
+		await expect(page.locator(SELECTORS.darkHexInput)).toBeVisible();
 	});
 });
 
 // ============================================================================
-// 2. HEX入力後、デバウンスを経て更新される (Req 4.2)
+// 2. ライト背景色の更新
 // ============================================================================
 
-test.describe("HEX入力とデバウンス処理 (Requirement 4.2)", () => {
-	test("HEX入力フィールドが表示される", async ({ page }) => {
-		// パレットビューに切り替え
-		await switchToView(page, "palette");
-
-		const hexInput = page.locator(SELECTORS.hexInput);
-		await expect(hexInput).toBeVisible({ timeout: 15000 });
-	});
-
-	test("HEX入力後にデバウンスを経てプレビューが更新される", async ({
+test.describe("ライト背景色の変更 (background-color)", () => {
+	test("カラーピッカーで変更すると#appの背景色が更新される", async ({
 		page,
 	}) => {
-		// パレットビューに切り替え
 		await switchToView(page, "palette");
 
-		const hexInput = page.locator(SELECTORS.hexInput);
-		await expect(hexInput).toBeVisible({ timeout: 15000 });
+		const picker = page.locator(SELECTORS.lightColorPicker);
+		await picker.fill(TEST_COLORS.darkGray);
 
-		// プレビュー要素を取得
-		const preview = page.locator(SELECTORS.preview);
-		const initialBg = await preview.evaluate((el) => {
-			return window.getComputedStyle(el).backgroundColor;
-		});
+		const value = await picker.inputValue();
+		expect(value.toLowerCase()).toBe(TEST_COLORS.darkGray);
 
-		// HEX値をクリアして新しい値を入力
-		await hexInput.clear();
-		await hexInput.fill(TEST_COLORS.customRed);
+		const bg = await getAppBackgroundColor(page);
+		expect(bg).toBe("rgb(24, 24, 27)");
+	});
 
-		// デバウンス時間（150ms）より少し長く待機
-		await page.waitForTimeout(200);
+	test("HEX入力（デバウンス）で変更すると#appの背景色が更新される", async ({
+		page,
+	}) => {
+		await switchToView(page, "palette");
 
-		// HEX入力フィールドの値が保持されていることを確認
-		const inputValue = await hexInput.inputValue();
-		expect(inputValue.toLowerCase()).toBe(TEST_COLORS.customRed);
+		const input = page.locator(SELECTORS.lightHexInput);
+		await input.clear();
+		await input.fill(TEST_COLORS.customRed);
 
-		// デバウンス後にプレビューの背景色が更新されたことを確認 (Req 4.2)
-		const updatedBg = await preview.evaluate((el) => {
-			return window.getComputedStyle(el).backgroundColor;
-		});
-		// 初期の白(#ffffff)から変更されていることを確認
-		expect(updatedBg).not.toBe(initialBg);
+		// デバウンス（150ms）より長めに待機
+		await page.waitForTimeout(250);
+
+		const value = await input.inputValue();
+		expect(value.toLowerCase()).toBe(TEST_COLORS.customRed);
+
+		const bg = await getAppBackgroundColor(page);
+		expect(bg).not.toBe("rgb(255, 255, 255)");
 	});
 });
 
 // ============================================================================
-// 3. ページリロード後、背景色が復元される (Req 5.3)
+// 3. 永続化（localStorage）
 // ============================================================================
 
-test.describe("localStorage永続化 (Requirement 5.3)", () => {
-	test("背景色がlocalStorageに保存される", async ({ page }) => {
-		// パレットビューに切り替え
+test.describe("localStorage永続化 (background-color)", () => {
+	test("ライト背景色が保存され、リロード後に復元される", async ({ page }) => {
 		await switchToView(page, "palette");
 
-		const colorPicker = page.locator(SELECTORS.colorPicker);
-		await expect(colorPicker).toBeVisible({ timeout: 15000 });
-
-		// カラーピッカーで色を変更
-		await colorPicker.fill(TEST_COLORS.darkGray);
-
-		// localStorageに保存されるまで待機
-		await page.waitForTimeout(500);
+		await page.locator(SELECTORS.lightColorPicker).fill(TEST_COLORS.customBlue);
+		await page.waitForTimeout(300);
 
 		// localStorageに保存されていることを確認
-		const storedValue = await page.evaluate(() => {
-			return localStorage.getItem("leonardo-backgroundColor");
-		});
-		expect(storedValue).not.toBeNull();
-	});
+		const stored = await page.evaluate(
+			(key) => localStorage.getItem(key),
+			STORAGE_KEY,
+		);
+		expect(stored).not.toBeNull();
 
-	test("リロード後に背景色が復元される", async ({ page }) => {
-		// パレットビューに切り替え
-		await switchToView(page, "palette");
-
-		const colorPicker = page.locator(SELECTORS.colorPicker);
-		await expect(colorPicker).toBeVisible({ timeout: 15000 });
-
-		// カラーピッカーで色を変更
-		await colorPicker.fill(TEST_COLORS.customBlue);
-
-		// localStorageに保存されるまで待機
-		await page.waitForTimeout(500);
-
-		// ページをリロード
+		// リロードして復元確認
 		await page.reload();
-		await page.waitForSelector(".dads-layout", { timeout: 15000 });
+		await page.waitForSelector(SELECTORS.layout, { timeout: 15000 });
 
-		// パレットビューに再度切り替え
 		await switchToView(page, "palette");
-
-		// 背景色セレクターが復元された色を表示していることを確認
-		const restoredColorPicker = page.locator(SELECTORS.colorPicker);
-		await expect(restoredColorPicker).toBeVisible({ timeout: 15000 });
-		const restoredValue = await restoredColorPicker.inputValue();
+		const restoredValue = await page
+			.locator(SELECTORS.lightColorPicker)
+			.inputValue();
 		expect(restoredValue.toLowerCase()).toBe(TEST_COLORS.customBlue);
 	});
+
+	test("ダーク（Text）色が保存され、リロード後に復元される", async ({
+		page,
+	}) => {
+		await switchToView(page, "palette");
+
+		await page.locator(SELECTORS.darkColorPicker).fill(TEST_COLORS.darkGray);
+		await page.waitForTimeout(300);
+
+		await page.reload();
+		await page.waitForSelector(SELECTORS.layout, { timeout: 15000 });
+
+		await switchToView(page, "palette");
+		const restoredValue = await page
+			.locator(SELECTORS.darkColorPicker)
+			.inputValue();
+		expect(restoredValue.toLowerCase()).toBe(TEST_COLORS.darkGray);
+	});
 });
 
 // ============================================================================
-// 4. ビュー切替後、背景色が維持される (Req 5.2)
+// 4. ビュー切替での維持
 // ============================================================================
 
-test.describe("ビュー間の背景色同期 (Requirement 5.2)", () => {
-	test("パレットビューで設定した背景色がシェードビューでも維持される", async ({
-		page,
-	}) => {
-		// パレットビューで背景色を変更
+test.describe("ビュー切替後も値が維持される (background-color)", () => {
+	test("パレット→シェード→パレットでも維持される", async ({ page }) => {
 		await switchToView(page, "palette");
-		const paletteColorPicker = page.locator(SELECTORS.colorPicker);
-		await expect(paletteColorPicker).toBeVisible({ timeout: 15000 });
-		await paletteColorPicker.fill(TEST_COLORS.customBlue);
+		await page.locator(SELECTORS.lightColorPicker).fill(TEST_COLORS.customBlue);
 		await page.waitForTimeout(300);
 
-		// シェードビューに切り替え
 		await switchToView(page, "shades");
-
-		// シェードビューでも同じ背景色が適用されていることを確認
-		const shadesColorPicker = page.locator(SELECTORS.colorPicker);
-		await expect(shadesColorPicker).toBeVisible({ timeout: 15000 });
-		const shadesValue = await shadesColorPicker.inputValue();
+		const shadesValue = await page
+			.locator(SELECTORS.lightColorPicker)
+			.inputValue();
 		expect(shadesValue.toLowerCase()).toBe(TEST_COLORS.customBlue);
+
+		await switchToView(page, "palette");
+		const paletteValue = await page
+			.locator(SELECTORS.lightColorPicker)
+			.inputValue();
+		expect(paletteValue.toLowerCase()).toBe(TEST_COLORS.customBlue);
 	});
 
-	test("シェードビューで設定した背景色がパレットビューでも維持される", async ({
+	test("パレット→アクセシビリティ→ハーモニー→パレットでも維持される", async ({
 		page,
 	}) => {
-		// シェードビューで背景色を変更
-		await switchToView(page, "shades");
-		const shadesColorPicker = page.locator(SELECTORS.colorPicker);
-		await expect(shadesColorPicker).toBeVisible({ timeout: 15000 });
-		await shadesColorPicker.fill(TEST_COLORS.darkGray);
+		await switchToView(page, "palette");
+		await page.locator(SELECTORS.lightColorPicker).fill(TEST_COLORS.customRed);
 		await page.waitForTimeout(300);
 
-		// パレットビューに切り替え
-		await switchToView(page, "palette");
-
-		// パレットビューでも同じ背景色が適用されていることを確認
-		const paletteColorPicker = page.locator(SELECTORS.colorPicker);
-		await expect(paletteColorPicker).toBeVisible({ timeout: 15000 });
-		const paletteValue = await paletteColorPicker.inputValue();
-		expect(paletteValue.toLowerCase()).toBe(TEST_COLORS.darkGray);
-	});
-
-	test("アクセシビリティビューへの切替後も背景色が維持される", async ({
-		page,
-	}) => {
-		// パレットビューで背景色を変更
-		await switchToView(page, "palette");
-		const colorPicker = page.locator(SELECTORS.colorPicker);
-		await expect(colorPicker).toBeVisible({ timeout: 15000 });
-		await colorPicker.fill(TEST_COLORS.customRed);
-		await page.waitForTimeout(300);
-
-		// アクセシビリティビューに切り替え（背景色セレクターはないが、DemoState経由で維持）
 		await switchToView(page, "accessibility");
-		await page.waitForTimeout(500);
-
-		// 再度パレットビューに戻る
-		await switchToView(page, "palette");
-
-		// 背景色が維持されていることを確認
-		const returnedColorPicker = page.locator(SELECTORS.colorPicker);
-		await expect(returnedColorPicker).toBeVisible({ timeout: 15000 });
-		const returnedValue = await returnedColorPicker.inputValue();
-		expect(returnedValue.toLowerCase()).toBe(TEST_COLORS.customRed);
-	});
-
-	test("全ビューを順次切り替えても背景色が維持される", async ({ page }) => {
-		// パレットビューで背景色を設定
-		await switchToView(page, "palette");
-		const colorPicker = page.locator(SELECTORS.colorPicker);
-		await expect(colorPicker).toBeVisible({ timeout: 15000 });
-		await colorPicker.fill(TEST_COLORS.customBlue);
 		await page.waitForTimeout(300);
 
-		// 全ビューを順次切り替え
-		await switchToView(page, "shades");
-		await page.waitForTimeout(200);
-		await switchToView(page, "accessibility");
-		await page.waitForTimeout(200);
 		await switchToView(page, "harmony");
-		await page.waitForTimeout(200);
+		await page.waitForTimeout(300);
 
-		// パレットビューに戻って背景色が維持されていることを確認
 		await switchToView(page, "palette");
-		const finalColorPicker = page.locator(SELECTORS.colorPicker);
-		await expect(finalColorPicker).toBeVisible({ timeout: 15000 });
-		const finalValue = await finalColorPicker.inputValue();
-		expect(finalValue.toLowerCase()).toBe(TEST_COLORS.customBlue);
-	});
-});
-
-// ============================================================================
-// 5. プリセットボタンのテスト
-// ============================================================================
-
-test.describe("プリセット背景色ボタン", () => {
-	test("プリセットボタンが4つ表示される", async ({ page }) => {
-		// パレットビューに切り替え
-		await switchToView(page, "palette");
-
-		// セレクターが表示されるまで待機
-		await page.waitForSelector(SELECTORS.colorPicker, { timeout: 15000 });
-
-		// プリセットボタンが存在することを確認
-		const presetButtons = page.locator(SELECTORS.presetButtons);
-		const buttonCount = await presetButtons.count();
-		expect(buttonCount).toBe(4); // White, Light Gray, Dark Gray, Black
-	});
-
-	test("プリセットボタンをクリックすると背景色が変更される", async ({
-		page,
-	}) => {
-		// パレットビューに切り替え
-		await switchToView(page, "palette");
-
-		// セレクターが表示されるまで待機
-		await page.waitForSelector(SELECTORS.colorPicker, { timeout: 15000 });
-
-		// プリセットボタンが存在することを確認
-		const presetButtons = page.locator(SELECTORS.presetButtons);
-
-		// Dark Grayプリセットをクリック (3番目のボタン)
-		const darkGrayButton = presetButtons.nth(2);
-		await darkGrayButton.click();
-
-		// 背景色が変更されたことを確認
-		await page.waitForTimeout(200);
-		const colorPicker = page.locator(SELECTORS.colorPicker);
-		const value = await colorPicker.inputValue();
-		expect(value.toLowerCase()).toBe(TEST_COLORS.darkGray);
+		const value = await page.locator(SELECTORS.lightColorPicker).inputValue();
+		expect(value.toLowerCase()).toBe(TEST_COLORS.customRed);
 	});
 });
 
@@ -353,25 +204,18 @@ test.describe("プリセット背景色ボタン", () => {
 // Helper Functions
 // ============================================================================
 
-/**
- * ビューを切り替える
- */
 async function switchToView(page: Page, view: ViewType): Promise<void> {
-	const buttonId = `#view-${view}`;
-	await page.click(buttonId);
+	await page.click(`#view-${view}`);
+	await page.waitForTimeout(800);
 
-	// ビュー切替のアニメーション/レンダリングを待機
-	await page.waitForTimeout(1000);
-
-	// palette/shades ビューの場合は背景色セレクターが表示されるまで待機
+	// palette/shadesはセレクターが出るまで待機
 	if (view === "palette" || view === "shades") {
-		try {
-			await page.waitForSelector(SELECTORS.colorPicker, {
-				timeout: 15000,
-			});
-		} catch {
-			// セレクターが見つからない場合は追加待機
-			await page.waitForTimeout(2000);
-		}
+		await page.waitForSelector(SELECTORS.lightColorPicker, { timeout: 15000 });
 	}
+}
+
+async function getAppBackgroundColor(page: Page): Promise<string> {
+	return page.locator(SELECTORS.app).evaluate((el) => {
+		return window.getComputedStyle(el).backgroundColor;
+	});
 }
