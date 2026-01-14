@@ -19,6 +19,14 @@ import type { ScoredCandidate } from "../../core/accent/accent-candidate-service
  */
 export type CandidateSelectCallback = (candidate: ScoredCandidate) => void;
 
+export interface AccentCandidateGridOptions {
+	/**
+	 * スウォッチ表示用のHEX変換関数
+	 * 候補データ（candidate.hex）自体は変更せず、塗りだけ変える。
+	 */
+	getDisplayHex?: (hex: string) => string;
+}
+
 /**
  * AccentCandidateGrid クラス
  * 候補カードのグリッド表示コンポーネント
@@ -27,9 +35,14 @@ export class AccentCandidateGrid {
 	private container: HTMLElement;
 	private candidates: ScoredCandidate[] = [];
 	private selectCallback: CandidateSelectCallback | null = null;
+	private readonly getDisplayHex: (hex: string) => string;
 
-	constructor(container: HTMLElement) {
+	constructor(
+		container: HTMLElement,
+		options: AccentCandidateGridOptions = {},
+	) {
 		this.container = container;
+		this.getDisplayHex = options.getDisplayHex ?? ((hex) => hex);
 	}
 
 	/**
@@ -143,7 +156,7 @@ export class AccentCandidateGrid {
 		// カラースウォッチ
 		const swatch = document.createElement("div");
 		swatch.className = "accent-candidate-card__swatch";
-		swatch.style.backgroundColor = candidate.hex;
+		swatch.style.backgroundColor = this.getDisplayHex(candidate.hex);
 		card.appendChild(swatch);
 
 		// 情報エリア

@@ -69,6 +69,34 @@ describe("CoolorsPaletteDisplay", () => {
 			});
 		});
 
+		it("displayColorsを指定した場合、背景はdisplayColors・クリックは元colorsになる", () => {
+			const onColorClickMock = mock(() => {});
+			const props: CoolorsPaletteDisplayProps = {
+				colors: ["#ff0000"],
+				displayColors: ["#00ff00"],
+				onColorClick: onColorClickMock,
+			};
+
+			const element = createCoolorsPaletteDisplay(props);
+			container.appendChild(element);
+
+			const column = element.querySelector(
+				".coolors-column",
+			) as HTMLElement | null;
+			expect(column).not.toBeNull();
+
+			// 背景はdisplayColors（JSDOMはHEX→RGB）
+			expect(column?.style.backgroundColor).toBe("rgb(0, 255, 0)");
+
+			// 表示されるHEXは元colors
+			const hexLabel = element.querySelector(".coolors-column__hex");
+			expect(hexLabel?.textContent?.toLowerCase()).toBe("#ff0000");
+
+			// クリックで渡る値も元colors
+			column?.click();
+			expect(onColorClickMock).toHaveBeenCalledWith("#ff0000", 0);
+		});
+
 		it("各カラムにHEX値が表示される", () => {
 			const colors = ["#ff0000", "#00ff00"];
 			const props: CoolorsPaletteDisplayProps = {
