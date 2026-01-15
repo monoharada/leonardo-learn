@@ -29,6 +29,8 @@ export function createColorSwatch(
 	swatch.style.backgroundColor = color.toCss();
 
 	if (name) {
+		swatch.setAttribute("data-color-name", name);
+		swatch.tabIndex = -1;
 		swatch.title = `${name} (${color.toHex()})`;
 		if (showLabel) {
 			swatch.style.color =

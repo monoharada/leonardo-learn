@@ -66,6 +66,15 @@ interface AccessibilityViewState {
 }
 
 /**
+ * CVD混同リスク一覧 → 該当箇所フォーカス用のパラメータ
+ */
+interface CvdConfusionFocusTarget {
+	cvdType: CVDType;
+	colorName1: string;
+	colorName2: string;
+}
+
+/**
  * アクセシビリティビューのヘルパー関数
  */
 export interface AccessibilityViewHelpers {
@@ -91,6 +100,121 @@ function createViewState(): AccessibilityViewState {
 // ============================================================================
 // Rendering Helpers
 // ============================================================================
+
+const CVD_COMPARISON_FOCUS_CLASSES = [
+	"dads-a11y-focus-target",
+	"dads-a11y-focus-swatch",
+	"dads-a11y-focus-boundary-badge",
+	"dads-a11y-focus-boundary-indicator",
+] as const;
+
+function clearCvdComparisonFocus(boundaryContainer: HTMLElement): void {
+	for (const className of CVD_COMPARISON_FOCUS_CLASSES) {
+		boundaryContainer
+			.querySelectorAll<HTMLElement>(`.${className}`)
+			.forEach((el) => {
+				el.classList.remove(className);
+			});
+	}
+}
+
+function simulateNamedColorsForType(
+	colors: NamedColor[],
+	cvdType: CVDType,
+): NamedColor[] {
+	return colors.map((item) => ({
+		name: item.name,
+		color: simulateCVD(item.color, cvdType),
+	}));
+}
+
+function chooseBestSortTypeForAdjacency(
+	colors: NamedColor[],
+	target: CvdConfusionFocusTarget,
+): SortType {
+	const priorityOrder: SortType[] = ["deltaE", "hue", "lightness"];
+	const sortTypes = getAllSortTypes();
+	const prioritizedSortTypes: SortType[] = priorityOrder.filter((t) =>
+		sortTypes.includes(t),
+	);
+	const simulatedColors = simulateNamedColorsForType(colors, target.cvdType);
+
+	let best: { sortType: SortType; distance: number } | null = null;
+	for (const sortType of prioritizedSortTypes) {
+		const result = sortColorsWithValidation(simulatedColors, sortType);
+		const names = result.sortedColors.map((c) => c.name);
+		const index1 = names.indexOf(target.colorName1);
+		const index2 = names.indexOf(target.colorName2);
+		if (index1 < 0 || index2 < 0) continue;
+
+		const distance = Math.abs(index1 - index2);
+		if (distance === 1) return sortType;
+
+		if (!best || distance < best.distance) {
+			best = { sortType, distance };
+		}
+	}
+
+	return best?.sortType ?? sortTypes[0] ?? "hue";
+}
+
+function focusCvdComparisonIssue(
+	boundaryContainer: HTMLElement,
+	colors: NamedColor[],
+	sortType: SortType,
+	target: CvdConfusionFocusTarget,
+): void {
+	clearCvdComparisonFocus(boundaryContainer);
+
+	const row = boundaryContainer.querySelector<HTMLElement>(
+		`.dads-a11y-cvd-boundary-row[data-cvd-type="${target.cvdType}"]`,
+	);
+	if (!row) return;
+
+	row.classList.add("dads-a11y-focus-target");
+	row.scrollIntoView({ behavior: "smooth", block: "center" });
+
+	const simulatedColors = simulateNamedColorsForType(colors, target.cvdType);
+	const sortResult = sortColorsWithValidation(simulatedColors, sortType);
+	const names = sortResult.sortedColors.map((c) => c.name);
+	const index1 = names.indexOf(target.colorName1);
+	const index2 = names.indexOf(target.colorName2);
+
+	const swatches = Array.from(
+		row.querySelectorAll<HTMLElement>(".dads-cvd-strip__swatch"),
+	);
+
+	const targetSwatches = swatches.filter((swatch) => {
+		const name = swatch.getAttribute("data-color-name");
+		return name === target.colorName1 || name === target.colorName2;
+	});
+
+	for (const swatch of targetSwatches) {
+		swatch.classList.add("dads-a11y-focus-swatch");
+	}
+
+	if (index1 >= 0 && index2 >= 0 && Math.abs(index1 - index2) === 1) {
+		const boundaryIndex = Math.min(index1, index2);
+
+		const badge = row.querySelector<HTMLElement>(
+			`.dads-a11y-deltaE-badge[data-boundary-index="${boundaryIndex}"]`,
+		);
+		badge?.classList.add("dads-a11y-focus-boundary-badge");
+
+		const icon = row.querySelector<HTMLElement>(
+			`.dads-cvd-conflict-icon[data-boundary-index="${boundaryIndex}"]`,
+		);
+		icon?.classList.add("dads-a11y-focus-boundary-indicator");
+
+		const line = row.querySelector<HTMLElement>(
+			`.dads-cvd-conflict-line[data-boundary-index="${boundaryIndex}"]`,
+		);
+		line?.classList.add("dads-a11y-focus-boundary-indicator");
+	}
+
+	const focusTarget = targetSwatches[0] ?? row;
+	focusTarget.focus({ preventScroll: true });
+}
 
 /**
  * 空状態のメッセージを表示する
@@ -140,6 +264,7 @@ function renderCvdConfusionDetails(
 	container: HTMLElement,
 	colors: NamedColor[],
 	cvdConfusionPairs: CvdConfusionPair[],
+	onPairActivate?: (target: CvdConfusionFocusTarget) => void,
 ): void {
 	if (cvdConfusionPairs.length === 0) {
 		return;
@@ -170,6 +295,21 @@ function renderCvdConfusionDetails(
 			const li = document.createElement("li");
 			li.className = "dads-a11y-cvd-pair-item";
 
+			const button = document.createElement("button");
+			button.type = "button";
+			button.className = "dads-a11y-cvd-pair-button";
+			button.setAttribute("data-cvd-type", cvdType);
+			button.setAttribute("data-color-name-1", color1.name);
+			button.setAttribute("data-color-name-2", color2.name);
+
+			button.addEventListener("click", () => {
+				onPairActivate?.({
+					cvdType,
+					colorName1: color1.name,
+					colorName2: color2.name,
+				});
+			});
+
 			const swatch1 = createPairSwatch(color1.color);
 			const swatch2 = createPairSwatch(color2.color);
 
@@ -181,10 +321,11 @@ function renderCvdConfusionDetails(
 			deltaE.className = "dads-a11y-cvd-pair-deltaE";
 			deltaE.textContent = `（ΔE = ${pair.cvdDeltaE.toFixed(2)}）`;
 
-			li.appendChild(swatch1);
-			li.appendChild(text);
-			li.appendChild(swatch2);
-			li.appendChild(deltaE);
+			button.appendChild(swatch1);
+			button.appendChild(text);
+			button.appendChild(swatch2);
+			button.appendChild(deltaE);
+			li.appendChild(button);
 			pairList.appendChild(li);
 		}
 
@@ -437,6 +578,8 @@ function renderCvdBoundaryRow(
 
 	const row = document.createElement("div");
 	row.className = "dads-a11y-cvd-boundary-row";
+	row.setAttribute("data-cvd-type", cvdType);
+	row.tabIndex = -1;
 
 	const label = document.createElement("div");
 	label.className = "dads-cvd-row__label";
@@ -468,6 +611,12 @@ function renderCvdBoundaryRow(
 		if (!validation.isDistinguishable) {
 			const markerPos = (validation.index + 1) * segmentWidth;
 			const { line, icon } = createConflictIndicator(markerPos, false);
+			line.setAttribute("data-boundary-index", String(validation.index));
+			line.setAttribute("data-left-name", validation.leftName);
+			line.setAttribute("data-right-name", validation.rightName);
+			icon.setAttribute("data-boundary-index", String(validation.index));
+			icon.setAttribute("data-left-name", validation.leftName);
+			icon.setAttribute("data-right-name", validation.rightName);
 			overlay.appendChild(line);
 			overlay.appendChild(icon);
 		}
@@ -490,6 +639,9 @@ function renderCvdBoundaryRow(
 		const deltaEBadge = document.createElement("span");
 		deltaEBadge.className = "dads-a11y-deltaE-badge";
 		deltaEBadge.textContent = `ΔE ${validation.deltaE.toFixed(1)}`;
+		deltaEBadge.setAttribute("data-boundary-index", String(validation.index));
+		deltaEBadge.setAttribute("data-left-name", validation.leftName);
+		deltaEBadge.setAttribute("data-right-name", validation.rightName);
 
 		if (validation.isDistinguishable) {
 			deltaEBadge.classList.add("dads-a11y-deltaE-badge--ok");
@@ -674,6 +826,26 @@ function renderSortingValidationSection(
 		cvdDetailsContainer,
 		namedColors,
 		cvdConfusionPairs,
+		(target) => {
+			const desiredSortType = chooseBestSortTypeForAdjacency(
+				namedColors,
+				target,
+			);
+
+			if (desiredSortType !== viewState.currentSortType) {
+				const tab = section.querySelector<HTMLButtonElement>(
+					`.dads-a11y-sort-tab[data-sort-type="${desiredSortType}"]`,
+				);
+				tab?.click();
+			}
+
+			focusCvdComparisonIssue(
+				boundaryContainer,
+				namedColors,
+				desiredSortType,
+				target,
+			);
+		},
 	);
 	section.appendChild(cvdDetailsContainer);
 
@@ -716,16 +888,29 @@ export function renderAccessibilityView(
 	const viewState = createViewState();
 
 	// Explanation Section
-	const explanationSection = document.createElement("section");
-	explanationSection.className = "dads-a11y-explanation";
+	const explanationDisclosure = document.createElement("details");
+	explanationDisclosure.className = "dads-a11y-explanation dads-disclosure";
 
-	const explanationHeading = document.createElement("h2");
-	explanationHeading.textContent = "この機能について";
-	explanationHeading.className = "dads-a11y-explanation__heading";
-	explanationSection.appendChild(explanationHeading);
+	// 占有が大きくなりがちなため、デフォルトは閉じる
+	explanationDisclosure.open = false;
+
+	const explanationSummary = document.createElement("summary");
+	explanationSummary.className =
+		"dads-disclosure__summary dads-a11y-explanation__summary";
+	explanationSummary.innerHTML = `
+			<svg class="dads-disclosure__icon" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+				<circle cx="12" cy="12" r="11" fill="currentcolor"/>
+				<circle class="dads-disclosure__icon-circle" cx="12" cy="12" r="8" fill="currentcolor"/>
+				<path class="dads-disclosure__icon-triangle" d="M17 10H7L12 15L17 10Z" fill="Canvas"/>
+			</svg>
+			この機能について
+		`;
+
+	explanationDisclosure.appendChild(explanationSummary);
 
 	const explanationContent = document.createElement("div");
-	explanationContent.className = "dads-a11y-explanation__content";
+	explanationContent.className =
+		"dads-disclosure__content dads-a11y-explanation__content";
 	explanationContent.innerHTML = `
 		<p>
 			この画面では、多様な色覚特性を持つユーザーが、あなたのカラーパレットをどのように知覚するかをシミュレーションし、
@@ -744,8 +929,8 @@ export function renderAccessibilityView(
 			<li><strong>警告基準:</strong> シミュレーション後の色差（DeltaE）が <strong>5.0未満</strong> の場合、色が識別困難であると判断し、<span class="dads-cvd-conflict-icon" style="display:inline-flex; position:static; transform:none; width:16px; height:16px; font-size:10px; margin:0 4px;">!</span>アイコンで警告を表示します。</li>
 		</ul>
 	`;
-	explanationSection.appendChild(explanationContent);
-	container.appendChild(explanationSection);
+	explanationDisclosure.appendChild(explanationContent);
+	container.appendChild(explanationDisclosure);
 
 	// Collect key colors
 	const keyColorsMap: Record<string, Color> = {};

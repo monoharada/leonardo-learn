@@ -957,20 +957,97 @@
  * Accessibility View Components
  * ============================================ */
 
+/* ============================================
+ * Disclosure (DADS HTML component pattern)
+ * ============================================ */
+
+.dads-disclosure__summary {
+	display: flex;
+	align-items: start;
+	justify-content: start;
+	gap: calc(8 / 16 * 1rem);
+	width: fit-content;
+	cursor: default;
+	list-style-type: none;
+}
+
+.dads-disclosure__summary:focus-visible {
+	outline: calc(4 / 16 * 1rem) solid var(--color-neutral-black);
+	outline-offset: calc(2 / 16 * 1rem);
+	border-radius: calc(4 / 16 * 1rem);
+	background-color: var(--color-primitive-yellow-300);
+	box-shadow: 0 0 0 calc(2 / 16 * 1rem) var(--color-primitive-yellow-300);
+}
+
+@media (hover: hover) {
+	.dads-disclosure__summary:hover {
+		text-decoration: underline;
+		text-underline-offset: calc(3 / 16 * 1rem);
+	}
+}
+
+.dads-disclosure__summary::marker {
+	content: "";
+}
+
+.dads-disclosure__summary::-webkit-details-marker {
+	display: none;
+}
+
+.dads-disclosure__icon {
+	flex-shrink: 0;
+	margin-top: calc((1lh - 24px) / 2);
+	color: var(--color-primitive-blue-1000);
+}
+
+@media (forced-colors: active) {
+	.dads-disclosure__icon {
+		color: inherit;
+	}
+}
+
+.dads-disclosure[open] .dads-disclosure__icon {
+	rotate: 180deg;
+}
+
+@media (hover: hover) {
+	.dads-disclosure__summary:hover .dads-disclosure__icon-circle {
+		fill: Canvas;
+	}
+
+	.dads-disclosure__summary:hover .dads-disclosure__icon-triangle {
+		fill: currentcolor;
+	}
+}
+
+.dads-disclosure__content {
+	padding-left: calc(32 / 16 * 1rem);
+	margin: calc(16 / 16 * 1rem) 0;
+}
+
 .dads-a11y-explanation {
 	margin-bottom: 3rem;
-	padding: 1.5rem;
+	padding: 1rem 1.5rem;
 	background: var(--color-neutral-solid-gray-50);
 	border-radius: var(--border-radius-8);
 	border: 1px solid var(--color-neutral-solid-gray-100);
 }
 
-.dads-a11y-explanation__heading {
-	margin-top: 0;
-	margin-bottom: 1rem;
+.dads-a11y-explanation[open] {
+	padding-top: 1.5rem;
+	padding-bottom: 1.5rem;
+}
+
+.dads-a11y-explanation__summary {
+	margin: 0;
 	font-size: var(--font-size-18);
 	font-weight: 600;
 	color: var(--color-neutral-solid-gray-900);
+}
+
+.dads-a11y-explanation .dads-disclosure__content {
+	padding-left: 0;
+	margin: 1rem 0 0;
 }
 
 .dads-a11y-explanation__content {
@@ -4431,7 +4508,7 @@
 .dads-a11y-cvd-pair-item {
 	display: flex;
 	align-items: center;
-	gap: 0.5rem;
+	gap: 0.25rem;
 	padding: 0.25rem 0;
 	font-size: var(--font-size-14);
 	color: var(--color-alert-warning-text);
@@ -4440,6 +4517,30 @@
 .dads-a11y-cvd-pair-item::before {
 	content: "•";
 	margin-right: 0.25rem;
+}
+
+.dads-a11y-cvd-pair-button {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	flex: 1;
+	padding: 2px 4px;
+	border: 0;
+	border-radius: var(--border-radius-4);
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	text-align: left;
+	cursor: default;
+	text-decoration: underline;
+	text-decoration-thickness: 1px;
+	text-underline-offset: 3px;
+}
+
+@media (hover: hover) {
+	.dads-a11y-cvd-pair-button:hover {
+		text-decoration-thickness: 3px;
+	}
 }
 
 .dads-a11y-cvd-pair-swatch {
@@ -4463,4 +4564,43 @@
 	font-family: var(--font-family-mono, monospace);
 	font-size: 0.85em;
 	opacity: 0.85;
+}
+
+.dads-a11y-focus-target .dads-cvd-row__label {
+	position: relative;
+	padding-left: 14px;
+}
+
+.dads-a11y-focus-target .dads-cvd-row__label::before {
+	content: "";
+	position: absolute;
+	left: 0;
+	top: 2px;
+	bottom: 2px;
+	width: 4px;
+	border-radius: 2px;
+	background: var(--color-semantic-error-1);
+}
+
+.dads-a11y-focus-swatch {
+	box-shadow:
+		inset 0 0 0 3px var(--color-neutral-black),
+		inset 0 0 0 5px var(--color-primitive-yellow-300);
+}
+
+.dads-a11y-focus-boundary-badge {
+	outline: 2px solid var(--color-neutral-black);
+	outline-offset: 2px;
+	box-shadow: 0 0 0 2px var(--color-primitive-yellow-300);
+}
+
+.dads-cvd-conflict-icon.dads-a11y-focus-boundary-indicator {
+	box-shadow:
+		0 0 0 2px var(--color-neutral-black),
+		0 0 0 4px var(--color-primitive-yellow-300),
+		var(--elevation-1);
+}
+
+.dads-cvd-conflict-line.dads-a11y-focus-boundary-indicator {
+	background-color: var(--color-semantic-error-1);
 }
