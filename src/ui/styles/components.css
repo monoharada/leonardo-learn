@@ -1025,17 +1025,154 @@
 	margin: calc(16 / 16 * 1rem) 0;
 }
 
-.dads-a11y-explanation {
-	margin-bottom: 3rem;
-	padding: 1rem 1.5rem;
-	background: var(--color-neutral-solid-gray-50);
-	border-radius: var(--border-radius-8);
-	border: 1px solid var(--color-neutral-solid-gray-100);
+/* ============================================
+ * Notification Banner (DADS HTML component pattern)
+ * ============================================ */
+
+.dads-notification-banner {
+	--_base-color: var(--color-primitive-blue-900);
+	--_color-chip-color: var(--color-primitive-blue-900);
+	display: grid;
+	grid-template-columns: 1.5rem 1fr auto;
+	grid-template-rows: minmax(2.25rem, auto);
+	border: solid var(--_base-color);
+	background-color: var(--color-neutral-white);
+	padding: 0.5rem 1rem 1.5rem;
+	gap: 1rem;
+	color: var(--color-neutral-solid-gray-800);
+	font-weight: 400;
+	font-size: 1rem;
+	line-height: 1.7;
+	font-family: var(--font-family-sans);
+	letter-spacing: 0.02em;
 }
 
-.dads-a11y-explanation[open] {
-	padding-top: 1.5rem;
-	padding-bottom: 1.5rem;
+.dads-notification-banner[data-style="standard"] {
+	border-radius: 0.75rem;
+	border-width: 0.1875rem;
+}
+
+.dads-notification-banner[data-style="color-chip"] {
+	border-width: 0.125rem;
+	padding-left: 1.5rem;
+	box-shadow: inset 0.5rem 0 0 0 var(--_color-chip-color);
+}
+
+@media (min-width: 48rem) {
+	.dads-notification-banner {
+		grid-template-columns: 2.25rem 1fr auto;
+		padding: 1.5rem 1.5rem 2rem;
+		column-gap: 1.5rem;
+	}
+
+	.dads-notification-banner[data-style="color-chip"] {
+		padding-left: 2.5rem;
+		box-shadow: inset 1rem 0 0 0 var(--_color-chip-color);
+	}
+}
+
+.dads-notification-banner[data-type="success"] {
+	--_base-color: var(--color-semantic-success-2);
+	--_color-chip-color: var(--color-semantic-success-2);
+}
+
+.dads-notification-banner[data-type="error"] {
+	--_base-color: var(--color-semantic-error-1);
+	--_color-chip-color: var(--color-semantic-error-1);
+}
+
+.dads-notification-banner[data-type="warning"] {
+	--_base-color: var(--color-semantic-warning-yellow-2);
+	--_color-chip-color: var(--color-primitive-yellow-400);
+}
+
+.dads-notification-banner[data-type="info-1"] {
+	--_base-color: var(--color-primitive-blue-900);
+	--_color-chip-color: var(--color-primitive-blue-900);
+}
+
+.dads-notification-banner[data-type="info-2"] {
+	--_base-color: var(--color-neutral-solid-gray-536);
+	--_color-chip-color: var(--color-neutral-solid-gray-536);
+}
+
+.dads-notification-banner__icon {
+	justify-self: center;
+	width: 1.75rem;
+	height: 1.75rem;
+	max-width: none;
+	max-height: none;
+	padding-top: 0.1875rem;
+	color: var(--_base-color);
+}
+
+@media (min-width: 48rem) {
+	.dads-notification-banner__icon {
+		margin-top: -0.25rem;
+		margin-bottom: -0.25rem;
+		width: 2.75rem;
+		height: 2.75rem;
+		padding: 0;
+	}
+}
+
+@media (forced-colors: active) {
+	.dads-notification-banner__icon {
+		color: currentcolor;
+	}
+}
+
+.dads-notification-banner__heading {
+	grid-column: span 2;
+	margin-top: 0;
+	margin-bottom: 0;
+	display: grid;
+	grid-template-columns: inherit;
+	gap: inherit;
+}
+
+.dads-notification-banner__heading-text {
+	padding-top: 0.1875rem;
+	color: var(--color-neutral-solid-gray-900);
+	font-weight: 700;
+	font-size: 1.0625rem;
+	line-height: 1.7;
+	letter-spacing: 0.02em;
+}
+
+@media (min-width: 48rem) {
+	.dads-notification-banner__heading-text {
+		padding-top: 0.125rem;
+		font-size: 1.25rem;
+		line-height: 1.5;
+	}
+}
+
+.dads-notification-banner__body {
+	margin-top: -0.25rem;
+	display: grid;
+	row-gap: 0.5rem;
+	grid-column: 1 / 4;
+	color: var(--color-neutral-solid-gray-800);
+}
+
+@media (min-width: 48rem) {
+	.dads-notification-banner__body {
+		margin-top: 0;
+		grid-column: 2 / 4;
+	}
+}
+
+.dads-notification-banner__body > * {
+	margin-top: 0;
+	margin-bottom: 0;
+}
+
+.dads-a11y-explanation {
+	margin: 0 0 1.5rem;
+	padding: 0;
+	background: transparent;
+	border: 0;
 }
 
 .dads-a11y-explanation__summary {
@@ -4427,7 +4564,16 @@
 	align-self: start;
 }
 
-/* Alert Box - Top warning/success notification (tabs下に表示) */
+/* Alert Banner - Top notification (tabs下に表示) */
+.dads-a11y-alert-banner {
+	margin-bottom: 1rem; /* tabs下に配置されるため調整 */
+}
+
+.dads-a11y-alert-links {
+	margin: 0;
+	padding-left: 1.25rem;
+}
+
 .dads-a11y-alert-box {
 	display: flex;
 	align-items: center;
@@ -4582,25 +4728,26 @@
 	background: var(--color-semantic-error-1);
 }
 
-.dads-a11y-focus-swatch {
-	box-shadow:
-		inset 0 0 0 3px var(--color-neutral-black),
-		inset 0 0 0 5px var(--color-primitive-yellow-300);
-}
-
 .dads-a11y-focus-boundary-badge {
-	outline: 2px solid var(--color-neutral-black);
-	outline-offset: 2px;
-	box-shadow: 0 0 0 2px var(--color-primitive-yellow-300);
+	outline: none;
+	box-shadow:
+		0 0 0 2px var(--color-neutral-black),
+		0 0 0 6px var(--color-semantic-warning-yellow-2);
 }
 
 .dads-cvd-conflict-icon.dads-a11y-focus-boundary-indicator {
 	box-shadow:
 		0 0 0 2px var(--color-neutral-black),
-		0 0 0 4px var(--color-primitive-yellow-300),
+		0 0 0 6px var(--color-semantic-warning-yellow-2),
 		var(--elevation-1);
 }
 
 .dads-cvd-conflict-line.dads-a11y-focus-boundary-indicator {
 	background-color: var(--color-semantic-error-1);
+	box-shadow: 0 0 0 4px var(--color-semantic-warning-yellow-2);
+}
+
+.dads-a11y-cvd-boundary-row:focus,
+.dads-cvd-strip__swatch:focus {
+	outline: none;
 }

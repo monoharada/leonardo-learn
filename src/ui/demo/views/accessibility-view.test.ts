@@ -284,25 +284,20 @@ describe("accessibility-view", () => {
 
 	/**
 	 * UI Refinement: Alert Box layout change
-	 * tabs → alertBox → boundaryContainer の順序
+	 * alertBox → tabs → boundaryContainer の順序
 	 */
 	describe("UI Refinement: Alert Box layout", () => {
-		it("should append alertBox AFTER tabs in renderSortingValidationSection", async () => {
+		it("should insert alertBox BEFORE tabs in renderSortingValidationSection", async () => {
 			const fs = await import("node:fs");
 			const path = await import("node:path");
 			const filePath = path.join(import.meta.dir, "accessibility-view.ts");
 			const content = fs.readFileSync(filePath, "utf-8");
 
-			// renderSortTabs呼び出しの後にalertBoxをappendしていること
-			// 順序: renderSortTabs → section.appendChild(alertBox)
-			const sortTabsIndex = content.indexOf("renderSortTabs(section");
-			const alertBoxAppendIndex = content.indexOf(
-				"section.appendChild(alertBox)",
+			// タブより前に差し込むこと（insertBeforeを使用）
+			expect(content).toContain(
+				'section.insertBefore(alertBox, section.querySelector(".dads-a11y-sort-tabs"))',
 			);
-
-			expect(sortTabsIndex).toBeGreaterThan(-1);
-			expect(alertBoxAppendIndex).toBeGreaterThan(-1);
-			expect(alertBoxAppendIndex).toBeGreaterThan(sortTabsIndex);
+			expect(content).not.toContain("section.appendChild(alertBox)");
 		});
 	});
 
@@ -345,12 +340,10 @@ describe("accessibility-view", () => {
 	});
 
 	/**
-	 * Hybrid Approach (2+3): CVD Confusion Details
-	 * - Shows which CVD type has issues (P型/D型)
-	 * - Lists problematic color pairs
-	 * - Displays ΔE values for severity
+	 * UI Refinement: CVD confusion details removal
+	 * 下部の詳細ボックスは表示せず、通知バナーのリンクからジャンプする
 	 */
-	describe("Hybrid Approach: CVD Confusion Details display", () => {
+	describe("UI Refinement: CVD confusion details removal", () => {
 		it("should have getCvdTypeLabelJa helper for Japanese CVD type names", async () => {
 			const fs = await import("node:fs");
 			const path = await import("node:path");
@@ -367,79 +360,26 @@ describe("accessibility-view", () => {
 			expect(content).toContain("D型（2型2色覚）");
 		});
 
-		it("should have renderCvdConfusionDetails function for hybrid display", async () => {
+		it("should NOT render CVD confusion details box in accessibility-view", async () => {
 			const fs = await import("node:fs");
 			const path = await import("node:path");
 			const filePath = path.join(import.meta.dir, "accessibility-view.ts");
 			const content = fs.readFileSync(filePath, "utf-8");
 
-			// renderCvdConfusionDetails関数が存在すること
-			expect(content).toContain("function renderCvdConfusionDetails");
+			expect(content).not.toContain("function renderCvdConfusionDetails");
+			expect(content).not.toContain("dads-a11y-cvd-confusion-details");
 		});
 
-		it("should group CVD confusion pairs by CVD type", async () => {
-			const fs = await import("node:fs");
-			const path = await import("node:path");
-			// groupPairsByCvdTypeはcvd-detection.tsに抽出された
-			const cvdDetectionPath = path.join(
-				import.meta.dir,
-				"../../accessibility/cvd-detection.ts",
-			);
-			const cvdDetectionContent = fs.readFileSync(cvdDetectionPath, "utf-8");
-
-			// CVDTypeを使用してMapでグループ化（全4タイプ対応）
-			expect(cvdDetectionContent).toContain("Map<CVDType, CvdConfusionPair[]>");
-
-			// accessibility-view.tsでgroupedByTypeを使用していること
-			const viewFilePath = path.join(import.meta.dir, "accessibility-view.ts");
-			const viewContent = fs.readFileSync(viewFilePath, "utf-8");
-			expect(viewContent).toContain("groupedByType");
-		});
-
-		it("should display CVD type header with pair count", async () => {
+		it("should provide banner links for boundary and confusion issues", async () => {
 			const fs = await import("node:fs");
 			const path = await import("node:path");
 			const filePath = path.join(import.meta.dir, "accessibility-view.ts");
 			const content = fs.readFileSync(filePath, "utf-8");
 
-			// CVDタイプヘッダーの表示
-			expect(content).toContain("dads-a11y-cvd-type-header");
-			expect(content).toContain("で混同リスク:");
-			expect(content).toContain("ペア");
-		});
-
-		it("should display color swatches for each problematic pair", async () => {
-			const fs = await import("node:fs");
-			const path = await import("node:path");
-			// createPairSwatchはdom-helpers.tsに抽出された
-			const filePath = path.join(import.meta.dir, "../utils/dom-helpers.ts");
-			const content = fs.readFileSync(filePath, "utf-8");
-
-			// 色スウォッチの表示
-			expect(content).toContain("dads-a11y-cvd-pair-swatch");
-		});
-
-		it("should display deltaE values for each pair", async () => {
-			const fs = await import("node:fs");
-			const path = await import("node:path");
-			const filePath = path.join(import.meta.dir, "accessibility-view.ts");
-			const content = fs.readFileSync(filePath, "utf-8");
-
-			// ΔE値の表示
-			expect(content).toContain("dads-a11y-cvd-pair-deltaE");
-			expect(content).toContain("cvdDeltaE.toFixed");
-		});
-
-		it("should call renderCvdConfusionDetails in renderSortingValidationSection", async () => {
-			const fs = await import("node:fs");
-			const path = await import("node:path");
-			const filePath = path.join(import.meta.dir, "accessibility-view.ts");
-			const content = fs.readFileSync(filePath, "utf-8");
-
-			// renderSortingValidationSection内でrenderCvdConfusionDetailsを呼び出すこと
-			// Note: 関数呼び出しが複数行にまたがる可能性があるので、関数名のみをチェック
-			expect(content).toContain("renderCvdConfusionDetails(");
-			expect(content).toContain("cvdDetailsContainer");
+			// 通知バナー内のリンクは kind を持ち、クリック時に boundary / confusion で分岐する
+			expect(content).toContain('a.setAttribute("data-a11y-kind", kind)');
+			expect(content).toContain('if (kind === "boundary")');
+			expect(content).toContain('if (kind === "confusion")');
 		});
 	});
 
