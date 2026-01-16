@@ -60,7 +60,6 @@ import {
 	state,
 	validateBackgroundColor,
 } from "../state";
-import { applyDemoTextColor } from "../theme";
 import { type ColorDetailModalOptions, stripStepSuffix } from "../types";
 
 /** デフォルト背景色（クリーンアップ用） */
@@ -262,7 +261,6 @@ export function renderAccentSelectionView(
 	keyColorHex: string,
 	callbacks: AccentSelectionViewCallbacks,
 ): void {
-	applyDemoTextColor(state.darkBackgroundColor);
 	// 入力カラーをパース（無効な場合はデフォルト色）
 	const inputHex = /^#[0-9A-Fa-f]{6}$/.test(keyColorHex)
 		? keyColorHex

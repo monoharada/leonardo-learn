@@ -1,8 +1,8 @@
 /**
  * 背景色セレクターコンポーネント
  *
- * ライト背景色とダーク背景色（テキスト色）の2色を管理する。
- * ライト背景色がメイン、ダーク背景色はコントラスト確認用の補助的な役割。
+ * ライト背景色とテキスト色（state.darkBackgroundColor）の2色を管理する。
+ * ライト背景色がメイン、テキスト色はデモUI全体の文字色として反映される。
  *
  * @module @/ui/demo/background-color-selector
  * Requirements: 1.1, 1.2, 1.3, 1.5, 1.6, 4.1, 4.2, 4.4
@@ -50,11 +50,11 @@ export function debounce<T extends (...args: unknown[]) => void>(
 export interface BackgroundColorSelectorProps {
 	/** ライト背景色（HEX） */
 	lightColor: string;
-	/** ダーク背景色（HEX） */
+	/** テキスト色（HEX） */
 	darkColor: string;
 	/** ライト背景色変更時のコールバック */
 	onLightColorChange: (hex: string) => void;
-	/** ダーク背景色変更時のコールバック */
+	/** テキスト色変更時のコールバック */
 	onDarkColorChange: (hex: string) => void;
 }
 
@@ -188,7 +188,7 @@ export function createBackgroundColorSelector(
 	);
 	container.appendChild(lightSection);
 
-	// ダーク背景セクション（補助）
+	// テキスト色セクション（補助）
 	const darkSection = createColorSection(
 		"dark",
 		darkColor,

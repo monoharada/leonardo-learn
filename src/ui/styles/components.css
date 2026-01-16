@@ -2547,12 +2547,11 @@
 
 .background-color-selector__section {
 	display: grid;
-	grid-template-columns: auto 1fr;
+	grid-template-columns: auto minmax(0, 1fr);
 	grid-template-rows: auto auto;
 	align-items: center;
 	column-gap: 0.75rem;
 	row-gap: 0.25rem;
-	flex: 0 0 auto;
 	min-width: 0;
 }
 
@@ -2578,6 +2577,8 @@
 	min-height: 1.25em;
 	font-size: var(--font-size-12);
 	color: var(--color-semantic-error-1);
+	overflow-wrap: anywhere;
+	word-break: break-word;
 }
 
 .dads-semantic-swatch:hover {

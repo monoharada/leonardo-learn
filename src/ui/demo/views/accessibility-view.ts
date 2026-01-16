@@ -32,7 +32,6 @@ import {
 	groupPairsByCvdType,
 } from "@/ui/accessibility/cvd-detection";
 import { parseKeyColor, state } from "../state";
-import { applyDemoTextColor } from "../theme";
 import type { Color as ColorType } from "../types";
 import {
 	createColorSwatch,
@@ -702,7 +701,6 @@ export function renderAccessibilityView(
 	container: HTMLElement,
 	helpers: AccessibilityViewHelpers,
 ): void {
-	applyDemoTextColor(state.darkBackgroundColor);
 	container.innerHTML = "";
 	container.className = "dads-section";
 

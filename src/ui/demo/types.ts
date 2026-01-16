@@ -161,7 +161,7 @@ export interface DemoState {
 	cudMode: CudCompatibilityMode;
 	/** ライト背景色（HEX形式、デフォルト: #ffffff） */
 	lightBackgroundColor: string;
-	/** ダーク背景色（HEX形式、デフォルト: #000000） */
+	/** テキスト色（HEX形式、デフォルト: #000000） */
 	darkBackgroundColor: string;
 	/** アクセントカラー数（1-3）。P+S+T+アクセント=4-6色 */
 	accentCount: 1 | 2 | 3;

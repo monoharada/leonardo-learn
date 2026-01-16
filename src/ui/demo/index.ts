@@ -39,7 +39,6 @@ import {
 } from "./palette-generator";
 import { renderSidebar } from "./sidebar";
 import { loadBackgroundColors, loadSemanticColorConfig, state } from "./state";
-import { applyDemoTextColor } from "./theme";
 import type { ColorDetailModalOptions } from "./types";
 import {
 	renderAccentSelectionView,
@@ -86,7 +85,6 @@ export async function runDemo(): Promise<void> {
 	state.lightBackgroundColor = restoredBackground.light;
 	state.darkBackgroundColor = restoredBackground.dark;
 	state.semanticColorConfig = loadSemanticColorConfig();
-	applyDemoTextColor(state.darkBackgroundColor);
 
 	// ========================================
 	// 初期ブランドカラーのランダム選択
