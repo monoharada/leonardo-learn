@@ -25,18 +25,14 @@ import {
 	sortColorsWithValidation,
 } from "@/ui/accessibility/color-sorting";
 import {
-	type CvdConfusionPair,
 	detectColorConflicts,
 	detectCvdConfusionPairs,
-	getCvdTypeLabelJa,
-	groupPairsByCvdType,
 } from "@/ui/accessibility/cvd-detection";
 import { parseKeyColor, state } from "../state";
 import type { Color as ColorType } from "../types";
 import {
 	createColorSwatch,
 	createConflictIndicator,
-	createPairSwatch,
 	renderConflictOverlay,
 } from "../utils/dom-helpers";
 
@@ -54,6 +50,16 @@ type BoundaryValidationType = CVDType | "normal";
  */
 interface BoundaryValidationSummary {
 	totalIssues: number;
+	issues: BoundaryValidationIssue[];
+}
+
+interface BoundaryValidationIssue {
+	sortType: SortType;
+	cvdType: BoundaryValidationType;
+	index: number;
+	leftName: string;
+	rightName: string;
+	deltaE: number;
 }
 
 /**
@@ -63,6 +69,15 @@ interface BoundaryValidationSummary {
  */
 interface AccessibilityViewState {
 	currentSortType: SortType;
+}
+
+/**
+ * CVD混同リスク一覧 → 該当箇所フォーカス用のパラメータ
+ */
+interface CvdConfusionFocusTarget {
+	cvdType: CVDType;
+	colorName1: string;
+	colorName2: string;
 }
 
 /**
@@ -91,6 +106,245 @@ function createViewState(): AccessibilityViewState {
 // ============================================================================
 // Rendering Helpers
 // ============================================================================
+
+const CVD_COMPARISON_FOCUS_CLASSES = [
+	"dads-a11y-focus-target",
+	"dads-a11y-focus-swatch",
+	"dads-a11y-focus-boundary-badge",
+	"dads-a11y-focus-boundary-indicator",
+] as const;
+
+function getPairKey(name1: string, name2: string): string {
+	return name1 < name2 ? `${name1}\u0000${name2}` : `${name2}\u0000${name1}`;
+}
+
+function hashStringToIdSuffix(value: string): string {
+	let hash = 5381;
+	for (let i = 0; i < value.length; i++) {
+		hash = (hash * 33) ^ value.charCodeAt(i);
+	}
+	return `${(hash >>> 0).toString(36)}-${value.length.toString(36)}`;
+}
+
+function clearCvdComparisonFocus(boundaryContainer: HTMLElement): void {
+	for (const className of CVD_COMPARISON_FOCUS_CLASSES) {
+		boundaryContainer
+			.querySelectorAll<HTMLElement>(`.${className}`)
+			.forEach((el) => {
+				el.classList.remove(className);
+			});
+	}
+}
+
+function simulateNamedColorsForType(
+	colors: NamedColor[],
+	cvdType: CVDType,
+): NamedColor[] {
+	return colors.map((item) => ({
+		name: item.name,
+		color: simulateCVD(item.color, cvdType),
+	}));
+}
+
+function createAccessibilityExplanationDisclosure(): HTMLDetailsElement {
+	const explanationDisclosure = document.createElement("details");
+	explanationDisclosure.className = "dads-a11y-explanation dads-disclosure";
+
+	// 占有が大きくなりがちなため、デフォルトは閉じる
+	explanationDisclosure.open = false;
+
+	const explanationSummary = document.createElement("summary");
+	explanationSummary.className =
+		"dads-disclosure__summary dads-a11y-explanation__summary";
+	explanationSummary.innerHTML = `
+			<svg class="dads-disclosure__icon" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+				<circle cx="12" cy="12" r="11" fill="currentcolor"/>
+				<circle class="dads-disclosure__icon-circle" cx="12" cy="12" r="8" fill="currentcolor"/>
+				<path class="dads-disclosure__icon-triangle" d="M17 10H7L12 15L17 10Z" fill="Canvas"/>
+			</svg>
+			この機能について
+		`;
+
+	explanationDisclosure.appendChild(explanationSummary);
+
+	const explanationContent = document.createElement("div");
+	explanationContent.className =
+		"dads-disclosure__content dads-a11y-explanation__content";
+	explanationContent.innerHTML = `
+		<p>
+			この画面では、多様な色覚特性を持つユーザーが、あなたのカラーパレットをどのように知覚するかをシミュレーションし、
+			<strong>識別困難な色の組み合わせがないか</strong>を確認できます。
+		</p>
+
+		<h3>確認すべきポイント</h3>
+		<ul>
+			<li><strong>色覚シミュレーション:</strong> 各色覚タイプ（P型/D型/T型/全色盲）での見え方をシミュレーションし、識別困難な色ペアを検出します。色相順・色差順・明度順での並べ替え表示にも対応しています。</li>
+		</ul>
+
+		<h3>判定ロジックと計算方法</h3>
+		<ul>
+			<li><strong>シミュレーション手法:</strong> Brettel (1997) および Viénot (1999) のアルゴリズムを使用し、P型（1型）、D型（2型）、T型（3型）、全色盲の知覚を再現しています。</li>
+			<li><strong>色差計算 (ΔEOK):</strong> OKLab色空間におけるユークリッド距離（× 100スケール）を用いて、色の知覚的な差を計算しています。</li>
+			<li><strong>警告基準:</strong> シミュレーション後の色差（DeltaE）が <strong>5.0未満</strong> の場合、色が識別困難であると判断し、<span class="dads-cvd-conflict-icon" style="display:inline-flex; position:static; transform:none; width:16px; height:16px; font-size:10px; margin:0 4px;">!</span>アイコンで警告を表示します。</li>
+		</ul>
+	`;
+
+	explanationDisclosure.appendChild(explanationContent);
+
+	return explanationDisclosure;
+}
+
+function getBoundaryIssueAnchorId(
+	sortType: SortType,
+	cvdType: BoundaryValidationType,
+	boundaryIndex: number,
+): string {
+	return `dads-a11y-boundary-${sortType}-${cvdType}-${boundaryIndex}`;
+}
+
+function getCvdConfusionPairAnchorId(
+	cvdType: CVDType,
+	index1: number,
+	index2: number,
+): string {
+	const a = Math.min(index1, index2);
+	const b = Math.max(index1, index2);
+	return `dads-a11y-cvd-confusion-${cvdType}-${a}-${b}`;
+}
+
+function getColorNameDistanceInSort(
+	colors: NamedColor[],
+	target: CvdConfusionFocusTarget,
+	sortType: SortType,
+): number | null {
+	const simulatedColors = simulateNamedColorsForType(colors, target.cvdType);
+	const sortResult = sortColorsWithValidation(simulatedColors, sortType);
+	const names = sortResult.sortedColors.map((c) => c.name);
+	const index1 = names.indexOf(target.colorName1);
+	const index2 = names.indexOf(target.colorName2);
+	if (index1 < 0 || index2 < 0) return null;
+	return Math.abs(index1 - index2);
+}
+
+function chooseBestSortTypeForAdjacency(
+	colors: NamedColor[],
+	target: CvdConfusionFocusTarget,
+): SortType {
+	const priorityOrder: SortType[] = ["deltaE", "hue", "lightness"];
+	const sortTypes = getAllSortTypes();
+	const prioritizedSortTypes: SortType[] = priorityOrder.filter((t) =>
+		sortTypes.includes(t),
+	);
+
+	let best: { sortType: SortType; distance: number } | null = null;
+	for (const sortType of prioritizedSortTypes) {
+		const distance = getColorNameDistanceInSort(colors, target, sortType);
+		if (distance === null) continue;
+		if (distance === 1) return sortType;
+
+		if (!best || distance < best.distance) {
+			best = { sortType, distance };
+		}
+	}
+
+	return best?.sortType ?? sortTypes[0] ?? "hue";
+}
+
+function focusCvdComparisonIssue(
+	boundaryContainer: HTMLElement,
+	colors: NamedColor[],
+	sortType: SortType,
+	target: CvdConfusionFocusTarget,
+): void {
+	clearCvdComparisonFocus(boundaryContainer);
+
+	const row = boundaryContainer.querySelector<HTMLElement>(
+		`.dads-a11y-cvd-boundary-row[data-cvd-type="${target.cvdType}"]`,
+	);
+	if (!row) return;
+
+	row.classList.add("dads-a11y-focus-target");
+	row.scrollIntoView({ block: "center" });
+
+	const simulatedColors = simulateNamedColorsForType(colors, target.cvdType);
+	const sortResult = sortColorsWithValidation(simulatedColors, sortType);
+	const names = sortResult.sortedColors.map((c) => c.name);
+	const index1 = names.indexOf(target.colorName1);
+	const index2 = names.indexOf(target.colorName2);
+
+	if (index1 >= 0 && index2 >= 0 && Math.abs(index1 - index2) === 1) {
+		const boundaryIndex = Math.min(index1, index2);
+
+		const badge = row.querySelector<HTMLElement>(
+			`.dads-a11y-deltaE-badge[data-boundary-index="${boundaryIndex}"]`,
+		);
+		badge?.classList.add("dads-a11y-focus-boundary-badge");
+
+		const icon = row.querySelector<HTMLElement>(
+			`.dads-cvd-conflict-icon[data-boundary-index="${boundaryIndex}"]`,
+		);
+		icon?.classList.add("dads-a11y-focus-boundary-indicator");
+
+		const line = row.querySelector<HTMLElement>(
+			`.dads-cvd-conflict-line[data-boundary-index="${boundaryIndex}"]`,
+		);
+		line?.classList.add("dads-a11y-focus-boundary-indicator");
+	}
+
+	row.focus({ preventScroll: true });
+}
+
+function focusBoundaryIssue(
+	boundaryContainer: HTMLElement,
+	anchorId: string,
+): void {
+	clearCvdComparisonFocus(boundaryContainer);
+
+	const badge = boundaryContainer.querySelector<HTMLElement>(`#${anchorId}`);
+	if (!badge) return;
+
+	const row = badge.closest<HTMLElement>(".dads-a11y-cvd-boundary-row");
+	if (!row) return;
+
+	row.classList.add("dads-a11y-focus-target");
+	row.scrollIntoView({ block: "center" });
+
+	badge.classList.add("dads-a11y-focus-boundary-badge");
+
+	const boundaryIndexStr = badge.getAttribute("data-boundary-index");
+	if (boundaryIndexStr) {
+		const icon = row.querySelector<HTMLElement>(
+			`.dads-cvd-conflict-icon[data-boundary-index="${boundaryIndexStr}"]`,
+		);
+		icon?.classList.add("dads-a11y-focus-boundary-indicator");
+
+		const line = row.querySelector<HTMLElement>(
+			`.dads-cvd-conflict-line[data-boundary-index="${boundaryIndexStr}"]`,
+		);
+		line?.classList.add("dads-a11y-focus-boundary-indicator");
+	}
+
+	row.focus({ preventScroll: true });
+}
+
+function selectBoundaryIssueForPair(
+	issues: BoundaryValidationIssue[],
+	preferredSortType: SortType,
+): BoundaryValidationIssue | null {
+	const inPreferredSort = issues.filter(
+		(issue) => issue.sortType === preferredSortType,
+	);
+	const candidates = inPreferredSort.length > 0 ? inPreferredSort : issues;
+
+	let best: BoundaryValidationIssue | null = null;
+	for (const issue of candidates) {
+		if (!best || issue.deltaE < best.deltaE) {
+			best = issue;
+		}
+	}
+
+	return best;
+}
 
 /**
  * 空状態のメッセージを表示する
@@ -122,77 +376,6 @@ function normalizeColorInput(
 		return colorsInput.map((item) => [item.name, item.color]);
 	}
 	return Object.entries(colorsInput);
-}
-
-/**
- * CVD混同リスク詳細をレンダリングする
- *
- * ハイブリッド形式で表示:
- * - 誰に問題か（P型/D型）を明示
- * - どの色ペアかを具体的に表示
- * - 程度をΔE値で補足
- *
- * @param container - レンダリング先のコンテナ要素
- * @param colors - 色リスト
- * @param cvdConfusionPairs - CVD混同リスクのあるペア
- */
-function renderCvdConfusionDetails(
-	container: HTMLElement,
-	colors: NamedColor[],
-	cvdConfusionPairs: CvdConfusionPair[],
-): void {
-	if (cvdConfusionPairs.length === 0) {
-		return;
-	}
-
-	const groupedByType = groupPairsByCvdType(cvdConfusionPairs);
-
-	const detailsSection = document.createElement("div");
-	detailsSection.className = "dads-a11y-cvd-confusion-details";
-
-	for (const [cvdType, pairs] of groupedByType) {
-		const typeSection = document.createElement("div");
-		typeSection.className = "dads-a11y-cvd-type-section";
-
-		const header = document.createElement("div");
-		header.className = "dads-a11y-cvd-type-header";
-		header.innerHTML = `<span class="dads-a11y-cvd-type-icon">⚠</span> <strong>${getCvdTypeLabelJa(cvdType)}</strong>で混同リスク: ${pairs.length}ペア`;
-		typeSection.appendChild(header);
-
-		const pairList = document.createElement("ul");
-		pairList.className = "dads-a11y-cvd-pair-list";
-
-		for (const pair of pairs) {
-			const color1 = colors[pair.index1];
-			const color2 = colors[pair.index2];
-			if (!color1 || !color2) continue;
-
-			const li = document.createElement("li");
-			li.className = "dads-a11y-cvd-pair-item";
-
-			const swatch1 = createPairSwatch(color1.color);
-			const swatch2 = createPairSwatch(color2.color);
-
-			const text = document.createElement("span");
-			text.className = "dads-a11y-cvd-pair-text";
-			text.innerHTML = `${color1.name} <span class="dads-a11y-cvd-pair-arrow">↔</span> ${color2.name}`;
-
-			const deltaE = document.createElement("span");
-			deltaE.className = "dads-a11y-cvd-pair-deltaE";
-			deltaE.textContent = `（ΔE = ${pair.cvdDeltaE.toFixed(2)}）`;
-
-			li.appendChild(swatch1);
-			li.appendChild(text);
-			li.appendChild(swatch2);
-			li.appendChild(deltaE);
-			pairList.appendChild(li);
-		}
-
-		typeSection.appendChild(pairList);
-		detailsSection.appendChild(typeSection);
-	}
-
-	container.appendChild(detailsSection);
 }
 
 // ============================================================================
@@ -437,6 +620,8 @@ function renderCvdBoundaryRow(
 
 	const row = document.createElement("div");
 	row.className = "dads-a11y-cvd-boundary-row";
+	row.setAttribute("data-cvd-type", cvdType);
+	row.tabIndex = -1;
 
 	const label = document.createElement("div");
 	label.className = "dads-cvd-row__label";
@@ -468,6 +653,12 @@ function renderCvdBoundaryRow(
 		if (!validation.isDistinguishable) {
 			const markerPos = (validation.index + 1) * segmentWidth;
 			const { line, icon } = createConflictIndicator(markerPos, false);
+			line.setAttribute("data-boundary-index", String(validation.index));
+			line.setAttribute("data-left-name", validation.leftName);
+			line.setAttribute("data-right-name", validation.rightName);
+			icon.setAttribute("data-boundary-index", String(validation.index));
+			icon.setAttribute("data-left-name", validation.leftName);
+			icon.setAttribute("data-right-name", validation.rightName);
 			overlay.appendChild(line);
 			overlay.appendChild(icon);
 		}
@@ -490,11 +681,19 @@ function renderCvdBoundaryRow(
 		const deltaEBadge = document.createElement("span");
 		deltaEBadge.className = "dads-a11y-deltaE-badge";
 		deltaEBadge.textContent = `ΔE ${validation.deltaE.toFixed(1)}`;
+		deltaEBadge.setAttribute("data-boundary-index", String(validation.index));
+		deltaEBadge.setAttribute("data-left-name", validation.leftName);
+		deltaEBadge.setAttribute("data-right-name", validation.rightName);
 
 		if (validation.isDistinguishable) {
 			deltaEBadge.classList.add("dads-a11y-deltaE-badge--ok");
 		} else {
 			deltaEBadge.classList.add("dads-a11y-deltaE-badge--warning");
+			deltaEBadge.id = getBoundaryIssueAnchorId(
+				sortType,
+				cvdType,
+				validation.index,
+			);
 		}
 
 		marker.appendChild(deltaEBadge);
@@ -548,32 +747,40 @@ function renderAllCvdBoundaryValidations(
  */
 function getBoundaryValidationSummary(
 	colors: NamedColor[],
-	sortType: SortType,
 ): BoundaryValidationSummary {
 	const validationTypes: BoundaryValidationType[] = [
 		"normal",
 		...getAllCVDTypes(),
 	];
+	const sortTypes = getAllSortTypes();
+	const issues: BoundaryValidationIssue[] = [];
 
-	let totalIssues = 0;
+	for (const sortType of sortTypes) {
+		for (const validationType of validationTypes) {
+			const simulatedColors: NamedColor[] =
+				validationType === "normal"
+					? colors
+					: colors.map((item) => ({
+							name: item.name,
+							color: simulateCVD(item.color, validationType),
+						}));
 
-	for (const validationType of validationTypes) {
-		const simulatedColors: NamedColor[] =
-			validationType === "normal"
-				? colors
-				: colors.map((item) => ({
-						name: item.name,
-						color: simulateCVD(item.color, validationType),
-					}));
-
-		const result = sortColorsWithValidation(simulatedColors, sortType);
-		totalIssues += result.boundaryValidations.reduce(
-			(count, validation) => count + (validation.isDistinguishable ? 0 : 1),
-			0,
-		);
+			const result = sortColorsWithValidation(simulatedColors, sortType);
+			for (const validation of result.boundaryValidations) {
+				if (validation.isDistinguishable) continue;
+				issues.push({
+					sortType,
+					cvdType: validationType,
+					index: validation.index,
+					leftName: validation.leftName,
+					rightName: validation.rightName,
+					deltaE: validation.deltaE,
+				});
+			}
+		}
 	}
 
-	return { totalIssues };
+	return { totalIssues: issues.length, issues };
 }
 
 // ============================================================================
@@ -600,6 +807,8 @@ function renderSortingValidationSection(
 	heading.className = "dads-section__heading";
 	section.appendChild(heading);
 
+	section.appendChild(createAccessibilityExplanationDisclosure());
+
 	const desc = document.createElement("p");
 	desc.textContent =
 		"キーカラーとセマンティックカラーを異なる基準で並べ替え、隣接する色同士の識別性を検証します。";
@@ -620,41 +829,216 @@ function renderSortingValidationSection(
 	}
 
 	const cvdConfusionPairs = detectCvdConfusionPairs(namedColors);
+	const boundarySummary = getBoundaryValidationSummary(namedColors);
+
+	const boundaryIssuesByPair = new Map<string, BoundaryValidationIssue[]>();
+	for (const issue of boundarySummary.issues) {
+		const pairKey = getPairKey(issue.leftName, issue.rightName);
+		const groupKey = `${issue.cvdType}\u0001${pairKey}`;
+		const existing = boundaryIssuesByPair.get(groupKey) ?? [];
+		existing.push(issue);
+		boundaryIssuesByPair.set(groupKey, existing);
+	}
+
+	const confusionPairsByPair = new Map<
+		string,
+		{
+			cvdType: CVDType;
+			cvdDeltaE: number;
+			index1: number;
+			index2: number;
+			colorName1: string;
+			colorName2: string;
+		}
+	>();
+
+	for (const pair of cvdConfusionPairs) {
+		const color1 = namedColors[pair.index1];
+		const color2 = namedColors[pair.index2];
+		if (!color1 || !color2) continue;
+
+		const pairKey = getPairKey(color1.name, color2.name);
+		const groupKey = `${pair.cvdType}\u0001${pairKey}`;
+		const existing = confusionPairsByPair.get(groupKey);
+		if (!existing || pair.cvdDeltaE < existing.cvdDeltaE) {
+			const [a, b] =
+				color1.name < color2.name
+					? [color1.name, color2.name]
+					: [color2.name, color1.name];
+			confusionPairsByPair.set(groupKey, {
+				cvdType: pair.cvdType,
+				cvdDeltaE: pair.cvdDeltaE,
+				index1: pair.index1,
+				index2: pair.index2,
+				colorName1: a,
+				colorName2: b,
+			});
+		}
+	}
 
 	const alertBox = document.createElement("div");
-	alertBox.className = "dads-a11y-alert-box";
+	alertBox.className = "dads-notification-banner dads-a11y-alert-banner";
+	alertBox.setAttribute("data-style", "standard");
 
-	function updateAlertBox(summary: BoundaryValidationSummary): void {
-		const cvdConfusionCount = cvdConfusionPairs.length;
-		const boundaryIssueCount = summary.totalIssues;
+	function updateAlertBox(): void {
+		const cvdConfusionCount = confusionPairsByPair.size;
+		const boundaryIssueCount = boundaryIssuesByPair.size;
+		const issueGroupCount = new Set([
+			...boundaryIssuesByPair.keys(),
+			...confusionPairsByPair.keys(),
+		]).size;
 
-		if (boundaryIssueCount > 0 || cvdConfusionCount > 0) {
-			alertBox.className = "dads-a11y-alert-box dads-a11y-alert-box--warning";
-			const issueSummary = [
+		const hasIssues = issueGroupCount > 0;
+		if (hasIssues) {
+			alertBox.setAttribute("data-type", "warning");
+			alertBox.setAttribute("role", "alert");
+			alertBox.setAttribute("aria-live", "assertive");
+
+			const issueLinksList = document.createElement("ul");
+			issueLinksList.className = "dads-a11y-alert-links";
+
+			const cvdTypeOrder: Record<string, number> = {
+				normal: 0,
+				protanopia: 1,
+				deuteranopia: 2,
+				tritanopia: 3,
+				achromatopsia: 4,
+			};
+
+			const issueGroupKeys = Array.from(
+				new Set([
+					...boundaryIssuesByPair.keys(),
+					...confusionPairsByPair.keys(),
+				]),
+			).sort((a, b) => {
+				const [cvdTypeA = "", namePairA = ""] = a.split("\u0001");
+				const [cvdTypeB = "", namePairB = ""] = b.split("\u0001");
+
+				const orderA = cvdTypeOrder[cvdTypeA] ?? 999;
+				const orderB = cvdTypeOrder[cvdTypeB] ?? 999;
+				if (orderA !== orderB) return orderA - orderB;
+				if (cvdTypeA !== cvdTypeB) return cvdTypeA.localeCompare(cvdTypeB);
+				return namePairA.localeCompare(namePairB);
+			});
+
+			for (const groupKey of issueGroupKeys) {
+				const [cvdTypeRaw = "", namePairRaw = ""] = groupKey.split("\u0001");
+				const cvdType = cvdTypeRaw as BoundaryValidationType;
+				const cvdLabel =
+					cvdType === "normal"
+						? "一般色覚"
+						: getCVDTypeName(cvdType as CVDType);
+				const [nameA = "", nameB = ""] = namePairRaw.split("\u0000");
+
+				const boundaryIssues = boundaryIssuesByPair.get(groupKey) ?? [];
+				const confusion = confusionPairsByPair.get(groupKey);
+
+				const descriptors: string[] = [];
+				let anchorId: string | null = null;
+				let kind: "boundary" | "confusion" | null = null;
+
+				if (boundaryIssues.length > 0) {
+					const minDeltaE = boundaryIssues.reduce((min, issue) => {
+						return issue.deltaE < min ? issue.deltaE : min;
+					}, Number.POSITIVE_INFINITY);
+					descriptors.push(`隣接境界 最小ΔE ${minDeltaE.toFixed(1)}`);
+					anchorId = `dads-a11y-boundary-pair-${hashStringToIdSuffix(groupKey)}`;
+					kind = "boundary";
+				}
+
+				if (confusion) {
+					descriptors.push(`CVD混同 ΔE ${confusion.cvdDeltaE.toFixed(2)}`);
+					if (!anchorId) {
+						anchorId = getCvdConfusionPairAnchorId(
+							confusion.cvdType,
+							confusion.index1,
+							confusion.index2,
+						);
+						kind = "confusion";
+					}
+				}
+
+				if (!anchorId || !kind) continue;
+
+				const li = document.createElement("li");
+				const a = document.createElement("a");
+				a.className = "dads-link";
+				a.href = `#${anchorId}`;
+				a.setAttribute("data-a11y-jump", "1");
+				a.setAttribute("data-a11y-kind", kind);
+
+				if (kind === "boundary") {
+					a.setAttribute("data-pair-key", groupKey);
+				} else if (confusion) {
+					a.setAttribute("data-cvd-type", confusion.cvdType);
+					a.setAttribute("data-color-name-1", confusion.colorName1);
+					a.setAttribute("data-color-name-2", confusion.colorName2);
+				}
+
+				a.textContent = `${cvdLabel}: ${nameA} ↔ ${nameB}（${descriptors.join(" / ")}）`;
+
+				li.appendChild(a);
+				issueLinksList.appendChild(li);
+			}
+
+			const breakdown = [
 				boundaryIssueCount > 0 ? `隣接境界 ${boundaryIssueCount}件` : null,
 				cvdConfusionCount > 0 ? `CVD混同 ${cvdConfusionCount}件` : null,
 			]
 				.filter(Boolean)
 				.join(" / ");
 
-			alertBox.innerHTML = `<span class="dads-a11y-alert-icon">⚠</span> <strong>識別困難なペア検出: ${issueSummary}</strong><br><span style="font-size: 0.9em; opacity: 0.9;">隣接境界とCVD混同の詳細は下記をご確認ください。</span>`;
+			const issueSummary = breakdown
+				? `影響ペア ${issueGroupCount}件（${breakdown}）`
+				: `影響ペア ${issueGroupCount}件`;
+
+			const heading = document.createElement("h3");
+			heading.className = "dads-notification-banner__heading";
+			heading.innerHTML = `
+				<svg class="dads-notification-banner__icon" width="24" height="24" viewBox="0 0 24 24" role="img" aria-label="警告">
+					<path d="M1 21 12 2l11 19H1Z" fill="currentcolor" />
+					<path d="M13 15h-2v-5h2v5Z" fill="Canvas" />
+					<circle cx="12" cy="17" r="1" fill="Canvas" />
+				</svg>
+				<span class="dads-notification-banner__heading-text">識別困難なペア検出</span>
+			`;
+
+			const body = document.createElement("div");
+			body.className = "dads-notification-banner__body";
+
+			const summaryP = document.createElement("p");
+			summaryP.textContent = issueSummary;
+			body.appendChild(summaryP);
+
+			if (issueLinksList.childElementCount > 0) {
+				body.appendChild(issueLinksList);
+			}
+
+			alertBox.replaceChildren(heading, body);
 		} else {
-			alertBox.className = "dads-a11y-alert-box dads-a11y-alert-box--ok";
-			alertBox.innerHTML =
-				'<span class="dads-a11y-alert-icon">✓</span> 隣接境界・CVD混同ともに問題は検出されませんでした。';
+			alertBox.setAttribute("data-type", "success");
+			alertBox.setAttribute("role", "status");
+			alertBox.setAttribute("aria-live", "polite");
+			alertBox.innerHTML = `
+				<h3 class="dads-notification-banner__heading">
+					<svg class="dads-notification-banner__icon" width="24" height="24" viewBox="0 0 24 24" role="img" aria-label="成功">
+						<path fill="currentColor" d="M9.2 16.6 4.8 12.2a1 1 0 0 1 1.4-1.4l3 3 8.6-8.6a1 1 0 1 1 1.4 1.4l-10 10a1 1 0 0 1-1.4 0z"/>
+					</svg>
+					<span class="dads-notification-banner__heading-text">問題は検出されませんでした</span>
+				</h3>
+				<div class="dads-notification-banner__body">
+					<p>隣接境界・CVD混同ともに問題は検出されませんでした。</p>
+				</div>
+			`;
 		}
 	}
 
 	const boundaryContainer = document.createElement("div");
 	boundaryContainer.className = "dads-a11y-boundary-container";
+	boundaryContainer.id = "dads-a11y-boundary-container";
 	boundaryContainer.setAttribute("data-testid", "boundary-container");
 
 	function updateBoundaryValidation(): void {
-		const summary = getBoundaryValidationSummary(
-			namedColors,
-			viewState.currentSortType,
-		);
-		updateAlertBox(summary);
 		renderAllCvdBoundaryValidations(
 			boundaryContainer,
 			namedColors,
@@ -662,20 +1046,141 @@ function renderSortingValidationSection(
 		);
 	}
 
+	updateAlertBox();
+
+	alertBox.addEventListener("click", (event) => {
+		const target = event.target as HTMLElement | null;
+		const link = target?.closest<HTMLAnchorElement>('a[data-a11y-jump="1"]');
+		if (!link) return;
+
+		event.preventDefault();
+
+		const href = link.getAttribute("href");
+		const anchorId = href && href.startsWith("#") ? href.slice(1) : null;
+
+		const kind = link.getAttribute("data-a11y-kind");
+		if (kind === "boundary") {
+			const pairKey = link.getAttribute("data-pair-key");
+			const issues = pairKey ? boundaryIssuesByPair.get(pairKey) : null;
+			if (!issues) return;
+
+			const selected = selectBoundaryIssueForPair(
+				issues,
+				viewState.currentSortType,
+			);
+			if (!selected) return;
+
+			const sortType = selected.sortType;
+			if (sortType !== viewState.currentSortType) {
+				const tab = section.querySelector<HTMLButtonElement>(
+					`.dads-a11y-sort-tab[data-sort-type="${sortType}"]`,
+				);
+				tab?.click();
+			}
+
+			const issueAnchorId = getBoundaryIssueAnchorId(
+				selected.sortType,
+				selected.cvdType,
+				selected.index,
+			);
+			focusBoundaryIssue(boundaryContainer, issueAnchorId);
+
+			if (anchorId) {
+				history.replaceState(null, "", `#${anchorId}`);
+			}
+			return;
+		}
+
+		if (kind === "confusion") {
+			const cvdType = link.getAttribute("data-cvd-type") as CVDType | null;
+			const colorName1 = link.getAttribute("data-color-name-1");
+			const colorName2 = link.getAttribute("data-color-name-2");
+			if (!cvdType || !colorName1 || !colorName2) return;
+
+			const targetInfo: CvdConfusionFocusTarget = {
+				cvdType,
+				colorName1,
+				colorName2,
+			};
+
+			const currentSortType = viewState.currentSortType;
+			const currentDistance = getColorNameDistanceInSort(
+				namedColors,
+				targetInfo,
+				currentSortType,
+			);
+
+			let desiredSortType = currentSortType;
+			if (currentDistance !== 1) {
+				const bestSortType = chooseBestSortTypeForAdjacency(
+					namedColors,
+					targetInfo,
+				);
+				const bestDistance = getColorNameDistanceInSort(
+					namedColors,
+					targetInfo,
+					bestSortType,
+				);
+				if (bestDistance === 1) {
+					desiredSortType = bestSortType;
+				}
+			}
+
+			if (desiredSortType !== viewState.currentSortType) {
+				const tab = section.querySelector<HTMLButtonElement>(
+					`.dads-a11y-sort-tab[data-sort-type="${desiredSortType}"]`,
+				);
+				tab?.click();
+			}
+
+			focusCvdComparisonIssue(
+				boundaryContainer,
+				namedColors,
+				desiredSortType,
+				targetInfo,
+			);
+
+			if (anchorId) {
+				history.replaceState(null, "", `#${anchorId}`);
+			}
+		}
+	});
+
+	const boundaryAnchorTargets = document.createElement("div");
+	boundaryAnchorTargets.setAttribute("aria-hidden", "true");
+
+	for (const pairKey of boundaryIssuesByPair.keys()) {
+		const anchor = document.createElement("div");
+		anchor.id = `dads-a11y-boundary-pair-${hashStringToIdSuffix(pairKey)}`;
+		boundaryAnchorTargets.appendChild(anchor);
+	}
+
+	const confusionAnchorTargets = document.createElement("div");
+	confusionAnchorTargets.setAttribute("aria-hidden", "true");
+
+	for (const pair of cvdConfusionPairs) {
+		const anchor = document.createElement("div");
+		anchor.id = getCvdConfusionPairAnchorId(
+			pair.cvdType,
+			pair.index1,
+			pair.index2,
+		);
+		confusionAnchorTargets.appendChild(anchor);
+	}
+
 	renderSortTabs(section, viewState, () => {
 		updateBoundaryValidation();
 	});
 
-	section.appendChild(alertBox);
-
-	const cvdDetailsContainer = document.createElement("div");
-	cvdDetailsContainer.className = "dads-a11y-cvd-details-container";
-	renderCvdConfusionDetails(
-		cvdDetailsContainer,
-		namedColors,
-		cvdConfusionPairs,
+	section.insertBefore(alertBox, section.querySelector(".dads-a11y-sort-tabs"));
+	section.insertBefore(
+		boundaryAnchorTargets,
+		section.querySelector(".dads-a11y-sort-tabs"),
 	);
-	section.appendChild(cvdDetailsContainer);
+	section.insertBefore(
+		confusionAnchorTargets,
+		section.querySelector(".dads-a11y-sort-tabs"),
+	);
 
 	section.appendChild(boundaryContainer);
 
@@ -714,38 +1219,6 @@ export function renderAccessibilityView(
 
 	// Create view state (replaces module-level mutable state)
 	const viewState = createViewState();
-
-	// Explanation Section
-	const explanationSection = document.createElement("section");
-	explanationSection.className = "dads-a11y-explanation";
-
-	const explanationHeading = document.createElement("h2");
-	explanationHeading.textContent = "この機能について";
-	explanationHeading.className = "dads-a11y-explanation__heading";
-	explanationSection.appendChild(explanationHeading);
-
-	const explanationContent = document.createElement("div");
-	explanationContent.className = "dads-a11y-explanation__content";
-	explanationContent.innerHTML = `
-		<p>
-			この画面では、多様な色覚特性を持つユーザーが、あなたのカラーパレットをどのように知覚するかをシミュレーションし、
-			<strong>識別困難な色の組み合わせがないか</strong>を確認できます。
-		</p>
-
-		<h3>確認すべきポイント</h3>
-		<ul>
-			<li><strong>色覚シミュレーション:</strong> 各色覚タイプ（P型/D型/T型/全色盲）での見え方をシミュレーションし、識別困難な色ペアを検出します。色相順・色差順・明度順での並べ替え表示にも対応しています。</li>
-		</ul>
-
-		<h3>判定ロジックと計算方法</h3>
-		<ul>
-			<li><strong>シミュレーション手法:</strong> Brettel (1997) および Viénot (1999) のアルゴリズムを使用し、P型（1型）、D型（2型）、T型（3型）、全色盲の知覚を再現しています。</li>
-			<li><strong>色差計算 (ΔEOK):</strong> OKLab色空間におけるユークリッド距離（× 100スケール）を用いて、色の知覚的な差を計算しています。</li>
-			<li><strong>警告基準:</strong> シミュレーション後の色差（DeltaE）が <strong>5.0未満</strong> の場合、色が識別困難であると判断し、<span class="dads-cvd-conflict-icon" style="display:inline-flex; position:static; transform:none; width:16px; height:16px; font-size:10px; margin:0 4px;">!</span>アイコンで警告を表示します。</li>
-		</ul>
-	`;
-	explanationSection.appendChild(explanationContent);
-	container.appendChild(explanationSection);
 
 	// Collect key colors
 	const keyColorsMap: Record<string, Color> = {};
