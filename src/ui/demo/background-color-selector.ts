@@ -77,38 +77,44 @@ function createColorSection(
 
 	// ラベル
 	const label = document.createElement("label");
-	label.className = "background-color-selector__label";
-	label.textContent = mode === "light" ? "Light (Background)" : "Dark (Text)";
+	label.className = "dads-label background-color-selector__label";
+	label.textContent = mode === "light" ? "背景色" : "テキスト色";
 	section.appendChild(label);
 
 	// 入力コンテナ
 	const inputContainer = document.createElement("div");
-	inputContainer.className = "background-color-selector__inputs";
+	inputContainer.className = "background-color-selector__inputs dads-form-row";
 
 	// カラーピッカー
 	const colorInput = document.createElement("input");
 	colorInput.type = "color";
 	colorInput.value = currentColor;
-	colorInput.className = "background-color-selector__color-picker";
+	colorInput.className =
+		"background-color-selector__color-picker dads-input dads-input--color";
 	colorInput.setAttribute(
 		"aria-label",
-		mode === "light" ? "Pick light background color" : "Pick dark text color",
+		mode === "light" ? "背景色を選択" : "テキスト色を選択",
 	);
 
 	// HEX入力
 	const errorId = `${uniqueId}-${mode}-error`;
+	const hexInputId = `${uniqueId}-${mode}-hex`;
 	const hexInput = document.createElement("input");
 	hexInput.type = "text";
+	hexInput.id = hexInputId;
 	hexInput.value = currentColor;
-	hexInput.className = "background-color-selector__hex-input";
+	hexInput.className =
+		"background-color-selector__hex-input dads-input dads-input--bg-color";
 	hexInput.setAttribute(
 		"aria-label",
 		mode === "light"
-			? "Enter light background color in HEX format"
-			: "Enter dark text color in HEX format",
+			? "背景色をHEX（#RRGGBB）またはOKLCHで入力"
+			: "テキスト色をHEX（#RRGGBB）またはOKLCHで入力",
 	);
 	hexInput.setAttribute("aria-describedby", errorId);
 	hexInput.placeholder = mode === "light" ? "#ffffff" : "#000000";
+
+	label.htmlFor = hexInputId;
 
 	inputContainer.appendChild(colorInput);
 	inputContainer.appendChild(hexInput);

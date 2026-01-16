@@ -19,6 +19,7 @@ import { parseColor } from "@/utils/color-space";
 import { createBackgroundColorSelector } from "../background-color-selector";
 import { getDisplayHex } from "../cvd-controls";
 import { parseKeyColor, persistBackgroundColors, state } from "../state";
+import { applyDemoTextColor } from "../theme";
 import {
 	type ColorDetailModalOptions,
 	type PaletteConfig,
@@ -477,6 +478,7 @@ export async function renderPaletteView(
 	container: HTMLElement,
 	callbacks: PaletteViewCallbacks,
 ): Promise<void> {
+	applyDemoTextColor(state.darkBackgroundColor);
 	container.className = "dads-section";
 
 	// パレットが生成されていない場合
@@ -498,7 +500,7 @@ export async function renderPaletteView(
 
 	// 背景色セレクター
 	const backgroundSelectorSection = document.createElement("section");
-	backgroundSelectorSection.className = "background-color-selector";
+	backgroundSelectorSection.className = "background-color-selector-wrapper";
 	const backgroundSelector = createBackgroundColorSelector({
 		lightColor: state.lightBackgroundColor,
 		darkColor: state.darkBackgroundColor,
@@ -519,6 +521,7 @@ export async function renderPaletteView(
 				state.lightBackgroundColor,
 				state.darkBackgroundColor,
 			);
+			applyDemoTextColor(hex);
 			void renderPaletteView(container, callbacks).catch((err) => {
 				console.error("Failed to re-render palette view:", err);
 			});

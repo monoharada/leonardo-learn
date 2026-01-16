@@ -270,14 +270,14 @@ describe("BackgroundColorSelector module", () => {
 			expect(content).toContain('"dark"');
 		});
 
-		it("should have Light (Background) label for light section", () => {
+		it("should have 背景色 label for light section", () => {
 			const content = readSourceFile();
-			expect(content).toContain("Light (Background)");
+			expect(content).toContain("背景色");
 		});
 
-		it("should have Dark (Text) label for dark section", () => {
+		it("should have テキスト色 label for dark section", () => {
 			const content = readSourceFile();
-			expect(content).toContain("Dark (Text)");
+			expect(content).toContain("テキスト色");
 		});
 	});
 });

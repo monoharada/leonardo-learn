@@ -42,6 +42,7 @@ import {
 	persistBackgroundColors,
 	state,
 } from "../state";
+import { applyDemoTextColor } from "../theme";
 import type {
 	ColorDetailModalOptions,
 	CVDType,
@@ -266,6 +267,7 @@ export async function renderShadesView(
 	container: HTMLElement,
 	callbacks: ShadesViewCallbacks,
 ): Promise<void> {
+	applyDemoTextColor(state.darkBackgroundColor);
 	// コンテナをクリアして前のビューのDOMが残らないようにする
 	container.innerHTML = "";
 	container.className = "dads-section";
@@ -302,6 +304,7 @@ export async function renderShadesView(
 				state.lightBackgroundColor,
 				state.darkBackgroundColor,
 			);
+			applyDemoTextColor(hex);
 			// 再レンダリング（コントラスト境界の更新のため）
 			void renderShadesView(container, callbacks).catch((err) => {
 				console.error("Failed to re-render shades view:", err);
