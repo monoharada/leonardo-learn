@@ -10,6 +10,7 @@
 
 import { formatHex, oklch, parse } from "culori";
 import { DEFAULT_SEMANTIC_COLOR_CONFIG, DEFAULT_STATE } from "./constants";
+import { applyDemoTextColor } from "./theme";
 import type {
 	BackgroundColorValidationResult,
 	ColorMode,
@@ -77,7 +78,7 @@ export function validateBackgroundColor(
 ): BackgroundColorValidationResult {
 	// 空文字チェック
 	if (!input || input.trim() === "") {
-		return { valid: false, error: "Color input is required" };
+		return { valid: false, error: "色を入力してください" };
 	}
 
 	const trimmed = input.trim();
@@ -89,7 +90,7 @@ export function validateBackgroundColor(
 		}
 		return {
 			valid: false,
-			error: "Invalid HEX format. Use #RRGGBB (6 hex digits)",
+			error: "HEX形式が不正です（#RRGGBB の6桁）",
 		};
 	}
 
@@ -102,38 +103,41 @@ export function validateBackgroundColor(
 
 		// NaNチェック
 		if (Number.isNaN(l) || Number.isNaN(c) || Number.isNaN(h)) {
-			return { valid: false, error: "OKLCH values must be valid numbers" };
+			return { valid: false, error: "OKLCH の値は数値で入力してください" };
 		}
 
 		// 範囲チェック
 		if (l < OKLCH_CONSTRAINTS.L.min || l > OKLCH_CONSTRAINTS.L.max) {
 			return {
 				valid: false,
-				error: `L value must be between ${OKLCH_CONSTRAINTS.L.min} and ${OKLCH_CONSTRAINTS.L.max}`,
+				error: `L は ${OKLCH_CONSTRAINTS.L.min}〜${OKLCH_CONSTRAINTS.L.max} の範囲で入力してください`,
 			};
 		}
 		if (c < OKLCH_CONSTRAINTS.C.min || c > OKLCH_CONSTRAINTS.C.max) {
 			return {
 				valid: false,
-				error: `C value must be between ${OKLCH_CONSTRAINTS.C.min} and ${OKLCH_CONSTRAINTS.C.max}`,
+				error: `C は ${OKLCH_CONSTRAINTS.C.min}〜${OKLCH_CONSTRAINTS.C.max} の範囲で入力してください`,
 			};
 		}
 		if (h < OKLCH_CONSTRAINTS.H.min || h > OKLCH_CONSTRAINTS.H.max) {
 			return {
 				valid: false,
-				error: `H value must be between ${OKLCH_CONSTRAINTS.H.min} and ${OKLCH_CONSTRAINTS.H.max}`,
+				error: `H は ${OKLCH_CONSTRAINTS.H.min}〜${OKLCH_CONSTRAINTS.H.max} の範囲で入力してください`,
 			};
 		}
 
 		// culori.jsでOKLCH→HEXに変換
 		const color = parse(trimmed);
 		if (!color) {
-			return { valid: false, error: "Failed to parse OKLCH color" };
+			return { valid: false, error: "OKLCH の解析に失敗しました" };
 		}
 
 		const hex = formatHex(color);
 		if (!hex) {
-			return { valid: false, error: "Failed to convert OKLCH to HEX" };
+			return {
+				valid: false,
+				error: "OKLCH から HEX への変換に失敗しました",
+			};
 		}
 
 		return { valid: true, hex: hex.toLowerCase() };
@@ -142,7 +146,7 @@ export function validateBackgroundColor(
 	// どちらの形式でもない場合
 	return {
 		valid: false,
-		error: "Invalid color format. Use #RRGGBB or oklch(L C H)",
+		error: "色の形式が不正です（#RRGGBB または oklch(L C H)）",
 	};
 }
 
@@ -330,7 +334,7 @@ export function loadSemanticColorConfig(): SemanticColorConfig {
  * - selectedHarmonyConfig: 選択されたハーモニー設定
  * - cudMode: CUD対応モード
  * - lightBackgroundColor: ライト背景色（HEX形式、デフォルト: #ffffff）
- * - darkBackgroundColor: ダーク背景色（HEX形式、デフォルト: #000000）
+ * - darkBackgroundColor: テキスト色（HEX形式、デフォルト: #000000）
  * - semanticColorConfig: セマンティックカラー設定（警告色パターン選択）
  */
 export const state: DemoState = {
@@ -350,6 +354,22 @@ export const state: DemoState = {
 	accentCount: DEFAULT_STATE.accentCount,
 	semanticColorConfig: { ...DEFAULT_STATE.semanticColorConfig },
 };
+
+/**
+ * `state.darkBackgroundColor` 変更時に、CSS変数（--demo-text-color）へ同期する。
+ *
+ * NOTE: 既存コードの `state.darkBackgroundColor = ...` を維持しつつ、
+ * View側での `applyDemoTextColor(...)` 呼び出しを不要にするためのアクセサ。
+ */
+let darkBackgroundColorValue = DEFAULT_STATE.darkBackgroundColor;
+Object.defineProperty(state, "darkBackgroundColor", {
+	get: () => darkBackgroundColorValue,
+	set: (value: string) => {
+		darkBackgroundColorValue = value;
+		applyDemoTextColor(value);
+	},
+	enumerable: true,
+});
 
 /**
  * 現在アクティブなパレットを取得する

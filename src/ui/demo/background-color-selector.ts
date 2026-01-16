@@ -1,8 +1,8 @@
 /**
  * 背景色セレクターコンポーネント
  *
- * ライト背景色とダーク背景色（テキスト色）の2色を管理する。
- * ライト背景色がメイン、ダーク背景色はコントラスト確認用の補助的な役割。
+ * ライト背景色とテキスト色（state.darkBackgroundColor）の2色を管理する。
+ * ライト背景色がメイン、テキスト色はデモUI全体の文字色として反映される。
  *
  * @module @/ui/demo/background-color-selector
  * Requirements: 1.1, 1.2, 1.3, 1.5, 1.6, 4.1, 4.2, 4.4
@@ -50,11 +50,11 @@ export function debounce<T extends (...args: unknown[]) => void>(
 export interface BackgroundColorSelectorProps {
 	/** ライト背景色（HEX） */
 	lightColor: string;
-	/** ダーク背景色（HEX） */
+	/** テキスト色（HEX） */
 	darkColor: string;
 	/** ライト背景色変更時のコールバック */
 	onLightColorChange: (hex: string) => void;
-	/** ダーク背景色変更時のコールバック */
+	/** テキスト色変更時のコールバック */
 	onDarkColorChange: (hex: string) => void;
 }
 
@@ -77,38 +77,44 @@ function createColorSection(
 
 	// ラベル
 	const label = document.createElement("label");
-	label.className = "background-color-selector__label";
-	label.textContent = mode === "light" ? "Light (Background)" : "Dark (Text)";
+	label.className = "dads-label background-color-selector__label";
+	label.textContent = mode === "light" ? "背景色" : "テキスト色";
 	section.appendChild(label);
 
 	// 入力コンテナ
 	const inputContainer = document.createElement("div");
-	inputContainer.className = "background-color-selector__inputs";
+	inputContainer.className = "background-color-selector__inputs dads-form-row";
 
 	// カラーピッカー
 	const colorInput = document.createElement("input");
 	colorInput.type = "color";
 	colorInput.value = currentColor;
-	colorInput.className = "background-color-selector__color-picker";
+	colorInput.className =
+		"background-color-selector__color-picker dads-input dads-input--color";
 	colorInput.setAttribute(
 		"aria-label",
-		mode === "light" ? "Pick light background color" : "Pick dark text color",
+		mode === "light" ? "背景色を選択" : "テキスト色を選択",
 	);
 
 	// HEX入力
 	const errorId = `${uniqueId}-${mode}-error`;
+	const hexInputId = `${uniqueId}-${mode}-hex`;
 	const hexInput = document.createElement("input");
 	hexInput.type = "text";
+	hexInput.id = hexInputId;
 	hexInput.value = currentColor;
-	hexInput.className = "background-color-selector__hex-input";
+	hexInput.className =
+		"background-color-selector__hex-input dads-input dads-input--bg-color";
 	hexInput.setAttribute(
 		"aria-label",
 		mode === "light"
-			? "Enter light background color in HEX format"
-			: "Enter dark text color in HEX format",
+			? "背景色をHEX（#RRGGBB）またはOKLCHで入力"
+			: "テキスト色をHEX（#RRGGBB）またはOKLCHで入力",
 	);
 	hexInput.setAttribute("aria-describedby", errorId);
 	hexInput.placeholder = mode === "light" ? "#ffffff" : "#000000";
+
+	label.htmlFor = hexInputId;
 
 	inputContainer.appendChild(colorInput);
 	inputContainer.appendChild(hexInput);
@@ -182,7 +188,7 @@ export function createBackgroundColorSelector(
 	);
 	container.appendChild(lightSection);
 
-	// ダーク背景セクション（補助）
+	// テキスト色セクション（補助）
 	const darkSection = createColorSection(
 		"dark",
 		darkColor,

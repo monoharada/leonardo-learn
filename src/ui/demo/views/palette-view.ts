@@ -498,7 +498,7 @@ export async function renderPaletteView(
 
 	// 背景色セレクター
 	const backgroundSelectorSection = document.createElement("section");
-	backgroundSelectorSection.className = "background-color-selector";
+	backgroundSelectorSection.className = "background-color-selector-wrapper";
 	const backgroundSelector = createBackgroundColorSelector({
 		lightColor: state.lightBackgroundColor,
 		darkColor: state.darkBackgroundColor,

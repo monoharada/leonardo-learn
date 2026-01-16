@@ -26,7 +26,7 @@ html.is-modal-open {
 /* Body */
 body {
 	font-family: var(--font-family-sans);
-	color: var(--color-neutral-solid-gray-800);
+	color: var(--demo-text-color, var(--color-neutral-solid-gray-800));
 	background: var(--color-neutral-solid-gray-50);
 	margin: 0;
 	padding: 0;
