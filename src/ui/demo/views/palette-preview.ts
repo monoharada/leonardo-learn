@@ -147,6 +147,9 @@ const BUNDLED_MAIN_VISUAL_SVG = normalizeMainVisualSvg(
 );
 
 let cachedMainVisualOverrideSvg: string | null = null;
+let mainVisualOverridePromise: Promise<string | null> | null = null;
+let mainVisualOverrideNextRetryAt = 0;
+const MAIN_VISUAL_OVERRIDE_RETRY_MS = 10_000;
 
 function resolveAssetUrl(path: string): string | null {
 	if (path.startsWith("http://") || path.startsWith("https://")) return path;
@@ -236,34 +239,46 @@ function normalizeMainVisualSvg(svgText: string): string {
 
 async function loadMainVisualOverrideSvg(): Promise<string | null> {
 	if (cachedMainVisualOverrideSvg) return cachedMainVisualOverrideSvg;
+	if (mainVisualOverridePromise) return mainVisualOverridePromise;
 
 	// Browsers generally block `fetch(file://...)`, so skip runtime override attempts.
 	if (typeof location !== "undefined" && location.protocol === "file:") {
 		return null;
 	}
 
-	for (const candidatePath of MAIN_VISUAL_SVG_PATHS) {
-		const url = resolveAssetUrl(candidatePath);
-		if (!url) continue;
-
-		try {
-			const res = await fetch(url);
-			if (!res.ok) continue;
-			const text = await res.text();
-			const trimmed = text.trim();
-			// Guard: some static servers may return an HTML error page with 200 OK.
-			// Only accept an actual inline SVG that contains our mv variables.
-			if (!trimmed.startsWith("<svg") || !trimmed.includes("--mv-")) {
-				continue;
-			}
-			cachedMainVisualOverrideSvg = normalizeMainVisualSvg(text);
-			return cachedMainVisualOverrideSvg;
-		} catch {
-			// Try next candidate.
-		}
+	if (Date.now() < mainVisualOverrideNextRetryAt) {
+		return null;
 	}
 
-	return null;
+	mainVisualOverridePromise = (async () => {
+		for (const candidatePath of MAIN_VISUAL_SVG_PATHS) {
+			const url = resolveAssetUrl(candidatePath);
+			if (!url) continue;
+
+			try {
+				const res = await fetch(url);
+				if (!res.ok) continue;
+				const text = await res.text();
+				const trimmed = text.trim();
+				// Guard: some static servers may return an HTML error page with 200 OK.
+				// Only accept an actual inline SVG that contains our mv variables.
+				if (!trimmed.startsWith("<svg") || !trimmed.includes("--mv-")) {
+					continue;
+				}
+				cachedMainVisualOverrideSvg = normalizeMainVisualSvg(text);
+				return cachedMainVisualOverrideSvg;
+			} catch {
+				// Try next candidate.
+			}
+		}
+
+		mainVisualOverrideNextRetryAt = Date.now() + MAIN_VISUAL_OVERRIDE_RETRY_MS;
+		return null;
+	})().finally(() => {
+		mainVisualOverridePromise = null;
+	});
+
+	return mainVisualOverridePromise;
 }
 
 function toSafeInlineSvg(svgText: string): SVGElement | null {
@@ -276,7 +291,7 @@ function toSafeInlineSvg(svgText: string): SVGElement | null {
 
 	// Strip known-dangerous nodes (SVG supports active content).
 	for (const node of root.querySelectorAll(
-		"script,foreignObject,iframe,object,embed",
+		"script,style,foreignObject,iframe,object,embed",
 	)) {
 		node.remove();
 	}
@@ -291,10 +306,26 @@ function toSafeInlineSvg(svgText: string): SVGElement | null {
 			}
 			if (/^(href|xlink:href)$/i.test(name)) {
 				const value = attr.value.trim();
-				if (
-					/^(javascript|vbscript):/i.test(value) ||
-					/^data:text\/html/i.test(value)
-				) {
+				if (!value.startsWith("#")) {
+					el.removeAttribute(name);
+				}
+				continue;
+			}
+
+			const value = attr.value;
+			if (/\burl\s*\(/i.test(value)) {
+				const urlPattern = /url\s*\(\s*(['"]?)([^'")\s]+)\1\s*\)/gi;
+				let match = urlPattern.exec(value);
+				let hasExternalUrl = false;
+				while (match !== null) {
+					const target = match[2] ?? "";
+					if (!target.startsWith("#")) {
+						hasExternalUrl = true;
+						break;
+					}
+					match = urlPattern.exec(value);
+				}
+				if (hasExternalUrl) {
 					el.removeAttribute(name);
 				}
 			}
