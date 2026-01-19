@@ -345,6 +345,16 @@ function getBundledMainVisualSvgClone(): SVGElement | null {
 		bundledMainVisualSvgTemplate = parsed;
 	}
 
+	if (
+		typeof document !== "undefined" &&
+		bundledMainVisualSvgTemplate.ownerDocument !== document
+	) {
+		bundledMainVisualSvgTemplate = document.importNode(
+			bundledMainVisualSvgTemplate,
+			true,
+		) as unknown as SVGElement;
+	}
+
 	return bundledMainVisualSvgTemplate.cloneNode(true) as SVGElement;
 }
 
@@ -353,6 +363,15 @@ function getMainVisualOverrideSvgClone(svgText: string): SVGElement | null {
 		mainVisualOverrideSvgTemplate &&
 		mainVisualOverrideSvgTemplateSource === svgText
 	) {
+		if (
+			typeof document !== "undefined" &&
+			mainVisualOverrideSvgTemplate.ownerDocument !== document
+		) {
+			mainVisualOverrideSvgTemplate = document.importNode(
+				mainVisualOverrideSvgTemplate,
+				true,
+			) as unknown as SVGElement;
+		}
 		return mainVisualOverrideSvgTemplate.cloneNode(true) as SVGElement;
 	}
 
@@ -360,7 +379,7 @@ function getMainVisualOverrideSvgClone(svgText: string): SVGElement | null {
 	if (!parsed) return null;
 	mainVisualOverrideSvgTemplate = parsed;
 	mainVisualOverrideSvgTemplateSource = svgText;
-	return parsed.cloneNode(true) as SVGElement;
+	return mainVisualOverrideSvgTemplate.cloneNode(true) as SVGElement;
 }
 
 function applyMainVisualVars(kv: HTMLElement, seed: number): void {
