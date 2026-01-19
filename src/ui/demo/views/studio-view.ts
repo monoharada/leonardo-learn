@@ -577,7 +577,7 @@ export async function renderStudioView(
 				// 既存Primaryを維持しつつ、アクセントだけ再生成（必要な場合のみ）
 				if (state.palettes.length > 0) {
 					const current = computePaletteColors(dadsTokens);
-					const backgroundHex = state.lightBackgroundColor || "#ffffff";
+					const backgroundHex = "#ffffff";
 					const existing = current.accentHexes;
 					const desired = Math.max(1, Math.min(3, state.accentCount));
 

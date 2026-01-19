@@ -12,9 +12,12 @@ describe("Main visual SVG", () => {
 			new URL("../src/ui/demo/assets/main-visual.svg", import.meta.url),
 		);
 
-		expect(svg).toContain('fill="#FFB695"');
-		expect(svg).not.toContain("var(--mv-bg, #FFB695)");
-		expect(svg).not.toContain("fill: var(--mv-bg, #FFB695)");
+		const hasFixedSkinFill =
+			/fill=(["'])#ffb695\1/i.test(svg) || /fill\s*:\s*#ffb695/i.test(svg);
+		expect(hasFixedSkinFill).toBe(true);
+
+		expect(svg).not.toMatch(/var\(--mv-bg,\s*#ffb695\)/i);
+		expect(svg).not.toMatch(/fill\s*:\s*var\(--mv-bg,\s*#ffb695\)/i);
 	});
 
 	test("dist asset matches bundled SVG", () => {

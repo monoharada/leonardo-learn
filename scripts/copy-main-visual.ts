@@ -1,7 +1,13 @@
 import { copyFileSync, existsSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 
-const sourcePath = ".context/generated/main-visual.svg";
+const bundledSourcePath = "src/ui/demo/assets/main-visual.svg";
+const generatedOverridePath = ".context/generated/main-visual.svg";
+const sourcePath =
+	process.env.MAIN_VISUAL_SOURCE === "context" &&
+	existsSync(generatedOverridePath)
+		? generatedOverridePath
+		: bundledSourcePath;
 const destinationPath = "dist/assets/main-visual.svg";
 
 mkdirSync(dirname(destinationPath), { recursive: true });

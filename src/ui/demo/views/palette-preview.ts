@@ -266,6 +266,44 @@ async function loadMainVisualOverrideSvg(): Promise<string | null> {
 	return null;
 }
 
+function toSafeInlineSvg(svgText: string): SVGElement | null {
+	if (typeof DOMParser === "undefined") return null;
+	if (typeof document === "undefined") return null;
+
+	const parsed = new DOMParser().parseFromString(svgText, "image/svg+xml");
+	const root = parsed.documentElement;
+	if (!root || root.tagName.toLowerCase() !== "svg") return null;
+
+	// Strip known-dangerous nodes (SVG supports active content).
+	for (const node of root.querySelectorAll(
+		"script,foreignObject,iframe,object,embed",
+	)) {
+		node.remove();
+	}
+
+	const elements = [root, ...Array.from(root.querySelectorAll("*"))];
+	for (const el of elements) {
+		for (const attr of Array.from(el.attributes)) {
+			const name = attr.name;
+			if (/^on/i.test(name)) {
+				el.removeAttribute(name);
+				continue;
+			}
+			if (/^(href|xlink:href)$/i.test(name)) {
+				const value = attr.value.trim();
+				if (
+					/^(javascript|vbscript):/i.test(value) ||
+					/^data:text\/html/i.test(value)
+				) {
+					el.removeAttribute(name);
+				}
+			}
+		}
+	}
+
+	return document.importNode(root, true) as unknown as SVGElement;
+}
+
 function applyMainVisualVars(kv: HTMLElement, seed: number): void {
 	const rnd = createSeededRandom(seed ^ 0x9e3779b9);
 
@@ -728,12 +766,20 @@ export function createPalettePreview(
 		// show a bundled fallback so the KV is visible even on file://.
 		applyMainVisualVars(kv, seed);
 		kv.dataset.kvVariant = "main-visual";
-		kv.innerHTML = BUNDLED_MAIN_VISUAL_SVG;
+		const bundledSvg = toSafeInlineSvg(BUNDLED_MAIN_VISUAL_SVG);
+		if (bundledSvg) {
+			kv.replaceChildren(bundledSvg);
+		} else {
+			kv.innerHTML = BUNDLED_MAIN_VISUAL_SVG;
+		}
 
 		void loadMainVisualOverrideSvg().then((svg) => {
 			if (!svg) return;
 			if (!kv.isConnected) return;
-			kv.innerHTML = svg;
+			const safeSvg = toSafeInlineSvg(svg);
+			if (safeSvg) {
+				kv.replaceChildren(safeSvg);
+			}
 		});
 	}
 
