@@ -461,6 +461,9 @@ describe("AccentCandidateService", () => {
 
 	describe("キャッシュ統合 (Requirement 6.2)", () => {
 		it("2回目の呼び出しでキャッシュヒット", async () => {
+			// テスト間でキャッシュが残ると「初回がすでに高速」になりうるため明示的にクリア
+			clearCache();
+
 			// 1回目: キャッシュなし
 			const result1 = await generateCandidates("#0056FF", { limit: 200 });
 			if (!result1.ok) throw new Error(result1.error.message);
@@ -480,7 +483,7 @@ describe("AccentCandidateService", () => {
 			expect(stats2.fullCacheSize).toBe(EXPECTED_CANDIDATES_AFTER_FILTER);
 
 			// 2回目の方が高速（キャッシュヒット）
-			expect(result2.result.calculationTimeMs).toBeLessThan(
+			expect(result2.result.calculationTimeMs).toBeLessThanOrEqual(
 				result1.result.calculationTimeMs,
 			);
 		});

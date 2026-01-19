@@ -13,8 +13,12 @@
  * - Accent → カード背景、アクセント要素
  */
 
-import { formatHex, oklch, parse, wcagContrast } from "culori";
+import { formatHex, interpolate, oklch, parse, wcagContrast } from "culori";
 import { getContrastTextColor } from "@/ui/semantic-role/circular-swatch-transformer";
+import bundledMainVisualSvgText from "../assets/main-visual.svg" with {
+	type: "text",
+};
+import type { PreviewKvState } from "../types";
 
 /**
  * WCAG AA準拠のコントラスト比閾値
@@ -100,6 +104,243 @@ export interface PalettePreviewColors {
 export interface PalettePreviewOptions {
 	/** 表示用のHEX変換関数（例: CVDシミュレーション） */
 	getDisplayHex?: (hex: string) => string;
+	/** ヒーロー右側KV（装飾）の表示制御 */
+	kv?: PreviewKvState;
+	/** 複数アクセントの表示用（任意）。先頭がAccent 1想定。 */
+	accentHexes?: string[];
+}
+
+function hashStringToSeed(value: string): number {
+	let hash = 5381;
+	for (let i = 0; i < value.length; i++) {
+		hash = (hash * 33) ^ value.charCodeAt(i);
+	}
+	return hash >>> 0;
+}
+
+function createSeededRandom(seed: number): () => number {
+	let t = seed >>> 0;
+	return () => {
+		t += 0x6d2b79f5;
+		let r = Math.imul(t ^ (t >>> 15), 1 | t);
+		r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
+		return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+	};
+}
+
+function pickOne<T>(rnd: () => number, items: readonly [T, ...T[]]): T {
+	const index = Math.floor(rnd() * items.length);
+	return items[index]!;
+}
+
+const MAIN_VISUAL_SVG_PATHS: readonly [string, ...string[]] = [
+	// Prefer user-generated source of truth.
+	"./.context/generated/main-visual.svg",
+	// Fallback for servers that block dot-directories: copy during build.
+	"./dist/assets/main-visual.svg",
+	// Optional variant (already normalized) for local experiments.
+	"./.context/generated/main-visual.inline-for-app.svg",
+];
+
+const BUNDLED_MAIN_VISUAL_SVG = normalizeMainVisualSvg(
+	bundledMainVisualSvgText,
+);
+
+let cachedMainVisualOverrideSvg: string | null = null;
+
+function resolveAssetUrl(path: string): string | null {
+	if (path.startsWith("http://") || path.startsWith("https://")) return path;
+	if (typeof location === "undefined") return null;
+	return new URL(path, location.href).toString();
+}
+
+function normalizeMainVisualSvg(svgText: string): string {
+	let svg = svgText.trim();
+
+	// Ensure the root <svg> has preview classes for layout rules.
+	svg = svg.replace(/<svg\b([^>]*)>/, (match, attrs: string) => {
+		if (/\bclass=/.test(attrs)) {
+			return match.replace(
+				/\bclass="([^"]*)"/,
+				(_m, value: string) =>
+					`class="${value} preview-kv__svg preview-kv__svg--mv"`,
+			);
+		}
+		return `<svg class="preview-kv__svg preview-kv__svg--mv"${attrs}>`;
+	});
+
+	// Keep the SVG from cropping when the KV uses a wide aspect ratio.
+	svg = svg.replace(/<svg\b([^>]*)>/, (match, attrs: string) => {
+		if (/\bpreserveAspectRatio=/.test(attrs)) return match;
+		return `<svg preserveAspectRatio="xMidYMid meet"${attrs}>`;
+	});
+
+	// Normalize the viewBox to 4:3 by adding padding (never cropping).
+	const targetAspect = 4 / 3;
+	const aspectEpsilon = 0.01;
+	svg = svg.replace(/\bviewBox="([^"]+)"/, (match, value: string) => {
+		const parts = value
+			.trim()
+			.split(/[\s,]+/)
+			.filter(Boolean);
+		if (parts.length !== 4) return match;
+
+		const [minX, minY, width, height] = parts.map((part) => Number(part)) as [
+			number,
+			number,
+			number,
+			number,
+		];
+		if (
+			!Number.isFinite(minX) ||
+			!Number.isFinite(minY) ||
+			!Number.isFinite(width) ||
+			!Number.isFinite(height) ||
+			width <= 0 ||
+			height <= 0
+		) {
+			return match;
+		}
+
+		const aspect = width / height;
+		if (Math.abs(aspect - targetAspect) <= aspectEpsilon) return match;
+
+		const format = (num: number) => {
+			const rounded = Math.round(num * 1000) / 1000;
+			return Number.isFinite(rounded) ? String(rounded) : String(num);
+		};
+
+		if (aspect < targetAspect) {
+			const nextWidth = height * targetAspect;
+			const pad = (nextWidth - width) / 2;
+			return `viewBox="${format(minX - pad)} ${format(minY)} ${format(
+				nextWidth,
+			)} ${format(height)}"`;
+		}
+
+		const nextHeight = width / targetAspect;
+		const pad = (nextHeight - height) / 2;
+		return `viewBox="${format(minX)} ${format(minY - pad)} ${format(width)} ${format(
+			nextHeight,
+		)}"`;
+	});
+
+	// Make the first full-canvas white rect transparent so the KV background can show through.
+	svg = svg.replace(
+		/(<rect\b[^>]*?)fill="#FFFFFF"/,
+		(_m, prefix: string) => `${prefix}fill="transparent"`,
+	);
+
+	return svg;
+}
+
+async function loadMainVisualOverrideSvg(): Promise<string | null> {
+	if (cachedMainVisualOverrideSvg) return cachedMainVisualOverrideSvg;
+
+	// Browsers generally block `fetch(file://...)`, so skip runtime override attempts.
+	if (typeof location !== "undefined" && location.protocol === "file:") {
+		return null;
+	}
+
+	for (const candidatePath of MAIN_VISUAL_SVG_PATHS) {
+		const url = resolveAssetUrl(candidatePath);
+		if (!url) continue;
+
+		try {
+			const res = await fetch(url);
+			if (!res.ok) continue;
+			const text = await res.text();
+			const trimmed = text.trim();
+			// Guard: some static servers may return an HTML error page with 200 OK.
+			// Only accept an actual inline SVG that contains our mv variables.
+			if (!trimmed.startsWith("<svg") || !trimmed.includes("--mv-")) {
+				continue;
+			}
+			cachedMainVisualOverrideSvg = normalizeMainVisualSvg(text);
+			return cachedMainVisualOverrideSvg;
+		} catch {
+			// Try next candidate.
+		}
+	}
+
+	return null;
+}
+
+function applyMainVisualVars(kv: HTMLElement, seed: number): void {
+	const rnd = createSeededRandom(seed ^ 0x9e3779b9);
+
+	const hairColor = parse("#FEFAF9");
+	const whiteColor = parse("#FFFFFF");
+	const minHairContrast = 1.9;
+	const tintSteps = [
+		0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9,
+		0.95, 1,
+	] as const;
+
+	const bgBases = [
+		"--preview-accent",
+		"--preview-accent-2",
+		"--preview-accent-3",
+	] as const;
+
+	const previewRoot = kv.closest<HTMLElement>(".dads-preview") ?? kv;
+	const getVarValue = (name: string) => {
+		const inline = previewRoot.style.getPropertyValue(name).trim();
+		if (inline) return inline;
+		if (typeof getComputedStyle !== "function") return "";
+		return getComputedStyle(previewRoot).getPropertyValue(name).trim();
+	};
+
+	const shuffledBases = [...bgBases] as (typeof bgBases)[number][];
+	for (let i = shuffledBases.length - 1; i > 0; i--) {
+		const j = Math.floor(rnd() * (i + 1));
+		[shuffledBases[i], shuffledBases[j]] = [
+			shuffledBases[j]!,
+			shuffledBases[i]!,
+		];
+	}
+
+	let resolvedBgHex: string | null = null;
+	if (hairColor && whiteColor) {
+		for (const baseVar of shuffledBases) {
+			const baseValue = getVarValue(baseVar);
+			if (!baseValue) continue;
+			const baseColor = parse(baseValue);
+			if (!baseColor) continue;
+
+			const tint = interpolate([whiteColor, baseColor], "oklch");
+			let chosenT: number | null = null;
+			for (const t of tintSteps) {
+				const candidate = tint(t);
+				if (wcagContrast(candidate, hairColor) >= minHairContrast) {
+					chosenT = t;
+					break;
+				}
+			}
+			if (chosenT === null) continue;
+
+			// Add a small deterministic variation, never reducing contrast.
+			const t = Math.min(1, chosenT + pickOne(rnd, [0, 0.05, 0.1] as const));
+			const hex = formatHex(tint(t));
+			if (hex) {
+				resolvedBgHex = hex;
+				break;
+			}
+		}
+	}
+
+	if (resolvedBgHex) {
+		kv.style.setProperty("--mv-bg", resolvedBgHex);
+	} else {
+		const fallbackBase = pickOne(rnd, bgBases);
+		kv.style.setProperty(
+			"--mv-bg",
+			`color-mix(in oklch, var(${fallbackBase}) 55%, var(--color-neutral-white))`,
+		);
+	}
+	kv.style.setProperty("--mv-cloth-1", "var(--preview-primary)");
+	kv.style.setProperty("--mv-cloth-2", "var(--preview-accent-2)");
+	kv.style.setProperty("--mv-accent", "var(--preview-accent)");
 }
 
 /**
@@ -141,7 +382,8 @@ export function mapPaletteToPreviewColors(
 	const footerText = textColorName === "black" ? "#FFFFFF" : "#1A1A1A";
 
 	// カード背景色
-	const cardBg = backgroundColor === "#FFFFFF" ? "#F8F8F8" : "#FFFFFF";
+	// DADS neutralに寄せる（白背景ならgray-50をカード/ボックスの面に使用）
+	const cardBg = backgroundColor === "#FFFFFF" ? "#F2F2F2" : "#FFFFFF";
 
 	// コントラスト調整済みのテキスト色を計算
 	// - headlineText: ヘッドライン（大きいテキスト）用
@@ -221,245 +463,200 @@ function deriveButtonStateColors(primaryHex: string): {
 	};
 }
 
-function createPreviewIdPrefix(): string {
-	const uuid =
-		typeof crypto !== "undefined" && "randomUUID" in crypto
-			? crypto.randomUUID()
-			: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-
-	return `palette-preview-${uuid}`;
-}
-
-function buildDadsPreviewMarkup(ids: {
-	emailInputId: string;
-	supportTextId: string;
-	errorTextId: string;
-	infoCloseLabelId: string;
-	successCloseLabelId: string;
-	warningCloseLabelId: string;
-	errorCloseLabelId: string;
-}): string {
+function buildDadsPreviewMarkup(): string {
 	return `
 <div class="preview-page">
 	<div class="preview-surface">
 		<header class="preview-header">
-			<a class="preview-brand" href="#" aria-label="ブランドサイト（プレビュー）">
-				<span aria-hidden="true" class="preview-brand__dot"></span>
-				ブランドサイト
-			</a>
-			<nav class="preview-nav" aria-label="サイト内ナビゲーション">
-				<a class="dads-link" href="#">ホーム</a>
-				<a class="dads-link" href="#">サービス</a>
-				<a class="dads-link" href="#">お問い合わせ</a>
-			</nav>
+			<div class="preview-container preview-header__inner">
+				<a class="preview-brand" href="#" aria-label="ブランドサイト（プレビュー）">
+					<span aria-hidden="true" class="preview-brand__dot"></span>
+					ブランドサイト
+				</a>
+				<nav class="preview-nav" aria-label="サイト内ナビゲーション">
+					<a class="dads-link" href="#">ホーム</a>
+					<a class="dads-link" href="#">ガイド</a>
+					<a class="dads-link" href="#">お問い合わせ</a>
+				</nav>
+			</div>
 		</header>
 
 		<main class="preview-main">
-			<section class="preview-announcement" aria-label="お知らせ">
-				<div class="dads-notification-banner" data-style="color-chip" data-type="info-1">
-					<h2 class="dads-notification-banner__heading">
-						<svg class="dads-notification-banner__icon" width="24" height="24" viewBox="0 0 24 24" role="img" aria-label="お知らせ">
-							<circle cx="12" cy="12" r="10" fill="currentcolor" />
-							<circle cx="12" cy="8" r="1" fill="Canvas" />
-							<path d="M11 11h2v6h-2z" fill="Canvas" />
-						</svg>
-						<span class="dads-notification-banner__heading-text">次のアップデートを準備中です</span>
-					</h2>
-					<button class="dads-notification-banner__close" type="button" aria-labelledby="${ids.infoCloseLabelId}">
-						<svg class="dads-notification-banner__close-icon" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
-							<path d="m6.4 18.6-1-1 5.5-5.6-5.6-5.6 1.1-1 5.6 5.5 5.6-5.6 1 1.1L13 12l5.6 5.6-1 1L12 13l-5.6 5.6Z" fill="currentcolor" />
-						</svg>
-						<span id="${ids.infoCloseLabelId}" class="dads-notification-banner__close-label">閉じる</span>
-					</button>
-					<div class="dads-notification-banner__body">
-						<p class="preview-announcement__meta">
-							<time datetime="2026-01-12">2026年1月12日</time>・ベータ
-						</p>
-						<p>配色の「使われ方」をもっと確かめられるよう、トップページの見せ方を磨いています。</p>
-					</div>
-					<div class="dads-notification-banner__actions">
-						<button class="dads-button" data-size="md" data-type="outline" type="button">詳しく見る</button>
-						<button class="dads-button" data-size="md" data-type="solid-fill" type="button">通知設定</button>
-					</div>
-				</div>
-			</section>
-
 			<section class="preview-hero" aria-label="ヒーロー">
-				<div class="preview-hero__layout">
-					<div class="preview-hero__copy">
-						<hgroup class="dads-heading" data-size="45" data-chip>
-							<p class="dads-heading__shoulder">カラープレビュー</p>
-							<h1 class="dads-heading__heading">DADSコンポーネントで配色を確認</h1>
+				<div class="preview-container">
+					<div class="preview-hero__layout">
+						<div class="preview-hero__copy">
+							<hgroup class="dads-heading" data-size="57">
+								<h1 class="dads-heading__heading">
+									配色を設計し<br />
+									実装して<br />
+									運用する。
+								</h1>
+							</hgroup>
+							<p class="preview-lead">
+								生成したプライマリ／アクセントを、DADS（デジタル庁デザインシステム）のHTMLコンポーネントへ当てはめたときの「空気感」を、ページ全体で確かめられます。
+							</p>
+							<p class="preview-kicker">配色は、ルールと運用で強くなります。</p>
+							<div class="preview-actions" aria-label="操作">
+								<button class="dads-button" data-size="lg" data-type="solid-fill" type="button">プレビューを更新</button>
+								<button class="dads-button" data-size="lg" data-type="outline" type="button">設計のヒント</button>
+							</div>
+							<p class="preview-hero__meta">
+								<time datetime="2026-01-17">2026年1月17日</time>・スタジオプレビュー
+							</p>
+						</div>
+						<div class="preview-hero__visual" aria-hidden="true">
+							<div class="preview-kv" data-preview-kv="1" role="img" aria-label="キービジュアル（装飾）"></div>
+						</div>
+					</div>
+				</div>
+			</section>
+
+			<section class="preview-section preview-section--strip" aria-label="まとめ">
+				<div class="preview-container">
+					<div class="preview-strip">
+						<div class="preview-strip__layout">
+							<div class="preview-strip__lead">
+								<hgroup class="dads-heading" data-size="24">
+									<h2 class="dads-heading__heading">アクセントは、最大3色まで。</h2>
+								</hgroup>
+								<p class="preview-strip__desc">
+									ニュートラルは「面」に、アクセントは「サイン」に。ページ全体のリズムを崩さずに、情報の強弱を作ります。
+								</p>
+								<div class="preview-strip__actions">
+									<button class="dads-button" data-size="md" data-type="outline" type="button">ルールを確認</button>
+									<button class="dads-button" data-size="md" data-type="solid-fill" type="button">設定を開く</button>
+								</div>
+								<div class="preview-strip__legend" aria-label="アクセントのサンプル">
+									<span class="preview-pill" data-tone="accent-1">Accent 1</span>
+									<span class="preview-pill" data-tone="accent-2">Accent 2</span>
+									<span class="preview-pill" data-tone="accent-3">Accent 3</span>
+								</div>
+							</div>
+
+							<div class="preview-strip__links" aria-label="関連リンク">
+								<a class="preview-link-row dads-link" href="#">
+									<span class="preview-link-row__text">配色のコントラスト（AA）</span>
+									<span aria-hidden="true" class="preview-link-row__arrow">→</span>
+								</a>
+								<a class="preview-link-row dads-link" href="#">
+									<span class="preview-link-row__text">ボタンの状態（hover / active）</span>
+									<span aria-hidden="true" class="preview-link-row__arrow">→</span>
+								</a>
+								<a class="preview-link-row dads-link" href="#">
+									<span class="preview-link-row__text">カード面と余白のバランス</span>
+									<span aria-hidden="true" class="preview-link-row__arrow">→</span>
+								</a>
+							</div>
+						</div>
+					</div>
+				</div>
+			</section>
+
+			<section class="preview-section preview-section--editorial" aria-label="設計">
+				<div class="preview-container">
+					<div class="preview-section-head">
+						<hgroup class="dads-heading" data-size="36">
+							<h2 class="dads-heading__heading">設計</h2>
 						</hgroup>
-						<p class="preview-lead">
-							生成したプライマリ／アクセントを、DADS（デジタル庁デザインシステム）のHTMLコンポーネントへ当てはめたときの見え方を確認します。
-						</p>
-						<p class="preview-kicker">その色は、本当に「押したくなる」ボタンになっていますか？</p>
-						<div class="preview-actions" aria-label="操作">
-							<button class="dads-button" data-size="lg" data-type="solid-fill" type="button">主要操作</button>
-							<button class="dads-button" data-size="lg" data-type="outline" type="button">副次操作</button>
-							<button class="dads-button" data-size="lg" data-type="text" type="button">詳細を見る</button>
-						</div>
-						<div class="preview-hero__link">
-							<a class="dads-link" href="#preview-pickup">ピックアップを見る</a>
-						</div>
-					</div>
-					<div class="preview-hero__visual" aria-hidden="true">
-						<div class="preview-kv" role="img" aria-label="キービジュアル（装飾）">
-							<div class="preview-kv__shape preview-kv__shape--primary"></div>
-							<div class="preview-kv__shape preview-kv__shape--accent"></div>
-							<div class="preview-kv__ring"></div>
-						</div>
-					</div>
-				</div>
-			</section>
-
-			<section id="preview-pickup" class="preview-section" aria-label="ピックアップ">
-				<hgroup class="dads-heading" data-size="20" data-rule="2">
-					<h2 class="dads-heading__heading">ピックアップ</h2>
-				</hgroup>
-				<div class="preview-section__content">
-					<ul class="preview-resource-grid">
-						<li>
-							<div class="dads-resource-list" data-style="frame">
-								<div class="dads-resource-list__body">
-									<svg width="24" height="24" viewBox="0 0 24 24" fill="currentcolor" aria-hidden="true">
-										<path d="M4.6 20.5c-.5-.1-1-.6-1.1-1l16-16c.5.1.9.6 1 1l-16 16Zm-1.1-6.4v-2L12 3.4h2.1L3.5 14.1Zm0-7.4V5.3c0-1 .8-1.8 1.8-1.8h1.4L3.5 6.7Zm13.8 13.8 3.2-3.2v1.4c0 1-.8 1.8-1.8 1.8h-1.4Zm-7.4 0L20.5 9.9v2L12 20.6H9.9Z" />
-									</svg>
-									<div class="dads-resource-list__contents">
-										<h3 class="dads-resource-list__title">デザイントークン</h3>
-										<div class="dads-resource-list__label">
-											<p>基礎</p>
-										</div>
-										<div class="dads-resource-list__support">
-											<p>色・余白・タイポグラフィなどの共通値</p>
-										</div>
-									</div>
-								</div>
+						<div class="preview-section-head__body">
+							<p class="preview-section-head__desc">
+								配色を「単発の見た目」ではなく、運用できるルールとして扱うための要点をまとめます。
+							</p>
+							<div class="preview-tags" aria-label="トピック">
+								<span class="preview-tag" data-tone="accent-1">アクセシビリティ</span>
+								<span class="preview-tag" data-tone="accent-2">状態設計</span>
+								<span class="preview-tag" data-tone="accent-3">ガバナンス</span>
+								<span class="preview-tag" data-tone="neutral">運用</span>
 							</div>
-						</li>
-						<li>
-							<div class="dads-resource-list" data-style="frame">
-								<div class="dads-resource-list__body">
-									<svg width="24" height="24" viewBox="0 0 24 24" fill="currentcolor" aria-hidden="true">
-										<path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm1 15h-2v-2h2v2Zm0-4h-2V7h2v6Z" />
-									</svg>
-									<div class="dads-resource-list__contents">
-										<h3 class="dads-resource-list__title">アクセシビリティ</h3>
-										<div class="dads-resource-list__label">
-											<p>必須</p>
-										</div>
-										<div class="dads-resource-list__support">
-											<p>コントラストや状態表示の見え方を確認</p>
-										</div>
-									</div>
-								</div>
-							</div>
-						</li>
-						<li>
-							<div class="dads-resource-list" data-style="frame">
-								<div class="dads-resource-list__body">
-									<svg width="24" height="24" viewBox="0 0 24 24" fill="currentcolor" aria-hidden="true">
-										<path d="M6 2h9l3 3v17H6V2Zm2 5h8V5H8v2Zm0 4h8V9H8v2Zm0 4h8v-2H8v2Z" />
-									</svg>
-									<div class="dads-resource-list__contents">
-										<h3 class="dads-resource-list__title">ガイドライン</h3>
-										<div class="dads-resource-list__label">
-											<p>近日公開</p>
-										</div>
-										<div class="dads-resource-list__support">
-											<p>配色の使い分け・ルール設計のヒント</p>
-										</div>
-									</div>
-								</div>
-							</div>
-						</li>
-					</ul>
-				</div>
-			</section>
-
-			<section class="preview-section" aria-label="フォーム">
-				<hgroup class="dads-heading" data-size="20" data-rule="2">
-					<h2 class="dads-heading__heading">入力フォーム</h2>
-				</hgroup>
-				<div class="preview-section__content preview-form">
-					<div class="dads-form-control-label" data-size="md">
-						<label class="dads-form-control-label__label" for="${ids.emailInputId}">
-							メールアドレス
-							<span class="dads-form-control-label__requirement" data-required="true">※必須</span>
-						</label>
-						<p id="${ids.supportTextId}" class="dads-form-control-label__support-text">
-							確認用の通知を送付します。
-						</p>
-						<div>
-							<span class="dads-input-text">
-								<input id="${ids.emailInputId}" class="dads-input-text__input" type="email" data-size="md" aria-invalid="true" aria-describedby="${ids.errorTextId} ${ids.supportTextId}" value="example@" />
-								<span id="${ids.errorTextId}" class="dads-input-text__error-text">＊メールアドレスの形式で入力してください。</span>
-							</span>
 						</div>
 					</div>
-				</div>
-			</section>
 
-			<section class="preview-section" aria-label="通知">
-				<hgroup class="dads-heading" data-size="20" data-rule="2">
-					<h2 class="dads-heading__heading">通知（セマンティックカラー）</h2>
-				</hgroup>
-				<div class="preview-section__content preview-notifications">
-					<div class="dads-notification-banner" data-style="standard" data-type="success">
-						<h2 class="dads-notification-banner__heading">
-							<svg class="dads-notification-banner__icon" width="24" height="24" viewBox="0 0 24 24" role="img" aria-label="成功">
-								<circle cx="12" cy="12" r="10" fill="currentcolor" />
-								<path d="m17.6 9.6-7 7-4.3-4.3L7.7 11l2.9 2.9 5.7-5.6 1.3 1.4Z" fill="Canvas" />
-							</svg>
-							<span class="dads-notification-banner__heading-text">完了しました</span>
-						</h2>
-						<button class="dads-notification-banner__close" type="button" aria-labelledby="${ids.successCloseLabelId}">
-							<svg class="dads-notification-banner__close-icon" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
-								<path d="m6.4 18.6-1-1 5.5-5.6-5.6-5.6 1.1-1 5.6 5.5 5.6-5.6 1 1.1L13 12l5.6 5.6-1 1L12 13l-5.6 5.6Z" fill="currentcolor" />
-							</svg>
-							<span id="${ids.successCloseLabelId}" class="dads-notification-banner__close-label">閉じる</span>
-						</button>
+					<hr class="preview-divider" />
+
+					<div class="preview-topics" aria-label="設計の要点">
+						<article class="preview-topic" data-tone="accent-1">
+							<hgroup class="dads-heading" data-size="18">
+								<h3 class="dads-heading__heading">役割を固定する</h3>
+							</hgroup>
+							<p class="preview-topic__desc">
+								Primary / Accent / Semantic の責務を混ぜないことで、ページが「市場」っぽく崩れません。
+							</p>
+						</article>
+						<article class="preview-topic" data-tone="accent-2">
+							<hgroup class="dads-heading" data-size="18">
+								<h3 class="dads-heading__heading">面はニュートラル</h3>
+							</hgroup>
+							<p class="preview-topic__desc">
+								白を土台に、カードやボックスはニュートラルで面を作ります。アクセントは使いすぎない。
+							</p>
+						</article>
+						<article class="preview-topic" data-tone="accent-3">
+							<hgroup class="dads-heading" data-size="18">
+								<h3 class="dads-heading__heading">強弱を作る</h3>
+							</hgroup>
+							<p class="preview-topic__desc">
+								見出し、区切り、誘導。小さな差分の積み重ねが、読みやすいページを作ります。
+							</p>
+						</article>
+						<article class="preview-topic" data-tone="neutral">
+							<hgroup class="dads-heading" data-size="18">
+								<h3 class="dads-heading__heading">検証して残す</h3>
+							</hgroup>
+							<p class="preview-topic__desc">
+								コントラストや状態色の検証結果を「ルール」として残すと、チームで継続できます。
+							</p>
+						</article>
 					</div>
 
-					<div class="dads-notification-banner" data-style="standard" data-type="warning">
-						<h2 class="dads-notification-banner__heading">
-							<svg class="dads-notification-banner__icon" width="24" height="24" viewBox="0 0 24 24" role="img" aria-label="警告">
-								<path d="M1 21 12 2l11 19H1Z" fill="currentcolor" />
-								<path d="M13 15h-2v-5h2v5Z" fill="Canvas" />
-								<circle cx="12" cy="17" r="1" fill="Canvas" />
-							</svg>
-							<span class="dads-notification-banner__heading-text">入力内容を確認してください</span>
-						</h2>
-						<button class="dads-notification-banner__close" type="button" aria-labelledby="${ids.warningCloseLabelId}">
-							<svg class="dads-notification-banner__close-icon" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
-								<path d="m6.4 18.6-1-1 5.5-5.6-5.6-5.6 1.1-1 5.6 5.5 5.6-5.6 1 1.1L13 12l5.6 5.6-1 1L12 13l-5.6 5.6Z" fill="currentcolor" />
-							</svg>
-							<span id="${ids.warningCloseLabelId}" class="dads-notification-banner__close-label">閉じる</span>
-						</button>
-					</div>
+					<div class="preview-media-layout" aria-label="読み物">
+						<div class="preview-media" aria-label="メディア（プレビュー）">
+							<button class="preview-play" type="button" aria-label="再生（ダミー）">
+								<span class="preview-play__icon" aria-hidden="true">▶</span>
+							</button>
+							<p class="preview-media__caption">
+								<strong>短い動画</strong>：配色ルールを決めるための3つの質問
+							</p>
+						</div>
 
-					<div class="dads-notification-banner" data-style="standard" data-type="error">
-						<h2 class="dads-notification-banner__heading">
-							<svg class="dads-notification-banner__icon" width="24" height="24" viewBox="0 0 24 24" role="img" aria-label="エラー">
-								<path d="M8.25 21 3 15.75v-7.5L8.25 3h7.5L21 8.25v7.5L15.75 21h-7.5Z" fill="currentcolor" />
-								<path d="m12 13.4-2.85 2.85-1.4-1.4L10.6 12 7.75 9.15l1.4-1.4L12 10.6l2.85-2.85 1.4 1.4L13.4 12l2.85 2.85-1.4 1.4L12 13.4Z" fill="Canvas" />
-							</svg>
-							<span class="dads-notification-banner__heading-text">エラーが発生しました</span>
-						</h2>
-						<button class="dads-notification-banner__close" type="button" aria-labelledby="${ids.errorCloseLabelId}">
-							<svg class="dads-notification-banner__close-icon" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
-								<path d="m6.4 18.6-1-1 5.5-5.6-5.6-5.6 1.1-1 5.6 5.5 5.6-5.6 1 1.1L13 12l5.6 5.6-1 1L12 13l-5.6 5.6Z" fill="currentcolor" />
-							</svg>
-							<span id="${ids.errorCloseLabelId}" class="dads-notification-banner__close-label">閉じる</span>
-						</button>
+						<div class="preview-articles" aria-label="記事一覧">
+							<article class="preview-article">
+								<p class="preview-article__meta">2025年10月29日・検証</p>
+								<a class="preview-article__title dads-link" href="#">
+									大規模言語モデルにおける内省の兆候
+								</a>
+								<p class="preview-article__desc">
+									ルール化の前に、観察する。配色を「状態」として扱うための見取り図。
+								</p>
+							</article>
+							<article class="preview-article">
+								<p class="preview-article__meta">2025年3月27日・運用</p>
+								<a class="preview-article__title dads-link" href="#">
+									アクセントを増やしすぎないための手順
+								</a>
+								<p class="preview-article__desc">
+									2色目、3色目は「使いどころ」を先に決める。迷わないための分岐。
+								</p>
+							</article>
+							<article class="preview-article">
+								<p class="preview-article__meta">2025年2月3日・設計</p>
+								<a class="preview-article__title dads-link" href="#">
+									ボタンのhover/activeを「色の差」で管理する
+								</a>
+								<p class="preview-article__desc">
+									濃淡のルールを決めると、配色が「運用できるUI」になります。
+								</p>
+							</article>
+						</div>
 					</div>
 				</div>
 			</section>
 		</main>
 
 		<footer class="preview-footer">
-			<small>© 2026 カラートークン生成ツール（プレビュー）</small>
+			<div class="preview-container">
+				<small>© 2026 カラートークン生成ツール（プレビュー）</small>
+			</div>
 		</footer>
 	</div>
 </div>
@@ -479,9 +676,13 @@ export function createPalettePreview(
 	const getDisplayHex = options.getDisplayHex ?? ((hex) => hex);
 
 	const buttonState = deriveButtonStateColors(colors.button);
+	const accentHex2 = options.accentHexes?.[1] ?? colors.cardAccent;
+	const accentHex3 = options.accentHexes?.[2] ?? accentHex2;
 	const previewVars: Record<string, string> = {
 		"--preview-bg": colors.background,
 		"--preview-text": colors.text,
+		"--preview-card": colors.card,
+		"--preview-border": colors.border,
 		"--preview-primary": colors.button,
 		"--preview-primary-hover": buttonState.hover,
 		"--preview-primary-active": buttonState.active,
@@ -490,6 +691,8 @@ export function createPalettePreview(
 		"--preview-outline-active-bg": buttonState.outlineActiveBg,
 		"--preview-heading": colors.headlineText,
 		"--preview-accent": colors.cardAccent,
+		"--preview-accent-2": accentHex2,
+		"--preview-accent-3": accentHex3,
 		"--preview-success": colors.success,
 		"--preview-warning": colors.warning,
 		"--preview-error": colors.error,
@@ -498,15 +701,41 @@ export function createPalettePreview(
 		container.style.setProperty(name, getDisplayHex(value));
 	}
 
-	const prefix = createPreviewIdPrefix();
-	container.innerHTML = buildDadsPreviewMarkup({
-		emailInputId: `${prefix}-email`,
-		supportTextId: `${prefix}-support-text`,
-		errorTextId: `${prefix}-error-text`,
-		infoCloseLabelId: `${prefix}-info-close-label`,
-		successCloseLabelId: `${prefix}-success-close-label`,
-		warningCloseLabelId: `${prefix}-warning-close-label`,
-		errorCloseLabelId: `${prefix}-error-close-label`,
-	});
+	container.innerHTML = buildDadsPreviewMarkup();
+
+	// ---- Hero KV (main visual) ----
+	const kv = container.querySelector<HTMLElement>(".preview-kv");
+	if (kv) {
+		const seed =
+			options.kv?.locked && typeof options.kv.seed === "number"
+				? options.kv.seed
+				: hashStringToSeed(
+						[
+							colors.background,
+							colors.button,
+							colors.cardAccent,
+							colors.success,
+							colors.warning,
+							colors.error,
+						].join("|"),
+					);
+		kv.dataset.kvBg = "card";
+		kv.dataset.kvMode = options.kv?.locked ? "locked" : "auto";
+		// Page background is fixed (white); use neutral "surface" for the KV box.
+		kv.style.setProperty("--preview-kv-bg", "var(--preview-card)");
+
+		// Main visual (inline SVG). Runtime override is attempted, but we always
+		// show a bundled fallback so the KV is visible even on file://.
+		applyMainVisualVars(kv, seed);
+		kv.dataset.kvVariant = "main-visual";
+		kv.innerHTML = BUNDLED_MAIN_VISUAL_SVG;
+
+		void loadMainVisualOverrideSvg().then((svg) => {
+			if (!svg) return;
+			if (!kv.isConnected) return;
+			kv.innerHTML = svg;
+		});
+	}
+
 	return container;
 }
