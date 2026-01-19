@@ -150,6 +150,9 @@ let cachedMainVisualOverrideSvg: string | null = null;
 let mainVisualOverridePromise: Promise<string | null> | null = null;
 let mainVisualOverrideNextRetryAt = 0;
 const MAIN_VISUAL_OVERRIDE_RETRY_MS = 10_000;
+let bundledMainVisualSvgTemplate: SVGElement | null = null;
+let mainVisualOverrideSvgTemplate: SVGElement | null = null;
+let mainVisualOverrideSvgTemplateSource: string | null = null;
 
 function resolveAssetUrl(path: string): string | null {
 	if (path.startsWith("http://") || path.startsWith("https://")) return path;
@@ -333,6 +336,31 @@ function toSafeInlineSvg(svgText: string): SVGElement | null {
 	}
 
 	return document.importNode(root, true) as unknown as SVGElement;
+}
+
+function getBundledMainVisualSvgClone(): SVGElement | null {
+	if (!bundledMainVisualSvgTemplate) {
+		const parsed = toSafeInlineSvg(BUNDLED_MAIN_VISUAL_SVG);
+		if (!parsed) return null;
+		bundledMainVisualSvgTemplate = parsed;
+	}
+
+	return bundledMainVisualSvgTemplate.cloneNode(true) as SVGElement;
+}
+
+function getMainVisualOverrideSvgClone(svgText: string): SVGElement | null {
+	if (
+		mainVisualOverrideSvgTemplate &&
+		mainVisualOverrideSvgTemplateSource === svgText
+	) {
+		return mainVisualOverrideSvgTemplate.cloneNode(true) as SVGElement;
+	}
+
+	const parsed = toSafeInlineSvg(svgText);
+	if (!parsed) return null;
+	mainVisualOverrideSvgTemplate = parsed;
+	mainVisualOverrideSvgTemplateSource = svgText;
+	return parsed.cloneNode(true) as SVGElement;
 }
 
 function applyMainVisualVars(kv: HTMLElement, seed: number): void {
@@ -797,7 +825,7 @@ export function createPalettePreview(
 		// show a bundled fallback so the KV is visible even on file://.
 		applyMainVisualVars(kv, seed);
 		kv.dataset.kvVariant = "main-visual";
-		const bundledSvg = toSafeInlineSvg(BUNDLED_MAIN_VISUAL_SVG);
+		const bundledSvg = getBundledMainVisualSvgClone();
 		if (bundledSvg) {
 			kv.replaceChildren(bundledSvg);
 		} else {
@@ -807,7 +835,7 @@ export function createPalettePreview(
 		void loadMainVisualOverrideSvg().then((svg) => {
 			if (!svg) return;
 			if (!kv.isConnected) return;
-			const safeSvg = toSafeInlineSvg(svg);
+			const safeSvg = getMainVisualOverrideSvgClone(svg);
 			if (safeSvg) {
 				kv.replaceChildren(safeSvg);
 			}
