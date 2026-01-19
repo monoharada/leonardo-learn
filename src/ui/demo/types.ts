@@ -198,6 +198,8 @@ export interface DemoState {
 	lockedColors: LockedColorsState;
 	/** Studioビュー用: 選択中プリセット */
 	activePreset: StudioPresetType;
+	/** Studioビュー用: 乱数シード（Generateの再現性/デバッグ用） */
+	studioSeed: number;
 	/** PreviewのヒーローKV（メインビジュアル）設定 */
 	previewKv: PreviewKvState;
 }

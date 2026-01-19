@@ -142,22 +142,31 @@ const MAIN_VISUAL_SVG_PATHS: readonly [string, ...string[]] = [
 	"./.context/generated/main-visual.inline-for-app.svg",
 ];
 
-const BUNDLED_MAIN_VISUAL_SVG = normalizeMainVisualSvg(
-	bundledMainVisualSvgText,
-);
+let bundledMainVisualSvgTextNormalized: string | null = null;
+function getBundledMainVisualSvgText(): string {
+	if (!bundledMainVisualSvgTextNormalized) {
+		bundledMainVisualSvgTextNormalized = normalizeMainVisualSvg(
+			bundledMainVisualSvgText,
+		);
+	}
+	return bundledMainVisualSvgTextNormalized;
+}
 
 let cachedMainVisualOverrideSvg: string | null = null;
 let mainVisualOverridePromise: Promise<string | null> | null = null;
 let mainVisualOverrideNextRetryAt = 0;
 const MAIN_VISUAL_OVERRIDE_RETRY_MS = 10_000;
+const MAIN_VISUAL_BUNDLED_FALLBACK_DELAY_MS = 200;
 let bundledMainVisualSvgTemplate: SVGElement | null = null;
 let mainVisualOverrideSvgTemplate: SVGElement | null = null;
 let mainVisualOverrideSvgTemplateSource: string | null = null;
 
 function resolveAssetUrl(path: string): string | null {
-	if (path.startsWith("http://") || path.startsWith("https://")) return path;
 	if (typeof location === "undefined") return null;
-	return new URL(path, location.href).toString();
+	const url = new URL(path, location.href);
+	// KV override is intentionally limited to same-origin assets.
+	if (url.origin !== location.origin) return null;
+	return url.toString();
 }
 
 function normalizeMainVisualSvg(svgText: string): string {
@@ -259,7 +268,7 @@ async function loadMainVisualOverrideSvg(): Promise<string | null> {
 			if (!url) continue;
 
 			try {
-				const res = await fetch(url);
+				const res = await fetch(url, { mode: "same-origin" });
 				if (!res.ok) continue;
 				const text = await res.text();
 				const trimmed = text.trim();
@@ -340,7 +349,7 @@ function toSafeInlineSvg(svgText: string): SVGElement | null {
 
 function getBundledMainVisualSvgClone(): SVGElement | null {
 	if (!bundledMainVisualSvgTemplate) {
-		const parsed = toSafeInlineSvg(BUNDLED_MAIN_VISUAL_SVG);
+		const parsed = toSafeInlineSvg(getBundledMainVisualSvgText());
 		if (!parsed) return null;
 		bundledMainVisualSvgTemplate = parsed;
 	}
@@ -844,21 +853,53 @@ export function createPalettePreview(
 		// show a bundled fallback so the KV is visible even on file://.
 		applyMainVisualVars(kv, seed);
 		kv.dataset.kvVariant = "main-visual";
-		const bundledSvg = getBundledMainVisualSvgClone();
-		if (bundledSvg) {
-			kv.replaceChildren(bundledSvg);
-		} else {
-			kv.innerHTML = BUNDLED_MAIN_VISUAL_SVG;
-		}
 
-		void loadMainVisualOverrideSvg().then((svg) => {
-			if (!svg) return;
-			if (!kv.isConnected) return;
-			const safeSvg = getMainVisualOverrideSvgClone(svg);
+		let didRenderBundled = false;
+		const renderBundled = (): void => {
+			if (didRenderBundled) return;
+			didRenderBundled = true;
+			const bundledSvg = getBundledMainVisualSvgClone();
+			if (bundledSvg) {
+				kv.replaceChildren(bundledSvg);
+			} else {
+				kv.innerHTML = getBundledMainVisualSvgText();
+			}
+		};
+
+		const renderOverride = (svgText: string): void => {
+			const safeSvg = getMainVisualOverrideSvgClone(svgText);
 			if (safeSvg) {
 				kv.replaceChildren(safeSvg);
 			}
-		});
+		};
+
+		// file:// cannot fetch override assets; render bundled immediately.
+		if (typeof location !== "undefined" && location.protocol === "file:") {
+			renderBundled();
+		} else if (cachedMainVisualOverrideSvg) {
+			// If we already resolved an override, prefer it (avoid bundled parse cost).
+			renderOverride(cachedMainVisualOverrideSvg);
+		} else {
+			let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
+			if (typeof setTimeout === "function") {
+				fallbackTimer = setTimeout(() => {
+					if (!kv.isConnected) return;
+					renderBundled();
+				}, MAIN_VISUAL_BUNDLED_FALLBACK_DELAY_MS);
+			} else {
+				renderBundled();
+			}
+
+			void loadMainVisualOverrideSvg().then((svg) => {
+				if (!kv.isConnected) return;
+				if (fallbackTimer) clearTimeout(fallbackTimer);
+				if (svg) {
+					renderOverride(svg);
+				} else {
+					renderBundled();
+				}
+			});
+		}
 	}
 
 	return container;

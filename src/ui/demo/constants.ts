@@ -176,6 +176,7 @@ export const DEFAULT_STATE: DemoState = {
 		warning: false,
 	},
 	activePreset: "default",
+	studioSeed: 0,
 	previewKv: {
 		locked: false,
 		seed: 0,

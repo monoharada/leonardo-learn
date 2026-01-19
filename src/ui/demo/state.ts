@@ -355,6 +355,7 @@ export const state: DemoState = {
 	semanticColorConfig: { ...DEFAULT_STATE.semanticColorConfig },
 	lockedColors: { ...DEFAULT_STATE.lockedColors },
 	activePreset: DEFAULT_STATE.activePreset,
+	studioSeed: DEFAULT_STATE.studioSeed,
 	previewKv: { ...DEFAULT_STATE.previewKv },
 };
 
@@ -429,5 +430,6 @@ export function resetState(): void {
 	state.semanticColorConfig = { ...DEFAULT_STATE.semanticColorConfig };
 	state.lockedColors = { ...DEFAULT_STATE.lockedColors };
 	state.activePreset = DEFAULT_STATE.activePreset;
+	state.studioSeed = DEFAULT_STATE.studioSeed;
 	state.previewKv = { ...DEFAULT_STATE.previewKv };
 }

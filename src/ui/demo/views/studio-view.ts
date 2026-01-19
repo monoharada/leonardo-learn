@@ -95,9 +95,19 @@ function matchesPreset(hex: string, preset: StudioPresetType): boolean {
 	}
 }
 
-function pickRandom<T>(items: T[]): T | null {
+function createSeededRandom(seed: number): () => number {
+	let t = seed >>> 0;
+	return () => {
+		t += 0x6d2b79f5;
+		let r = Math.imul(t ^ (t >>> 15), 1 | t);
+		r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
+		return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+	};
+}
+
+function pickRandom<T>(items: readonly T[], rnd: () => number): T | null {
 	if (items.length === 0) return null;
-	const index = Math.floor(Math.random() * items.length);
+	const index = Math.floor(rnd() * items.length);
 	return items[index] ?? null;
 }
 
@@ -276,6 +286,7 @@ async function selectRandomPrimaryFromDads(
 	dadsTokens: DadsToken[],
 	preset: StudioPresetType,
 	backgroundHex: string,
+	rnd: () => number,
 ): Promise<{ hex: string; step?: number; baseChromaName: string }> {
 	const chromatic = dadsTokens.filter(
 		(t) => t.classification.category === "chromatic",
@@ -290,7 +301,7 @@ async function selectRandomPrimaryFromDads(
 	});
 	const finalList = contrastFiltered.length > 0 ? contrastFiltered : baseList;
 
-	const selected = pickRandom(finalList) ?? pickRandom(chromatic);
+	const selected = pickRandom(finalList, rnd) ?? pickRandom(chromatic, rnd);
 	if (!selected) {
 		return { hex: "#00A3BF", baseChromaName: "Blue" };
 	}
@@ -312,13 +323,14 @@ function pickUniqueBy<T>(
 	items: T[],
 	count: number,
 	getKey: (item: T) => string,
+	rnd: () => number,
 ): T[] {
 	const pool = items.slice();
 	const selected: T[] = [];
 	const seen = new Set<string>();
 
 	while (pool.length > 0 && selected.length < count) {
-		const pick = pickRandom(pool);
+		const pick = pickRandom(pool, rnd);
 		if (!pick) break;
 		const key = getKey(pick);
 		// remove picked from pool
@@ -338,6 +350,7 @@ async function selectRandomAccentCandidates(
 	preset: StudioPresetType,
 	backgroundHex: string,
 	count: number,
+	rnd: () => number,
 ): Promise<Array<{ hex: string; step?: number; baseChromaName?: string }>> {
 	const response = await generateCandidates(brandHex, {
 		backgroundHex,
@@ -363,6 +376,7 @@ async function selectRandomAccentCandidates(
 		top.length > 0 ? top : candidates,
 		count,
 		(c) => c.hex,
+		rnd,
 	);
 
 	return picked.map((p) => ({
@@ -448,6 +462,9 @@ async function rebuildStudioPalettes(options: {
 async function generateNewStudioPalette(
 	dadsTokens: DadsToken[],
 ): Promise<void> {
+	const studioSeed = state.studioSeed || 0;
+	const rnd = createSeededRandom(studioSeed);
+
 	// Studioの背景は白固定（ニュートラルはカード/ボックス等の要素に使用）
 	const backgroundHex = "#ffffff";
 
@@ -467,6 +484,7 @@ async function generateNewStudioPalette(
 			dadsTokens,
 			state.activePreset,
 			backgroundHex,
+			rnd,
 		);
 		primaryHex = selected.hex;
 		primaryStep = selected.step;
@@ -492,6 +510,7 @@ async function generateNewStudioPalette(
 			state.activePreset,
 			backgroundHex,
 			targetAccentCount,
+			rnd,
 		);
 	}
 
@@ -590,11 +609,14 @@ export async function renderStudioView(
 						baseChromaName?: string;
 					}> = [];
 					if (missing > 0) {
+						const seed = (state.studioSeed || 0) ^ desired;
+						const rnd = createSeededRandom(seed);
 						const picked = await selectRandomAccentCandidates(
 							current.primaryHex,
 							state.activePreset,
 							backgroundHex,
 							desired,
+							rnd,
 						);
 						const keepSet = new Set(keep.map((h) => h.toLowerCase()));
 						extra = picked
@@ -661,6 +683,7 @@ export async function renderStudioView(
 	generateBtn.textContent = "Generate";
 	generateBtn.onclick = async () => {
 		try {
+			state.studioSeed = Date.now();
 			await generateNewStudioPalette(dadsTokens);
 			await renderStudioView(container, callbacks);
 		} catch (error) {
@@ -827,7 +850,7 @@ export async function renderStudioView(
 	};
 
 	primaryInput.onchange = () => void applyPrimary(primaryInput.value.trim());
-	primaryColorPicker.oninput = () =>
+	primaryColorPicker.onchange = () =>
 		void applyPrimary(primaryColorPicker.value);
 
 	primaryEditor.appendChild(primaryInput);

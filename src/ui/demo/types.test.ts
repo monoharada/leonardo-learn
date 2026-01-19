@@ -146,6 +146,8 @@ describe("types.ts", () => {
 					warning: false,
 				},
 				activePreset: "default",
+				studioSeed: 0,
+				previewKv: { locked: false, seed: 0 },
 			};
 			expect(state.palettes).toEqual([]);
 			expect(state.activeId).toBe("");
@@ -153,6 +155,8 @@ describe("types.ts", () => {
 			expect(state.cudMode).toBe("guide");
 			expect(state.lightBackgroundColor).toBe("#ffffff");
 			expect(state.darkBackgroundColor).toBe("#000000");
+			expect(state.previewKv).toEqual({ locked: false, seed: 0 });
+			expect(state.studioSeed).toBe(0);
 		});
 	});
 
