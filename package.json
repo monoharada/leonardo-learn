@@ -20,8 +20,9 @@
 	},
 	"scripts": {
 		"dev": "bun run src/index.ts --watch",
-		"build": "bun build src/index.ts --outdir=dist --target=browser --minify --sourcemap && tsc --emitDeclarationOnly --outDir dist && bun run build:css",
+		"build": "bun build src/index.ts --outdir=dist --target=browser --minify --sourcemap && tsc --emitDeclarationOnly --outDir dist && bun run build:css && bun run build:assets",
 		"build:css": "mkdir -p dist/styles && cp src/ui/styles/*.css dist/styles/ && cat dist/styles/tokens.css dist/styles/components.css > dist/styles/index.css",
+		"build:assets": "bun run scripts/copy-main-visual.ts",
 		"test": "bun test",
 		"test:watch": "bun test --watch",
 		"test:coverage": "bun test --coverage",

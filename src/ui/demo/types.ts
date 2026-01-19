@@ -74,10 +74,37 @@ export interface BackgroundColorValidationResult {
 	hex?: string;
 }
 
+export type StudioPresetType =
+	| "default"
+	| "high-contrast"
+	| "pastel"
+	| "vibrant"
+	| "dark";
+
+export interface LockedColorsState {
+	primary: boolean;
+	accent: boolean;
+	error: boolean;
+	success: boolean;
+	warning: boolean;
+}
+
+export interface PreviewKvState {
+	/** trueならKVは固定seedで表示（パレット変更で自動更新しない） */
+	locked: boolean;
+	/** 固定seed（Shuffleで更新） */
+	seed: number;
+}
+
 /**
  * ビューモード
  */
-export type ViewMode = "harmony" | "palette" | "shades" | "accessibility";
+export type ViewMode =
+	| "harmony"
+	| "palette"
+	| "shades"
+	| "accessibility"
+	| "studio";
 
 /**
  * 警告色パターンタイプ
@@ -167,6 +194,14 @@ export interface DemoState {
 	accentCount: 1 | 2 | 3;
 	/** セマンティックカラー設定（警告色パターン選択） */
 	semanticColorConfig: SemanticColorConfig;
+	/** Studioビュー用: ロック状態 */
+	lockedColors: LockedColorsState;
+	/** Studioビュー用: 選択中プリセット */
+	activePreset: StudioPresetType;
+	/** Studioビュー用: 乱数シード（Generateの再現性/デバッグ用） */
+	studioSeed: number;
+	/** PreviewのヒーローKV（メインビジュアル）設定 */
+	previewKv: PreviewKvState;
 }
 
 /**

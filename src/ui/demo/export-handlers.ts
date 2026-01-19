@@ -18,6 +18,7 @@ import {
 	STEP_NAMES,
 	setButtonActive,
 } from "@/ui/style-constants";
+import { syncModalOpenState } from "./modal-scroll-lock";
 import { parseKeyColor, state } from "./state";
 
 /**
@@ -224,9 +225,14 @@ export function setupExportHandlers(elements: ExportElements): void {
 	};
 
 	if (exportBtn && exportDialog) {
+		exportDialog.addEventListener("close", () => {
+			syncModalOpenState();
+		});
+
 		exportBtn.onclick = () => {
 			updateExportPreview();
 			exportDialog.showModal();
+			syncModalOpenState();
 		};
 	}
 

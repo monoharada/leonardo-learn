@@ -83,11 +83,12 @@ describe("types.ts", () => {
 		it("should accept valid view modes", () => {
 			const modes: ViewMode[] = [
 				"harmony",
+				"studio",
 				"palette",
 				"shades",
 				"accessibility",
 			];
-			expect(modes).toHaveLength(4);
+			expect(modes).toHaveLength(5);
 		});
 	});
 
@@ -131,9 +132,22 @@ describe("types.ts", () => {
 				viewMode: "harmony",
 				cvdSimulation: "normal",
 				selectedHarmonyConfig: null,
+				selectedAccentFilter: "all",
 				cudMode: "guide",
 				lightBackgroundColor: "#ffffff",
 				darkBackgroundColor: "#000000",
+				accentCount: 1,
+				semanticColorConfig: { warningPattern: "auto" },
+				lockedColors: {
+					primary: false,
+					accent: false,
+					error: false,
+					success: false,
+					warning: false,
+				},
+				activePreset: "default",
+				studioSeed: 0,
+				previewKv: { locked: false, seed: 0 },
 			};
 			expect(state.palettes).toEqual([]);
 			expect(state.activeId).toBe("");
@@ -141,6 +155,8 @@ describe("types.ts", () => {
 			expect(state.cudMode).toBe("guide");
 			expect(state.lightBackgroundColor).toBe("#ffffff");
 			expect(state.darkBackgroundColor).toBe("#000000");
+			expect(state.previewKv).toEqual({ locked: false, seed: 0 });
+			expect(state.studioSeed).toBe(0);
 		});
 	});
 

@@ -30,9 +30,18 @@ body {
 	background: var(--color-neutral-solid-gray-50);
 	margin: 0;
 	padding: 0;
-	height: 100vh;
-	overflow: hidden;
+	min-height: 100vh;
+	overflow-x: hidden;
+	overflow-y: auto;
 	line-height: var(--line-height-170);
+}
+
+html.is-modal-open body {
+	overflow: hidden;
+}
+
+html.is-modal-open #main-content {
+	overflow: hidden;
 }
 
 /* Headings */

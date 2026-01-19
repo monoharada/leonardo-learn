@@ -19,11 +19,12 @@ import { parseColor } from "@/utils/color-space";
 import { createBackgroundColorSelector } from "../background-color-selector";
 import { getDisplayHex } from "../cvd-controls";
 import { parseKeyColor, persistBackgroundColors, state } from "../state";
+import { type ColorDetailModalOptions, stripStepSuffix } from "../types";
 import {
-	type ColorDetailModalOptions,
-	type PaletteConfig,
-	stripStepSuffix,
-} from "../types";
+	isValidHexColor,
+	resolveAccentSourcePalette,
+	resolveWarningPattern,
+} from "../utils/palette-utils";
 import {
 	createPalettePreview,
 	mapPaletteToPreviewColors,
@@ -245,17 +246,6 @@ function buildTokenRowsFromCategory(
 }
 
 /**
- * 解決済み警告パターンを取得
- */
-function getResolvedWarningPattern(): "yellow" | "orange" {
-	const pattern = state.semanticColorConfig.warningPattern;
-	if (pattern === "auto") {
-		return state.semanticColorConfig.resolvedWarningPattern || "yellow";
-	}
-	return pattern;
-}
-
-/**
  * セマンティックカラーのトークン行を抽出
  * UX順序: Link → Success → Warning → Error
  */
@@ -265,7 +255,8 @@ async function extractSemanticTokenRows(
 ): Promise<TokenTableRow[]> {
 	const linkStyleId = selectLinkStyle(primaryHex);
 	const linkCategories = getLinkCategories(linkStyleId);
-	const warningCategory = WARNING_PATTERNS[getResolvedWarningPattern()];
+	const warningCategory =
+		WARNING_PATTERNS[resolveWarningPattern(state.semanticColorConfig)];
 
 	// カテゴリを順序通りに処理: Link → Success → Warning → Error
 	const allCategories: SemanticCategory[] = [
@@ -277,27 +268,6 @@ async function extractSemanticTokenRows(
 
 	return allCategories.flatMap((category) =>
 		buildTokenRowsFromCategory(dadsTokens, category),
-	);
-}
-
-function resolveAccentSourcePalette(
-	palettes: PaletteConfig[],
-): PaletteConfig | undefined {
-	const hasUsableKeyColor = (palette: PaletteConfig): boolean => {
-		const keyColorInput = palette.keyColors[0];
-		if (!keyColorInput) return false;
-		const hex = stripStepSuffix(keyColorInput);
-		return /^#[0-9A-Fa-f]{6}$/.test(hex);
-	};
-
-	return (
-		palettes.find((p) => p.name.startsWith("Accent") && hasUsableKeyColor(p)) ??
-		palettes.find(
-			(p) =>
-				(p.derivedFrom?.derivationType === "secondary" ||
-					p.name.startsWith("Secondary")) &&
-				hasUsableKeyColor(p),
-		)
 	);
 }
 
@@ -432,7 +402,8 @@ async function extractPreviewColors(
 	const accentHex =
 		stripStepSuffix(accentPalette?.keyColors[0] ?? "") || "#259063";
 
-	const warningDef = WARNING_PATTERNS[getResolvedWarningPattern()];
+	const warningDef =
+		WARNING_PATTERNS[resolveWarningPattern(state.semanticColorConfig)];
 	const warningScale = getDadsColorsByHue(dadsTokens, warningDef.hue);
 	const warningStep = warningDef.steps[0] || 700;
 
@@ -545,7 +516,15 @@ export async function renderPaletteView(
 		const primaryHex = getPrimaryHex();
 
 		const previewColors = await extractPreviewColors(dadsTokens, primaryHex);
-		const preview = createPalettePreview(previewColors, { getDisplayHex });
+		const accentHexes = state.palettes
+			.filter((p) => p.name.startsWith("Accent"))
+			.map((p) => stripStepSuffix(p.keyColors[0] ?? ""))
+			.filter((hex) => isValidHexColor(hex));
+		const preview = createPalettePreview(previewColors, {
+			getDisplayHex,
+			kv: state.previewKv,
+			accentHexes,
+		});
 		previewSection.appendChild(preview);
 		container.appendChild(previewSection);
 

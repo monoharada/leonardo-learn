@@ -168,4 +168,17 @@ export const DEFAULT_STATE: DemoState = {
 	darkBackgroundColor: "#000000",
 	accentCount: 1,
 	semanticColorConfig: DEFAULT_SEMANTIC_COLOR_CONFIG,
+	lockedColors: {
+		primary: false,
+		accent: false,
+		error: false,
+		success: false,
+		warning: false,
+	},
+	activePreset: "default",
+	studioSeed: 0,
+	previewKv: {
+		locked: false,
+		seed: 0,
+	},
 };

@@ -16,6 +16,7 @@ import { getAPCA } from "@/accessibility/apca";
 import { verifyContrast } from "@/accessibility/wcag2";
 import { Color } from "@/core/color";
 import { STEP_NAMES } from "@/ui/style-constants";
+import { syncModalOpenState } from "./modal-scroll-lock";
 import { determineColorMode, state } from "./state";
 import type { ColorDetailModalOptions, PaletteConfig } from "./types";
 
@@ -924,6 +925,7 @@ export function openColorDetailModal(
 		"close",
 		() => {
 			abortController.abort();
+			syncModalOpenState();
 		},
 		{ once: true },
 	);
@@ -981,6 +983,7 @@ export function openColorDetailModal(
 
 	// モーダルを表示
 	dialog.showModal();
+	syncModalOpenState();
 
 	// モーダル表示後に初期表示を設定
 	requestAnimationFrame(() => {
