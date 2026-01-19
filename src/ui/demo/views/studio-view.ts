@@ -207,7 +207,10 @@ function createSwatchButton(
 let dadsTokensPromise: Promise<DadsToken[]> | null = null;
 async function getDadsTokens(): Promise<DadsToken[]> {
 	if (!dadsTokensPromise) {
-		dadsTokensPromise = loadDadsTokens();
+		dadsTokensPromise = loadDadsTokens().catch((error) => {
+			dadsTokensPromise = null;
+			throw error;
+		});
 	}
 	return dadsTokensPromise;
 }
@@ -307,10 +310,7 @@ async function selectRandomPrimaryFromDads(
 	}
 
 	const step = selected.classification.scale;
-	const baseChromaName =
-		(selected.classification.hue
-			? inferBaseChromaNameFromHex(selected.hex)
-			: inferBaseChromaNameFromHex(selected.hex)) || "Blue";
+	const baseChromaName = inferBaseChromaNameFromHex(selected.hex) || "Blue";
 
 	return { hex: selected.hex, step, baseChromaName };
 }
@@ -533,13 +533,16 @@ function renderEmptyState(container: HTMLElement): void {
 	container.appendChild(empty);
 }
 
+const studioRenderGeneration = new WeakMap<HTMLElement, number>();
+
 export async function renderStudioView(
 	container: HTMLElement,
 	callbacks: StudioViewCallbacks,
 ): Promise<void> {
-	container.className = "dads-section dads-studio";
-	container.innerHTML = "";
-	container.style.backgroundColor = "#ffffff";
+	const renderGeneration = (studioRenderGeneration.get(container) ?? 0) + 1;
+	studioRenderGeneration.set(container, renderGeneration);
+	const isCurrentRender = () =>
+		studioRenderGeneration.get(container) === renderGeneration;
 
 	let dadsTokens: DadsToken[];
 	try {
@@ -548,6 +551,12 @@ export async function renderStudioView(
 		console.error("Failed to load DADS tokens for studio view:", error);
 		dadsTokens = [];
 	}
+
+	if (!isCurrentRender()) return;
+
+	container.className = "dads-section dads-studio";
+	container.innerHTML = "";
+	container.style.backgroundColor = "#ffffff";
 
 	const toolbar = document.createElement("section");
 	toolbar.className = "studio-toolbar";

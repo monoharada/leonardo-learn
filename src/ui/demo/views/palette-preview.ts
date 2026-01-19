@@ -169,6 +169,26 @@ function resolveAssetUrl(path: string): string | null {
 	return url.toString();
 }
 
+function isSvgDocument(svgText: string): boolean {
+	const trimmed = svgText.trim();
+	if (!trimmed) return false;
+
+	if (typeof DOMParser !== "undefined") {
+		try {
+			const parsed = new DOMParser().parseFromString(trimmed, "image/svg+xml");
+			const root = parsed.documentElement;
+			return Boolean(root && root.tagName.toLowerCase() === "svg");
+		} catch {
+			return false;
+		}
+	}
+
+	// Fallback: tolerate XML declarations / comments / BOM.
+	return /^[\s\uFEFF]*(?:<\?xml[\s\S]*?\?>\s*)?(?:<!--[\s\S]*?-->\s*)*<svg\b/i.test(
+		svgText,
+	);
+}
+
 function normalizeMainVisualSvg(svgText: string): string {
 	let svg = svgText.trim();
 
@@ -271,10 +291,9 @@ async function loadMainVisualOverrideSvg(): Promise<string | null> {
 				const res = await fetch(url, { mode: "same-origin" });
 				if (!res.ok) continue;
 				const text = await res.text();
-				const trimmed = text.trim();
 				// Guard: some static servers may return an HTML error page with 200 OK.
 				// Only accept an actual inline SVG that contains our mv variables.
-				if (!trimmed.startsWith("<svg") || !trimmed.includes("--mv-")) {
+				if (!text.includes("--mv-") || !isSvgDocument(text)) {
 					continue;
 				}
 				cachedMainVisualOverrideSvg = normalizeMainVisualSvg(text);
@@ -385,7 +404,13 @@ function getMainVisualOverrideSvgClone(svgText: string): SVGElement | null {
 	}
 
 	const parsed = toSafeInlineSvg(svgText);
-	if (!parsed) return null;
+	if (!parsed) {
+		cachedMainVisualOverrideSvg = null;
+		mainVisualOverrideSvgTemplate = null;
+		mainVisualOverrideSvgTemplateSource = null;
+		mainVisualOverrideNextRetryAt = Date.now() + MAIN_VISUAL_OVERRIDE_RETRY_MS;
+		return null;
+	}
 	mainVisualOverrideSvgTemplate = parsed;
 	mainVisualOverrideSvgTemplateSource = svgText;
 	return mainVisualOverrideSvgTemplate.cloneNode(true) as SVGElement;

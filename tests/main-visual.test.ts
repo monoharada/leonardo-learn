@@ -20,16 +20,28 @@ describe("Main visual SVG", () => {
 		expect(svg).not.toMatch(/fill\s*:\s*var\(--mv-bg,\s*#ffb695\)/i);
 	});
 
-	test("dist asset matches bundled SVG", () => {
+	test("dist asset matches build source SVG", () => {
 		const distUrl = new URL("../dist/assets/main-visual.svg", import.meta.url);
 		const distPath = fileURLToPath(distUrl);
 		if (!existsSync(distPath)) return;
 
-		const bundled = readUtf8(
-			new URL("../src/ui/demo/assets/main-visual.svg", import.meta.url),
+		const bundledUrl = new URL(
+			"../src/ui/demo/assets/main-visual.svg",
+			import.meta.url,
 		);
+		const generatedOverrideUrl = new URL(
+			"../.context/generated/main-visual.svg",
+			import.meta.url,
+		);
+		const expectedUrl =
+			process.env.MAIN_VISUAL_SOURCE === "context" &&
+			existsSync(fileURLToPath(generatedOverrideUrl))
+				? generatedOverrideUrl
+				: bundledUrl;
+
+		const expected = readUtf8(expectedUrl);
 		const dist = readFileSync(distPath, "utf8");
 
-		expect(dist).toBe(bundled);
+		expect(dist).toBe(expected);
 	});
 });

@@ -40,6 +40,10 @@ html.is-modal-open body {
 	overflow: hidden;
 }
 
+html.is-modal-open #main-content {
+	overflow: hidden;
+}
+
 /* Headings */
 h1,
 h2,
