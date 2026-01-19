@@ -870,6 +870,8 @@ export function createPalettePreview(
 			const safeSvg = getMainVisualOverrideSvgClone(svgText);
 			if (safeSvg) {
 				kv.replaceChildren(safeSvg);
+			} else {
+				renderBundled();
 			}
 		};
 
