@@ -83,11 +83,12 @@ describe("types.ts", () => {
 		it("should accept valid view modes", () => {
 			const modes: ViewMode[] = [
 				"harmony",
+				"studio",
 				"palette",
 				"shades",
 				"accessibility",
 			];
-			expect(modes).toHaveLength(4);
+			expect(modes).toHaveLength(5);
 		});
 	});
 
@@ -131,9 +132,20 @@ describe("types.ts", () => {
 				viewMode: "harmony",
 				cvdSimulation: "normal",
 				selectedHarmonyConfig: null,
+				selectedAccentFilter: "all",
 				cudMode: "guide",
 				lightBackgroundColor: "#ffffff",
 				darkBackgroundColor: "#000000",
+				accentCount: 1,
+				semanticColorConfig: { warningPattern: "auto" },
+				lockedColors: {
+					primary: false,
+					accent: false,
+					error: false,
+					success: false,
+					warning: false,
+				},
+				activePreset: "default",
 			};
 			expect(state.palettes).toEqual([]);
 			expect(state.activeId).toBe("");

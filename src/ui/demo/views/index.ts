@@ -34,3 +34,5 @@ export {
 	renderPrimaryBrandSection,
 	renderShadesView,
 } from "./shades-view";
+export type { StudioViewCallbacks } from "./studio-view";
+export { renderStudioView } from "./studio-view";

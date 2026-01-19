@@ -162,6 +162,9 @@ const createEditButton = (
 			cursor: not-allowed;
 			opacity: 0.5;
 		`;
+		// テスト/実装ともにdisabledスタイルを確実化
+		button.style.cursor = "not-allowed";
+		button.style.opacity = "0.5";
 	} else {
 		button.style.cssText = `
 			padding: 4px 8px;

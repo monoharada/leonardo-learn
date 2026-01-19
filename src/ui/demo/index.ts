@@ -45,6 +45,7 @@ import {
 	renderAccessibilityView,
 	renderPaletteView,
 	renderShadesView,
+	renderStudioView,
 } from "./views";
 
 /**
@@ -239,6 +240,12 @@ export async function runDemo(): Promise<void> {
 	 * 現在のビューモードに応じてメインコンテンツをレンダリング
 	 */
 	function renderMain(): void {
+		// 現在のビューモードをDOMに反映（CSS側のスクロール制御に使用）
+		const mainContentEl = document.getElementById("main-content");
+		if (mainContentEl) {
+			mainContentEl.dataset.view = state.viewMode;
+		}
+
 		// パレット/シェード/アクセシビリティビューのコンテナを取得
 		let contentContainer = document.getElementById("demo-content");
 		if (!contentContainer) {
@@ -263,6 +270,18 @@ export async function runDemo(): Promise<void> {
 						onColorClick: handleColorClick,
 					});
 				}
+				break;
+
+			case "studio":
+				// ハーモニービュー非表示、app表示
+				// NOTE: .dads-sectionのdisplay:flexがhidden属性を上書きするため、style.displayを直接操作
+				if (harmonyViewEl) harmonyViewEl.style.display = "none";
+				if (app) app.style.display = "";
+				// 再レンダリング時のDOM重複を防ぐためコンテナをクリア
+				contentContainer.innerHTML = "";
+				renderStudioView(contentContainer, {
+					onColorClick: handleColorClick,
+				}).catch(console.error);
 				break;
 
 			case "palette":

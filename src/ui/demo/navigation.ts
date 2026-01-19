@@ -28,6 +28,8 @@ interface NavigationElements {
 	viewShadesBtn: HTMLElement | null;
 	/** アクセシビリティビューボタン */
 	viewAccessibilityBtn: HTMLElement | null;
+	/** スタジオビューボタン */
+	viewStudioBtn: HTMLElement | null;
 	/** スクリーンリーダー用ライブリージョン */
 	liveRegionEl: HTMLElement | null;
 }
@@ -40,6 +42,7 @@ const VIEW_NAMES: Record<ViewMode, string> = {
 	palette: "パレット",
 	shades: "シェード",
 	accessibility: "アクセシビリティ",
+	studio: "スタジオ",
 };
 
 /**
@@ -79,6 +82,7 @@ function getNavigationElements(): NavigationElements | null {
 		viewPaletteBtn: document.getElementById("view-palette"),
 		viewShadesBtn: document.getElementById("view-shades"),
 		viewAccessibilityBtn: document.getElementById("view-accessibility"),
+		viewStudioBtn: document.getElementById("view-studio"),
 		liveRegionEl: document.getElementById("live-region"),
 	};
 }
@@ -138,6 +142,7 @@ export function updateViewButtons(
 	// すべてのナビゲーションボタンの状態をリセット
 	const navButtons = [
 		elements.viewHarmonyBtn,
+		elements.viewStudioBtn,
 		elements.viewPaletteBtn,
 		elements.viewShadesBtn,
 		elements.viewAccessibilityBtn,
@@ -148,14 +153,14 @@ export function updateViewButtons(
 	}
 
 	// アクティブなボタンを設定
-	const activeBtn =
-		mode === "harmony"
-			? elements.viewHarmonyBtn
-			: mode === "palette"
-				? elements.viewPaletteBtn
-				: mode === "shades"
-					? elements.viewShadesBtn
-					: elements.viewAccessibilityBtn;
+	const activeBtnByMode: Record<ViewMode, HTMLElement | null> = {
+		harmony: elements.viewHarmonyBtn,
+		studio: elements.viewStudioBtn,
+		palette: elements.viewPaletteBtn,
+		shades: elements.viewShadesBtn,
+		accessibility: elements.viewAccessibilityBtn,
+	};
+	const activeBtn = activeBtnByMode[mode];
 
 	if (activeBtn) {
 		setButtonActive(activeBtn, true);
@@ -196,20 +201,16 @@ export function setupNavigation(onRenderMain: () => void): void {
 		return;
 	}
 
-	if (elements.viewHarmonyBtn) {
-		elements.viewHarmonyBtn.onclick = () =>
-			updateViewButtons("harmony", onRenderMain);
-	}
-	if (elements.viewPaletteBtn) {
-		elements.viewPaletteBtn.onclick = () =>
-			updateViewButtons("palette", onRenderMain);
-	}
-	if (elements.viewShadesBtn) {
-		elements.viewShadesBtn.onclick = () =>
-			updateViewButtons("shades", onRenderMain);
-	}
-	if (elements.viewAccessibilityBtn) {
-		elements.viewAccessibilityBtn.onclick = () =>
-			updateViewButtons("accessibility", onRenderMain);
+	const buttonsByMode: ReadonlyArray<[ViewMode, HTMLElement | null]> = [
+		["harmony", elements.viewHarmonyBtn],
+		["studio", elements.viewStudioBtn],
+		["palette", elements.viewPaletteBtn],
+		["shades", elements.viewShadesBtn],
+		["accessibility", elements.viewAccessibilityBtn],
+	];
+
+	for (const [mode, button] of buttonsByMode) {
+		if (!button) continue;
+		button.onclick = () => updateViewButtons(mode, onRenderMain);
 	}
 }

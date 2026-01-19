@@ -23,7 +23,10 @@ import {
 	renderPrimaryBrandSection,
 	// shades-view.ts
 	renderShadesView,
+	// studio-view.ts
+	renderStudioView,
 	type ShadesViewCallbacks,
+	type StudioViewCallbacks,
 } from "./index";
 
 describe("views/index.ts re-exports", () => {
@@ -37,6 +40,10 @@ describe("views/index.ts re-exports", () => {
 
 	test("renderShadesView is exported", () => {
 		expect(typeof renderShadesView).toBe("function");
+	});
+
+	test("renderStudioView is exported", () => {
+		expect(typeof renderStudioView).toBe("function");
 	});
 
 	test("renderDadsHueSection is exported", () => {
@@ -75,6 +82,9 @@ describe("views/index.ts re-exports", () => {
 		};
 		const _accessibilityHelpers: AccessibilityViewHelpers = {
 			applySimulation: (color) => color,
+		};
+		const _studioCallbacks: StudioViewCallbacks = {
+			onColorClick: () => {},
 		};
 
 		// ダミーアサーション（コンパイル成功確認用）

@@ -1449,6 +1449,8 @@ export const createProgressIndicator = (): ProgressIndicator => {
 		color: #333;
 		gap: 8px;
 	`;
+	// テスト/実装ともに初期状態の非表示を確実化
+	element.style.display = "none";
 
 	const spinner = document.createElement("span");
 	spinner.className = "cud-progress-spinner";
