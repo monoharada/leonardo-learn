@@ -845,7 +845,7 @@ export async function renderStudioView(
 	};
 
 	// UX最適化されたボタン配置:
-	// [戻る | Generate] (コアワークフロー) | [spacer] | [Copy Link | エクスポート | 設定] (出力・設定)
+	// [戻る | Generate] (コアワークフロー) | [spacer] | [設定 | Copy Link | エクスポート] (設定・出力)
 	controls.appendChild(undoBtn);
 	controls.appendChild(generateBtn);
 
@@ -855,9 +855,9 @@ export async function renderStudioView(
 	spacer.setAttribute("aria-hidden", "true");
 	controls.appendChild(spacer);
 
+	controls.appendChild(settingsDetails);
 	controls.appendChild(copyLinkBtn);
 	controls.appendChild(exportBtn);
-	controls.appendChild(settingsDetails);
 
 	toolbar.appendChild(swatches);
 	toolbar.appendChild(controls);
