@@ -844,11 +844,20 @@ export async function renderStudioView(
 		});
 	};
 
-	controls.appendChild(settingsDetails);
+	// UX最適化されたボタン配置:
+	// [戻る | Generate] (コアワークフロー) | [spacer] | [Copy Link | エクスポート | 設定] (出力・設定)
 	controls.appendChild(undoBtn);
 	controls.appendChild(generateBtn);
+
+	// 機能グループ間のスペーサー
+	const spacer = document.createElement("div");
+	spacer.className = "studio-toolbar__spacer";
+	spacer.setAttribute("aria-hidden", "true");
+	controls.appendChild(spacer);
+
 	controls.appendChild(copyLinkBtn);
 	controls.appendChild(exportBtn);
+	controls.appendChild(settingsDetails);
 
 	toolbar.appendChild(swatches);
 	toolbar.appendChild(controls);

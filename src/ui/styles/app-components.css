@@ -498,6 +498,13 @@
 	flex-shrink: 0;
 }
 
+.studio-toolbar__spacer {
+	width: 1px;
+	height: 1.5rem;
+	background: rgba(17, 24, 39, 0.15);
+	margin: 0 var(--space-xs, 0.25rem);
+}
+
 .studio-toolbar-swatch {
 	position: relative;
 	display: inline-flex;
