@@ -966,13 +966,27 @@ export async function renderStudioView(
 			toggle.setAttribute("aria-label", "ロック切り替え");
 			toggle.onclick = (e) => {
 				e.stopPropagation();
+				const newLocked = toggle.dataset.checked !== "true";
 				if (lockType === "primary") {
-					setLockedColors({ primary: !state.lockedColors.primary });
+					setLockedColors({ primary: newLocked });
 				} else {
-					setLockedColors({ accent: !state.lockedColors.accent });
+					setLockedColors({ accent: newLocked });
 				}
-				closeActivePopover();
-				void renderStudioView(container, callbacks);
+				// Update toggle visual state
+				toggle.dataset.checked = String(newLocked);
+				toggle.setAttribute("aria-pressed", String(newLocked));
+				// Update lock indicator on swatch
+				const existingIndicator = wrapper.querySelector(
+					".studio-toolbar-swatch__lock-indicator",
+				);
+				if (newLocked && !existingIndicator) {
+					const lockIndicator = document.createElement("span");
+					lockIndicator.className = "studio-toolbar-swatch__lock-indicator";
+					lockIndicator.textContent = "🔒";
+					wrapper.appendChild(lockIndicator);
+				} else if (!newLocked && existingIndicator) {
+					existingIndicator.remove();
+				}
 			};
 
 			lockRow.appendChild(lockLabel);
