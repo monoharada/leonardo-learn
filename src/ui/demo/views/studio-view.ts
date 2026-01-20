@@ -873,17 +873,21 @@ export async function renderStudioView(
 	const closeActivePopover = () => {
 		if (activePopover) {
 			activePopover.dataset.open = "false";
+			activePopover.remove();
 			activePopover = null;
 		}
 	};
 	document.addEventListener("click", (e) => {
-		if (
-			activePopover &&
-			!activePopover
-				.closest(".studio-toolbar-swatch")
-				?.contains(e.target as Node)
-		) {
-			closeActivePopover();
+		if (activePopover) {
+			const target = e.target as Node;
+			// Check if click is inside the popover or any swatch
+			const isInsidePopover = activePopover.contains(target);
+			const isInsideSwatch = (target as Element).closest?.(
+				".studio-toolbar-swatch",
+			);
+			if (!isInsidePopover && !isInsideSwatch) {
+				closeActivePopover();
+			}
 		}
 	});
 
@@ -976,7 +980,8 @@ export async function renderStudioView(
 			popover.appendChild(lockRow);
 		}
 
-		wrapper.appendChild(popover);
+		// Popover is appended to body to avoid transform issues
+		// (toolbar has transform which creates new containing block for fixed elements)
 
 		// Click to toggle popover
 		wrapper.onclick = (e) => {
@@ -986,14 +991,20 @@ export async function renderStudioView(
 			}
 			const isOpen = popover.dataset.open === "true";
 			if (!isOpen) {
+				// Append to body to escape toolbar's transform context
+				document.body.appendChild(popover);
 				// Position the popover above the swatch using fixed positioning
+				// CSS transform: translateX(-50%) handles horizontal centering
 				const rect = wrapper.getBoundingClientRect();
-				const popoverWidth = 140; // min-width from CSS
-				popover.style.left = `${rect.left + rect.width / 2 - popoverWidth / 2}px`;
+				popover.style.left = `${rect.left + rect.width / 2}px`;
 				popover.style.bottom = `${window.innerHeight - rect.top + 8}px`;
+				popover.dataset.open = "true";
+				activePopover = popover;
+			} else {
+				popover.dataset.open = "false";
+				popover.remove();
+				activePopover = null;
 			}
-			popover.dataset.open = String(!isOpen);
-			activePopover = !isOpen ? popover : null;
 		};
 
 		// Keyboard support
