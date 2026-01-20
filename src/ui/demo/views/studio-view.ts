@@ -25,6 +25,7 @@ import { detectCvdConfusionPairs } from "@/ui/accessibility/cvd-detection";
 import { getDisplayHex } from "../cvd-controls";
 import { createDerivedPalettes } from "../palette-generator";
 import { parseKeyColor, state } from "../state";
+import { createStudioUrlHash } from "../studio-url-state";
 import type {
 	ColorDetailModalOptions,
 	LockedColorsState,
@@ -32,12 +33,14 @@ import type {
 	StudioPresetType,
 } from "../types";
 import { stripStepSuffix } from "../types";
+import { copyTextToClipboard } from "../utils/clipboard";
 import {
 	resolveAccentSourcePalette,
 	resolveWarningPattern,
 } from "../utils/palette-utils";
 import {
 	createPalettePreview,
+	createSeededRandom,
 	mapPaletteToPreviewColors,
 	type PalettePreviewColors,
 } from "./palette-preview";
@@ -55,6 +58,14 @@ const CONTRAST_THRESHOLDS: Record<
 	AAA: 7,
 	AA: 4.5,
 	"AA Large": 3,
+};
+
+const STUDIO_PRESET_LABELS: Record<StudioPresetType, string> = {
+	default: "Default",
+	"high-contrast": "High Contrast",
+	pastel: "Pastel",
+	vibrant: "Vibrant",
+	dark: "Dark",
 };
 
 function gradeContrast(ratio: number): ContrastBadgeGrade {
@@ -95,16 +106,6 @@ function matchesPreset(hex: string, preset: StudioPresetType): boolean {
 	}
 }
 
-function createSeededRandom(seed: number): () => number {
-	let t = seed >>> 0;
-	return () => {
-		t += 0x6d2b79f5;
-		let r = Math.imul(t ^ (t >>> 15), 1 | t);
-		r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
-		return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
-	};
-}
-
 function pickRandom<T>(items: readonly T[], rnd: () => number): T | null {
 	if (items.length === 0) return null;
 	const index = Math.floor(rnd() * items.length);
@@ -134,7 +135,6 @@ function parseAccentIndex(name: string): number | null {
 function getAccentPalettes(palettes: PaletteConfig[]): PaletteConfig[] {
 	return palettes
 		.filter((p) => p.name.startsWith("Accent"))
-		.slice()
 		.sort((a, b) => {
 			const ai = parseAccentIndex(a.name) ?? 999;
 			const bi = parseAccentIndex(b.name) ?? 999;
@@ -202,6 +202,31 @@ function createSwatchButton(
 	btn.appendChild(circle);
 	btn.appendChild(text);
 	return btn;
+}
+
+const studioButtonTextResetTimers = new WeakMap<
+	HTMLButtonElement,
+	ReturnType<typeof setTimeout>
+>();
+
+function setTemporaryButtonText(
+	btn: HTMLButtonElement,
+	text: string,
+	options?: { durationMs?: number; resetText?: string },
+): void {
+	const durationMs = options?.durationMs ?? 2000;
+	const resetText = options?.resetText ?? btn.textContent ?? "";
+
+	btn.textContent = text;
+
+	const existing = studioButtonTextResetTimers.get(btn);
+	if (existing) globalThis.clearTimeout(existing);
+
+	const timer = globalThis.setTimeout(() => {
+		if (!btn.isConnected) return;
+		btn.textContent = resetText;
+	}, durationMs);
+	studioButtonTextResetTimers.set(btn, timer);
 }
 
 let dadsTokensPromise: Promise<DadsToken[]> | null = null;
@@ -528,7 +553,7 @@ function renderEmptyState(container: HTMLElement): void {
 	empty.className = "dads-empty-state";
 	empty.innerHTML = `
 		<p>スタジオが生成されていません</p>
-		<p>「Generate」でDADSトークンから配色を作成できます。</p>
+		<p>「配色シャッフル」でDADSトークンから配色を作成できます。</p>
 	`;
 	container.appendChild(empty);
 }
@@ -567,21 +592,43 @@ export async function renderStudioView(
 	const controls = document.createElement("div");
 	controls.className = "studio-toolbar__controls";
 
-	const presetSelect = document.createElement("select");
-	presetSelect.className = "studio-preset-select";
-	presetSelect.setAttribute("aria-label", "プリセット");
-	presetSelect.innerHTML = `
-		<option value="default">Default</option>
-		<option value="high-contrast">High Contrast</option>
-		<option value="pastel">Pastel</option>
-		<option value="vibrant">Vibrant</option>
-		<option value="dark">Dark</option>
-	`;
-	presetSelect.value = state.activePreset;
-	presetSelect.onchange = () => {
-		state.activePreset = presetSelect.value as StudioPresetType;
-		void renderStudioView(container, callbacks);
+	const presetDetails = document.createElement("details");
+	presetDetails.className = "studio-preset";
+
+	const presetSummary = document.createElement("summary");
+	presetSummary.className = "studio-preset__summary";
+	presetSummary.textContent = `プリセット: ${STUDIO_PRESET_LABELS[state.activePreset]}`;
+
+	const presetMenu = document.createElement("div");
+	presetMenu.className = "studio-preset__menu";
+
+	(Object.keys(STUDIO_PRESET_LABELS) as StudioPresetType[]).forEach(
+		(preset) => {
+			const btn = document.createElement("button");
+			btn.type = "button";
+			btn.className = "studio-preset__item dads-button";
+			btn.dataset.size = "sm";
+			btn.dataset.type = "text";
+			btn.dataset.active = String(state.activePreset === preset);
+			btn.textContent = STUDIO_PRESET_LABELS[preset];
+			btn.onclick = () => {
+				state.activePreset = preset;
+				presetDetails.open = false;
+				void renderStudioView(container, callbacks);
+			};
+			presetMenu.appendChild(btn);
+		},
+	);
+
+	presetDetails.onkeydown = (event) => {
+		if (event.key !== "Escape") return;
+		event.preventDefault();
+		presetDetails.open = false;
+		presetSummary.focus();
 	};
+
+	presetDetails.appendChild(presetSummary);
+	presetDetails.appendChild(presetMenu);
 
 	const accentCountLabel = document.createElement("span");
 	accentCountLabel.className = "dads-label";
@@ -663,7 +710,7 @@ export async function renderStudioView(
 	kvShuffleBtn.className = "dads-button";
 	kvShuffleBtn.dataset.size = "sm";
 	kvShuffleBtn.dataset.type = "outline";
-	kvShuffleBtn.textContent = "Shuffle";
+	kvShuffleBtn.textContent = "KVシャッフル";
 	kvShuffleBtn.title = "キービジュアル（装飾）を別パターンにします";
 	kvShuffleBtn.onclick = () => {
 		state.previewKv = { locked: true, seed: Date.now() };
@@ -689,7 +736,7 @@ export async function renderStudioView(
 	generateBtn.type = "button";
 	generateBtn.className = "studio-generate-btn dads-button";
 	generateBtn.dataset.size = "sm";
-	generateBtn.textContent = "Generate";
+	generateBtn.textContent = "配色シャッフル";
 	generateBtn.onclick = async () => {
 		try {
 			state.studioSeed = Date.now();
@@ -711,13 +758,66 @@ export async function renderStudioView(
 		)?.click();
 	};
 
-	controls.appendChild(presetSelect);
+	const exportGroup = document.createElement("div");
+	exportGroup.className = "studio-export-group";
+
+	const exportHint = document.createElement("span");
+	exportHint.className = "studio-export-hint";
+	exportHint.textContent = "CSS / Tailwind / JSON";
+
+	exportGroup.appendChild(exportBtn);
+	exportGroup.appendChild(exportHint);
+
+	const copyLinkBtn = document.createElement("button");
+	copyLinkBtn.type = "button";
+	copyLinkBtn.className = "studio-copy-link-btn dads-button";
+	copyLinkBtn.dataset.size = "sm";
+	copyLinkBtn.dataset.type = "outline";
+	copyLinkBtn.textContent = "Copy Link";
+	copyLinkBtn.disabled = state.palettes.length === 0;
+	copyLinkBtn.onclick = async () => {
+		if (state.palettes.length === 0) return;
+
+		const paletteColors = computePaletteColors(dadsTokens);
+		const accentHexes = paletteColors.accentHexes.slice(
+			0,
+			Math.max(1, Math.min(3, state.accentCount)),
+		);
+		const accents =
+			accentHexes.length > 0 ? accentHexes : [paletteColors.accentHex];
+
+		const shareState = {
+			v: 1 as const,
+			primary: paletteColors.primaryHex,
+			accents,
+			accentCount: state.accentCount,
+			preset: state.activePreset,
+			locks: {
+				primary: state.lockedColors.primary,
+				accent: state.lockedColors.accent,
+			},
+			kv: state.previewKv,
+			studioSeed: state.studioSeed,
+		};
+
+		const url = new URL(window.location.href);
+		url.hash = createStudioUrlHash(shareState);
+
+		const originalText = copyLinkBtn.textContent ?? "Copy Link";
+		const ok = await copyTextToClipboard(url.toString());
+		setTemporaryButtonText(copyLinkBtn, ok ? "Copied!" : "Copy failed", {
+			resetText: originalText,
+		});
+	};
+
+	controls.appendChild(presetDetails);
 	controls.appendChild(accentCountLabel);
 	controls.appendChild(accentCountButtons);
 	controls.appendChild(kvShuffleBtn);
 	controls.appendChild(kvLockBtn);
 	controls.appendChild(generateBtn);
-	controls.appendChild(exportBtn);
+	controls.appendChild(copyLinkBtn);
+	controls.appendChild(exportGroup);
 
 	toolbar.appendChild(swatches);
 	toolbar.appendChild(controls);
@@ -765,8 +865,24 @@ export async function renderStudioView(
 		});
 
 		const badge = createContrastBadge(ratio);
+		const copyBtn = document.createElement("button");
+		copyBtn.type = "button";
+		copyBtn.className = "studio-copy-btn dads-button";
+		copyBtn.dataset.size = "sm";
+		copyBtn.dataset.type = "text";
+		copyBtn.textContent = "Copy";
+		copyBtn.setAttribute("aria-label", `${label} のHEXをコピー`);
+		copyBtn.title = "元のHEXをコピー";
+		copyBtn.onclick = async () => {
+			const originalText = copyBtn.textContent ?? "Copy";
+			const ok = await copyTextToClipboard(hex);
+			setTemporaryButtonText(copyBtn, ok ? "Copied!" : "Copy failed", {
+				resetText: originalText,
+			});
+		};
 
 		row.appendChild(swatch);
+		row.appendChild(copyBtn);
 		if (options.lockId) {
 			const lockId = options.lockId;
 			const lockBtn = createLockButton(state.lockedColors[lockId], () => {

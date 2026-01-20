@@ -478,18 +478,79 @@
 	gap: var(--space-sm, 0.5rem);
 }
 
-.studio-preset-select {
+.studio-preset {
+	position: relative;
+}
+
+.studio-preset__summary {
 	padding: 0.4rem 0.6rem;
 	border: 1px solid var(--color-border, #e5e7eb);
 	border-radius: var(--radius-md, 0.5rem);
 	background: var(--color-surface, #ffffff);
 	color: var(--color-text, #111827);
+	cursor: pointer;
+	list-style: none;
+	user-select: none;
+}
+
+.studio-preset__summary:focus-visible {
+	outline: 2px solid var(--color-primary, #3b82f6);
+	outline-offset: 2px;
+}
+
+.studio-preset__summary::marker {
+	content: "";
+}
+
+.studio-preset__summary::-webkit-details-marker {
+	display: none;
+}
+
+.studio-preset__menu {
+	position: absolute;
+	right: 0;
+	top: calc(100% + 0.25rem);
+	z-index: 10;
+	display: none;
+	flex-direction: column;
+	gap: 0.25rem;
+	padding: 0.35rem;
+	border-radius: var(--radius-lg, 0.75rem);
+	border: 1px solid var(--color-border, #e5e7eb);
+	background: var(--color-surface, #ffffff);
+	box-shadow:
+		0 10px 15px -3px rgba(0, 0, 0, 0.1),
+		0 4px 6px -4px rgba(0, 0, 0, 0.1);
+}
+
+.studio-preset[open] .studio-preset__menu {
+	display: flex;
+}
+
+.studio-preset__item {
+	width: 100%;
+	justify-content: flex-start;
 }
 
 .studio-swatch-row {
 	display: flex;
 	align-items: center;
 	gap: 0.4rem;
+}
+
+.studio-copy-btn {
+	display: inline-flex;
+}
+
+@media (any-hover: hover) {
+	.studio-copy-btn {
+		display: none;
+	}
+
+	.studio-swatch-row:hover .studio-copy-btn,
+	.studio-swatch-row:focus-within .studio-copy-btn {
+		display: inline-flex;
+	}
 }
 
 .studio-swatch {
@@ -542,7 +603,7 @@
 }
 
 .studio-contrast-badge {
-	display: inline-flex;
+	display: none;
 	align-items: center;
 	justify-content: center;
 	padding: 0.2rem 0.45rem;
@@ -552,6 +613,15 @@
 	line-height: 1;
 	background: var(--color-surface, #ffffff);
 	color: var(--color-text-secondary, #6b7280);
+}
+
+.studio-swatch-row:hover .studio-contrast-badge,
+.studio-swatch-row:focus-within .studio-contrast-badge {
+	display: inline-flex;
+}
+
+.studio-contrast-badge--fail {
+	display: inline-flex;
 }
 
 .studio-contrast-badge--aaa {
@@ -572,6 +642,22 @@
 .studio-contrast-badge--fail {
 	color: #842029;
 	border-color: rgba(132, 32, 41, 0.35);
+}
+
+.studio-export-group {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4rem;
+}
+
+.studio-export-hint {
+	padding: 0.15rem 0.35rem;
+	border-radius: 999px;
+	border: 1px solid var(--color-border, #e5e7eb);
+	font-size: 0.72rem;
+	line-height: 1;
+	color: var(--color-text-secondary, #6b7280);
+	white-space: nowrap;
 }
 
 .studio-primary-editor {
