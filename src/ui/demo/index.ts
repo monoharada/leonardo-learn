@@ -98,7 +98,14 @@ export async function runDemo(): Promise<void> {
 		const backgroundHex = "#ffffff";
 
 		state.activePreset = studioUrlState.preset;
-		state.accentCount = studioUrlState.accentCount;
+		const restoredAccentCount = studioUrlState.accentCount;
+		state.studioAccentCount = (
+			restoredAccentCount < 3
+				? 3
+				: restoredAccentCount > 6
+					? 6
+					: restoredAccentCount
+		) as 3 | 4 | 5 | 6;
 		state.lockedColors = {
 			...state.lockedColors,
 			primary: studioUrlState.locks.primary,
@@ -126,7 +133,7 @@ export async function runDemo(): Promise<void> {
 		);
 
 		const accentPalettes = studioUrlState.accents
-			.slice(0, studioUrlState.accentCount)
+			.slice(0, state.studioAccentCount)
 			.map((hex, index) => ({
 				id: `studio-accent-${timestamp}-${index + 1}`,
 				name: `Accent ${index + 1}`,

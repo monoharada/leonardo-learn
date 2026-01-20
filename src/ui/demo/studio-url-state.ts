@@ -11,10 +11,10 @@
 
 import type { PreviewKvState, StudioPresetType } from "./types";
 
-export type StudioUrlStateVersion = 1;
+export type StudioUrlStateVersion = 1 | 2;
 
 export interface StudioUrlStateV1 {
-	v: StudioUrlStateVersion;
+	v: 1;
 	primary: string;
 	accents: string[];
 	accentCount: 1 | 2 | 3;
@@ -24,7 +24,18 @@ export interface StudioUrlStateV1 {
 	studioSeed: number;
 }
 
-export type StudioUrlState = StudioUrlStateV1;
+export interface StudioUrlStateV2 {
+	v: 2;
+	primary: string;
+	accents: string[];
+	accentCount: 3 | 4 | 5 | 6;
+	preset: StudioPresetType;
+	locks: { primary: boolean; accent: boolean };
+	kv: PreviewKvState;
+	studioSeed: number;
+}
+
+export type StudioUrlState = StudioUrlStateV1 | StudioUrlStateV2;
 
 const STUDIO_HASH_PREFIX = "#studio=" as const;
 
@@ -116,7 +127,7 @@ export function decodeStudioUrlState(payload: string): StudioUrlState | null {
 		if (!isRecord(parsed)) return null;
 
 		const v = parsed.v;
-		if (v !== 1) return null;
+		if (v !== 1 && v !== 2) return null;
 
 		const primaryRaw = parsed.primary;
 		if (!isHex6(primaryRaw)) return null;
@@ -124,18 +135,70 @@ export function decodeStudioUrlState(payload: string): StudioUrlState | null {
 
 		const accentsRaw = parsed.accents;
 		if (!Array.isArray(accentsRaw)) return null;
-		const accents = accentsRaw.filter(isHex6).map(toLowerHex).slice(0, 3);
+		const accents = accentsRaw
+			.filter(isHex6)
+			.map(toLowerHex)
+			.slice(0, v === 2 ? 6 : 3);
 		if (accents.length === 0) return null;
+		if (v === 2 && accents.length < 3) return null;
 
 		const accentCountRaw = parsed.accentCount;
+		if (v === 1) {
+			const accentCount =
+				accentCountRaw === 1 || accentCountRaw === 2 || accentCountRaw === 3
+					? accentCountRaw
+					: null;
+			if (!accentCount) return null;
+			const maxAccentCount: 1 | 2 | 3 =
+				accents.length >= 3 ? 3 : accents.length === 2 ? 2 : 1;
+			const safeAccentCount: 1 | 2 | 3 =
+				accentCount > maxAccentCount ? maxAccentCount : accentCount;
+
+			const presetRaw = parsed.preset;
+			if (!isStudioPreset(presetRaw)) return null;
+
+			const locksRaw = parsed.locks;
+			if (!isRecord(locksRaw)) return null;
+			if (!isBoolean(locksRaw.primary) || !isBoolean(locksRaw.accent))
+				return null;
+
+			const kvRaw = parsed.kv;
+			if (!isRecord(kvRaw)) return null;
+			if (!isBoolean(kvRaw.locked) || !isNumber(kvRaw.seed)) return null;
+			const kv: PreviewKvState = { locked: kvRaw.locked, seed: kvRaw.seed };
+
+			const studioSeedRaw = parsed.studioSeed;
+			if (!isNumber(studioSeedRaw)) return null;
+
+			return {
+				v: 1,
+				primary,
+				accents,
+				accentCount: safeAccentCount,
+				preset: presetRaw,
+				locks: { primary: locksRaw.primary, accent: locksRaw.accent },
+				kv,
+				studioSeed: studioSeedRaw,
+			};
+		}
+
 		const accentCount =
-			accentCountRaw === 1 || accentCountRaw === 2 || accentCountRaw === 3
+			accentCountRaw === 3 ||
+			accentCountRaw === 4 ||
+			accentCountRaw === 5 ||
+			accentCountRaw === 6
 				? accentCountRaw
 				: null;
 		if (!accentCount) return null;
-		const maxAccentCount: 1 | 2 | 3 =
-			accents.length >= 3 ? 3 : accents.length === 2 ? 2 : 1;
-		const safeAccentCount: 1 | 2 | 3 =
+		const maxAccentCount: 3 | 4 | 5 | 6 =
+			accents.length >= 6
+				? 6
+				: accents.length === 5
+					? 5
+					: accents.length === 4
+						? 4
+						: 3;
+		const safeAccentCount: 3 | 4 | 5 | 6 =
 			accentCount > maxAccentCount ? maxAccentCount : accentCount;
 
 		const presetRaw = parsed.preset;
@@ -155,7 +218,7 @@ export function decodeStudioUrlState(payload: string): StudioUrlState | null {
 		if (!isNumber(studioSeedRaw)) return null;
 
 		return {
-			v: 1,
+			v: 2,
 			primary,
 			accents,
 			accentCount: safeAccentCount,

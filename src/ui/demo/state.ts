@@ -352,6 +352,7 @@ export const state: DemoState = {
 	lightBackgroundColor: DEFAULT_STATE.lightBackgroundColor,
 	darkBackgroundColor: DEFAULT_STATE.darkBackgroundColor,
 	accentCount: DEFAULT_STATE.accentCount,
+	studioAccentCount: DEFAULT_STATE.studioAccentCount,
 	semanticColorConfig: { ...DEFAULT_STATE.semanticColorConfig },
 	lockedColors: { ...DEFAULT_STATE.lockedColors },
 	activePreset: DEFAULT_STATE.activePreset,
@@ -427,6 +428,7 @@ export function resetState(): void {
 	state.lightBackgroundColor = DEFAULT_STATE.lightBackgroundColor;
 	state.darkBackgroundColor = DEFAULT_STATE.darkBackgroundColor;
 	state.accentCount = DEFAULT_STATE.accentCount;
+	state.studioAccentCount = DEFAULT_STATE.studioAccentCount;
 	state.semanticColorConfig = { ...DEFAULT_STATE.semanticColorConfig };
 	state.lockedColors = { ...DEFAULT_STATE.lockedColors };
 	state.activePreset = DEFAULT_STATE.activePreset;

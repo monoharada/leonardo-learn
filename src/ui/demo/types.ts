@@ -192,6 +192,8 @@ export interface DemoState {
 	darkBackgroundColor: string;
 	/** アクセントカラー数（1-3）。P+S+T+アクセント=4-6色 */
 	accentCount: 1 | 2 | 3;
+	/** Studioビュー用: アクセントカラー数（3-6）。キーカラーとは別枠 */
+	studioAccentCount: 3 | 4 | 5 | 6;
 	/** セマンティックカラー設定（警告色パターン選択） */
 	semanticColorConfig: SemanticColorConfig;
 	/** Studioビュー用: ロック状態 */
