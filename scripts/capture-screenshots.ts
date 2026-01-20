@@ -35,6 +35,17 @@ interface CaptureConfig {
 
 const CAPTURES: CaptureConfig[] = [
 	{
+		filename: "00-studio-view.png",
+		description: "Studio View (new)",
+		setup: async (page) => {
+			await page.goto(DEFAULT_BASE_URL);
+			await page.click("#view-studio");
+			await waitForApp(page, DEFAULT_TIMEOUT);
+			await page.waitForTimeout(1500);
+		},
+		fullPage: true,
+	},
+	{
 		filename: "01-harmony-view.png",
 		description: "Harmony View (initial)",
 		setup: async (page) => {

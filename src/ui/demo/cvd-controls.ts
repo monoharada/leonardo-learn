@@ -181,8 +181,12 @@ export function getScoreDisplay(): CVDScoreDisplay {
  * 要素が見つからない場合は何もしない。
  */
 export function updateCVDScoreDisplay(): void {
+	if (typeof document === "undefined") return;
 	const cvdScoreValue = document.getElementById("cvd-score-value");
 	const cvdScoreGrade = document.getElementById("cvd-score-grade");
+
+	// 表示要素がない場合は計算コストを避けて終了
+	if (!cvdScoreValue && !cvdScoreGrade) return;
 
 	const { score, grade } = getScoreDisplay();
 

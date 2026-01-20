@@ -22,7 +22,7 @@ import {
 } from "@/core/tokens/dads-data-provider";
 import type { DadsToken } from "@/core/tokens/types";
 import { detectCvdConfusionPairs } from "@/ui/accessibility/cvd-detection";
-import { getDisplayHex } from "../cvd-controls";
+import { getDisplayHex, updateCVDScoreDisplay } from "../cvd-controls";
 import { createDerivedPalettes } from "../palette-generator";
 import { parseKeyColor, state } from "../state";
 import { createStudioUrlHash } from "../studio-url-state";
@@ -482,6 +482,9 @@ async function rebuildStudioPalettes(options: {
 	if (keyColorsInput) {
 		keyColorsInput.value = options.primaryHex;
 	}
+
+	// Studio内の配色更新で識別性スコア表示も追従させる
+	updateCVDScoreDisplay();
 }
 
 async function generateNewStudioPalette(

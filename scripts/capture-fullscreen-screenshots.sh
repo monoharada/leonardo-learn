@@ -119,6 +119,7 @@ echo "🔍 Performing quality checks..."
 echo ""
 
 SCREENSHOTS=(
+    "00-studio-view.png"
     "01-harmony-view.png"
     "02-palette-view.png"
     "03-shades-view.png"
