@@ -756,7 +756,7 @@ export async function renderStudioView(
 	generateBtn.className = "studio-generate-btn dads-button";
 	generateBtn.dataset.size = "sm";
 	generateBtn.dataset.type = "solid-fill";
-	generateBtn.textContent = "Generate";
+	generateBtn.textContent = "生成";
 	generateBtn.onclick = async () => {
 		try {
 			studioUndoHistory.push({
@@ -792,7 +792,7 @@ export async function renderStudioView(
 	copyLinkBtn.className = "studio-copy-link-btn dads-button";
 	copyLinkBtn.dataset.size = "sm";
 	copyLinkBtn.dataset.type = "outline";
-	copyLinkBtn.textContent = "Copy Link";
+	copyLinkBtn.textContent = "リンクをコピー";
 	copyLinkBtn.disabled = state.palettes.length === 0;
 	copyLinkBtn.onclick = async () => {
 		if (state.palettes.length === 0) return;
@@ -837,15 +837,15 @@ export async function renderStudioView(
 		const url = new URL(window.location.href);
 		url.hash = createStudioUrlHash(shareState);
 
-		const originalText = copyLinkBtn.textContent ?? "Copy Link";
+		const originalText = copyLinkBtn.textContent ?? "リンクをコピー";
 		const ok = await copyTextToClipboard(url.toString());
-		setTemporaryButtonText(copyLinkBtn, ok ? "Copied!" : "Copy failed", {
+		setTemporaryButtonText(copyLinkBtn, ok ? "コピー完了" : "コピー失敗", {
 			resetText: originalText,
 		});
 	};
 
 	// UX最適化されたボタン配置:
-	// [戻る | Generate] (コアワークフロー) | [spacer] | [設定 | Copy Link | エクスポート] (設定・出力)
+	// [戻る | 生成] (コアワークフロー) | [spacer] | [設定 | リンクをコピー | エクスポート] (設定・出力)
 	controls.appendChild(undoBtn);
 	controls.appendChild(generateBtn);
 
@@ -957,7 +957,7 @@ export async function renderStudioView(
 			e.stopPropagation();
 			const ok = await copyTextToClipboard(hex.toUpperCase());
 			const originalHtml = hexBtn.innerHTML;
-			hexBtn.innerHTML = `<span>${ok ? "Copied!" : "Failed"}</span>`;
+			hexBtn.innerHTML = `<span>${ok ? "コピー完了" : "失敗"}</span>`;
 			setTimeout(() => {
 				hexBtn.innerHTML = originalHtml;
 			}, 1500);
