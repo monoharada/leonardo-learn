@@ -2885,7 +2885,8 @@
 }
 
 .dads-preview--dads-html .preview-header {
-	border-bottom: 1px solid var(--preview-border, var(--color-neutral-solid-gray-200));
+	border-bottom: 1px solid
+		var(--preview-border, var(--color-neutral-solid-gray-200));
 	background-color: var(--preview-bg, var(--color-neutral-white));
 }
 
@@ -3018,7 +3019,10 @@
 	aspect-ratio: 4 / 3;
 	border-radius: 1rem;
 	border: none;
-	background: var(--preview-kv-bg, var(--preview-card, var(--color-neutral-solid-gray-50)));
+	background: var(
+		--preview-kv-bg,
+		var(--preview-card, var(--color-neutral-solid-gray-50))
+	);
 	position: relative;
 	overflow: hidden;
 	color: var(--preview-text, var(--color-neutral-solid-gray-900));
@@ -3107,8 +3111,16 @@
 	padding: 0.25rem 0.625rem;
 	border: 1px solid
 		color-mix(in oklab, var(--_pill-color) 30%, var(--color-neutral-white));
-	background: color-mix(in oklab, var(--_pill-color) 10%, var(--color-neutral-white));
-	color: color-mix(in oklab, var(--_pill-color) 75%, var(--color-neutral-solid-gray-900));
+	background: color-mix(
+		in oklab,
+		var(--_pill-color) 10%,
+		var(--color-neutral-white)
+	);
+	color: color-mix(
+		in oklab,
+		var(--_pill-color) 75%,
+		var(--color-neutral-solid-gray-900)
+	);
 	font-weight: 700;
 	font-size: 0.8125rem;
 	line-height: 1.4;
@@ -3120,11 +3132,17 @@
 }
 
 .dads-preview--dads-html .preview-pill[data-tone="accent-2"] {
-	--_pill-color: var(--preview-accent-2, var(--preview-accent, var(--color-neutral-solid-gray-420)));
+	--_pill-color: var(
+		--preview-accent-2,
+		var(--preview-accent, var(--color-neutral-solid-gray-420))
+	);
 }
 
 .dads-preview--dads-html .preview-pill[data-tone="accent-3"] {
-	--_pill-color: var(--preview-accent-3, var(--preview-accent, var(--color-neutral-solid-gray-420)));
+	--_pill-color: var(
+		--preview-accent-3,
+		var(--preview-accent, var(--color-neutral-solid-gray-420))
+	);
 }
 
 .dads-preview--dads-html .preview-strip__links {
@@ -3140,8 +3158,13 @@
 	align-items: center;
 	gap: 1rem;
 	padding: 0.875rem 1rem;
-	border-top: 1px solid var(--preview-border, var(--color-neutral-solid-gray-200));
-	background: color-mix(in oklab, var(--preview-card, var(--color-neutral-solid-gray-50)) 85%, var(--color-neutral-white));
+	border-top: 1px solid
+		var(--preview-border, var(--color-neutral-solid-gray-200));
+	background: color-mix(
+		in oklab,
+		var(--preview-card, var(--color-neutral-solid-gray-50)) 85%,
+		var(--color-neutral-white)
+	);
 	text-decoration: none;
 }
 
@@ -3151,7 +3174,11 @@
 
 @media (hover: hover) {
 	.dads-preview--dads-html .preview-page .preview-link-row.dads-link:hover {
-		background: color-mix(in oklab, var(--preview-card, var(--color-neutral-solid-gray-50)) 70%, var(--color-neutral-white));
+		background: color-mix(
+			in oklab,
+			var(--preview-card, var(--color-neutral-solid-gray-50)) 70%,
+			var(--color-neutral-white)
+		);
 	}
 }
 
@@ -3197,7 +3224,11 @@
 	padding: 0.25rem 0.625rem;
 	border: 1px solid
 		color-mix(in oklab, var(--_tag-color) 35%, var(--color-neutral-white));
-	background: color-mix(in oklab, var(--_tag-color) 8%, var(--color-neutral-white));
+	background: color-mix(
+		in oklab,
+		var(--_tag-color) 8%,
+		var(--color-neutral-white)
+	);
 	color: var(--color-neutral-solid-gray-800);
 	font-weight: 700;
 	font-size: 0.8125rem;
@@ -3209,10 +3240,16 @@
 	--_tag-color: var(--preview-accent, var(--color-neutral-solid-gray-420));
 }
 .dads-preview--dads-html .preview-tag[data-tone="accent-2"] {
-	--_tag-color: var(--preview-accent-2, var(--preview-accent, var(--color-neutral-solid-gray-420)));
+	--_tag-color: var(
+		--preview-accent-2,
+		var(--preview-accent, var(--color-neutral-solid-gray-420))
+	);
 }
 .dads-preview--dads-html .preview-tag[data-tone="accent-3"] {
-	--_tag-color: var(--preview-accent-3, var(--preview-accent, var(--color-neutral-solid-gray-420)));
+	--_tag-color: var(
+		--preview-accent-3,
+		var(--preview-accent, var(--color-neutral-solid-gray-420))
+	);
 }
 .dads-preview--dads-html .preview-tag[data-tone="neutral"] {
 	--_tag-color: var(--color-neutral-solid-gray-420);
@@ -3220,7 +3257,8 @@
 
 .dads-preview--dads-html .preview-divider {
 	border: 0;
-	border-top: 1px solid var(--preview-border, var(--color-neutral-solid-gray-200));
+	border-top: 1px solid
+		var(--preview-border, var(--color-neutral-solid-gray-200));
 	margin: 2rem 0;
 }
 
@@ -3252,10 +3290,16 @@
 	--_tone: var(--preview-accent, var(--color-neutral-solid-gray-420));
 }
 .dads-preview--dads-html .preview-topic[data-tone="accent-2"] {
-	--_tone: var(--preview-accent-2, var(--preview-accent, var(--color-neutral-solid-gray-420)));
+	--_tone: var(
+		--preview-accent-2,
+		var(--preview-accent, var(--color-neutral-solid-gray-420))
+	);
 }
 .dads-preview--dads-html .preview-topic[data-tone="accent-3"] {
-	--_tone: var(--preview-accent-3, var(--preview-accent, var(--color-neutral-solid-gray-420)));
+	--_tone: var(
+		--preview-accent-3,
+		var(--preview-accent, var(--color-neutral-solid-gray-420))
+	);
 }
 .dads-preview--dads-html .preview-topic[data-tone="neutral"] {
 	--_tone: var(--color-neutral-solid-gray-420);
@@ -3339,7 +3383,8 @@
 	bottom: 1rem;
 	margin: 0;
 	padding-top: 0.75rem;
-	border-top: 1px solid var(--preview-border, var(--color-neutral-solid-gray-200));
+	border-top: 1px solid
+		var(--preview-border, var(--color-neutral-solid-gray-200));
 	color: var(--color-neutral-solid-gray-800);
 	font-size: 0.875rem;
 	line-height: 1.7;
@@ -3354,7 +3399,8 @@
 
 .dads-preview--dads-html .preview-article {
 	padding-top: 1.25rem;
-	border-top: 1px solid var(--preview-border, var(--color-neutral-solid-gray-200));
+	border-top: 1px solid
+		var(--preview-border, var(--color-neutral-solid-gray-200));
 }
 
 .dads-preview--dads-html .preview-article:first-child {
@@ -3379,12 +3425,16 @@
 	text-decoration: none;
 }
 
-.dads-preview--dads-html .preview-page .preview-article__title.dads-link:any-link {
+.dads-preview--dads-html
+	.preview-page
+	.preview-article__title.dads-link:any-link {
 	text-decoration: none;
 }
 
 @media (hover: hover) {
-	.dads-preview--dads-html .preview-page .preview-article__title.dads-link:hover {
+	.dads-preview--dads-html
+		.preview-page
+		.preview-article__title.dads-link:hover {
 		text-decoration: underline;
 		text-decoration-thickness: 0.1875rem;
 	}
@@ -3400,7 +3450,8 @@
 
 .dads-preview--dads-html .preview-footer {
 	padding: 1.5rem 0;
-	border-top: 1px solid var(--preview-border, var(--color-neutral-solid-gray-200));
+	border-top: 1px solid
+		var(--preview-border, var(--color-neutral-solid-gray-200));
 	color: var(--demo-text-color, var(--color-neutral-solid-gray-800));
 	font-weight: 400;
 	font-size: 0.875rem;
