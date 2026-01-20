@@ -7,6 +7,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import { JSDOM } from "jsdom";
+import { HarmonyType } from "@/core/harmony";
 import { resetState, state } from "../state";
 import type { PaletteConfig } from "../types";
 
@@ -48,8 +49,6 @@ mock.module("@/ui/accessibility/cvd-detection", () => ({
 	detectCvdConfusionPairs: () => [],
 }));
 
-import { renderStudioView } from "./studio-view";
-
 describe("studio-view module", () => {
 	const originalDocument = globalThis.document;
 	const originalHTMLElement = globalThis.HTMLElement;
@@ -66,6 +65,8 @@ describe("studio-view module", () => {
 	});
 
 	it("should update CVD score display when primary color changes", async () => {
+		const { renderStudioView } = await import("./studio-view");
+
 		const dom = new JSDOM(
 			'<!doctype html><html><body><div id="root"></div><input type="hidden" id="keyColors" value="#3366cc" /></body></html>',
 		);
@@ -79,7 +80,7 @@ describe("studio-view module", () => {
 				name: "Primary",
 				keyColors: ["#3366cc"],
 				ratios: [21, 15, 10, 7, 4.5, 3, 1],
-				harmony: "none" as any,
+				harmony: HarmonyType.NONE,
 			},
 		];
 		state.palettes = palettes;
