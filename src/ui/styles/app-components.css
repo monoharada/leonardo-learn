@@ -524,6 +524,25 @@
 		box-shadow 0.15s ease;
 }
 
+.studio-toolbar-swatch--placeholder {
+	border: 2px dashed rgba(17, 24, 39, 0.2);
+	background: transparent;
+	cursor: default;
+}
+
+.studio-toolbar-swatch--placeholder:hover {
+	border-color: rgba(17, 24, 39, 0.2);
+}
+
+.studio-toolbar-swatch--placeholder::after {
+	display: none;
+}
+
+.studio-toolbar__swatch-spacer {
+	width: 38px;
+	flex-shrink: 0;
+}
+
 .studio-toolbar-swatch::after {
 	content: "";
 	position: absolute;

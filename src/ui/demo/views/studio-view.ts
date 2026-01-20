@@ -1072,6 +1072,23 @@ export async function renderStudioView(
 		);
 	}
 
+	// Add placeholder swatches for empty accent slots (max 6 accents)
+	const maxAccents = 6;
+	const placeholderCount = maxAccents - resolvedAccentHexes.length;
+	for (let i = 0; i < placeholderCount; i++) {
+		const placeholder = document.createElement("div");
+		placeholder.className =
+			"studio-toolbar-swatch studio-toolbar-swatch--placeholder";
+		placeholder.setAttribute("aria-hidden", "true");
+		swatches.appendChild(placeholder);
+	}
+
+	// Add spacer between swatches and controls (one swatch width)
+	const swatchSpacer = document.createElement("div");
+	swatchSpacer.className = "studio-toolbar__swatch-spacer";
+	swatchSpacer.setAttribute("aria-hidden", "true");
+	swatches.appendChild(swatchSpacer);
+
 	const primaryEditor = document.createElement("section");
 	primaryEditor.className = "studio-primary-editor";
 	primaryEditor.innerHTML = `
