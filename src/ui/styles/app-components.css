@@ -587,6 +587,14 @@
 	display: flex;
 }
 
+.studio-swatch-popover__role {
+	font-size: 0.6875rem;
+	font-weight: 600;
+	color: var(--color-neutral-500, #6b7280);
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+}
+
 .studio-swatch-popover__hex {
 	display: flex;
 	align-items: center;
@@ -662,7 +670,11 @@
 .studio-toast {
 	position: fixed;
 	left: 50%;
-	bottom: calc(env(safe-area-inset-bottom, 0px) + var(--space-lg, 1.5rem) + 4rem);
+	bottom: calc(
+		env(safe-area-inset-bottom, 0px) +
+		var(--space-lg, 1.5rem) +
+		4rem
+	);
 	transform: translateX(-50%);
 	z-index: 35;
 	padding: 0.5rem 1rem;

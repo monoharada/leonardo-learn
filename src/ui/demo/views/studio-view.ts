@@ -927,6 +927,12 @@ export async function renderStudioView(
 		popover.className = "studio-swatch-popover";
 		popover.dataset.open = "false";
 
+		// Color role label
+		const roleLabel = document.createElement("div");
+		roleLabel.className = "studio-swatch-popover__role";
+		roleLabel.textContent = label;
+		popover.appendChild(roleLabel);
+
 		// Hex code button
 		const hexBtn = document.createElement("button");
 		hexBtn.type = "button";
