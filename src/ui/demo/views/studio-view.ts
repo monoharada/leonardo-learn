@@ -156,20 +156,6 @@ function getAccentHexes(palettes: PaletteConfig[]): string[] {
 	return /^#[0-9A-Fa-f]{6}$/.test(fallback) ? [fallback] : [];
 }
 
-function createLockButton(
-	locked: boolean,
-	onToggle: () => void,
-): HTMLButtonElement {
-	const btn = document.createElement("button");
-	btn.type = "button";
-	btn.className = "studio-lock-btn";
-	btn.setAttribute("aria-pressed", String(locked));
-	btn.title = locked ? "ロック解除" : "ロック";
-	btn.textContent = locked ? "🔒" : "🔓";
-	btn.onclick = onToggle;
-	return btn;
-}
-
 const studioButtonTextResetTimers = new WeakMap<
 	HTMLButtonElement,
 	ReturnType<typeof setTimeout>
@@ -717,18 +703,6 @@ export async function renderStudioView(
 	settingsDetails.appendChild(settingsSummary);
 	settingsDetails.appendChild(settingsPanel);
 
-	const primaryLockBtn = createLockButton(state.lockedColors.primary, () => {
-		setLockedColors({ primary: !state.lockedColors.primary });
-		void renderStudioView(container, callbacks);
-	});
-	primaryLockBtn.setAttribute("aria-label", "Primary をロック");
-
-	const accentLockBtn = createLockButton(state.lockedColors.accent, () => {
-		setLockedColors({ accent: !state.lockedColors.accent });
-		void renderStudioView(container, callbacks);
-	});
-	accentLockBtn.setAttribute("aria-label", "Accent をロック");
-
 	const toast = document.createElement("div");
 	toast.className = "studio-toast";
 	toast.setAttribute("role", "status");
@@ -871,8 +845,6 @@ export async function renderStudioView(
 	};
 
 	controls.appendChild(settingsDetails);
-	controls.appendChild(primaryLockBtn);
-	controls.appendChild(accentLockBtn);
 	controls.appendChild(undoBtn);
 	controls.appendChild(generateBtn);
 	controls.appendChild(copyLinkBtn);
@@ -896,55 +868,167 @@ export async function renderStudioView(
 	const resolvedAccentHexes =
 		accentHexes.length > 0 ? accentHexes : [paletteColors.accentHex];
 
-	const createToolbarSwatch = (
+	// Close any open popover when clicking outside
+	let activePopover: HTMLElement | null = null;
+	const closeActivePopover = () => {
+		if (activePopover) {
+			activePopover.dataset.open = "false";
+			activePopover = null;
+		}
+	};
+	document.addEventListener("click", (e) => {
+		if (
+			activePopover &&
+			!activePopover
+				.closest(".studio-toolbar-swatch")
+				?.contains(e.target as Node)
+		) {
+			closeActivePopover();
+		}
+	});
+
+	const createToolbarSwatchWithPopover = (
 		label: string,
 		hex: string,
-		onClick: () => void,
-	): HTMLButtonElement => {
-		const btn = document.createElement("button");
-		btn.type = "button";
-		btn.className = "studio-toolbar-swatch";
-		btn.setAttribute("aria-label", `${label} を表示`);
-		btn.title = `${label}: ${hex.toUpperCase()}`;
-		btn.onclick = onClick;
+		lockType: "primary" | "accent" | null,
+	): HTMLElement => {
+		const wrapper = document.createElement("div");
+		wrapper.className = "studio-toolbar-swatch";
+		wrapper.style.position = "relative";
+		wrapper.setAttribute("role", "button");
+		wrapper.setAttribute("tabindex", "0");
+		wrapper.setAttribute("aria-label", `${label}: ${hex.toUpperCase()}`);
 
 		const circle = document.createElement("span");
 		circle.className = "studio-toolbar-swatch__circle";
 		circle.style.backgroundColor = getDisplayHex(hex);
-		btn.appendChild(circle);
-		return btn;
+		wrapper.appendChild(circle);
+
+		// Lock indicator
+		const isLocked =
+			lockType === "primary"
+				? state.lockedColors.primary
+				: lockType === "accent"
+					? state.lockedColors.accent
+					: false;
+		if (isLocked) {
+			const lockIndicator = document.createElement("span");
+			lockIndicator.className = "studio-toolbar-swatch__lock-indicator";
+			lockIndicator.textContent = "🔒";
+			wrapper.appendChild(lockIndicator);
+		}
+
+		// Popover
+		const popover = document.createElement("div");
+		popover.className = "studio-swatch-popover";
+		popover.dataset.open = "false";
+
+		// Hex code button
+		const hexBtn = document.createElement("button");
+		hexBtn.type = "button";
+		hexBtn.className = "studio-swatch-popover__hex";
+		hexBtn.innerHTML = `
+			<span>${hex.toUpperCase()}</span>
+			<svg class="studio-swatch-popover__hex-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+				<rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+				<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+			</svg>
+		`;
+		hexBtn.onclick = async (e) => {
+			e.stopPropagation();
+			const ok = await copyTextToClipboard(hex.toUpperCase());
+			const originalHtml = hexBtn.innerHTML;
+			hexBtn.innerHTML = `<span>${ok ? "Copied!" : "Failed"}</span>`;
+			setTimeout(() => {
+				hexBtn.innerHTML = originalHtml;
+			}, 1500);
+		};
+		popover.appendChild(hexBtn);
+
+		// Lock toggle (only for Primary and Accent)
+		if (lockType) {
+			const lockRow = document.createElement("div");
+			lockRow.className = "studio-swatch-popover__lock";
+
+			const lockLabel = document.createElement("span");
+			lockLabel.className = "studio-swatch-popover__lock-label";
+			lockLabel.innerHTML = `<span>🔒</span><span>ロック</span>`;
+
+			const toggle = document.createElement("button");
+			toggle.type = "button";
+			toggle.className = "studio-swatch-popover__toggle";
+			toggle.dataset.checked = String(isLocked);
+			toggle.setAttribute("aria-pressed", String(isLocked));
+			toggle.setAttribute("aria-label", "ロック切り替え");
+			toggle.onclick = (e) => {
+				e.stopPropagation();
+				if (lockType === "primary") {
+					setLockedColors({ primary: !state.lockedColors.primary });
+				} else {
+					setLockedColors({ accent: !state.lockedColors.accent });
+				}
+				closeActivePopover();
+				void renderStudioView(container, callbacks);
+			};
+
+			lockRow.appendChild(lockLabel);
+			lockRow.appendChild(toggle);
+			popover.appendChild(lockRow);
+		}
+
+		wrapper.appendChild(popover);
+
+		// Click to toggle popover
+		wrapper.onclick = (e) => {
+			e.stopPropagation();
+			if (activePopover && activePopover !== popover) {
+				closeActivePopover();
+			}
+			const isOpen = popover.dataset.open === "true";
+			if (!isOpen) {
+				// Position the popover above the swatch using fixed positioning
+				const rect = wrapper.getBoundingClientRect();
+				const popoverWidth = 140; // min-width from CSS
+				popover.style.left = `${rect.left + rect.width / 2 - popoverWidth / 2}px`;
+				popover.style.bottom = `${window.innerHeight - rect.top + 8}px`;
+			}
+			popover.dataset.open = String(!isOpen);
+			activePopover = !isOpen ? popover : null;
+		};
+
+		// Keyboard support
+		wrapper.onkeydown = (e) => {
+			if (e.key === "Enter" || e.key === " ") {
+				e.preventDefault();
+				wrapper.click();
+			} else if (e.key === "Escape") {
+				closeActivePopover();
+			}
+		};
+
+		return wrapper;
 	};
 
 	swatches.innerHTML = "";
 	swatches.appendChild(
-		createToolbarSwatch("Primary", paletteColors.primaryHex, () => {
-			const editor = container.querySelector<HTMLInputElement>(
-				`input[data-studio-primary-input="1"]`,
-			);
-			editor?.focus();
-		}),
+		createToolbarSwatchWithPopover(
+			"Primary",
+			paletteColors.primaryHex,
+			"primary",
+		),
 	);
 
 	for (let i = 0; i < resolvedAccentHexes.length; i++) {
 		const hex = resolvedAccentHexes[i];
 		if (!hex) continue;
+		// Only first accent can be locked (same as before)
+		const lockType = i === 0 ? "accent" : null;
 		swatches.appendChild(
-			createToolbarSwatch(`Accent ${i + 1}`, hex, () => {
-				const stepColor = new Color(hex);
-				callbacks.onColorClick({
-					stepColor,
-					keyColor: stepColor,
-					index: 0,
-					fixedScale: {
-						colors: [stepColor],
-						keyIndex: 0,
-						hexValues: [hex],
-					},
-					paletteInfo: { name: `Accent ${i + 1}` },
-					readOnly: true,
-					originalHex: hex,
-				});
-			}),
+			createToolbarSwatchWithPopover(
+				`Accent ${i + 1}`,
+				hex,
+				lockType as "accent" | null,
+			),
 		);
 	}
 

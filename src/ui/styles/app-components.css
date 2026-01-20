@@ -551,6 +551,113 @@
 	border: 1px solid rgba(0, 0, 0, 0.12);
 }
 
+.studio-toolbar-swatch__lock-indicator {
+	position: absolute;
+	bottom: -2px;
+	right: -2px;
+	width: 14px;
+	height: 14px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 8px;
+	background: var(--color-surface, #ffffff);
+	border: 1px solid rgba(17, 24, 39, 0.2);
+	border-radius: 999px;
+	pointer-events: none;
+}
+
+.studio-swatch-popover {
+	position: fixed;
+	z-index: 1000;
+	display: none;
+	flex-direction: column;
+	gap: 0.5rem;
+	padding: 0.625rem;
+	min-width: 140px;
+	background: rgba(255, 255, 255, 0.98);
+	border: 1px solid rgba(17, 24, 39, 0.15);
+	border-radius: var(--radius-md, 0.5rem);
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+	backdrop-filter: blur(8px);
+}
+
+.studio-swatch-popover[data-open="true"] {
+	display: flex;
+}
+
+.studio-swatch-popover__hex {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.5rem;
+	padding: 0.375rem 0.5rem;
+	font-family: var(--font-mono, monospace);
+	font-size: 0.8125rem;
+	color: var(--color-neutral-800, #1f2937);
+	background: var(--color-neutral-100, #f3f4f6);
+	border: 1px solid var(--color-neutral-200, #e5e7eb);
+	border-radius: var(--radius-sm, 0.25rem);
+	cursor: pointer;
+	transition: background-color 0.15s ease;
+}
+
+.studio-swatch-popover__hex:hover {
+	background: var(--color-neutral-200, #e5e7eb);
+}
+
+.studio-swatch-popover__hex-icon {
+	width: 14px;
+	height: 14px;
+	opacity: 0.5;
+}
+
+.studio-swatch-popover__lock {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.5rem;
+	font-size: 0.75rem;
+	color: var(--color-neutral-600, #4b5563);
+}
+
+.studio-swatch-popover__lock-label {
+	display: flex;
+	align-items: center;
+	gap: 0.25rem;
+}
+
+.studio-swatch-popover__toggle {
+	position: relative;
+	width: 32px;
+	height: 18px;
+	background: var(--color-neutral-300, #d1d5db);
+	border: none;
+	border-radius: 999px;
+	cursor: pointer;
+	transition: background-color 0.15s ease;
+}
+
+.studio-swatch-popover__toggle[data-checked="true"] {
+	background: var(--color-primary, #3b82f6);
+}
+
+.studio-swatch-popover__toggle::after {
+	content: "";
+	position: absolute;
+	top: 2px;
+	left: 2px;
+	width: 14px;
+	height: 14px;
+	background: white;
+	border-radius: 999px;
+	transition: transform 0.15s ease;
+}
+
+.studio-swatch-popover__toggle[data-checked="true"]::after {
+	transform: translateX(14px);
+}
+
 .studio-toast {
 	position: fixed;
 	left: 50%;
