@@ -464,9 +464,10 @@
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	gap: var(--space-md, 1rem);
-	padding: 0.5rem 0.75rem;
-	width: min(960px, calc(100vw - 2rem));
+	gap: var(--space-sm, 0.5rem);
+	padding: 0.5rem 0.625rem;
+	width: auto;
+	max-width: calc(100vw - 2rem);
 	border: 1px solid rgba(17, 24, 39, 0.35);
 	background: rgba(245, 247, 250, 0.96);
 	backdrop-filter: blur(12px) saturate(1.05);
@@ -481,7 +482,7 @@
 .studio-toolbar__swatches {
 	display: flex;
 	flex-wrap: nowrap;
-	gap: var(--space-sm, 0.5rem);
+	gap: var(--space-xs, 0.25rem);
 	align-items: center;
 	overflow-x: auto;
 	overflow-y: visible;
@@ -494,7 +495,7 @@
 .studio-toolbar__controls {
 	display: flex;
 	align-items: center;
-	gap: var(--space-sm, 0.5rem);
+	gap: var(--space-xs, 0.25rem);
 	flex-shrink: 0;
 }
 
@@ -502,7 +503,7 @@
 	width: 1px;
 	height: 1.5rem;
 	background: rgba(17, 24, 39, 0.15);
-	margin: 0 var(--space-xs, 0.25rem);
+	margin: 0 0.125rem;
 }
 
 .studio-toolbar-swatch {
