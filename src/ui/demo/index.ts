@@ -34,11 +34,13 @@ import {
 } from "./export-handlers";
 import { setupNavigation, updateViewButtons } from "./navigation";
 import {
+	createDerivedPalettes,
 	createPalettesFromHarmonyColors,
 	handleGenerate,
 } from "./palette-generator";
 import { renderSidebar } from "./sidebar";
 import { loadBackgroundColors, loadSemanticColorConfig, state } from "./state";
+import { parseStudioUrlHash } from "./studio-url-state";
 import type { ColorDetailModalOptions } from "./types";
 import {
 	renderAccentSelectionView,
@@ -88,10 +90,62 @@ export async function runDemo(): Promise<void> {
 	state.semanticColorConfig = loadSemanticColorConfig();
 
 	// ========================================
+	// URL hash から Studio 状態を復元（#studio=<payload>）
+	// ========================================
+	const studioUrlState = parseStudioUrlHash(window.location.hash);
+	if (studioUrlState && keyColorsInput) {
+		const timestamp = Date.now();
+		const backgroundHex = "#ffffff";
+
+		state.activePreset = studioUrlState.preset;
+		state.accentCount = studioUrlState.accentCount;
+		state.lockedColors = {
+			...state.lockedColors,
+			primary: studioUrlState.locks.primary,
+			accent: studioUrlState.locks.accent,
+		};
+		state.previewKv = studioUrlState.kv;
+		state.studioSeed = studioUrlState.studioSeed;
+		state.viewMode = "studio";
+
+		// Harmony/Palette等での参照用 hidden input も同期しておく
+		keyColorsInput.value = studioUrlState.primary;
+
+		const primaryPalette = {
+			id: `studio-primary-${timestamp}`,
+			name: "Primary",
+			keyColors: [studioUrlState.primary],
+			ratios: [21, 15, 10, 7, 4.5, 3, 1],
+			harmony: HarmonyType.NONE,
+		};
+
+		const derived = createDerivedPalettes(
+			primaryPalette,
+			backgroundHex,
+			dadsTokensCache,
+		);
+
+		const accentPalettes = studioUrlState.accents
+			.slice(0, studioUrlState.accentCount)
+			.map((hex, index) => ({
+				id: `studio-accent-${timestamp}-${index + 1}`,
+				name: `Accent ${index + 1}`,
+				keyColors: [hex],
+				ratios: [21, 15, 10, 7, 4.5, 3, 1],
+				harmony: HarmonyType.NONE,
+			}));
+
+		state.palettes = [primaryPalette, ...derived, ...accentPalettes];
+		state.shadesPalettes = [];
+		state.activeId = primaryPalette.id;
+		state.activeHarmonyIndex = 0;
+	}
+
+	// ========================================
 	// 初期ブランドカラーのランダム選択
 	// ========================================
 	// keyColorsInputが存在し、デフォルト値（#3366cc）のままの場合はランダム選択
-	if (keyColorsInput) {
+	if (keyColorsInput && !studioUrlState) {
 		const currentValue = keyColorsInput.value.trim();
 		// デフォルト値の場合はランダムに選択（背景色を考慮してコントラスト確保）
 		if (currentValue === "#3366cc" || currentValue === "") {
@@ -419,6 +473,11 @@ export async function runDemo(): Promise<void> {
 	// 初期レンダリング
 	// ========================================
 
-	// 初期状態でharmonyビューを表示
-	renderMain();
+	// URL共有（#studio=...）がある場合は初期表示をStudioへ切替
+	if (studioUrlState) {
+		updateViewButtons("studio", renderMain);
+	} else {
+		// 初期状態でharmonyビューを表示
+		renderMain();
+	}
 }

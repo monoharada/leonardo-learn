@@ -118,7 +118,7 @@ function hashStringToSeed(value: string): number {
 	return hash >>> 0;
 }
 
-function createSeededRandom(seed: number): () => number {
+export function createSeededRandom(seed: number): () => number {
 	let t = seed >>> 0;
 	return () => {
 		t += 0x6d2b79f5;
