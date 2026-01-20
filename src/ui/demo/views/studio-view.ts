@@ -904,6 +904,7 @@ export async function renderStudioView(
 		label: string,
 		hex: string,
 		lockType: "primary" | "accent" | null,
+		onDelete?: () => void,
 	): HTMLElement => {
 		const wrapper = document.createElement("div");
 		wrapper.className = "studio-toolbar-swatch";
@@ -916,6 +917,20 @@ export async function renderStudioView(
 		circle.className = "studio-toolbar-swatch__circle";
 		circle.style.backgroundColor = getDisplayHex(hex);
 		wrapper.appendChild(circle);
+
+		// Delete button for accent colors (not primary)
+		if (onDelete) {
+			const deleteBtn = document.createElement("button");
+			deleteBtn.type = "button";
+			deleteBtn.className = "studio-toolbar-swatch__delete";
+			deleteBtn.setAttribute("aria-label", `${label}を削除`);
+			deleteBtn.onclick = (e) => {
+				e.stopPropagation();
+				closeActivePopover();
+				onDelete();
+			};
+			wrapper.appendChild(deleteBtn);
+		}
 
 		// Lock indicator
 		const isLocked =
@@ -1058,16 +1073,59 @@ export async function renderStudioView(
 		),
 	);
 
+	// Helper to decrease accent count (for delete button)
+	const handleDeleteAccent = async () => {
+		if (state.studioAccentCount <= 3) return;
+		studioUndoHistory.push({
+			palettes: cloneValue(state.palettes),
+			activeId: state.activeId,
+			studioSeed: state.studioSeed,
+			studioAccentCount: state.studioAccentCount,
+			lockedColors: cloneValue(state.lockedColors),
+			activePreset: state.activePreset,
+			previewKv: cloneValue(state.previewKv),
+		});
+		state.studioAccentCount = Math.max(3, state.studioAccentCount - 1) as
+			| 3
+			| 4
+			| 5
+			| 6;
+		await renderStudioView(container, callbacks);
+	};
+
+	// Helper to increase accent count (for placeholder click)
+	const handleAddAccent = async () => {
+		if (state.studioAccentCount >= 6) return;
+		studioUndoHistory.push({
+			palettes: cloneValue(state.palettes),
+			activeId: state.activeId,
+			studioSeed: state.studioSeed,
+			studioAccentCount: state.studioAccentCount,
+			lockedColors: cloneValue(state.lockedColors),
+			activePreset: state.activePreset,
+			previewKv: cloneValue(state.previewKv),
+		});
+		state.studioAccentCount = Math.min(6, state.studioAccentCount + 1) as
+			| 3
+			| 4
+			| 5
+			| 6;
+		await renderStudioView(container, callbacks);
+	};
+
 	for (let i = 0; i < resolvedAccentHexes.length; i++) {
 		const hex = resolvedAccentHexes[i];
 		if (!hex) continue;
 		// Only first accent can be locked (same as before)
 		const lockType = i === 0 ? "accent" : null;
+		// Can delete if count > 3 (minimum required)
+		const canDelete = state.studioAccentCount > 3;
 		swatches.appendChild(
 			createToolbarSwatchWithPopover(
 				`Accent ${i + 1}`,
 				hex,
 				lockType as "accent" | null,
+				canDelete ? handleDeleteAccent : undefined,
 			),
 		);
 	}
@@ -1079,7 +1137,16 @@ export async function renderStudioView(
 		const placeholder = document.createElement("div");
 		placeholder.className =
 			"studio-toolbar-swatch studio-toolbar-swatch--placeholder";
-		placeholder.setAttribute("aria-hidden", "true");
+		placeholder.setAttribute("role", "button");
+		placeholder.setAttribute("tabindex", "0");
+		placeholder.setAttribute("aria-label", "アクセントカラーを追加");
+		placeholder.onclick = handleAddAccent;
+		placeholder.onkeydown = (e) => {
+			if (e.key === "Enter" || e.key === " ") {
+				e.preventDefault();
+				handleAddAccent();
+			}
+		};
 		swatches.appendChild(placeholder);
 	}
 

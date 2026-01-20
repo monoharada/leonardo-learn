@@ -511,8 +511,8 @@
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	width: 38px;
-	height: 38px;
+	width: 44px;
+	height: 44px;
 	padding: 0;
 	border-radius: 999px;
 	border: 1px solid rgba(17, 24, 39, 0.18);
@@ -527,11 +527,12 @@
 .studio-toolbar-swatch--placeholder {
 	border: 2px dashed rgba(17, 24, 39, 0.2);
 	background: transparent;
-	cursor: default;
+	cursor: pointer;
 }
 
 .studio-toolbar-swatch--placeholder:hover {
-	border-color: rgba(17, 24, 39, 0.2);
+	border-color: rgba(17, 24, 39, 0.4);
+	background: rgba(17, 24, 39, 0.03);
 }
 
 .studio-toolbar-swatch--placeholder::after {
@@ -539,7 +540,7 @@
 }
 
 .studio-toolbar__swatch-spacer {
-	width: 38px;
+	width: 44px;
 	flex-shrink: 0;
 }
 
@@ -572,10 +573,55 @@
 }
 
 .studio-toolbar-swatch__circle {
-	width: 24px;
-	height: 24px;
+	width: 30px;
+	height: 30px;
 	border-radius: 999px;
 	border: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.studio-toolbar-swatch__delete {
+	position: absolute;
+	top: -4px;
+	right: -4px;
+	width: 18px;
+	height: 18px;
+	border-radius: 999px;
+	background: rgba(17, 24, 39, 0.7);
+	border: none;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	opacity: 0;
+	transition: opacity 0.15s ease, background 0.15s ease;
+	padding: 0;
+	z-index: 1;
+}
+
+.studio-toolbar-swatch__delete::before,
+.studio-toolbar-swatch__delete::after {
+	content: "";
+	position: absolute;
+	width: 8px;
+	height: 1.5px;
+	background: white;
+	border-radius: 1px;
+}
+
+.studio-toolbar-swatch__delete::before {
+	transform: rotate(45deg);
+}
+
+.studio-toolbar-swatch__delete::after {
+	transform: rotate(-45deg);
+}
+
+.studio-toolbar-swatch:hover .studio-toolbar-swatch__delete {
+	opacity: 1;
+}
+
+.studio-toolbar-swatch__delete:hover {
+	background: rgba(220, 38, 38, 0.9);
 }
 
 .studio-toolbar-swatch__lock-indicator {
