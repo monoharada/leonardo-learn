@@ -802,11 +802,6 @@ function renderSortingValidationSection(
 	const section = document.createElement("section");
 	section.className = "dads-a11y-sorting-section";
 
-	const heading = document.createElement("h2");
-	heading.textContent = "色覚シミュレーション (CVD Simulation)";
-	heading.className = "dads-section__heading";
-	section.appendChild(heading);
-
 	section.appendChild(createAccessibilityExplanationDisclosure());
 
 	const desc = document.createElement("p");
@@ -1207,7 +1202,7 @@ export function renderAccessibilityView(
 	helpers: AccessibilityViewHelpers,
 ): void {
 	container.innerHTML = "";
-	container.className = "dads-section";
+	container.classList.add("dads-section");
 
 	// Requirements 5.2, 5.5: 画面間での背景色同期
 	container.style.backgroundColor = state.lightBackgroundColor;

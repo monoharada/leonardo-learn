@@ -22,6 +22,7 @@ import {
 } from "@/core/tokens/dads-data-provider";
 import type { DadsToken } from "@/core/tokens/types";
 import { detectCvdConfusionPairs } from "@/ui/accessibility/cvd-detection";
+import { updateA11yIssueBadge } from "../a11y-drawer";
 import { getDisplayHex, updateCVDScoreDisplay } from "../cvd-controls";
 import { createDerivedPalettes } from "../palette-generator";
 import { parseKeyColor, state, validateBackgroundColor } from "../state";
@@ -442,6 +443,7 @@ async function rebuildStudioPalettes(options: {
 
 	// Studio内の配色更新で識別性スコア表示も追従させる
 	updateCVDScoreDisplay();
+	updateA11yIssueBadge();
 }
 
 async function generateNewStudioPalette(
@@ -825,6 +827,7 @@ export async function renderStudioView(
 		if (keyColorsInput) keyColorsInput.value = restored.primaryHex;
 
 		updateCVDScoreDisplay();
+		updateA11yIssueBadge();
 		void renderStudioView(container, callbacks);
 	};
 
