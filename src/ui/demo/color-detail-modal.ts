@@ -1035,61 +1035,56 @@ export function openColorDetailModal(
 		);
 	}
 
+	// AbortControllerを作成（イベントリスナーのクリーンアップ用）
+	// 注: cloneNodeパターンの代わりにAbortControllerを使用
+	// ダイアログクローズ時にabort()が呼ばれ、全てのイベントリスナーが自動的に削除される
+	const abortController = createAbortController();
+
 	// 適用ボタンのイベントハンドラを設定
 	if (showApplySection && applyBtn && applySelect) {
-		// 既存のイベントリスナーを削除するためにクローン
-		const newApplyBtn = applyBtn.cloneNode(true) as HTMLElement;
-		applyBtn.parentNode?.replaceChild(newApplyBtn, applyBtn);
+		applyBtn.addEventListener(
+			"click",
+			() => {
+				const target = applySelect.value as ManualApplyTarget | "";
+				if (!target) {
+					return; // 選択されていない場合は何もしない
+				}
 
-		newApplyBtn.addEventListener("click", () => {
-			const target = applySelect.value as ManualApplyTarget | "";
-			if (!target) {
-				return; // 選択されていない場合は何もしない
-			}
+				// originalHexがあれば使用（DADS token hexとの完全一致を保証）
+				// stepColor.toHex()は色空間変換で微妙に異なる値になる可能性がある
+				const hex = originalHex ?? stepColor.toHex();
+				applyColorToManualSelection(target, hex);
 
-			// originalHexがあれば使用（DADS token hexとの完全一致を保証）
-			// stepColor.toHex()は色空間変換で微妙に異なる値になる可能性がある
-			const hex = originalHex ?? stepColor.toHex();
-			applyColorToManualSelection(target, hex);
+				// 成功フィードバックを表示
+				const originalText = applyBtn.textContent;
+				applyBtn.textContent = "適用完了";
+				applyBtn.classList.add("applied");
 
-			// 成功フィードバックを表示
-			const originalText = newApplyBtn.textContent;
-			newApplyBtn.textContent = "適用完了";
-			newApplyBtn.classList.add("applied");
+				setTimeout(() => {
+					applyBtn.textContent = originalText;
+					applyBtn.classList.remove("applied");
+				}, 1500);
 
-			setTimeout(() => {
-				newApplyBtn.textContent = originalText;
-				newApplyBtn.classList.remove("applied");
-			}, 1500);
+				// コールバックを呼び出してツールバーを再描画
+				if (onApply) {
+					onApply();
+				}
 
-			// コールバックを呼び出してツールバーを再描画
-			if (onApply) {
-				onApply();
-			}
-
-			// ドロップダウンオプションを更新（状態が変わったので連続選択制約を再適用）
-			populateApplyTargetOptions(
-				applySelect,
-				state.manualColorSelection,
-				target, // 選択した値を維持
-			);
-		});
+				// ドロップダウンオプションを更新（状態が変わったので連続選択制約を再適用）
+				populateApplyTargetOptions(
+					applySelect,
+					state.manualColorSelection,
+					target, // 選択した値を維持
+				);
+			},
+			{ signal: abortController.signal },
+		);
 	}
 
 	// スクラバーキャンバスを取得
-	let scrubberCanvas = document.getElementById(
+	const scrubberCanvas = document.getElementById(
 		"tuner-scrubber",
 	) as HTMLCanvasElement | null;
-
-	// キャンバスを複製して古いイベントリスナーを削除
-	if (scrubberCanvas) {
-		const newCanvas = scrubberCanvas.cloneNode(true) as HTMLCanvasElement;
-		scrubberCanvas.parentNode?.replaceChild(newCanvas, scrubberCanvas);
-		scrubberCanvas = newCanvas;
-	}
-
-	// AbortControllerを作成（イベントリスナーのクリーンアップ用）
-	const abortController = createAbortController();
 
 	// 現在の色を追跡
 	let currentColor = stepColor;

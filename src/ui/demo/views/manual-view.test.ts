@@ -12,6 +12,7 @@ import type { ManualColorSelection, PaletteConfig } from "../types";
 import {
 	applyColorToManualSelection,
 	getSelectedApplyTarget,
+	resetApplyTargetState,
 	setSelectedApplyTarget,
 	syncFromStudioPalettes,
 } from "./manual-view";
@@ -52,13 +53,13 @@ describe("manual-view module", () => {
 	beforeEach(() => {
 		resetState();
 		localStorageMock.clear();
-		setSelectedApplyTarget(null);
+		resetApplyTargetState();
 	});
 
 	afterEach(() => {
 		resetState();
 		localStorageMock.clear();
-		setSelectedApplyTarget(null);
+		resetApplyTargetState();
 	});
 
 	describe("getSelectedApplyTarget / setSelectedApplyTarget", () => {
@@ -94,6 +95,22 @@ describe("manual-view module", () => {
 		it("should reset to null", () => {
 			setSelectedApplyTarget("key");
 			setSelectedApplyTarget(null);
+			expect(getSelectedApplyTarget()).toBeNull();
+		});
+	});
+
+	describe("resetApplyTargetState", () => {
+		it("should reset state to null", () => {
+			setSelectedApplyTarget("key");
+			expect(getSelectedApplyTarget()).toBe("key");
+
+			resetApplyTargetState();
+			expect(getSelectedApplyTarget()).toBeNull();
+		});
+
+		it("should be safe to call multiple times", () => {
+			resetApplyTargetState();
+			resetApplyTargetState();
 			expect(getSelectedApplyTarget()).toBeNull();
 		});
 	});

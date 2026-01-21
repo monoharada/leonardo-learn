@@ -60,7 +60,13 @@ export interface ManualViewCallbacks {
 	onColorClick: (options: ColorDetailModalOptions) => void;
 }
 
-/** 現在選択されている適用先（モジュールスコープ変数） */
+/**
+ * 現在選択されている適用先（モジュールスコープ変数）
+ *
+ * 注: この変数はモジュールスコープで管理されている。
+ * テスト時には必ず resetApplyTargetState() または setSelectedApplyTarget(null) で
+ * リセットすること。
+ */
 let selectedApplyTarget: ManualApplyTarget | null = null;
 
 /**
@@ -75,6 +81,16 @@ export function getSelectedApplyTarget(): ManualApplyTarget | null {
  */
 export function setSelectedApplyTarget(target: ManualApplyTarget | null): void {
 	selectedApplyTarget = target;
+}
+
+/**
+ * 適用先状態をリセットする（テスト用）
+ *
+ * テストのbeforeEach/afterEachで呼び出し、
+ * テスト間の状態汚染を防ぐ。
+ */
+export function resetApplyTargetState(): void {
+	selectedApplyTarget = null;
 }
 
 /**
@@ -175,6 +191,48 @@ export function deleteAccentFromManualSelection(
 }
 
 /**
+ * パレット挿入位置を計算する
+ *
+ * パレット順序を維持するための挿入位置を返す:
+ * Primary → Secondary → Tertiary → Accent 1-4
+ *
+ * @param paletteName パレット名
+ * @returns 挿入インデックス（-1の場合は末尾にpush）
+ */
+function calculatePaletteInsertIndex(paletteName: string): number {
+	// Accentパレットは末尾に追加
+	if (paletteName.startsWith("Accent")) {
+		return -1;
+	}
+
+	// 優先度順に検索する基準パレット名を定義
+	// 各パレットは、その前に来るべきパレットの後に挿入される
+	const insertionRules: Record<string, string[]> = {
+		Primary: [], // Primary は常に先頭
+		Secondary: ["primary"], // Secondary は Primary の後
+		Tertiary: ["secondary", "primary"], // Tertiary は Secondary の後、なければ Primary の後
+	};
+
+	const searchOrder = insertionRules[paletteName];
+	if (!searchOrder) {
+		return 0; // 未知のパレットは先頭に
+	}
+
+	// 優先順位の高い基準パレットから順に検索
+	for (const prefix of searchOrder) {
+		const refIndex = state.palettes.findIndex((p) =>
+			p.name.toLowerCase().startsWith(prefix),
+		);
+		if (refIndex >= 0) {
+			return refIndex + 1;
+		}
+	}
+
+	// 基準パレットが見つからない場合は先頭に
+	return 0;
+}
+
+/**
  * スタジオビューのパレットにキーカラーを同期する
  *
  * @param paletteName パレット名（"Primary", "Secondary", "Tertiary", "Accent 1"など）
@@ -191,60 +249,34 @@ function syncToStudioPalette(paletteName: string, hex: string): void {
 		// 色が変わったのでbaseChromaName/stepをクリア（renderManualViewで再計算される）
 		existingPalette.baseChromaName = undefined;
 		existingPalette.step = undefined;
-	} else {
-		// 新しいパレットを作成して追加
-		const timestamp = Date.now();
-		const newPalette: PaletteConfig = {
-			id: `manual-${paletteName.toLowerCase().replace(/\s+/g, "-")}-${timestamp}`,
-			name: paletteName,
-			keyColors: [hex],
-			ratios: [21, 15, 10, 7, 4.5, 3, 1],
-			harmony: "none" as HarmonyType,
-		};
+		return;
+	}
 
-		// Accentパレットは末尾に追加、それ以外は適切な位置に挿入
-		if (paletteName.startsWith("Accent")) {
-			state.palettes.push(newPalette);
+	// 新しいパレットを作成
+	const timestamp = Date.now();
+	const newPalette: PaletteConfig = {
+		id: `manual-${paletteName.toLowerCase().replace(/\s+/g, "-")}-${timestamp}`,
+		name: paletteName,
+		keyColors: [hex],
+		ratios: [21, 15, 10, 7, 4.5, 3, 1],
+		harmony: "none" as HarmonyType,
+	};
 
-			// studioAccentCountも更新（アクセント番号が現在のカウントより大きい場合）
-			const accentNumber = parseInt(paletteName.replace("Accent ", ""), 10);
-			if (
-				!Number.isNaN(accentNumber) &&
-				accentNumber > state.studioAccentCount
-			) {
-				state.studioAccentCount = Math.min(4, accentNumber) as 2 | 3 | 4;
-			}
-		} else if (paletteName === "Secondary") {
-			// Primaryの後に挿入
-			const primaryIndex = state.palettes.findIndex((p) =>
-				p.name.toLowerCase().startsWith("primary"),
-			);
-			if (primaryIndex >= 0) {
-				state.palettes.splice(primaryIndex + 1, 0, newPalette);
-			} else {
-				state.palettes.unshift(newPalette);
-			}
-		} else if (paletteName === "Tertiary") {
-			// Secondaryの後、またはPrimaryの後に挿入
-			const secondaryIndex = state.palettes.findIndex((p) =>
-				p.name.toLowerCase().startsWith("secondary"),
-			);
-			if (secondaryIndex >= 0) {
-				state.palettes.splice(secondaryIndex + 1, 0, newPalette);
-			} else {
-				const primaryIndex = state.palettes.findIndex((p) =>
-					p.name.toLowerCase().startsWith("primary"),
-				);
-				if (primaryIndex >= 0) {
-					state.palettes.splice(primaryIndex + 1, 0, newPalette);
-				} else {
-					state.palettes.unshift(newPalette);
-				}
-			}
-		} else {
-			// Primaryは先頭に追加
-			state.palettes.unshift(newPalette);
+	// 挿入位置を計算
+	const insertIndex = calculatePaletteInsertIndex(paletteName);
+
+	if (insertIndex === -1) {
+		// Accentパレットは末尾に追加
+		state.palettes.push(newPalette);
+
+		// studioAccentCountも更新（アクセント番号が現在のカウントより大きい場合）
+		const accentNumber = parseInt(paletteName.replace("Accent ", ""), 10);
+		if (!Number.isNaN(accentNumber) && accentNumber > state.studioAccentCount) {
+			state.studioAccentCount = Math.min(4, accentNumber) as 2 | 3 | 4;
 		}
+	} else {
+		// 計算された位置に挿入
+		state.palettes.splice(insertIndex, 0, newPalette);
 	}
 }
 
