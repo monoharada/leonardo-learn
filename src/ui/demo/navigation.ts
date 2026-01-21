@@ -10,15 +10,11 @@
 
 import { state } from "./state";
 import type { ViewMode } from "./types";
-import { cleanupHarmonyViewBackground } from "./views/harmony-view";
 
 /** ナビゲーション要素の型定義（モジュール内部用） */
 interface NavigationElements {
-	harmonyViewEl: HTMLElement;
 	appEl: HTMLElement;
-	viewHarmonyBtn: HTMLElement | null;
-	viewPaletteBtn: HTMLElement | null;
-	viewShadesBtn: HTMLElement | null;
+	viewManualBtn: HTMLElement | null;
 	viewStudioBtn: HTMLElement | null;
 }
 
@@ -26,10 +22,8 @@ interface NavigationElements {
  * ビュー名のマッピング（日本語表示用）
  */
 const VIEW_NAMES: Record<ViewMode, string> = {
-	harmony: "ハーモニー",
-	palette: "パレット",
-	shades: "シェード",
 	studio: "スタジオ",
+	manual: "マニュアル選択",
 };
 
 /** ボタンのアクティブ状態を設定する */
@@ -40,16 +34,12 @@ function setButtonActive(btn: HTMLElement, isActive: boolean): void {
 
 /** DOM要素からナビゲーション要素を取得する。必須要素がない場合はnullを返す。 */
 function getNavigationElements(): NavigationElements | null {
-	const harmonyViewEl = document.getElementById("harmony-view");
 	const appEl = document.getElementById("app");
-	if (!harmonyViewEl || !appEl) return null;
+	if (!appEl) return null;
 
 	return {
-		harmonyViewEl,
 		appEl,
-		viewHarmonyBtn: document.getElementById("view-harmony"),
-		viewPaletteBtn: document.getElementById("view-palette"),
-		viewShadesBtn: document.getElementById("view-shades"),
+		viewManualBtn: document.getElementById("view-manual"),
 		viewStudioBtn: document.getElementById("view-studio"),
 	};
 }
@@ -59,14 +49,6 @@ export function announceViewChange(viewName: string): void {
 	const liveRegionEl = document.getElementById("live-region");
 	if (liveRegionEl) {
 		liveRegionEl.textContent = `${viewName}ビューに切り替えました`;
-	}
-}
-
-/** ヘッダーコントロールの表示/非表示を設定する */
-function setHeaderControlVisibility(id: string, hidden: boolean): void {
-	const control = document.getElementById(id);
-	if (control) {
-		control.style.display = hidden ? "none" : "flex";
 	}
 }
 
@@ -83,31 +65,20 @@ export function updateViewButtons(
 	const elements = getNavigationElements();
 	if (!elements) return;
 
-	// harmony-viewから離れる場合は背景色をリセット
-	if (state.viewMode === "harmony" && mode !== "harmony") {
-		cleanupHarmonyViewBackground();
-	}
-
 	state.viewMode = mode;
 
-	// ハーモニービューと詳細ビューの表示切替
-	elements.harmonyViewEl.hidden = mode !== "harmony";
-	elements.appEl.hidden = mode === "harmony";
+	// アプリコンテナを表示
+	elements.appEl.hidden = false;
 
 	// ナビゲーションボタンの状態を更新
 	const buttonsByMode: Record<ViewMode, HTMLElement | null> = {
-		harmony: elements.viewHarmonyBtn,
 		studio: elements.viewStudioBtn,
-		palette: elements.viewPaletteBtn,
-		shades: elements.viewShadesBtn,
+		manual: elements.viewManualBtn,
 	};
 
 	for (const [viewMode, btn] of Object.entries(buttonsByMode)) {
 		if (btn) setButtonActive(btn, viewMode === mode);
 	}
-
-	// スタジオビューではヘッダーのエクスポートコントロールを非表示
-	setHeaderControlVisibility("export-controls", mode === "studio");
 
 	// スタジオビューではヘッダーにフロストガラス効果を適用
 	document.body.classList.toggle("is-studio-view", mode === "studio");
@@ -129,10 +100,8 @@ export function setupNavigation(onRenderMain: () => void): void {
 	if (!elements) return;
 
 	const buttonsByMode: ReadonlyArray<[ViewMode, HTMLElement | null]> = [
-		["harmony", elements.viewHarmonyBtn],
 		["studio", elements.viewStudioBtn],
-		["palette", elements.viewPaletteBtn],
-		["shades", elements.viewShadesBtn],
+		["manual", elements.viewManualBtn],
 	];
 
 	for (const [mode, button] of buttonsByMode) {

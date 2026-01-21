@@ -78,7 +78,7 @@ export interface PreviewKvState {
 	seed: number;
 }
 
-export type ViewMode = "harmony" | "palette" | "shades" | "studio";
+export type ViewMode = "studio" | "manual";
 
 /** 警告色パターン: yellow, orange, or auto (CUD分析に基づく自動選択) */
 export type WarningPatternType = "yellow" | "orange" | "auto";

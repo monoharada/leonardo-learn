@@ -549,7 +549,7 @@ async function rebuildStudioPalettes(options: {
 	updateA11yIssueBadge();
 }
 
-async function generateNewStudioPalette(
+export async function generateNewStudioPalette(
 	dadsTokens: DadsToken[],
 ): Promise<void> {
 	const studioSeed = state.studioSeed || 0;
@@ -978,38 +978,32 @@ export async function renderStudioView(
 		});
 	};
 
+	// Export button with Material Symbol icon
+	const exportBtn = document.createElement("button");
+	exportBtn.type = "button";
+	exportBtn.className = "studio-export-btn dads-button";
+	exportBtn.dataset.size = "sm";
+	exportBtn.dataset.type = "outline";
+	exportBtn.innerHTML = `<span class="material-symbols-outlined btn-icon">ios_share</span>エクスポート`;
+	exportBtn.onclick = () => {
+		const exportDialog = document.getElementById(
+			"export-dialog",
+		) as HTMLDialogElement | null;
+		if (exportDialog) exportDialog.showModal();
+	};
+
 	// UX最適化されたボタン配置:
-	// [swatches] | [戻る | 生成] [設定] | [共有リンク]
+	// [swatches] | [戻る | 生成] [設定] | [共有リンク] [エクスポート]
 	controls.appendChild(undoBtn);
 	controls.appendChild(generateBtn);
 	controls.appendChild(settingsDetails);
 	controls.appendChild(shareBtn);
+	controls.appendChild(exportBtn);
 
 	toolbar.appendChild(swatches);
 	toolbar.appendChild(controls);
 	container.appendChild(toolbar);
 	container.appendChild(toast);
-
-	// Set up header copy link button handler
-	const headerCopyLinkBtn = document.getElementById(
-		"copy-link-btn",
-	) as HTMLButtonElement | null;
-	if (headerCopyLinkBtn) {
-		headerCopyLinkBtn.onclick = async () => {
-			if (state.palettes.length === 0) return;
-
-			const url = buildShareUrl(dadsTokens);
-			const originalText = headerCopyLinkBtn.textContent ?? "リンクをコピー";
-			const ok = await copyTextToClipboard(url);
-			setTemporaryButtonText(
-				headerCopyLinkBtn,
-				ok ? "コピー完了" : "コピー失敗",
-				{
-					resetText: originalText,
-				},
-			);
-		};
-	}
 
 	if (state.palettes.length === 0 || dadsTokens.length === 0) {
 		renderEmptyState(container);

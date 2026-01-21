@@ -73,7 +73,7 @@ describe("state module", () => {
 			expect(state.activeHarmonyIndex).toBe(0);
 			expect(state.contrastIntensity).toBe("moderate");
 			expect(state.lightnessDistribution).toBe("linear");
-			expect(state.viewMode).toBe("harmony");
+			expect(state.viewMode).toBe("studio");
 			expect(state.cvdSimulation).toBe("normal");
 			expect(state.selectedHarmonyConfig).toBeNull();
 			expect(state.cudMode).toBe("guide");
@@ -91,8 +91,8 @@ describe("state module", () => {
 			state.activeId = "test-id";
 			expect(state.activeId).toBe("test-id");
 
-			state.viewMode = "palette";
-			expect(state.viewMode).toBe("palette");
+			state.viewMode = "manual";
+			expect(state.viewMode).toBe("manual");
 
 			state.activeHarmonyIndex = 2;
 			expect(state.activeHarmonyIndex).toBe(2);
@@ -113,7 +113,7 @@ describe("state module", () => {
 		it("should reset state to default values", () => {
 			// Modify state
 			state.activeId = "modified";
-			state.viewMode = "shades";
+			state.viewMode = "manual";
 			state.palettes.push({
 				id: "test",
 				name: "Test",

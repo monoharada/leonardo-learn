@@ -357,7 +357,7 @@ function renderEmptyState(container: HTMLElement, viewName: string): void {
 	empty.className = "dads-empty-state";
 	empty.innerHTML = `
 		<p>${viewName}が生成されていません</p>
-		<p>ハーモニービューでスタイルを選択してパレットを生成してください。</p>
+		<p>スタジオでパレットを生成してください。</p>
 	`;
 	container.innerHTML = "";
 	container.appendChild(empty);

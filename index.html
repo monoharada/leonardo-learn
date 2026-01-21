@@ -9,6 +9,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&family=Noto+Sans+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <!-- Material Symbols for icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
     <!-- DADS Design System Styles -->
     <link rel="stylesheet" href="./src/ui/styles/tokens.css">
     <link rel="stylesheet" href="./src/ui/styles/global.css">
@@ -28,10 +30,8 @@
 
                 <!-- ナビゲーション -->
                 <nav class="dads-nav" aria-label="メインナビゲーション">
-                    <button id="view-harmony" class="dads-button" data-size="lg" data-type="text" data-active="true">生成</button>
-                    <button id="view-studio" class="dads-button" data-size="lg" data-type="text">スタジオ</button>
-                    <button id="view-palette" class="dads-button" data-size="lg" data-type="text">パレット</button>
-                    <button id="view-shades" class="dads-button" data-size="lg" data-type="text">シェード</button>
+                    <button id="view-studio" class="dads-button" data-size="lg" data-type="text" data-active="true">スタジオ</button>
+                    <button id="view-manual" class="dads-button" data-size="lg" data-type="text">マニュアル選択</button>
                 </nav>
 
                 <!-- CVD Simulation Controls -->
@@ -64,27 +64,13 @@
                     </div>
                 </div>
 
-                <!-- Export & Share Controls -->
-                <div id="export-controls" class="dads-header-controls">
-                    <button id="copy-link-btn" class="dads-button" data-size="sm" data-type="outline">
-                        リンクをコピー
-                    </button>
-                    <button id="export-btn" class="dads-button" data-size="sm">
-                        エクスポート
-                    </button>
-                </div>
             </header>
 
             <!-- Content Area -->
             <div id="main-content" class="dads-main__content">
-                <!-- ハーモニー選択ビュー（起点） -->
-                <div id="harmony-view" class="dads-section">
-                    <!-- ハーモニーカードがここにレンダリングされる -->
-                </div>
-
-                <!-- パレット/シェード/アクセシビリティビュー -->
-                <div id="app" class="palette" hidden>
-                    <!-- Palettes will be rendered here -->
+                <!-- スタジオ/マニュアル選択ビュー -->
+                <div id="app" class="palette">
+                    <!-- Views will be rendered here -->
                 </div>
             </div>
 

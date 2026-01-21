@@ -140,7 +140,7 @@ export const DEFAULT_STATE: DemoState = {
 	activeHarmonyIndex: 0,
 	contrastIntensity: "moderate",
 	lightnessDistribution: "linear",
-	viewMode: "harmony",
+	viewMode: "studio",
 	cvdSimulation: "normal",
 	selectedHarmonyConfig: null,
 	selectedAccentFilter: "all",
