@@ -19,7 +19,6 @@ interface NavigationElements {
 	viewHarmonyBtn: HTMLElement | null;
 	viewPaletteBtn: HTMLElement | null;
 	viewShadesBtn: HTMLElement | null;
-	viewAccessibilityBtn: HTMLElement | null;
 	viewStudioBtn: HTMLElement | null;
 }
 
@@ -30,7 +29,6 @@ const VIEW_NAMES: Record<ViewMode, string> = {
 	harmony: "ハーモニー",
 	palette: "パレット",
 	shades: "シェード",
-	accessibility: "アクセシビリティ",
 	studio: "スタジオ",
 };
 
@@ -52,7 +50,6 @@ function getNavigationElements(): NavigationElements | null {
 		viewHarmonyBtn: document.getElementById("view-harmony"),
 		viewPaletteBtn: document.getElementById("view-palette"),
 		viewShadesBtn: document.getElementById("view-shades"),
-		viewAccessibilityBtn: document.getElementById("view-accessibility"),
 		viewStudioBtn: document.getElementById("view-studio"),
 	};
 }
@@ -103,15 +100,11 @@ export function updateViewButtons(
 		studio: elements.viewStudioBtn,
 		palette: elements.viewPaletteBtn,
 		shades: elements.viewShadesBtn,
-		accessibility: elements.viewAccessibilityBtn,
 	};
 
 	for (const [viewMode, btn] of Object.entries(buttonsByMode)) {
 		if (btn) setButtonActive(btn, viewMode === mode);
 	}
-
-	// アクセシビリティ画面ではCVDコントロールを非表示（画面内で色覚シミュレーションを行うため）
-	setHeaderControlVisibility("cvd-controls", mode === "accessibility");
 
 	// スタジオビューではヘッダーのエクスポートコントロールを非表示
 	setHeaderControlVisibility("export-controls", mode === "studio");
@@ -140,7 +133,6 @@ export function setupNavigation(onRenderMain: () => void): void {
 		["studio", elements.viewStudioBtn],
 		["palette", elements.viewPaletteBtn],
 		["shades", elements.viewShadesBtn],
-		["accessibility", elements.viewAccessibilityBtn],
 	];
 
 	for (const [mode, button] of buttonsByMode) {
