@@ -80,8 +80,9 @@ export function updateViewButtons(
 		if (btn) setButtonActive(btn, viewMode === mode);
 	}
 
-	// スタジオビューではヘッダーにフロストガラス効果を適用
+	// スタジオ/マニュアルビューではヘッダーにフロストガラス効果を適用
 	document.body.classList.toggle("is-studio-view", mode === "studio");
+	document.body.classList.toggle("is-manual-view", mode === "manual");
 
 	announceViewChange(VIEW_NAMES[mode]);
 	onRenderMain();
