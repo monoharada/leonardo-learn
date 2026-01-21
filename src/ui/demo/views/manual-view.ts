@@ -36,6 +36,7 @@ import {
 import { renderBoundaryPills } from "@/ui/semantic-role/contrast-boundary-indicator";
 import { applyOverlay } from "@/ui/semantic-role/semantic-role-overlay";
 import { createBackgroundColorSelector } from "../background-color-selector";
+import { buildManualShareUrl } from "../manual-url-state";
 import {
 	getActivePalette,
 	parseKeyColor,
@@ -331,7 +332,8 @@ export async function renderManualView(
 	shareBtn.dataset.type = "text";
 	shareBtn.innerHTML = `${LINK_ICON_SVG}共有リンク`;
 	shareBtn.onclick = async () => {
-		const url = window.location.href;
+		// Manual Viewの状態をURLに含める
+		const url = buildManualShareUrl(state.manualColorSelection);
 		try {
 			await navigator.clipboard.writeText(url);
 			const originalHTML = shareBtn.innerHTML;

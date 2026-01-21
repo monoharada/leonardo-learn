@@ -25,12 +25,13 @@ import {
 	setupDirectExportButtons,
 	setupExportHandlers,
 } from "./export-handlers";
+import { fromManualUrlState, parseManualUrlHash } from "./manual-url-state";
 import { setupNavigation, updateViewButtons } from "./navigation";
 import { createDerivedPalettes, handleGenerate } from "./palette-generator";
 import { renderSidebar } from "./sidebar";
 import { loadBackgroundColors, loadSemanticColorConfig, state } from "./state";
 import { parseStudioUrlHash } from "./studio-url-state";
-import type { ColorDetailModalOptions } from "./types";
+import type { ColorDetailModalOptions, ManualColorSelection } from "./types";
 import {
 	generateNewStudioPalette,
 	renderManualView,
@@ -120,9 +121,14 @@ export async function runDemo(): Promise<void> {
 
 	restorePersistedState();
 
+	// URL状態の復元: Studio優先、次にManual
 	const studioUrlState = parseStudioUrlHash(window.location.hash);
+	const manualUrlState = parseManualUrlHash(window.location.hash);
+
 	if (studioUrlState && keyColorsInput) {
 		restoreStudioState(studioUrlState, keyColorsInput, dadsTokensCache);
+	} else if (manualUrlState) {
+		restoreManualState(manualUrlState);
 	} else if (keyColorsInput) {
 		await initializeRandomBrandColor(keyColorsInput);
 		// 初期パレット生成（URL状態がない場合）
@@ -186,6 +192,83 @@ export async function runDemo(): Promise<void> {
 		state.palettes = [primaryPalette, ...derived, ...accentPalettes];
 		state.shadesPalettes = [];
 		state.activeId = primaryPalette.id;
+		state.activeHarmonyIndex = 0;
+	}
+
+	/**
+	 * Restore Manual View state from URL hash
+	 */
+	function restoreManualState(
+		urlState: NonNullable<typeof manualUrlState>,
+	): void {
+		// ManualUrlState → ManualColorSelection に変換
+		const selection: ManualColorSelection = fromManualUrlState(urlState);
+
+		// 状態を復元
+		state.manualColorSelection = selection;
+		state.lightBackgroundColor = selection.backgroundColor;
+		state.darkBackgroundColor = selection.textColor;
+
+		// Manual View に切り替え
+		state.viewMode = "manual";
+
+		// パレット生成（選択された色からパレットを生成）
+		const timestamp = Date.now();
+		const palettes: Array<{
+			id: string;
+			name: string;
+			keyColors: string[];
+			ratios: number[];
+			harmony: HarmonyType;
+		}> = [];
+
+		if (selection.keyColor) {
+			palettes.push({
+				id: `manual-primary-${timestamp}`,
+				name: "Primary",
+				keyColors: [selection.keyColor],
+				ratios: DEFAULT_RATIOS,
+				harmony: HarmonyType.NONE,
+			});
+		}
+
+		if (selection.secondaryColor) {
+			palettes.push({
+				id: `manual-secondary-${timestamp}`,
+				name: "Secondary",
+				keyColors: [selection.secondaryColor],
+				ratios: DEFAULT_RATIOS,
+				harmony: HarmonyType.NONE,
+			});
+		}
+
+		if (selection.tertiaryColor) {
+			palettes.push({
+				id: `manual-tertiary-${timestamp}`,
+				name: "Tertiary",
+				keyColors: [selection.tertiaryColor],
+				ratios: DEFAULT_RATIOS,
+				harmony: HarmonyType.NONE,
+			});
+		}
+
+		// アクセントカラーをパレットに追加
+		for (let i = 0; i < selection.accentColors.length; i++) {
+			const accentColor = selection.accentColors[i];
+			if (accentColor) {
+				palettes.push({
+					id: `manual-accent-${timestamp}-${i + 1}`,
+					name: `Accent ${i + 1}`,
+					keyColors: [accentColor],
+					ratios: DEFAULT_RATIOS,
+					harmony: HarmonyType.NONE,
+				});
+			}
+		}
+
+		state.palettes = palettes;
+		state.shadesPalettes = [];
+		state.activeId = palettes[0]?.id ?? "";
 		state.activeHarmonyIndex = 0;
 	}
 
@@ -301,6 +384,8 @@ export async function runDemo(): Promise<void> {
 	// Initial render based on URL state
 	if (studioUrlState) {
 		updateViewButtons("studio", renderMain);
+	} else if (manualUrlState) {
+		updateViewButtons("manual", renderMain);
 	} else {
 		renderMain();
 	}
