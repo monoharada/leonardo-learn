@@ -1164,8 +1164,9 @@
  * アプリヘッダーとプレビュー領域を視覚的に区別する
  * ======================================== */
 
-/* スタジオビュー時のアプリヘッダー（ツールバーと同じフロストガラス効果） */
-.is-studio-view .dads-main__header {
+/* スタジオ/マニュアルビュー時のアプリヘッダー（ツールバーと同じフロストガラス効果） */
+.is-studio-view .dads-main__header,
+.is-manual-view .dads-main__header {
 	background: rgba(245, 247, 250, 0.96);
 	backdrop-filter: blur(12px) saturate(1.05);
 	border-bottom: 1px solid var(--studio-border-strong);
