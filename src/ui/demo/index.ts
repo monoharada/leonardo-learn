@@ -8,8 +8,6 @@
  * Requirements: 2.4, 10.1, 10.2, 10.3, 10.4, 10.5
  */
 
-import type { ScoredCandidate } from "@/core/accent/accent-candidate-service";
-import type { HarmonyFilterType } from "@/core/accent/harmony-filter-calculator";
 import { HarmonyType, initializeHarmonyDads } from "@/core/harmony";
 import { loadDadsTokens } from "@/core/tokens/dads-data-provider";
 import { getRandomDadsColor } from "@/core/tokens/random-color-picker";
@@ -28,24 +26,16 @@ import {
 	setupExportHandlers,
 } from "./export-handlers";
 import { setupNavigation, updateViewButtons } from "./navigation";
-import {
-	createDerivedPalettes,
-	createPalettesFromHarmonyColors,
-	handleGenerate,
-} from "./palette-generator";
+import { createDerivedPalettes, handleGenerate } from "./palette-generator";
 import { renderSidebar } from "./sidebar";
 import { loadBackgroundColors, loadSemanticColorConfig, state } from "./state";
 import { parseStudioUrlHash } from "./studio-url-state";
 import type { ColorDetailModalOptions } from "./types";
 import {
-	renderAccentSelectionView,
-	renderPaletteView,
-	renderShadesView,
+	generateNewStudioPalette,
+	renderManualView,
 	renderStudioView,
 } from "./views";
-
-/** Regex pattern to extract base chroma name from DADS source name */
-const DADS_STEP_SUFFIX_PATTERN = /\s+\d+$/;
 
 /** Default HEX color used as fallback */
 const DEFAULT_HEX_COLOR = "#3366cc";
@@ -121,7 +111,6 @@ export async function runDemo(): Promise<void> {
 		"keyColors",
 	) as HTMLInputElement | null;
 	const generateSystemBtn = document.getElementById("generate-system");
-	const harmonyViewEl = document.getElementById("harmony-view");
 
 	if (!app || !paletteListEl) return;
 
@@ -136,6 +125,13 @@ export async function runDemo(): Promise<void> {
 		restoreStudioState(studioUrlState, keyColorsInput, dadsTokensCache);
 	} else if (keyColorsInput) {
 		await initializeRandomBrandColor(keyColorsInput);
+		// 初期パレット生成（URL状態がない場合）
+		state.studioSeed = Date.now();
+		try {
+			await generateNewStudioPalette(dadsTokensCache);
+		} catch (error) {
+			console.error("Failed to generate initial studio palette:", error);
+		}
 	}
 
 	/**
@@ -232,57 +228,6 @@ export async function runDemo(): Promise<void> {
 		openColorDetailModal(options, renderMain);
 	}
 
-	function handleHarmonyCardClick(
-		harmonyType: HarmonyFilterType,
-		paletteColors: string[],
-		candidates?: ScoredCandidate[],
-	): void {
-		const backgroundColor = state.lightBackgroundColor || "#ffffff";
-		state.palettes = createPalettesFromHarmonyColors(
-			harmonyType,
-			paletteColors,
-			candidates,
-			backgroundColor,
-			dadsTokensCache,
-		);
-
-		const firstPalette = state.palettes[0];
-		if (firstPalette) {
-			state.activeId = firstPalette.id;
-		}
-
-		refreshUI();
-		updateViewButtons("palette", renderMain);
-	}
-
-	function handleAccentSelect(candidate: ScoredCandidate): void {
-		const inputHex = getKeyColorHex(keyColorsInput);
-
-		handleGenerate(inputHex, HarmonyType.DADS, {
-			onComplete: () => {
-				const baseChromaName = candidate.dadsSourceName.replace(
-					DADS_STEP_SUFFIX_PATTERN,
-					"",
-				);
-				const accentPalette = {
-					id: `accent-${Date.now()}`,
-					name: `Accent: ${candidate.dadsSourceName}`,
-					keyColors: [candidate.hex],
-					ratios: DEFAULT_RATIOS,
-					harmony: HarmonyType.DADS,
-					baseChromaName,
-					step: candidate.step,
-				};
-
-				state.palettes.push(accentPalette);
-				state.activeId = accentPalette.id;
-
-				refreshUI();
-				updateViewButtons("palette", renderMain);
-			},
-		});
-	}
-
 	function handlePaletteSelect(id: string): void {
 		state.activeId = id;
 		state.activeHarmonyIndex = 0;
@@ -302,15 +247,6 @@ export async function runDemo(): Promise<void> {
 	// ========================================
 
 	/**
-	 * Toggle visibility between harmony view and app container
-	 * NOTE: .dads-section's display:flex overrides hidden attribute, so we use style.display directly
-	 */
-	function setViewVisibility(showHarmony: boolean): void {
-		if (harmonyViewEl) harmonyViewEl.style.display = showHarmony ? "" : "none";
-		appEl.style.display = showHarmony ? "none" : "";
-	}
-
-	/**
 	 * 現在のビューモードに応じてメインコンテンツをレンダリング
 	 */
 	function renderMain(): void {
@@ -322,40 +258,22 @@ export async function runDemo(): Promise<void> {
 		const contentContainer = document.getElementById("demo-content") ?? appEl;
 		if (!contentContainer) return;
 
-		const keyColorHex = getKeyColorHex(keyColorsInput);
+		// アプリコンテナを表示
+		appEl.style.display = "";
+		contentContainer.innerHTML = "";
 
-		if (state.viewMode === "harmony") {
-			setViewVisibility(true);
-			if (harmonyViewEl) {
-				renderAccentSelectionView(harmonyViewEl, keyColorHex, {
-					onHarmonyCardClick: handleHarmonyCardClick,
-					onAccentSelect: handleAccentSelect,
+		switch (state.viewMode) {
+			case "studio":
+				renderStudioView(contentContainer, {
 					onColorClick: handleColorClick,
-				});
-			}
-		} else {
-			setViewVisibility(false);
-			contentContainer.innerHTML = "";
+				}).catch(console.error);
+				break;
 
-			switch (state.viewMode) {
-				case "studio":
-					renderStudioView(contentContainer, {
-						onColorClick: handleColorClick,
-					}).catch(console.error);
-					break;
-
-				case "palette":
-					renderPaletteView(contentContainer, {
-						onColorClick: handleColorClick,
-					}).catch(console.error);
-					break;
-
-				case "shades":
-					renderShadesView(contentContainer, {
-						onColorClick: handleColorClick,
-					}).catch(console.error);
-					break;
-			}
+			case "manual":
+				renderManualView(contentContainer, {
+					onColorClick: handleColorClick,
+				}).catch(console.error);
+				break;
 		}
 
 		updateCVDScoreDisplay();

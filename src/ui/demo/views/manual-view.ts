@@ -1,11 +1,11 @@
 /**
- * シェードビューモジュール
+ * マニュアル選択ビューモジュール
  *
- * シェード一覧画面のレンダリングを担当する。
+ * マニュアル選択画面のレンダリングを担当する。
  * DADSカラーの各色相セクションとブランドカラーセクションを表示する。
  * カードクリック時はonColorClickコールバック経由でcolor-detail-modalと接続する。
  *
- * @module @/ui/demo/views/shades-view
+ * @module @/ui/demo/views/manual-view
  * Requirements: 2.1, 2.2, 2.3, 2.4, 5.5, 5.6, 6.3, 6.4
  */
 
@@ -50,12 +50,15 @@ import type {
 } from "../types";
 
 /**
- * シェードビューのコールバック
+ * マニュアル選択ビューのコールバック
  */
-export interface ShadesViewCallbacks {
+export interface ManualViewCallbacks {
 	/** 色クリック時のコールバック（モーダル表示用） */
 	onColorClick: (options: ColorDetailModalOptions) => void;
 }
+
+/** Link icon SVG markup for share button */
+const LINK_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`;
 
 /**
  * 空状態のメッセージを表示する
@@ -65,7 +68,7 @@ function renderEmptyState(container: HTMLElement, viewName: string): void {
 	empty.className = "dads-empty-state";
 	empty.innerHTML = `
 		<p>${viewName}が生成されていません</p>
-		<p>ハーモニービューでスタイルを選択してパレットを生成してください。</p>
+		<p>スタジオでパレットを生成してください。</p>
 	`;
 	container.innerHTML = "";
 	container.appendChild(empty);
@@ -102,7 +105,7 @@ const KEY_COLOR_ROLE_DEFINITIONS = [
  * @returns キーカラーセクション要素（表示すべき独自色がない場合はnull）
  */
 function renderKeyColorSwatches(
-	callbacks: ShadesViewCallbacks,
+	callbacks: ManualViewCallbacks,
 	dadsTokens: DadsToken[],
 ): HTMLElement | null {
 	// DADSに含まれない独自色のみをフィルタリング
@@ -189,7 +192,7 @@ function createKeyColorSwatch(
 	palette: PaletteConfig,
 	shortLabel: string,
 	label: string,
-	callbacks: ShadesViewCallbacks,
+	callbacks: ManualViewCallbacks,
 	allKeyColorHexes: string[],
 	allKeyColorLabels: string[],
 	currentIndex: number,
@@ -262,9 +265,9 @@ function createKeyColorSwatch(
  * @param container レンダリング先のコンテナ要素
  * @param callbacks コールバック関数
  */
-export async function renderShadesView(
+export async function renderManualView(
 	container: HTMLElement,
-	callbacks: ShadesViewCallbacks,
+	callbacks: ManualViewCallbacks,
 ): Promise<void> {
 	// コンテナをクリアして前のビューのDOMが残らないようにする
 	container.innerHTML = "";
@@ -290,7 +293,7 @@ export async function renderShadesView(
 			// コンテナの背景色を更新
 			container.style.backgroundColor = hex;
 			// 再レンダリング（コントラスト値更新のため）
-			void renderShadesView(container, callbacks).catch((err) => {
+			void renderManualView(container, callbacks).catch((err) => {
 				console.error("Failed to re-render shades view:", err);
 			});
 		},
@@ -303,13 +306,65 @@ export async function renderShadesView(
 				state.darkBackgroundColor,
 			);
 			// 再レンダリング（コントラスト境界の更新のため）
-			void renderShadesView(container, callbacks).catch((err) => {
+			void renderManualView(container, callbacks).catch((err) => {
 				console.error("Failed to re-render shades view:", err);
 			});
 		},
 	});
 	backgroundSelectorSection.appendChild(backgroundSelector);
 	container.appendChild(backgroundSelectorSection);
+
+	// ツールバー（共有リンク・エクスポートのみ、生成・戻るボタンなし）
+	const toolbar = document.createElement("section");
+	toolbar.className = "studio-toolbar studio-toolbar--manual";
+	toolbar.setAttribute("role", "region");
+	toolbar.setAttribute("aria-label", "マニュアル選択ツールバー");
+
+	const controls = document.createElement("div");
+	controls.className = "studio-toolbar__controls";
+
+	// 共有リンクボタン
+	const shareBtn = document.createElement("button");
+	shareBtn.type = "button";
+	shareBtn.className = "studio-share-btn dads-button";
+	shareBtn.dataset.size = "sm";
+	shareBtn.dataset.type = "text";
+	shareBtn.innerHTML = `${LINK_ICON_SVG}共有リンク`;
+	shareBtn.onclick = async () => {
+		const url = window.location.href;
+		try {
+			await navigator.clipboard.writeText(url);
+			const originalHTML = shareBtn.innerHTML;
+			shareBtn.textContent = "コピー完了";
+			setTimeout(() => {
+				shareBtn.innerHTML = originalHTML;
+			}, 2000);
+		} catch {
+			shareBtn.textContent = "コピー失敗";
+			setTimeout(() => {
+				shareBtn.innerHTML = `${LINK_ICON_SVG}共有リンク`;
+			}, 2000);
+		}
+	};
+
+	// エクスポートボタン（Material Symbolアイコン付き）
+	const exportBtn = document.createElement("button");
+	exportBtn.type = "button";
+	exportBtn.className = "studio-export-btn dads-button";
+	exportBtn.dataset.size = "sm";
+	exportBtn.dataset.type = "outline";
+	exportBtn.innerHTML = `<span class="material-symbols-outlined btn-icon">ios_share</span>エクスポート`;
+	exportBtn.onclick = () => {
+		const exportDialog = document.getElementById(
+			"export-dialog",
+		) as HTMLDialogElement | null;
+		if (exportDialog) exportDialog.showModal();
+	};
+
+	controls.appendChild(shareBtn);
+	controls.appendChild(exportBtn);
+	toolbar.appendChild(controls);
+	container.appendChild(toolbar);
 
 	const loadingEl = document.createElement("div");
 	loadingEl.className = "dads-loading";
@@ -332,7 +387,7 @@ export async function renderShadesView(
 		}
 
 		// Task 4.2: ロールマッピング生成
-		// state.shadesPalettesが未生成の場合（ハーモニービュー経由など）はstate.palettesを使用
+		// state.shadesPalettesが未生成の場合はstate.palettesを使用
 		const palettesForRoleMapping =
 			state.shadesPalettes.length > 0 ? state.shadesPalettes : state.palettes;
 
@@ -429,7 +484,7 @@ export function renderDadsHueSection(
 	container: HTMLElement,
 	colorScale: DadsColorScale,
 	roleMapper: SemanticRoleMapperService | undefined,
-	callbacks: ShadesViewCallbacks,
+	callbacks: ManualViewCallbacks,
 	brandDadsMatch?: {
 		hue: DadsColorHue;
 		scale: DadsChromaScale;
@@ -623,7 +678,7 @@ export function renderPrimaryBrandSection(
 	brandHex: string,
 	brandName: string,
 	roleMapper: SemanticRoleMapperService | undefined,
-	_callbacks: ShadesViewCallbacks,
+	_callbacks: ManualViewCallbacks,
 ): void {
 	const section = document.createElement("section");
 	section.className = "dads-primary-section";

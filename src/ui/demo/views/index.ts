@@ -15,24 +15,12 @@ export {
 	renderAdjacentShadesAnalysis,
 	renderDistinguishabilityAnalysis,
 } from "./accessibility-view";
-export type {
-	AccentSelectionViewCallbacks,
-	HarmonyViewCallbacks,
-} from "./harmony-view";
-// harmony-view (Section 7: renamed to accent-selection-view)
-export {
-	renderAccentSelectionView,
-	renderHarmonyView,
-} from "./harmony-view";
-export type { PaletteViewCallbacks } from "./palette-view";
-// palette-view
-export { renderPaletteView } from "./palette-view";
-export type { ShadesViewCallbacks } from "./shades-view";
-// shades-view
+export type { ManualViewCallbacks } from "./manual-view";
+// manual-view (formerly shades-view)
 export {
 	renderDadsHueSection,
+	renderManualView,
 	renderPrimaryBrandSection,
-	renderShadesView,
-} from "./shades-view";
+} from "./manual-view";
 export type { StudioViewCallbacks } from "./studio-view";
-export { renderStudioView } from "./studio-view";
+export { generateNewStudioPalette, renderStudioView } from "./studio-view";

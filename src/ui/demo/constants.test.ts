@@ -126,8 +126,8 @@ describe("constants.ts", () => {
 			expect(DEFAULT_STATE.lightnessDistribution).toBe("linear");
 		});
 
-		it("viewModeがharmonyであること", () => {
-			expect(DEFAULT_STATE.viewMode).toBe("harmony");
+		it("viewModeがstudioであること", () => {
+			expect(DEFAULT_STATE.viewMode).toBe("studio");
 		});
 
 		it("cvdSimulationがnormalであること", () => {
