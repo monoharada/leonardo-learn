@@ -39,6 +39,7 @@ import type {
 import { stripStepSuffix } from "../types";
 import { copyTextToClipboard } from "../utils/clipboard";
 import {
+	type DadsSnapResult,
 	inferBaseChromaNameFromHex,
 	matchesPreset,
 	resolvePresetMinContrast,
@@ -317,7 +318,7 @@ async function selectRandomAccentCandidates(
 	backgroundHex: string,
 	count: number,
 	rnd: () => number,
-): Promise<Array<{ hex: string; step?: number; baseChromaName?: string }>> {
+): Promise<DadsSnapResult[]> {
 	const response = await generateCandidates(brandHex, {
 		backgroundHex,
 		limit: Math.max(60, count * 30),
@@ -360,18 +361,14 @@ function selectComplementaryExtendedAccents(
 	primaryHex: string,
 	dadsTokens: DadsToken[],
 	preset: StudioPresetType,
-): Array<{ hex: string; step?: number; baseChromaName?: string }> {
+): DadsSnapResult[] {
 	const primaryColor = new Color(primaryHex);
 	const primaryOklch = primaryColor.oklch;
 	const hue = primaryOklch?.h ?? 0;
 	const lightness = primaryOklch?.l ?? 0.5;
 	const chroma = primaryOklch?.c ?? 0.1;
 
-	const results: Array<{
-		hex: string;
-		step?: number;
-		baseChromaName?: string;
-	}> = [];
+	const results: DadsSnapResult[] = [];
 
 	// Accent 1: 補色（+180°）
 	const complementHue = (hue + 180) % 360;
@@ -424,17 +421,13 @@ async function selectHarmonyAccentCandidates(
 	backgroundHex: string,
 	rnd: () => number,
 	targetCount: number,
-): Promise<Array<{ hex: string; step?: number; baseChromaName?: string }>> {
+): Promise<DadsSnapResult[]> {
 	await initializeHarmonyDads();
 
 	const primaryColor = new Color(primaryHex);
 
 	// ハーモニーベースの色を生成
-	let harmonyAccents: Array<{
-		hex: string;
-		step?: number;
-		baseChromaName?: string;
-	}>;
+	let harmonyAccents: DadsSnapResult[];
 
 	if (harmonyType === HarmonyType.COMPLEMENTARY) {
 		harmonyAccents = selectComplementaryExtendedAccents(
@@ -487,11 +480,7 @@ async function rebuildStudioPalettes(options: {
 	primaryHex: string;
 	primaryStep?: number;
 	primaryBaseChromaName?: string;
-	accentCandidates?: Array<{
-		hex: string;
-		step?: number;
-		baseChromaName?: string;
-	}>;
+	accentCandidates?: DadsSnapResult[];
 }): Promise<void> {
 	const timestamp = Date.now();
 	const backgroundColor = "#ffffff";
@@ -594,11 +583,7 @@ async function generateNewStudioPalette(
 	const harmonyType = pickRandom(STUDIO_HARMONY_TYPES, rnd) ?? HarmonyType.NONE;
 
 	const targetAccentCount = Math.max(2, Math.min(4, state.studioAccentCount));
-	let accentCandidates: Array<{
-		hex: string;
-		step?: number;
-		baseChromaName?: string;
-	}> = [];
+	let accentCandidates: DadsSnapResult[] = [];
 
 	if (state.lockedColors.accent) {
 		// アクセントがロックされている場合は既存の色を維持
@@ -828,11 +813,7 @@ export async function renderStudioView(
 					const keep = existing.slice(0, desired);
 					const missing = desired - keep.length;
 
-					let extra: Array<{
-						hex: string;
-						step?: number;
-						baseChromaName?: string;
-					}> = [];
+					let extra: DadsSnapResult[] = [];
 					if (missing > 0) {
 						const seed = (state.studioSeed || 0) ^ desired;
 						const rnd = createSeededRandom(seed);

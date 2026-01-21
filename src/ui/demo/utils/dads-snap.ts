@@ -136,6 +136,22 @@ export function snapToNearestDadsToken(
 }
 
 /**
+ * Fisher-Yatesシャッフル
+ * 配列を正しく均等にシャッフルする
+ */
+function fisherYatesShuffle<T>(array: T[], rnd: () => number): T[] {
+	const result = [...array];
+	for (let i = result.length - 1; i > 0; i--) {
+		const j = Math.floor(rnd() * (i + 1));
+		const temp = result[i];
+		// TypeScript strict mode: array[i]とarray[j]は範囲内であることが保証されている
+		result[i] = result[j] as T;
+		result[j] = temp as T;
+	}
+	return result;
+}
+
+/**
  * 2つの色相間の距離を計算（円周上の最短距離）
  */
 export function hueDistance(h1: number, h2: number): number {
@@ -203,8 +219,8 @@ export function selectHueDistantColors(
 		return true;
 	});
 
-	// シャッフル
-	const shuffled = [...candidates].sort(() => rnd() - 0.5);
+	// Fisher-Yatesシャッフルで均等にランダム化
+	const shuffled = fisherYatesShuffle(candidates, rnd);
 
 	const selected: DadsSnapResult[] = [];
 
