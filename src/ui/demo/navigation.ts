@@ -65,6 +65,14 @@ export function announceViewChange(viewName: string): void {
 	}
 }
 
+/** ヘッダーコントロールの表示/非表示を設定する */
+function setHeaderControlVisibility(id: string, hidden: boolean): void {
+	const control = document.getElementById(id);
+	if (control) {
+		control.style.display = hidden ? "none" : "flex";
+	}
+}
+
 /**
  * ビューを切り替える
  *
@@ -103,16 +111,10 @@ export function updateViewButtons(
 	}
 
 	// アクセシビリティ画面ではCVDコントロールを非表示（画面内で色覚シミュレーションを行うため）
-	const cvdControls = document.getElementById("cvd-controls");
-	if (cvdControls) {
-		cvdControls.style.display = mode === "accessibility" ? "none" : "flex";
-	}
+	setHeaderControlVisibility("cvd-controls", mode === "accessibility");
 
 	// スタジオビューではヘッダーのエクスポートコントロールを非表示
-	const exportControls = document.getElementById("export-controls");
-	if (exportControls) {
-		exportControls.style.display = mode === "studio" ? "none" : "flex";
-	}
+	setHeaderControlVisibility("export-controls", mode === "studio");
 
 	// スタジオビューではヘッダーにフロストガラス効果を適用
 	document.body.classList.toggle("is-studio-view", mode === "studio");

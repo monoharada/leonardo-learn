@@ -860,8 +860,9 @@
 	pointer-events: none;
 }
 
-.studio-toast[data-visible="true"] {
-	opacity: 1 !important;
+/* Double selector specificity to override opacity: 0 without !important */
+.studio-toast.studio-toast[data-visible="true"] {
+	opacity: 1;
 }
 
 .studio-settings {

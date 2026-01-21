@@ -536,8 +536,11 @@ const MAX_UNDO_HISTORY_SIZE = 20;
 // Stored reference for document-level popover click handler cleanup (prevents memory leak)
 let popoverClickHandler: ((e: MouseEvent) => void) | null = null;
 
+// Check structuredClone availability once at module load time
+const hasStructuredClone = typeof globalThis.structuredClone === "function";
+
 function cloneValue<T>(value: T): T {
-	if (typeof globalThis.structuredClone === "function") {
+	if (hasStructuredClone) {
 		return globalThis.structuredClone(value);
 	}
 	return JSON.parse(JSON.stringify(value)) as T;
