@@ -511,13 +511,19 @@ function calculateContrastInfo(
 	const lc = Math.round(apca);
 
 	const grade =
-		CONTRAST_GRADES.find((g) => ratio >= g.minRatio) ?? CONTRAST_GRADES.at(-1);
+		CONTRAST_GRADES.find((g) => ratio >= g.minRatio) ??
+		CONTRAST_GRADES[CONTRAST_GRADES.length - 1];
+
+	// 注: CONTRAST_GRADES は空配列ではないため、grade は必ず存在する
+	// TypeScript の型推論のため、フォールバック値を提供
+	const level = grade?.level ?? "error";
+	const badgeText = grade?.badgeText ?? "Fail";
 
 	return {
 		ratio,
 		apca: lc,
-		level: grade.level,
-		badgeText: grade.badgeText,
+		level,
+		badgeText,
 	};
 }
 
