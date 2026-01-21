@@ -72,14 +72,14 @@ const isValidHex6 = (hex: string): boolean => HEX6_PATTERN.test(hex);
 /** Studio view default background color (white) */
 const DEFAULT_STUDIO_BACKGROUND = "#ffffff";
 
-const CONTRAST_THRESHOLDS: Record<
-	Exclude<ContrastBadgeGrade, "Fail">,
-	number
-> = {
-	AAA: 7,
-	AA: 4.5,
-	"AA Large": 3,
-};
+/** コントラストグレード判定テーブル（降順） */
+const CONTRAST_GRADE_TABLE: { minRatio: number; grade: ContrastBadgeGrade }[] =
+	[
+		{ minRatio: 7, grade: "AAA" },
+		{ minRatio: 4.5, grade: "AA" },
+		{ minRatio: 3, grade: "AA Large" },
+		{ minRatio: 0, grade: "Fail" },
+	];
 
 const STUDIO_PRESET_LABELS: Record<StudioPresetType, string> = {
 	default: "Default",
@@ -107,10 +107,7 @@ const STUDIO_HARMONY_TYPES: HarmonyType[] = [
 ];
 
 function gradeContrast(ratio: number): ContrastBadgeGrade {
-	if (ratio >= CONTRAST_THRESHOLDS.AAA) return "AAA";
-	if (ratio >= CONTRAST_THRESHOLDS.AA) return "AA";
-	if (ratio >= CONTRAST_THRESHOLDS["AA Large"]) return "AA Large";
-	return "Fail";
+	return CONTRAST_GRADE_TABLE.find((g) => ratio >= g.minRatio)?.grade ?? "Fail";
 }
 
 function pickRandom<T>(items: readonly T[], rnd: () => number): T | null {
@@ -156,14 +153,25 @@ function getAccentHexes(palettes: PaletteConfig[]): string[] {
 	return isValidHex6(fallback) ? [fallback] : [];
 }
 
-function getTertiaryHex(palettes: PaletteConfig[]): string | undefined {
-	const tertiaryPalette = palettes.find(
-		(p) =>
-			p.name === "Tertiary" || p.derivedFrom?.derivationType === "tertiary",
+function getDerivedPaletteHex(
+	palettes: PaletteConfig[],
+	name: string,
+	derivationType: "secondary" | "tertiary",
+): string | undefined {
+	const palette = palettes.find(
+		(p) => p.name === name || p.derivedFrom?.derivationType === derivationType,
 	);
-	if (!tertiaryPalette) return undefined;
-	const hex = stripStepSuffix(tertiaryPalette.keyColors[0] ?? "");
+	if (!palette) return undefined;
+	const hex = stripStepSuffix(palette.keyColors[0] ?? "");
 	return isValidHex6(hex) ? hex : undefined;
+}
+
+function getSecondaryHex(palettes: PaletteConfig[]): string | undefined {
+	return getDerivedPaletteHex(palettes, "Secondary", "secondary");
+}
+
+function getTertiaryHex(palettes: PaletteConfig[]): string | undefined {
+	return getDerivedPaletteHex(palettes, "Tertiary", "tertiary");
 }
 
 const studioButtonTextResetTimers = new WeakMap<
@@ -222,9 +230,10 @@ function getDadsSemanticHex(
 function computePaletteColors(dadsTokens: DadsToken[]): {
 	primaryHex: string;
 	primaryStep?: number;
+	secondaryHex?: string;
+	tertiaryHex?: string;
 	accentHex: string;
 	accentHexes: string[];
-	tertiaryHex?: string;
 	semantic: { error: string; success: string; warning: string };
 } {
 	const primaryPalette = getPrimaryPalette();
@@ -235,9 +244,11 @@ function computePaletteColors(dadsTokens: DadsToken[]): {
 	const dadsInfo = findDadsColorByHex(dadsTokens, primaryHex);
 	const primaryStep = dadsInfo?.scale;
 
+	const secondaryHex = getSecondaryHex(state.palettes);
+	const tertiaryHex = getTertiaryHex(state.palettes);
+
 	const accentHexes = getAccentHexes(state.palettes);
 	const accentHex = accentHexes[0] || "#259063";
-	const tertiaryHex = getTertiaryHex(state.palettes);
 
 	const warningPattern = resolveWarningPattern(state.semanticColorConfig);
 	const warningHue = warningPattern === "orange" ? "orange" : "yellow";
@@ -246,9 +257,10 @@ function computePaletteColors(dadsTokens: DadsToken[]): {
 	return {
 		primaryHex,
 		primaryStep,
+		secondaryHex,
+		tertiaryHex,
 		accentHex,
 		accentHexes,
-		tertiaryHex,
 		semantic: {
 			error: getDadsSemanticHex(dadsTokens, "red", 800, "#FF2800"),
 			success: getDadsSemanticHex(dadsTokens, "green", 600, "#35A16B"),
@@ -1393,8 +1405,37 @@ export async function renderStudioView(
 		undefined,
 		handlePrimaryColorChange,
 	);
-	primarySwatch.classList.add("studio-toolbar-swatch--zone-end");
 	swatches.appendChild(primarySwatch);
+
+	// Secondary color swatch (if exists)
+	if (paletteColors.secondaryHex) {
+		const secondarySwatch = createToolbarSwatchWithPopover(
+			"セカンダリ",
+			paletteColors.secondaryHex,
+			null,
+		);
+		swatches.appendChild(secondarySwatch);
+	}
+
+	// Tertiary color swatch (if exists) with zone-end
+	if (paletteColors.tertiaryHex) {
+		const tertiarySwatch = createToolbarSwatchWithPopover(
+			"ターシャリ",
+			paletteColors.tertiaryHex,
+			null,
+		);
+		tertiarySwatch.classList.add("studio-toolbar-swatch--zone-end");
+		swatches.appendChild(tertiarySwatch);
+	} else if (paletteColors.secondaryHex) {
+		// Secondaryはあるがtertiaryがない場合、最後のswatchにzone-endを付ける
+		const lastSwatch = swatches.lastElementChild;
+		if (lastSwatch) {
+			lastSwatch.classList.add("studio-toolbar-swatch--zone-end");
+		}
+	} else {
+		// Secondary/Tertiaryがない場合、Primaryにzone-endを付ける
+		primarySwatch.classList.add("studio-toolbar-swatch--zone-end");
+	}
 
 	// Helper to decrease accent count (for delete button)
 	const handleDeleteAccent = async () => {

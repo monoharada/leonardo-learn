@@ -16,6 +16,7 @@ import type {
 	ColorMode,
 	DemoState,
 	KeyColorWithStep,
+	ManualColorSelection,
 	PaletteConfig,
 	SemanticColorConfig,
 } from "./types";
@@ -30,6 +31,12 @@ export const BACKGROUND_COLOR_STORAGE_KEY = "leonardo-backgroundColor";
  * セマンティックカラー設定のlocalStorageキー
  */
 export const SEMANTIC_COLOR_CONFIG_STORAGE_KEY = "leonardo-semanticColorConfig";
+
+/**
+ * マニュアル選択の色設定のlocalStorageキー
+ */
+export const MANUAL_COLOR_SELECTION_STORAGE_KEY =
+	"leonardo-manualColorSelection";
 
 /**
  * 背景色の永続化データ形式（ライト/ダーク両方）
@@ -96,7 +103,7 @@ export function validateBackgroundColor(
 
 	// OKLCH形式のチェック
 	const oklchMatch = trimmed.match(OKLCH_PATTERN);
-	if (oklchMatch && oklchMatch[1] && oklchMatch[2] && oklchMatch[3]) {
+	if (oklchMatch?.[1] && oklchMatch[2] && oklchMatch[3]) {
 		const l = Number.parseFloat(oklchMatch[1]);
 		const c = Number.parseFloat(oklchMatch[2]);
 		const h = Number.parseFloat(oklchMatch[3]);
@@ -313,6 +320,24 @@ export function loadSemanticColorConfig(): SemanticColorConfig {
 	} catch {
 		// JSON.parseエラーやlocalStorageエラー
 		return { ...DEFAULT_SEMANTIC_COLOR_CONFIG };
+	}
+}
+
+/**
+ * マニュアルビュー用の色選択状態をlocalStorageに永続化する
+ *
+ * @param selection マニュアル色選択状態
+ */
+export function persistManualColorSelection(
+	selection: ManualColorSelection,
+): void {
+	try {
+		localStorage.setItem(
+			MANUAL_COLOR_SELECTION_STORAGE_KEY,
+			JSON.stringify(selection),
+		);
+	} catch {
+		// localStorageが利用できない場合は無視
 	}
 }
 

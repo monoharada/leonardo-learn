@@ -13,22 +13,49 @@ import { getDadsHueFromDisplayName } from "@/core/tokens/dads-data-provider";
 import type { DadsColorHue } from "@/core/tokens/types";
 
 /**
- * DADS_CHROMAS.displayNameからDadsColorHueへ変換
+ * 有効なDadsColorHue一覧
+ */
+const VALID_DADS_HUES: readonly DadsColorHue[] = [
+	"blue",
+	"light-blue",
+	"cyan",
+	"green",
+	"lime",
+	"yellow",
+	"orange",
+	"red",
+	"magenta",
+	"purple",
+] as const;
+
+/**
+ * 表示名またはDadsColorHueからDadsColorHueへ変換
  *
- * @param displayName - 表示名（例: "Light Blue"）
+ * @param nameOrHue - 表示名（例: "Light Blue"）またはDadsColorHue（例: "light-blue"）
  * @returns DadsColorHue または undefined
  *
  * @example
  * ```ts
  * normalizeToDadsHue("Light Blue"); // "light-blue"
  * normalizeToDadsHue("Blue"); // "blue"
+ * normalizeToDadsHue("blue"); // "blue" (already DadsColorHue format)
+ * normalizeToDadsHue("light-blue"); // "light-blue" (already DadsColorHue format)
  * normalizeToDadsHue("Unknown"); // undefined
  * ```
  */
 export function normalizeToDadsHue(
-	displayName: string,
+	nameOrHue: string,
 ): DadsColorHue | undefined {
-	return getDadsHueFromDisplayName(displayName);
+	// まず表示名として変換を試みる (e.g., "Blue" -> "blue")
+	const fromDisplayName = getDadsHueFromDisplayName(nameOrHue);
+	if (fromDisplayName) return fromDisplayName;
+
+	// 見つからない場合、既にDadsColorHue形式かチェック
+	if (VALID_DADS_HUES.includes(nameOrHue as DadsColorHue)) {
+		return nameOrHue as DadsColorHue;
+	}
+
+	return undefined;
 }
 
 /**
