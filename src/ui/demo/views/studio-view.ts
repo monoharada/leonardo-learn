@@ -69,6 +69,9 @@ type ContrastBadgeGrade = "AAA" | "AA" | "AA Large" | "Fail";
 const HEX6_PATTERN = /^#[0-9A-Fa-f]{6}$/;
 const isValidHex6 = (hex: string): boolean => HEX6_PATTERN.test(hex);
 
+/** Studio view default background color (white) */
+const DEFAULT_STUDIO_BACKGROUND = "#ffffff";
+
 const CONTRAST_THRESHOLDS: Record<
 	Exclude<ContrastBadgeGrade, "Fail">,
 	number
@@ -508,7 +511,7 @@ async function rebuildStudioPalettes(options: {
 	accentCandidates?: DadsSnapResult[];
 }): Promise<void> {
 	const timestamp = Date.now();
-	const backgroundColor = "#ffffff";
+	const backgroundColor = DEFAULT_STUDIO_BACKGROUND;
 
 	const primaryKeyColor =
 		options.primaryStep && isValidHex6(options.primaryHex)
@@ -580,7 +583,7 @@ async function generateNewStudioPalette(
 	const rnd = createSeededRandom(studioSeed);
 
 	// Studioの背景は白固定（ニュートラルはカード/ボックス等の要素に使用）
-	const backgroundHex = "#ffffff";
+	const backgroundHex = DEFAULT_STUDIO_BACKGROUND;
 
 	let primaryHex: string | null = null;
 	let primaryStep: number | undefined;
@@ -773,7 +776,7 @@ export async function renderStudioView(
 
 	container.className = "dads-section dads-studio";
 	container.innerHTML = "";
-	container.style.backgroundColor = "#ffffff";
+	container.style.backgroundColor = DEFAULT_STUDIO_BACKGROUND;
 
 	const toolbar = document.createElement("section");
 	toolbar.className = "studio-toolbar";
@@ -833,7 +836,7 @@ export async function renderStudioView(
 				// 既存Primaryを維持しつつ、アクセントだけ再生成（必要な場合のみ）
 				if (state.palettes.length > 0) {
 					const current = computePaletteColors(dadsTokens);
-					const backgroundHex = "#ffffff";
+					const backgroundHex = DEFAULT_STUDIO_BACKGROUND;
 					const existing = current.accentHexes;
 					const desired = Math.max(2, Math.min(4, state.studioAccentCount));
 
@@ -1063,7 +1066,7 @@ export async function renderStudioView(
 	}
 
 	const paletteColors = computePaletteColors(dadsTokens);
-	const bgHex = state.lightBackgroundColor || "#ffffff";
+	const bgHex = state.lightBackgroundColor || DEFAULT_STUDIO_BACKGROUND;
 
 	const desiredAccentCount = Math.max(2, Math.min(4, state.studioAccentCount));
 	const accentHexes = paletteColors.accentHexes.slice(0, desiredAccentCount);
@@ -1346,7 +1349,7 @@ export async function renderStudioView(
 	swatches.appendChild(
 		createToolbarSwatchWithPopover(
 			"背景色",
-			state.lightBackgroundColor || "#ffffff",
+			state.lightBackgroundColor || DEFAULT_STUDIO_BACKGROUND,
 			"background",
 			undefined,
 			handleBackgroundColorChange,
@@ -1451,7 +1454,8 @@ export async function renderStudioView(
 
 		// Generate new accent colors
 		const current = computePaletteColors(dadsTokens);
-		const backgroundHex = state.lightBackgroundColor || "#ffffff";
+		const backgroundHex =
+			state.lightBackgroundColor || DEFAULT_STUDIO_BACKGROUND;
 		const existing = current.accentHexes.slice(0, oldAccentCount);
 
 		const seed = (state.studioSeed || 0) ^ newCount ^ Date.now();
