@@ -101,12 +101,12 @@ export function updateA11yIssueBadge(): void {
 
 	if (namedColors.length < 2) {
 		badge.hidden = true;
+		badge.textContent = "";
 		return;
 	}
 
 	const pairs = detectCvdConfusionPairs(namedColors);
 	badge.hidden = pairs.length === 0;
-	if (pairs.length > 0) {
-		badge.textContent = pairs.length > 99 ? "99+" : String(pairs.length);
-	}
+	badge.textContent =
+		pairs.length > 0 ? (pairs.length > 99 ? "99+" : String(pairs.length)) : "";
 }
