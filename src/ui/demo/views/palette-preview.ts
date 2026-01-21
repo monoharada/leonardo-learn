@@ -312,58 +312,72 @@ async function loadMainVisualOverrideSvg(): Promise<string | null> {
 	return mainVisualOverridePromise;
 }
 
+function hasExternalUrlReference(value: string): boolean {
+	const urlPattern = /url\s*\(\s*(['"]?)([^'")\s]+)\1\s*\)/gi;
+	let match = urlPattern.exec(value);
+	while (match !== null) {
+		const target = match[2] ?? "";
+		if (!target.startsWith("#")) return true;
+		match = urlPattern.exec(value);
+	}
+	return false;
+}
+
+function sanitizeSvgAttribute(el: Element, attr: Attr): void {
+	const name = attr.name;
+
+	// Remove event handlers (onclick, onload, etc.)
+	if (/^on/i.test(name)) {
+		el.removeAttribute(name);
+		return;
+	}
+
+	// Remove external href/xlink:href references
+	if (/^(href|xlink:href)$/i.test(name)) {
+		if (!attr.value.trim().startsWith("#")) {
+			el.removeAttribute(name);
+		}
+		return;
+	}
+
+	// Remove attributes with external url() references
+	if (/\burl\s*\(/i.test(attr.value) && hasExternalUrlReference(attr.value)) {
+		el.removeAttribute(name);
+	}
+}
+
 function toSafeInlineSvg(svgText: string): SVGElement | null {
-	if (typeof DOMParser === "undefined") return null;
-	if (typeof document === "undefined") return null;
+	if (typeof DOMParser === "undefined" || typeof document === "undefined") {
+		return null;
+	}
 
 	const parsed = new DOMParser().parseFromString(svgText, "image/svg+xml");
 	const root = parsed.documentElement;
 	if (!root || root.tagName.toLowerCase() !== "svg") return null;
 
-	// Strip known-dangerous nodes (SVG supports active content).
+	// Strip known-dangerous nodes (SVG supports active content)
 	for (const node of root.querySelectorAll(
 		"script,style,foreignObject,iframe,object,embed",
 	)) {
 		node.remove();
 	}
 
+	// Sanitize attributes on all elements
 	const elements = [root, ...Array.from(root.querySelectorAll("*"))];
 	for (const el of elements) {
 		for (const attr of Array.from(el.attributes)) {
-			const name = attr.name;
-			if (/^on/i.test(name)) {
-				el.removeAttribute(name);
-				continue;
-			}
-			if (/^(href|xlink:href)$/i.test(name)) {
-				const value = attr.value.trim();
-				if (!value.startsWith("#")) {
-					el.removeAttribute(name);
-				}
-				continue;
-			}
-
-			const value = attr.value;
-			if (/\burl\s*\(/i.test(value)) {
-				const urlPattern = /url\s*\(\s*(['"]?)([^'")\s]+)\1\s*\)/gi;
-				let match = urlPattern.exec(value);
-				let hasExternalUrl = false;
-				while (match !== null) {
-					const target = match[2] ?? "";
-					if (!target.startsWith("#")) {
-						hasExternalUrl = true;
-						break;
-					}
-					match = urlPattern.exec(value);
-				}
-				if (hasExternalUrl) {
-					el.removeAttribute(name);
-				}
-			}
+			sanitizeSvgAttribute(el, attr);
 		}
 	}
 
 	return document.importNode(root, true) as unknown as SVGElement;
+}
+
+function ensureDocumentOwnership(template: SVGElement): SVGElement {
+	if (typeof document !== "undefined" && template.ownerDocument !== document) {
+		return document.importNode(template, true) as unknown as SVGElement;
+	}
+	return template;
 }
 
 function getBundledMainVisualSvgClone(): SVGElement | null {
@@ -373,121 +387,128 @@ function getBundledMainVisualSvgClone(): SVGElement | null {
 		bundledMainVisualSvgTemplate = parsed;
 	}
 
-	if (
-		typeof document !== "undefined" &&
-		bundledMainVisualSvgTemplate.ownerDocument !== document
-	) {
-		bundledMainVisualSvgTemplate = document.importNode(
-			bundledMainVisualSvgTemplate,
-			true,
-		) as unknown as SVGElement;
-	}
-
+	bundledMainVisualSvgTemplate = ensureDocumentOwnership(
+		bundledMainVisualSvgTemplate,
+	);
 	return bundledMainVisualSvgTemplate.cloneNode(true) as SVGElement;
 }
 
 function getMainVisualOverrideSvgClone(svgText: string): SVGElement | null {
+	// Return cached clone if same source
 	if (
 		mainVisualOverrideSvgTemplate &&
 		mainVisualOverrideSvgTemplateSource === svgText
 	) {
-		if (
-			typeof document !== "undefined" &&
-			mainVisualOverrideSvgTemplate.ownerDocument !== document
-		) {
-			mainVisualOverrideSvgTemplate = document.importNode(
-				mainVisualOverrideSvgTemplate,
-				true,
-			) as unknown as SVGElement;
-		}
+		mainVisualOverrideSvgTemplate = ensureDocumentOwnership(
+			mainVisualOverrideSvgTemplate,
+		);
 		return mainVisualOverrideSvgTemplate.cloneNode(true) as SVGElement;
 	}
 
+	// Parse new override SVG
 	const parsed = toSafeInlineSvg(svgText);
 	if (!parsed) {
+		// Reset override state on parse failure
 		cachedMainVisualOverrideSvg = null;
 		mainVisualOverrideSvgTemplate = null;
 		mainVisualOverrideSvgTemplateSource = null;
 		mainVisualOverrideNextRetryAt = Date.now() + MAIN_VISUAL_OVERRIDE_RETRY_MS;
 		return null;
 	}
+
 	mainVisualOverrideSvgTemplate = parsed;
 	mainVisualOverrideSvgTemplateSource = svgText;
 	return mainVisualOverrideSvgTemplate.cloneNode(true) as SVGElement;
 }
 
+const ACCENT_VAR_NAMES = [
+	"--preview-accent",
+	"--preview-accent-2",
+	"--preview-accent-3",
+] as const;
+
+const TINT_STEPS = [
+	0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9,
+	0.95, 1,
+] as const;
+
+const HAIR_COLOR_HEX = "#FEFAF9";
+const WHITE_COLOR_HEX = "#FFFFFF";
+const MIN_HAIR_CONTRAST = 1.9;
+
+function shuffleArray<T>(array: T[], rnd: () => number): T[] {
+	const result = [...array];
+	for (let i = result.length - 1; i > 0; i--) {
+		const j = Math.floor(rnd() * (i + 1));
+		[result[i], result[j]] = [result[j]!, result[i]!];
+	}
+	return result;
+}
+
+function getCssVarValue(root: HTMLElement, name: string): string {
+	const inline = root.style.getPropertyValue(name).trim();
+	if (inline) return inline;
+	if (typeof getComputedStyle !== "function") return "";
+	return getComputedStyle(root).getPropertyValue(name).trim();
+}
+
+function findContrastingTintHex(
+	baseColorValue: string,
+	rnd: () => number,
+): string | null {
+	const hairColor = parse(HAIR_COLOR_HEX);
+	const whiteColor = parse(WHITE_COLOR_HEX);
+	const baseColor = parse(baseColorValue);
+
+	if (!hairColor || !whiteColor || !baseColor) return null;
+
+	const tint = interpolate([whiteColor, baseColor], "oklch");
+
+	// Find first tint step that meets contrast requirement
+	let chosenT: number | null = null;
+	for (const t of TINT_STEPS) {
+		if (wcagContrast(tint(t), hairColor) >= MIN_HAIR_CONTRAST) {
+			chosenT = t;
+			break;
+		}
+	}
+	if (chosenT === null) return null;
+
+	// Add small variation without reducing contrast
+	const finalT = Math.min(1, chosenT + pickOne(rnd, [0, 0.05, 0.1] as const));
+	return formatHex(tint(finalT)) || null;
+}
+
 function applyMainVisualVars(kv: HTMLElement, seed: number): void {
 	const rnd = createSeededRandom(seed ^ 0x9e3779b9);
-
-	const hairColor = parse("#FEFAF9");
-	const whiteColor = parse("#FFFFFF");
-	const minHairContrast = 1.9;
-	const tintSteps = [
-		0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9,
-		0.95, 1,
-	] as const;
-
-	const bgBases = [
-		"--preview-accent",
-		"--preview-accent-2",
-		"--preview-accent-3",
-	] as const;
-
 	const previewRoot = kv.closest<HTMLElement>(".dads-preview") ?? kv;
-	const getVarValue = (name: string) => {
-		const inline = previewRoot.style.getPropertyValue(name).trim();
-		if (inline) return inline;
-		if (typeof getComputedStyle !== "function") return "";
-		return getComputedStyle(previewRoot).getPropertyValue(name).trim();
-	};
+	const shuffledVars = shuffleArray([...ACCENT_VAR_NAMES], rnd);
 
-	const shuffledBases = [...bgBases] as (typeof bgBases)[number][];
-	for (let i = shuffledBases.length - 1; i > 0; i--) {
-		const j = Math.floor(rnd() * (i + 1));
-		[shuffledBases[i], shuffledBases[j]] = [
-			shuffledBases[j]!,
-			shuffledBases[i]!,
-		];
-	}
-
+	// Try each accent color to find one with sufficient hair contrast
 	let resolvedBgHex: string | null = null;
-	if (hairColor && whiteColor) {
-		for (const baseVar of shuffledBases) {
-			const baseValue = getVarValue(baseVar);
-			if (!baseValue) continue;
-			const baseColor = parse(baseValue);
-			if (!baseColor) continue;
+	for (const varName of shuffledVars) {
+		const colorValue = getCssVarValue(previewRoot, varName);
+		if (!colorValue) continue;
 
-			const tint = interpolate([whiteColor, baseColor], "oklch");
-			let chosenT: number | null = null;
-			for (const t of tintSteps) {
-				const candidate = tint(t);
-				if (wcagContrast(candidate, hairColor) >= minHairContrast) {
-					chosenT = t;
-					break;
-				}
-			}
-			if (chosenT === null) continue;
-
-			// Add a small deterministic variation, never reducing contrast.
-			const t = Math.min(1, chosenT + pickOne(rnd, [0, 0.05, 0.1] as const));
-			const hex = formatHex(tint(t));
-			if (hex) {
-				resolvedBgHex = hex;
-				break;
-			}
+		const hex = findContrastingTintHex(colorValue, rnd);
+		if (hex) {
+			resolvedBgHex = hex;
+			break;
 		}
 	}
 
+	// Set --mv-bg with resolved hex or fallback to color-mix
 	if (resolvedBgHex) {
 		kv.style.setProperty("--mv-bg", resolvedBgHex);
 	} else {
-		const fallbackBase = pickOne(rnd, bgBases);
+		const fallbackVar = pickOne(rnd, ACCENT_VAR_NAMES);
 		kv.style.setProperty(
 			"--mv-bg",
-			`color-mix(in oklch, var(${fallbackBase}) 55%, var(--color-neutral-white))`,
+			`color-mix(in oklch, var(${fallbackVar}) 55%, var(--color-neutral-white))`,
 		);
 	}
+
+	// Set remaining main visual CSS variables
 	kv.style.setProperty("--mv-cloth-1", "var(--preview-primary)");
 	kv.style.setProperty("--mv-cloth-2", "var(--preview-accent-2)");
 	kv.style.setProperty("--mv-accent", "var(--preview-accent)");
@@ -839,7 +860,7 @@ export function createPalettePreview(
 		"--preview-on-primary": colors.buttonText,
 		"--preview-outline-hover-bg": buttonState.outlineHoverBg,
 		"--preview-outline-active-bg": buttonState.outlineActiveBg,
-		"--preview-heading": colors.headlineText,
+		"--preview-heading": colors.headline,
 		"--preview-accent": colors.cardAccent,
 		"--preview-accent-2": accentHex2,
 		"--preview-accent-3": accentHex3,
@@ -856,78 +877,102 @@ export function createPalettePreview(
 	// ---- Hero KV (main visual) ----
 	const kv = container.querySelector<HTMLElement>(".preview-kv");
 	if (kv) {
-		const seed =
-			options.kv?.locked && typeof options.kv.seed === "number"
-				? options.kv.seed
-				: hashStringToSeed(
-						[
-							colors.background,
-							colors.button,
-							colors.cardAccent,
-							colors.success,
-							colors.warning,
-							colors.error,
-						].join("|"),
-					);
-		kv.dataset.kvBg = "card";
-		kv.dataset.kvMode = options.kv?.locked ? "locked" : "auto";
-		// Page background is fixed (white); use neutral "surface" for the KV box.
-		kv.style.setProperty("--preview-kv-bg", "var(--preview-card)");
-
-		// Main visual (inline SVG). Runtime override is attempted, but we always
-		// show a bundled fallback so the KV is visible even on file://.
-		applyMainVisualVars(kv, seed);
-		kv.dataset.kvVariant = "main-visual";
-
-		let didRenderBundled = false;
-		const renderBundled = (): void => {
-			if (didRenderBundled) return;
-			didRenderBundled = true;
-			const bundledSvg = getBundledMainVisualSvgClone();
-			if (bundledSvg) {
-				kv.replaceChildren(bundledSvg);
-			} else {
-				kv.innerHTML = getBundledMainVisualSvgText();
-			}
-		};
-
-		const renderOverride = (svgText: string): void => {
-			const safeSvg = getMainVisualOverrideSvgClone(svgText);
-			if (safeSvg) {
-				kv.replaceChildren(safeSvg);
-			} else {
-				renderBundled();
-			}
-		};
-
-		// file:// cannot fetch override assets; render bundled immediately.
-		if (typeof location !== "undefined" && location.protocol === "file:") {
-			renderBundled();
-		} else if (cachedMainVisualOverrideSvg) {
-			// If we already resolved an override, prefer it (avoid bundled parse cost).
-			renderOverride(cachedMainVisualOverrideSvg);
-		} else {
-			let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
-			if (typeof setTimeout === "function") {
-				fallbackTimer = setTimeout(() => {
-					if (!kv.isConnected) return;
-					renderBundled();
-				}, MAIN_VISUAL_BUNDLED_FALLBACK_DELAY_MS);
-			} else {
-				renderBundled();
-			}
-
-			void loadMainVisualOverrideSvg().then((svg) => {
-				if (!kv.isConnected) return;
-				if (fallbackTimer) clearTimeout(fallbackTimer);
-				if (svg) {
-					renderOverride(svg);
-				} else {
-					renderBundled();
-				}
-			});
-		}
+		initializeKvElement(kv, colors, options);
 	}
 
 	return container;
+}
+
+function computeKvSeed(
+	colors: PalettePreviewColors,
+	kvOptions: PreviewKvState | undefined,
+): number {
+	if (kvOptions?.locked && typeof kvOptions.seed === "number") {
+		return kvOptions.seed;
+	}
+	const colorKey = [
+		colors.background,
+		colors.button,
+		colors.cardAccent,
+		colors.success,
+		colors.warning,
+		colors.error,
+	].join("|");
+	return hashStringToSeed(colorKey);
+}
+
+function renderBundledSvg(kv: HTMLElement): void {
+	const bundledSvg = getBundledMainVisualSvgClone();
+	if (bundledSvg) {
+		kv.replaceChildren(bundledSvg);
+	} else {
+		kv.innerHTML = getBundledMainVisualSvgText();
+	}
+}
+
+function renderOverrideSvg(kv: HTMLElement, svgText: string): boolean {
+	const safeSvg = getMainVisualOverrideSvgClone(svgText);
+	if (safeSvg) {
+		kv.replaceChildren(safeSvg);
+		return true;
+	}
+	return false;
+}
+
+function initializeKvElement(
+	kv: HTMLElement,
+	colors: PalettePreviewColors,
+	options: PalettePreviewOptions,
+): void {
+	const seed = computeKvSeed(colors, options.kv);
+
+	kv.dataset.kvBg = "card";
+	kv.dataset.kvMode = options.kv?.locked ? "locked" : "auto";
+	kv.dataset.kvVariant = "main-visual";
+	kv.style.setProperty("--preview-kv-bg", "var(--preview-card)");
+
+	applyMainVisualVars(kv, seed);
+
+	// file:// cannot fetch override assets; render bundled immediately
+	const isFileProtocol =
+		typeof location !== "undefined" && location.protocol === "file:";
+
+	if (isFileProtocol) {
+		renderBundledSvg(kv);
+		return;
+	}
+
+	// If override is already cached, use it directly
+	if (cachedMainVisualOverrideSvg) {
+		if (!renderOverrideSvg(kv, cachedMainVisualOverrideSvg)) {
+			renderBundledSvg(kv);
+		}
+		return;
+	}
+
+	// Attempt async override load with fallback timer
+	let didRender = false;
+	let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
+
+	const renderWithFallback = (overrideSvg: string | null): void => {
+		if (didRender || !kv.isConnected) return;
+		didRender = true;
+		if (fallbackTimer) clearTimeout(fallbackTimer);
+
+		if (overrideSvg && renderOverrideSvg(kv, overrideSvg)) {
+			return;
+		}
+		renderBundledSvg(kv);
+	};
+
+	if (typeof setTimeout === "function") {
+		fallbackTimer = setTimeout(() => {
+			renderWithFallback(null);
+		}, MAIN_VISUAL_BUNDLED_FALLBACK_DELAY_MS);
+	} else {
+		renderBundledSvg(kv);
+		didRender = true;
+	}
+
+	void loadMainVisualOverrideSvg().then(renderWithFallback);
 }

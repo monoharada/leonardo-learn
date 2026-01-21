@@ -45,6 +45,131 @@ mock.module("@/core/tokens/dads-data-provider", () => ({
 	}),
 }));
 
+mock.module("@/core/accent/accent-candidate-service", () => ({
+	generateCandidates: async () => ({
+		ok: true as const,
+		result: {
+			candidates: [
+				{
+					tokenId: "mock-1",
+					hex: "#259063",
+					nameJa: "Mock 1",
+					nameEn: "Mock 1",
+					dadsSourceName: "Green 600",
+					step: 600,
+					score: {
+						total: 80,
+						breakdown: {
+							harmonyScore: 0,
+							cudScore: 0,
+							contrastScore: 0,
+							vibrancyScore: 0,
+						},
+						weights: { harmony: 25, cud: 25, contrast: 25, vibrancy: 25 },
+					},
+					hue: 120,
+				},
+				{
+					tokenId: "mock-2",
+					hex: "#ff2800",
+					nameJa: "Mock 2",
+					nameEn: "Mock 2",
+					dadsSourceName: "Red 600",
+					step: 600,
+					score: {
+						total: 79,
+						breakdown: {
+							harmonyScore: 0,
+							cudScore: 0,
+							contrastScore: 0,
+							vibrancyScore: 0,
+						},
+						weights: { harmony: 25, cud: 25, contrast: 25, vibrancy: 25 },
+					},
+					hue: 20,
+				},
+				{
+					tokenId: "mock-3",
+					hex: "#35a16b",
+					nameJa: "Mock 3",
+					nameEn: "Mock 3",
+					dadsSourceName: "Green 500",
+					step: 500,
+					score: {
+						total: 78,
+						breakdown: {
+							harmonyScore: 0,
+							cudScore: 0,
+							contrastScore: 0,
+							vibrancyScore: 0,
+						},
+						weights: { harmony: 25, cud: 25, contrast: 25, vibrancy: 25 },
+					},
+					hue: 140,
+				},
+				{
+					tokenId: "mock-4",
+					hex: "#0091ff",
+					nameJa: "Mock 4",
+					nameEn: "Mock 4",
+					dadsSourceName: "Blue 600",
+					step: 600,
+					score: {
+						total: 77,
+						breakdown: {
+							harmonyScore: 0,
+							cudScore: 0,
+							contrastScore: 0,
+							vibrancyScore: 0,
+						},
+						weights: { harmony: 25, cud: 25, contrast: 25, vibrancy: 25 },
+					},
+					hue: 250,
+				},
+				{
+					tokenId: "mock-5",
+					hex: "#d7c447",
+					nameJa: "Mock 5",
+					nameEn: "Mock 5",
+					dadsSourceName: "Yellow 700",
+					step: 700,
+					score: {
+						total: 76,
+						breakdown: {
+							harmonyScore: 0,
+							cudScore: 0,
+							contrastScore: 0,
+							vibrancyScore: 0,
+						},
+						weights: { harmony: 25, cud: 25, contrast: 25, vibrancy: 25 },
+					},
+					hue: 90,
+				},
+				{
+					tokenId: "mock-6",
+					hex: "#6a5acd",
+					nameJa: "Mock 6",
+					nameEn: "Mock 6",
+					dadsSourceName: "Purple 600",
+					step: 600,
+					score: {
+						total: 75,
+						breakdown: {
+							harmonyScore: 0,
+							cudScore: 0,
+							contrastScore: 0,
+							vibrancyScore: 0,
+						},
+						weights: { harmony: 25, cud: 25, contrast: 25, vibrancy: 25 },
+					},
+					hue: 300,
+				},
+			],
+			calculationTimeMs: 0,
+		},
+	}),
+}));
+
 mock.module("@/ui/accessibility/cvd-detection", () => ({
 	detectCvdConfusionPairs: () => [],
 }));
@@ -64,7 +189,7 @@ describe("studio-view module", () => {
 		globalThis.HTMLElement = originalHTMLElement;
 	});
 
-	it("should update CVD score display when primary color changes", async () => {
+	it("should render studio view with toolbar swatches", async () => {
 		const { renderStudioView } = await import("./studio-view");
 
 		const dom = new JSDOM(
@@ -89,30 +214,21 @@ describe("studio-view module", () => {
 
 		const container = document.getElementById("root");
 		expect(container).toBeTruthy();
+
 		await renderStudioView(container as unknown as HTMLElement, {
 			onColorClick: () => {},
 		});
 
-		const input = (container as HTMLElement).querySelector<HTMLInputElement>(
-			'input[data-studio-primary-input="1"]',
+		// Verify the new UI structure renders toolbar swatches
+		const swatches = (container as HTMLElement).querySelector(
+			".studio-toolbar__swatches",
 		);
-		expect(input).toBeTruthy();
+		expect(swatches).toBeTruthy();
 
-		const scoreUpdated = new Promise<void>((resolve) => {
-			onScoreUpdate = resolve;
-		});
-
-		input.value = "#112233";
-		input.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
-
-		// Wait for async applyPrimary -> rebuildStudioPalettes
-		await Promise.race([
-			scoreUpdated,
-			new Promise<void>((_, reject) =>
-				setTimeout(() => reject(new Error("timeout")), 1000),
-			),
-		]);
-
-		expect(mockUpdateCVDScoreDisplay).toHaveBeenCalled();
+		// Verify toolbar swatch elements are created for primary color
+		const swatchElements = (container as HTMLElement).querySelectorAll(
+			".studio-toolbar-swatch",
+		);
+		expect(swatchElements.length).toBeGreaterThan(0);
 	});
 });

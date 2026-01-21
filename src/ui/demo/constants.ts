@@ -16,12 +16,7 @@ import type {
 	SemanticColorConfig,
 } from "./types";
 
-/**
- * アクセント選定用ハーモニータイプの設定一覧
- * HarmonyFilterTypeベースのUI表示用メタデータ
- *
- * Section 7: ハーモニービュー → アクセント選定ビュー置換
- */
+/** アクセント選定用ハーモニータイプの設定一覧 */
 export const ACCENT_HARMONY_TYPES: AccentHarmonyTypeConfig[] = [
 	{
 		id: "all",
@@ -50,12 +45,7 @@ export const ACCENT_HARMONY_TYPES: AccentHarmonyTypeConfig[] = [
 	},
 ];
 
-/**
- * ハーモニータイプの設定一覧
- * UI表示用のメタデータを含む
- *
- * @deprecated Section 7以降はACCENT_HARMONY_TYPESを使用
- */
+/** @deprecated Section 7以降はACCENT_HARMONY_TYPESを使用 */
 export const HARMONY_TYPES: HarmonyTypeConfig[] = [
 	{
 		id: "complementary",
@@ -123,10 +113,7 @@ export const HARMONY_TYPES: HarmonyTypeConfig[] = [
 	},
 ];
 
-/**
- * 色相名の英語表示名マッピング（DADS hue → display name）
- * palette-generator.ts と harmony-view.ts で共有
- */
+/** 色相名の英語表示名マッピング（DADS hue → display name） */
 export const HUE_DISPLAY_NAMES: Record<string, string> = {
 	blue: "Blue",
 	"light-blue": "Light Blue",
@@ -140,18 +127,12 @@ export const HUE_DISPLAY_NAMES: Record<string, string> = {
 	purple: "Purple",
 };
 
-/**
- * セマンティックカラー設定のデフォルト値
- * 警告色はCUD分析に基づく自動選択をデフォルトとする
- */
+/** セマンティックカラー設定のデフォルト値 */
 export const DEFAULT_SEMANTIC_COLOR_CONFIG: SemanticColorConfig = {
 	warningPattern: "auto",
 };
 
-/**
- * デモ機能の初期状態
- * state.tsのシングルトン初期化に使用
- */
+/** デモ機能の初期状態 */
 export const DEFAULT_STATE: DemoState = {
 	palettes: [],
 	shadesPalettes: [],
@@ -167,8 +148,11 @@ export const DEFAULT_STATE: DemoState = {
 	lightBackgroundColor: "#ffffff",
 	darkBackgroundColor: "#000000",
 	accentCount: 1,
+	studioAccentCount: 2,
 	semanticColorConfig: DEFAULT_SEMANTIC_COLOR_CONFIG,
 	lockedColors: {
+		background: false,
+		text: false,
 		primary: false,
 		accent: false,
 		error: false,

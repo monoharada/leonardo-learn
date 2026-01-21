@@ -24,12 +24,13 @@ import type { DadsToken } from "@/core/tokens/types";
 import { detectCvdConfusionPairs } from "@/ui/accessibility/cvd-detection";
 import { getDisplayHex, updateCVDScoreDisplay } from "../cvd-controls";
 import { createDerivedPalettes } from "../palette-generator";
-import { parseKeyColor, state } from "../state";
+import { parseKeyColor, state, validateBackgroundColor } from "../state";
 import { createStudioUrlHash } from "../studio-url-state";
 import type {
 	ColorDetailModalOptions,
 	LockedColorsState,
 	PaletteConfig,
+	PreviewKvState,
 	StudioPresetType,
 } from "../types";
 import { stripStepSuffix } from "../types";
@@ -155,55 +156,6 @@ function getAccentHexes(palettes: PaletteConfig[]): string[] {
 	return /^#[0-9A-Fa-f]{6}$/.test(fallback) ? [fallback] : [];
 }
 
-function createContrastBadge(ratio: number): HTMLElement {
-	const grade = gradeContrast(ratio);
-	const el = document.createElement("span");
-	el.className = `studio-contrast-badge studio-contrast-badge--${grade
-		.toLowerCase()
-		.replace(/\s+/g, "-")}`;
-	el.textContent = grade;
-	el.title = `WCAG contrast: ${ratio.toFixed(2)}:1`;
-	return el;
-}
-
-function createLockButton(
-	locked: boolean,
-	onToggle: () => void,
-): HTMLButtonElement {
-	const btn = document.createElement("button");
-	btn.type = "button";
-	btn.className = "studio-lock-btn";
-	btn.setAttribute("aria-pressed", String(locked));
-	btn.title = locked ? "ロック解除" : "ロック";
-	btn.textContent = locked ? "🔒" : "🔓";
-	btn.onclick = onToggle;
-	return btn;
-}
-
-function createSwatchButton(
-	label: string,
-	displayHex: string,
-	onClick: () => void,
-): HTMLButtonElement {
-	const btn = document.createElement("button");
-	btn.type = "button";
-	btn.className = "studio-swatch";
-	btn.setAttribute("aria-label", `${label} を表示`);
-	btn.onclick = onClick;
-
-	const circle = document.createElement("span");
-	circle.className = "studio-swatch__circle";
-	circle.style.backgroundColor = displayHex;
-
-	const text = document.createElement("span");
-	text.className = "studio-swatch__label";
-	text.textContent = label;
-
-	btn.appendChild(circle);
-	btn.appendChild(text);
-	return btn;
-}
-
 const studioButtonTextResetTimers = new WeakMap<
 	HTMLButtonElement,
 	ReturnType<typeof setTimeout>
@@ -212,9 +164,10 @@ const studioButtonTextResetTimers = new WeakMap<
 function setTemporaryButtonText(
 	btn: HTMLButtonElement,
 	text: string,
-	options?: { durationMs?: number; resetText?: string },
+	options?: { durationMs?: number; resetText?: string; resetHTML?: string },
 ): void {
 	const durationMs = options?.durationMs ?? 2000;
+	const resetHTML = options?.resetHTML;
 	const resetText = options?.resetText ?? btn.textContent ?? "";
 
 	btn.textContent = text;
@@ -224,7 +177,11 @@ function setTemporaryButtonText(
 
 	const timer = globalThis.setTimeout(() => {
 		if (!btn.isConnected) return;
-		btn.textContent = resetText;
+		if (resetHTML) {
+			btn.innerHTML = resetHTML;
+		} else {
+			btn.textContent = resetText;
+		}
 	}, durationMs);
 	studioButtonTextResetTimers.set(btn, timer);
 }
@@ -294,6 +251,7 @@ function computePaletteColors(dadsTokens: DadsToken[]): {
 
 function buildPreviewColors(
 	input: ReturnType<typeof computePaletteColors>,
+	backgroundHex: string,
 ): PalettePreviewColors {
 	return mapPaletteToPreviewColors({
 		primaryHex: input.primaryHex,
@@ -305,8 +263,7 @@ function buildPreviewColors(
 			// プレビュー側ではリンク色は使用しないが、型上必要なため固定値で供給
 			link: "#0091FF",
 		},
-		// Studioの背景は白固定
-		backgroundColor: "#FFFFFF",
+		backgroundColor: backgroundHex,
 	});
 }
 
@@ -519,7 +476,7 @@ async function generateNewStudioPalette(
 		primaryBaseChromaName = selected.baseChromaName;
 	}
 
-	const targetAccentCount = Math.max(1, Math.min(3, state.accentCount));
+	const targetAccentCount = Math.max(2, Math.min(4, state.studioAccentCount));
 	let accentCandidates: Array<{
 		hex: string;
 		step?: number;
@@ -563,6 +520,96 @@ function renderEmptyState(container: HTMLElement): void {
 
 const studioRenderGeneration = new WeakMap<HTMLElement, number>();
 
+type StudioUndoSnapshot = {
+	palettes: PaletteConfig[];
+	activeId: string;
+	studioSeed: number;
+	studioAccentCount: 2 | 3 | 4;
+	lockedColors: LockedColorsState;
+	activePreset: StudioPresetType;
+	previewKv: PreviewKvState;
+};
+
+const studioUndoHistory: StudioUndoSnapshot[] = [];
+const MAX_UNDO_HISTORY_SIZE = 20;
+
+// Stored reference for document-level popover click handler cleanup (prevents memory leak)
+let popoverClickHandler: ((e: MouseEvent) => void) | null = null;
+
+// Check structuredClone availability once at module load time
+const hasStructuredClone = typeof globalThis.structuredClone === "function";
+
+function cloneValue<T>(value: T): T {
+	if (hasStructuredClone) {
+		return globalThis.structuredClone(value);
+	}
+	return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function createUndoSnapshot(): StudioUndoSnapshot {
+	return {
+		palettes: cloneValue(state.palettes),
+		activeId: state.activeId,
+		studioSeed: state.studioSeed,
+		studioAccentCount: state.studioAccentCount,
+		lockedColors: cloneValue(state.lockedColors),
+		activePreset: state.activePreset,
+		previewKv: cloneValue(state.previewKv),
+	};
+}
+
+function pushUndoSnapshot(): void {
+	studioUndoHistory.push(createUndoSnapshot());
+	// Limit history size to prevent unbounded memory growth
+	if (studioUndoHistory.length > MAX_UNDO_HISTORY_SIZE) {
+		studioUndoHistory.shift();
+	}
+}
+
+function buildShareUrl(dadsTokens: DadsToken[]): string {
+	const colors = computePaletteColors(dadsTokens);
+	const accentHexes = colors.accentHexes.slice(
+		0,
+		Math.max(2, Math.min(4, state.studioAccentCount)),
+	);
+	const accents = accentHexes.length > 0 ? accentHexes : [colors.accentHex];
+
+	const shareState = {
+		v: 2 as const,
+		primary: colors.primaryHex,
+		accents,
+		accentCount: state.studioAccentCount,
+		preset: state.activePreset,
+		locks: {
+			primary: state.lockedColors.primary,
+			accent: state.lockedColors.accent,
+		},
+		kv: state.previewKv,
+		studioSeed: state.studioSeed,
+	};
+
+	const url = new URL(window.location.href);
+	url.hash = createStudioUrlHash(shareState);
+	return url.toString();
+}
+
+function getLockStateForType(
+	lockType: "background" | "text" | "primary" | "accent" | null,
+): boolean {
+	switch (lockType) {
+		case "background":
+			return state.lockedColors.background;
+		case "text":
+			return state.lockedColors.text;
+		case "primary":
+			return state.lockedColors.primary;
+		case "accent":
+			return state.lockedColors.accent;
+		default:
+			return false;
+	}
+}
+
 export async function renderStudioView(
 	container: HTMLElement,
 	callbacks: StudioViewCallbacks,
@@ -588,6 +635,8 @@ export async function renderStudioView(
 
 	const toolbar = document.createElement("section");
 	toolbar.className = "studio-toolbar";
+	toolbar.setAttribute("role", "region");
+	toolbar.setAttribute("aria-label", "スタジオツールバー");
 
 	const swatches = document.createElement("div");
 	swatches.className = "studio-toolbar__swatches";
@@ -595,69 +644,56 @@ export async function renderStudioView(
 	const controls = document.createElement("div");
 	controls.className = "studio-toolbar__controls";
 
-	const presetDetails = document.createElement("details");
-	presetDetails.className = "studio-preset";
+	const settingsDetails = document.createElement("details");
+	settingsDetails.className = "studio-settings";
 
-	const presetSummary = document.createElement("summary");
-	presetSummary.className = "studio-preset__summary";
-	presetSummary.textContent = `プリセット: ${STUDIO_PRESET_LABELS[state.activePreset]}`;
+	const settingsSummary = document.createElement("summary");
+	settingsSummary.className = "studio-settings__summary dads-button";
+	settingsSummary.dataset.size = "sm";
+	settingsSummary.dataset.type = "text";
+	settingsSummary.textContent = "設定";
+	settingsDetails.style.marginLeft = "16px";
 
-	const presetMenu = document.createElement("div");
-	presetMenu.className = "studio-preset__menu";
+	const settingsPanel = document.createElement("div");
+	settingsPanel.className = "studio-settings__panel";
 
-	(Object.keys(STUDIO_PRESET_LABELS) as StudioPresetType[]).forEach(
-		(preset) => {
-			const btn = document.createElement("button");
-			btn.type = "button";
-			btn.className = "studio-preset__item dads-button";
-			btn.dataset.size = "sm";
-			btn.dataset.type = "text";
-			btn.dataset.active = String(state.activePreset === preset);
-			btn.textContent = STUDIO_PRESET_LABELS[preset];
-			btn.onclick = () => {
-				state.activePreset = preset;
-				presetDetails.open = false;
-				void renderStudioView(container, callbacks);
-			};
-			presetMenu.appendChild(btn);
-		},
-	);
+	const createSettingGroup = (
+		labelText: string,
+		content: HTMLElement,
+	): HTMLElement => {
+		const row = document.createElement("div");
+		row.className = "studio-settings__row";
 
-	presetDetails.onkeydown = (event) => {
-		if (event.key !== "Escape") return;
-		event.preventDefault();
-		presetDetails.open = false;
-		presetSummary.focus();
+		const label = document.createElement("span");
+		label.className = "dads-label";
+		label.textContent = labelText;
+
+		row.appendChild(label);
+		row.appendChild(content);
+		return row;
 	};
-
-	presetDetails.appendChild(presetSummary);
-	presetDetails.appendChild(presetMenu);
-
-	const accentCountLabel = document.createElement("span");
-	accentCountLabel.className = "dads-label";
-	accentCountLabel.textContent = "アクセント数";
 
 	const accentCountButtons = document.createElement("div");
 	accentCountButtons.className = "dads-button-group";
-	accentCountButtons.setAttribute("aria-label", "アクセント数");
+	accentCountButtons.setAttribute("aria-label", "アクセント色数");
 
-	([1, 2, 3] as const).forEach((count) => {
+	([2, 3, 4] as const).forEach((count) => {
 		const btn = document.createElement("button");
 		btn.type = "button";
 		btn.className = "dads-button";
 		btn.dataset.size = "sm";
 		btn.dataset.type = "text";
-		btn.dataset.active = String(state.accentCount === count);
+		btn.dataset.active = String(state.studioAccentCount === count);
 		btn.textContent = String(count);
 		btn.onclick = async () => {
-			state.accentCount = count;
+			state.studioAccentCount = count;
 			try {
 				// 既存Primaryを維持しつつ、アクセントだけ再生成（必要な場合のみ）
 				if (state.palettes.length > 0) {
 					const current = computePaletteColors(dadsTokens);
 					const backgroundHex = "#ffffff";
 					const existing = current.accentHexes;
-					const desired = Math.max(1, Math.min(3, state.accentCount));
+					const desired = Math.max(2, Math.min(4, state.studioAccentCount));
 
 					const keep = existing.slice(0, desired);
 					const missing = desired - keep.length;
@@ -708,30 +744,87 @@ export async function renderStudioView(
 		accentCountButtons.appendChild(btn);
 	});
 
-	const kvShuffleBtn = document.createElement("button");
-	kvShuffleBtn.type = "button";
-	kvShuffleBtn.className = "dads-button";
-	kvShuffleBtn.dataset.size = "sm";
-	kvShuffleBtn.dataset.type = "outline";
-	kvShuffleBtn.textContent = "KVシャッフル";
-	kvShuffleBtn.title = "キービジュアル（装飾）を別パターンにします";
-	kvShuffleBtn.onclick = () => {
-		state.previewKv = { locked: true, seed: Date.now() };
-		void renderStudioView(container, callbacks);
+	const presetButtons = document.createElement("div");
+	presetButtons.className = "dads-button-group";
+	presetButtons.setAttribute("aria-label", "ジェネレートプリセット");
+
+	(Object.keys(STUDIO_PRESET_LABELS) as StudioPresetType[]).forEach(
+		(preset) => {
+			const btn = document.createElement("button");
+			btn.type = "button";
+			btn.className = "dads-button";
+			btn.dataset.size = "sm";
+			btn.dataset.type = "text";
+			btn.dataset.active = String(state.activePreset === preset);
+			btn.textContent = STUDIO_PRESET_LABELS[preset];
+			btn.onclick = () => {
+				state.activePreset = preset;
+				void renderStudioView(container, callbacks);
+			};
+			presetButtons.appendChild(btn);
+		},
+	);
+
+	settingsPanel.appendChild(
+		createSettingGroup("アクセント色数", accentCountButtons),
+	);
+	settingsPanel.appendChild(createSettingGroup("プリセット", presetButtons));
+
+	settingsDetails.onkeydown = (event) => {
+		if (event.key !== "Escape") return;
+		event.preventDefault();
+		settingsDetails.open = false;
+		settingsSummary.focus();
 	};
 
-	const kvLockBtn = document.createElement("button");
-	kvLockBtn.type = "button";
-	kvLockBtn.className = "dads-button";
-	kvLockBtn.dataset.size = "sm";
-	kvLockBtn.dataset.type = "text";
-	kvLockBtn.setAttribute("aria-pressed", String(state.previewKv.locked));
-	kvLockBtn.textContent = state.previewKv.locked ? "KV固定" : "KV自動";
-	kvLockBtn.title = state.previewKv.locked
-		? "固定を解除（配色に応じて自動で変化）"
-		: "固定（配色変更でもKVを維持）";
-	kvLockBtn.onclick = () => {
-		state.previewKv = { ...state.previewKv, locked: !state.previewKv.locked };
+	settingsDetails.appendChild(settingsSummary);
+	settingsDetails.appendChild(settingsPanel);
+
+	const toast = document.createElement("div");
+	toast.className = "studio-toast";
+	toast.setAttribute("role", "status");
+	toast.setAttribute("aria-live", "polite");
+	toast.textContent = "これ以上履歴はありません";
+
+	let toastTimeout: ReturnType<typeof setTimeout> | null = null;
+	const showToast = () => {
+		if (toastTimeout) clearTimeout(toastTimeout);
+		toast.dataset.visible = "true";
+		toastTimeout = setTimeout(() => {
+			toast.dataset.visible = "false";
+		}, 2000);
+	};
+
+	const undoBtn = document.createElement("button");
+	undoBtn.type = "button";
+	undoBtn.className = "studio-undo-btn dads-button";
+	undoBtn.dataset.size = "sm";
+	undoBtn.dataset.type = "outline";
+	undoBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 2px;"><polyline points="15 18 9 12 15 6"></polyline></svg>戻る`;
+	undoBtn.onclick = () => {
+		if (studioUndoHistory.length === 0) {
+			showToast();
+			return;
+		}
+
+		const snapshot = studioUndoHistory.pop();
+		if (!snapshot) return;
+
+		state.palettes = cloneValue(snapshot.palettes);
+		state.activeId = snapshot.activeId;
+		state.lockedColors = cloneValue(snapshot.lockedColors);
+		state.activePreset = snapshot.activePreset;
+		state.previewKv = cloneValue(snapshot.previewKv);
+		state.studioSeed = snapshot.studioSeed;
+		state.studioAccentCount = snapshot.studioAccentCount;
+
+		const restored = computePaletteColors(dadsTokens);
+		const keyColorsInput = document.getElementById(
+			"keyColors",
+		) as HTMLInputElement | null;
+		if (keyColorsInput) keyColorsInput.value = restored.primaryHex;
+
+		updateCVDScoreDisplay();
 		void renderStudioView(container, callbacks);
 	};
 
@@ -739,9 +832,11 @@ export async function renderStudioView(
 	generateBtn.type = "button";
 	generateBtn.className = "studio-generate-btn dads-button";
 	generateBtn.dataset.size = "sm";
-	generateBtn.textContent = "配色シャッフル";
+	generateBtn.dataset.type = "solid-fill";
+	generateBtn.innerHTML = `生成<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-left: 2px;"><polyline points="9 18 15 12 9 6"></polyline></svg>`;
 	generateBtn.onclick = async () => {
 		try {
+			pushUndoSnapshot();
 			state.studioSeed = Date.now();
 			await generateNewStudioPalette(dadsTokens);
 			await renderStudioView(container, callbacks);
@@ -750,81 +845,57 @@ export async function renderStudioView(
 		}
 	};
 
-	const exportBtn = document.createElement("button");
-	exportBtn.type = "button";
-	exportBtn.className = "studio-export-btn dads-button";
-	exportBtn.dataset.size = "sm";
-	exportBtn.textContent = "エクスポート";
-	exportBtn.onclick = () => {
-		(
-			document.getElementById("export-btn") as HTMLButtonElement | null
-		)?.click();
-	};
-
-	const exportGroup = document.createElement("div");
-	exportGroup.className = "studio-export-group";
-
-	const exportHint = document.createElement("span");
-	exportHint.className = "studio-export-hint";
-	exportHint.textContent = "CSS / Tailwind / JSON";
-
-	exportGroup.appendChild(exportBtn);
-	exportGroup.appendChild(exportHint);
-
-	const copyLinkBtn = document.createElement("button");
-	copyLinkBtn.type = "button";
-	copyLinkBtn.className = "studio-copy-link-btn dads-button";
-	copyLinkBtn.dataset.size = "sm";
-	copyLinkBtn.dataset.type = "outline";
-	copyLinkBtn.textContent = "Copy Link";
-	copyLinkBtn.disabled = state.palettes.length === 0;
-	copyLinkBtn.onclick = async () => {
+	// Share button (moved from header to toolbar)
+	const shareBtn = document.createElement("button");
+	shareBtn.type = "button";
+	shareBtn.className = "studio-share-btn dads-button";
+	shareBtn.dataset.size = "sm";
+	shareBtn.dataset.type = "text";
+	shareBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>共有リンク`;
+	shareBtn.classList.add("studio-toolbar__share-btn");
+	shareBtn.onclick = async () => {
 		if (state.palettes.length === 0) return;
 
-		const paletteColors = computePaletteColors(dadsTokens);
-		const accentHexes = paletteColors.accentHexes.slice(
-			0,
-			Math.max(1, Math.min(3, state.accentCount)),
-		);
-		const accents =
-			accentHexes.length > 0 ? accentHexes : [paletteColors.accentHex];
-
-		const shareState = {
-			v: 1 as const,
-			primary: paletteColors.primaryHex,
-			accents,
-			accentCount: state.accentCount,
-			preset: state.activePreset,
-			locks: {
-				primary: state.lockedColors.primary,
-				accent: state.lockedColors.accent,
-			},
-			kv: state.previewKv,
-			studioSeed: state.studioSeed,
-		};
-
-		const url = new URL(window.location.href);
-		url.hash = createStudioUrlHash(shareState);
-
-		const originalText = copyLinkBtn.textContent ?? "Copy Link";
-		const ok = await copyTextToClipboard(url.toString());
-		setTemporaryButtonText(copyLinkBtn, ok ? "Copied!" : "Copy failed", {
-			resetText: originalText,
+		const url = buildShareUrl(dadsTokens);
+		const originalHTML = shareBtn.innerHTML;
+		const ok = await copyTextToClipboard(url);
+		setTemporaryButtonText(shareBtn, ok ? "コピー完了" : "コピー失敗", {
+			resetHTML: originalHTML,
 		});
 	};
 
-	controls.appendChild(presetDetails);
-	controls.appendChild(accentCountLabel);
-	controls.appendChild(accentCountButtons);
-	controls.appendChild(kvShuffleBtn);
-	controls.appendChild(kvLockBtn);
+	// UX最適化されたボタン配置:
+	// [swatches] | [戻る | 生成] [設定] | [共有リンク]
+	controls.appendChild(undoBtn);
 	controls.appendChild(generateBtn);
-	controls.appendChild(copyLinkBtn);
-	controls.appendChild(exportGroup);
+	controls.appendChild(settingsDetails);
+	controls.appendChild(shareBtn);
 
 	toolbar.appendChild(swatches);
 	toolbar.appendChild(controls);
 	container.appendChild(toolbar);
+	container.appendChild(toast);
+
+	// Set up header copy link button handler
+	const headerCopyLinkBtn = document.getElementById(
+		"copy-link-btn",
+	) as HTMLButtonElement | null;
+	if (headerCopyLinkBtn) {
+		headerCopyLinkBtn.onclick = async () => {
+			if (state.palettes.length === 0) return;
+
+			const url = buildShareUrl(dadsTokens);
+			const originalText = headerCopyLinkBtn.textContent ?? "リンクをコピー";
+			const ok = await copyTextToClipboard(url);
+			setTemporaryButtonText(
+				headerCopyLinkBtn,
+				ok ? "コピー完了" : "コピー失敗",
+				{
+					resetText: originalText,
+				},
+			);
+		};
+	}
 
 	if (state.palettes.length === 0 || dadsTokens.length === 0) {
 		renderEmptyState(container);
@@ -832,167 +903,483 @@ export async function renderStudioView(
 	}
 
 	const paletteColors = computePaletteColors(dadsTokens);
-	const bgHex = "#ffffff";
+	const bgHex = state.lightBackgroundColor || "#ffffff";
 
-	const renderSwatchRow = (
+	const desiredAccentCount = Math.max(2, Math.min(4, state.studioAccentCount));
+	const accentHexes = paletteColors.accentHexes.slice(0, desiredAccentCount);
+	const resolvedAccentHexes =
+		accentHexes.length > 0 ? accentHexes : [paletteColors.accentHex];
+
+	// Close any open popover when clicking outside
+	let activePopover: HTMLElement | null = null;
+	const closeActivePopover = () => {
+		if (activePopover) {
+			activePopover.dataset.open = "false";
+			activePopover.remove();
+			activePopover = null;
+		}
+	};
+
+	// Remove previous handler to prevent memory leak from accumulating listeners
+	if (popoverClickHandler) {
+		document.removeEventListener("click", popoverClickHandler);
+	}
+
+	popoverClickHandler = (e: MouseEvent) => {
+		if (activePopover) {
+			const target = e.target as Node;
+			// Check if click is inside the popover or any swatch
+			const isInsidePopover = activePopover.contains(target);
+			const isInsideSwatch = (target as Element).closest?.(
+				".studio-toolbar-swatch",
+			);
+			if (!isInsidePopover && !isInsideSwatch) {
+				closeActivePopover();
+			}
+		}
+	};
+
+	document.addEventListener("click", popoverClickHandler);
+
+	const createColorPickerRow = (
 		label: string,
 		hex: string,
-		options: { allowCustom?: boolean; lockId?: keyof LockedColorsState },
-	): void => {
-		const row = document.createElement("div");
-		row.className = "studio-swatch-row";
+		circle: HTMLSpanElement,
+		onColorChange: (newHex: string) => void,
+	): HTMLElement => {
+		const colorRow = document.createElement("div");
+		colorRow.className = "studio-swatch-popover__color-row";
 
-		const ratio = wcagContrast(bgHex, hex);
-		const swatch = createSwatchButton(label, getDisplayHex(hex), () => {
-			// Primaryのみカスタムを許可。その他はread-onlyとして扱う（DADS外へ出さない）。
-			if (options.allowCustom) {
-				// 既存モーダルの利用は将来拡張（現状は入力で調整）
-				const editor = container.querySelector<HTMLInputElement>(
-					`input[data-studio-primary-input="1"]`,
-				);
-				editor?.focus();
-				return;
-			}
+		const colorPicker = document.createElement("input");
+		colorPicker.type = "color";
+		colorPicker.value = hex;
+		colorPicker.className = "studio-swatch-popover__color-picker";
+		colorPicker.setAttribute("aria-label", `${label}の色を選択`);
+		colorPicker.onclick = (e) => e.stopPropagation();
 
-			// 非Primaryは現状read-only表示のみ（将来的にDADSトークン選択UIへ拡張）
-			const stepColor = new Color(hex);
-			callbacks.onColorClick({
-				stepColor,
-				keyColor: stepColor,
-				index: 0,
-				fixedScale: { colors: [stepColor], keyIndex: 0, hexValues: [hex] },
-				paletteInfo: { name: label },
-				readOnly: true,
-				originalHex: hex,
-			});
-		});
+		const hexInput = document.createElement("input");
+		hexInput.type = "text";
+		hexInput.className = "studio-swatch-popover__hex-input";
+		hexInput.value = hex.toUpperCase();
+		hexInput.setAttribute("aria-label", `${label}のカラーコード`);
+		hexInput.onclick = (e) => e.stopPropagation();
 
-		const badge = createContrastBadge(ratio);
-		const copyBtn = document.createElement("button");
-		copyBtn.type = "button";
-		copyBtn.className = "studio-copy-btn dads-button";
-		copyBtn.dataset.size = "sm";
-		copyBtn.dataset.type = "text";
-		copyBtn.textContent = "Copy";
-		copyBtn.setAttribute("aria-label", `${label} のHEXをコピー`);
-		copyBtn.title = "元のHEXをコピー";
-		copyBtn.onclick = async () => {
-			const originalText = copyBtn.textContent ?? "Copy";
-			const ok = await copyTextToClipboard(hex);
-			setTemporaryButtonText(copyBtn, ok ? "Copied!" : "Copy failed", {
-				resetText: originalText,
-			});
+		colorPicker.oninput = (e) => {
+			e.stopPropagation();
+			const newHex = colorPicker.value;
+			circle.style.backgroundColor = getDisplayHex(newHex);
+			hexInput.value = newHex.toUpperCase();
+			hexInput.classList.remove("studio-swatch-popover__hex-input--invalid");
+			onColorChange(newHex);
 		};
 
-		row.appendChild(swatch);
-		row.appendChild(copyBtn);
-		if (options.lockId) {
-			const lockId = options.lockId;
-			const lockBtn = createLockButton(state.lockedColors[lockId], () => {
-				setLockedColors({
-					[lockId]: !state.lockedColors[lockId],
-				} as Partial<LockedColorsState>);
-				void renderStudioView(container, callbacks);
-			});
-			row.appendChild(lockBtn);
+		hexInput.oninput = (e) => {
+			e.stopPropagation();
+			const input = hexInput.value.trim();
+			const result = validateBackgroundColor(input);
+			if (result.valid && result.hex) {
+				circle.style.backgroundColor = getDisplayHex(result.hex);
+				colorPicker.value = result.hex;
+				hexInput.classList.remove("studio-swatch-popover__hex-input--invalid");
+				onColorChange(result.hex);
+			} else {
+				hexInput.classList.add("studio-swatch-popover__hex-input--invalid");
+			}
+		};
+
+		hexInput.onblur = () => {
+			const input = hexInput.value.trim();
+			const result = validateBackgroundColor(input);
+			if (result.valid && result.hex) {
+				hexInput.value = result.hex.toUpperCase();
+				hexInput.classList.remove("studio-swatch-popover__hex-input--invalid");
+			}
+		};
+
+		colorRow.appendChild(colorPicker);
+		colorRow.appendChild(hexInput);
+		return colorRow;
+	};
+
+	const createLockToggleRow = (
+		lockType: "background" | "text" | "primary" | "accent",
+		isLocked: boolean,
+		wrapper: HTMLElement,
+	): HTMLElement => {
+		const lockRow = document.createElement("div");
+		lockRow.className = "studio-swatch-popover__lock";
+
+		const lockLabel = document.createElement("span");
+		lockLabel.className = "studio-swatch-popover__lock-label";
+		lockLabel.innerHTML = `<span>🔒</span><span>ロック</span>`;
+
+		const toggle = document.createElement("button");
+		toggle.type = "button";
+		toggle.className = "studio-swatch-popover__toggle";
+		toggle.dataset.checked = String(isLocked);
+		toggle.setAttribute("aria-pressed", String(isLocked));
+		toggle.setAttribute("aria-label", "ロック切り替え");
+		toggle.onclick = (e) => {
+			e.stopPropagation();
+			const newLocked = toggle.dataset.checked !== "true";
+			setLockedColors({ [lockType]: newLocked });
+			toggle.dataset.checked = String(newLocked);
+			toggle.setAttribute("aria-pressed", String(newLocked));
+			const existingIndicator = wrapper.querySelector(
+				".studio-toolbar-swatch__lock-indicator",
+			);
+			if (newLocked && !existingIndicator) {
+				const lockIndicator = document.createElement("span");
+				lockIndicator.className = "studio-toolbar-swatch__lock-indicator";
+				lockIndicator.textContent = "🔒";
+				wrapper.appendChild(lockIndicator);
+			} else if (!newLocked && existingIndicator) {
+				existingIndicator.remove();
+			}
+		};
+
+		lockRow.appendChild(lockLabel);
+		lockRow.appendChild(toggle);
+		return lockRow;
+	};
+
+	const createToolbarSwatchWithPopover = (
+		label: string,
+		hex: string,
+		lockType: "background" | "text" | "primary" | "accent" | null,
+		onDelete?: () => void,
+		onColorChange?: (newHex: string) => void,
+	): HTMLElement => {
+		const wrapper = document.createElement("div");
+		wrapper.className = "studio-toolbar-swatch";
+		wrapper.style.position = "relative";
+		wrapper.setAttribute("role", "button");
+		wrapper.setAttribute("tabindex", "0");
+		wrapper.setAttribute("aria-label", `${label}: ${hex.toUpperCase()}`);
+
+		const circle = document.createElement("span");
+		circle.className = "studio-toolbar-swatch__circle";
+		circle.style.backgroundColor = getDisplayHex(hex);
+		wrapper.appendChild(circle);
+
+		// Delete button for accent colors (not primary)
+		if (onDelete) {
+			const deleteBtn = document.createElement("button");
+			deleteBtn.type = "button";
+			deleteBtn.className = "studio-toolbar-swatch__delete";
+			deleteBtn.setAttribute("aria-label", `${label}を削除`);
+			deleteBtn.onclick = (e) => {
+				e.stopPropagation();
+				closeActivePopover();
+				onDelete();
+			};
+			wrapper.appendChild(deleteBtn);
 		}
-		row.appendChild(badge);
-		swatches.appendChild(row);
+
+		// Lock indicator
+		const isLocked = getLockStateForType(lockType);
+		if (isLocked) {
+			const lockIndicator = document.createElement("span");
+			lockIndicator.className = "studio-toolbar-swatch__lock-indicator";
+			lockIndicator.textContent = "🔒";
+			wrapper.appendChild(lockIndicator);
+		}
+
+		// Popover
+		const popover = document.createElement("div");
+		popover.className = "studio-swatch-popover";
+		popover.dataset.open = "false";
+
+		// Color role label
+		const roleLabel = document.createElement("div");
+		roleLabel.className = "studio-swatch-popover__role";
+		roleLabel.textContent = label;
+		popover.appendChild(roleLabel);
+
+		// Color picker row (for background, text, primary)
+		if (onColorChange) {
+			popover.appendChild(
+				createColorPickerRow(label, hex, circle, onColorChange),
+			);
+		}
+
+		// Hex code button (copy to clipboard)
+		const hexBtn = document.createElement("button");
+		hexBtn.type = "button";
+		hexBtn.className = "studio-swatch-popover__hex";
+		hexBtn.innerHTML = `
+			<span>コピー</span>
+			<svg class="studio-swatch-popover__hex-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+				<rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+				<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+			</svg>
+		`;
+		hexBtn.onclick = async (e) => {
+			e.stopPropagation();
+			const currentHex = onColorChange ? circle.style.backgroundColor : hex;
+			const hexToCopy = currentHex.startsWith("#")
+				? currentHex.toUpperCase()
+				: hex.toUpperCase();
+			const ok = await copyTextToClipboard(hexToCopy);
+			const originalHtml = hexBtn.innerHTML;
+			hexBtn.innerHTML = `<span>${ok ? "コピー完了" : "失敗"}</span>`;
+			setTimeout(() => {
+				hexBtn.innerHTML = originalHtml;
+			}, 1500);
+		};
+		popover.appendChild(hexBtn);
+
+		// Lock toggle (for background, text, primary, accent)
+		if (lockType) {
+			popover.appendChild(createLockToggleRow(lockType, isLocked, wrapper));
+		}
+
+		// Popover is appended to body to avoid transform issues
+		// (toolbar has transform which creates new containing block for fixed elements)
+
+		// Click to toggle popover
+		wrapper.onclick = (e) => {
+			e.stopPropagation();
+			if (activePopover && activePopover !== popover) {
+				closeActivePopover();
+			}
+			const isOpen = popover.dataset.open === "true";
+			if (!isOpen) {
+				// Append to body to escape toolbar's transform context
+				document.body.appendChild(popover);
+				// Position the popover above the swatch using fixed positioning
+				// CSS transform: translateX(-50%) handles horizontal centering
+				const rect = wrapper.getBoundingClientRect();
+				popover.style.left = `${rect.left + rect.width / 2}px`;
+				popover.style.bottom = `${window.innerHeight - rect.top + 8}px`;
+				popover.dataset.open = "true";
+				activePopover = popover;
+			} else {
+				popover.dataset.open = "false";
+				popover.remove();
+				activePopover = null;
+			}
+		};
+
+		// Keyboard support
+		wrapper.onkeydown = (e) => {
+			if (e.key === "Enter" || e.key === " ") {
+				e.preventDefault();
+				wrapper.click();
+			} else if (e.key === "Escape") {
+				closeActivePopover();
+			}
+		};
+
+		return wrapper;
 	};
 
 	swatches.innerHTML = "";
-	renderSwatchRow("Primary", paletteColors.primaryHex, {
-		allowCustom: true,
-		lockId: "primary",
-	});
 
-	const accentHexes = paletteColors.accentHexes.slice(
-		0,
-		Math.max(1, Math.min(3, state.accentCount)),
+	// Background color swatch (before Primary)
+	const handleBackgroundColorChange = (newHex: string) => {
+		if (!/^#[0-9A-Fa-f]{6}$/i.test(newHex)) return;
+		state.lightBackgroundColor = newHex;
+		// Update preview
+		void renderStudioView(container, callbacks);
+	};
+	swatches.appendChild(
+		createToolbarSwatchWithPopover(
+			"背景色",
+			state.lightBackgroundColor || "#ffffff",
+			"background",
+			undefined,
+			handleBackgroundColorChange,
+		),
 	);
-	if (accentHexes.length > 0) {
-		for (let i = 0; i < accentHexes.length; i++) {
-			const hex = accentHexes[i];
-			if (!hex) continue;
-			renderSwatchRow(`Accent ${i + 1}`, hex, {
-				lockId: i === 0 ? "accent" : undefined,
-			});
-		}
-	} else {
-		renderSwatchRow("Accent", paletteColors.accentHex, { lockId: "accent" });
+
+	// Text color swatch (before Primary)
+	const handleTextColorChange = (newHex: string) => {
+		if (!/^#[0-9A-Fa-f]{6}$/i.test(newHex)) return;
+		state.darkBackgroundColor = newHex;
+		// Update preview
+		void renderStudioView(container, callbacks);
+	};
+	const textSwatch = createToolbarSwatchWithPopover(
+		"テキスト色",
+		state.darkBackgroundColor || "#000000",
+		"text",
+		undefined,
+		handleTextColorChange,
+	);
+	textSwatch.classList.add("studio-toolbar-swatch--zone-end");
+	swatches.appendChild(textSwatch);
+
+	// Primary color swatch (with color picker)
+	const handlePrimaryColorChange = async (newHex: string) => {
+		if (!/^#[0-9A-Fa-f]{6}$/i.test(newHex)) return;
+		const baseChromaName = inferBaseChromaNameFromHex(newHex);
+		const dadsInfo =
+			dadsTokens.length > 0 ? findDadsColorByHex(dadsTokens, newHex) : null;
+		const primaryStep = dadsInfo?.scale;
+		await rebuildStudioPalettes({
+			dadsTokens,
+			primaryHex: newHex,
+			primaryStep,
+			primaryBaseChromaName: baseChromaName,
+			accentCandidates: paletteColors.accentHexes.map((hex) => {
+				const info = findDadsColorByHex(dadsTokens, hex);
+				return { hex, step: info?.scale };
+			}),
+		});
+		void renderStudioView(container, callbacks);
+	};
+	const primarySwatch = createToolbarSwatchWithPopover(
+		"キーカラー",
+		paletteColors.primaryHex,
+		"primary",
+		undefined,
+		handlePrimaryColorChange,
+	);
+	primarySwatch.classList.add("studio-toolbar-swatch--zone-end");
+	swatches.appendChild(primarySwatch);
+
+	// Helper to decrease accent count (for delete button)
+	const handleDeleteAccent = async () => {
+		if (state.studioAccentCount <= 2) return;
+		pushUndoSnapshot();
+		state.studioAccentCount = Math.max(2, state.studioAccentCount - 1) as
+			| 2
+			| 3
+			| 4;
+		await renderStudioView(container, callbacks);
+	};
+
+	for (let i = 0; i < resolvedAccentHexes.length; i++) {
+		const hex = resolvedAccentHexes[i];
+		if (!hex) continue;
+		// Only first accent can be locked (same as before)
+		const lockType = i === 0 ? "accent" : null;
+		// Delete button only on the LAST accent, and only if count > 2 (minimum required)
+		const isLastAccent = i === resolvedAccentHexes.length - 1;
+		const canDelete = isLastAccent && state.studioAccentCount > 2;
+		swatches.appendChild(
+			createToolbarSwatchWithPopover(
+				`Accent ${i + 1}`,
+				hex,
+				lockType as "accent" | null,
+				canDelete ? handleDeleteAccent : undefined,
+			),
+		);
 	}
 
-	// セマンティック（固定のためロックは表示しない）
-	renderSwatchRow("Success", paletteColors.semantic.success, {});
-	renderSwatchRow("Warning", paletteColors.semantic.warning, {});
-	renderSwatchRow("Error", paletteColors.semantic.error, {});
+	// Add placeholder swatches for empty accent slots (max 4 accents)
+	// When clicking any placeholder, fill ALL placeholders up to and including that one
+	const maxAccents = 4;
+	const placeholderCount = maxAccents - resolvedAccentHexes.length;
+	const placeholders: HTMLDivElement[] = [];
 
-	const primaryEditor = document.createElement("section");
-	primaryEditor.className = "studio-primary-editor";
-	primaryEditor.innerHTML = `
-		<div class="studio-primary-editor__title">キーカラー（Primary）</div>
-	`;
+	// Helper to add multiple accents at once
+	const handleAddMultipleAccents = async (countToAdd: number) => {
+		if (state.studioAccentCount >= 4) return;
+		const actualCountToAdd = Math.min(countToAdd, 4 - state.studioAccentCount);
+		if (actualCountToAdd <= 0) return;
 
-	const primaryInput = document.createElement("input");
-	primaryInput.className =
-		"studio-primary-editor__input dads-input dads-input--bg-color";
-	primaryInput.setAttribute("data-studio-primary-input", "1");
-	primaryInput.value = paletteColors.primaryHex;
-	primaryInput.inputMode = "text";
-	primaryInput.placeholder = "#RRGGBB";
+		const oldAccentCount = state.studioAccentCount;
+		pushUndoSnapshot();
 
-	const primaryColorPicker = document.createElement("input");
-	primaryColorPicker.type = "color";
-	primaryColorPicker.className = "studio-primary-editor__picker";
-	primaryColorPicker.value = paletteColors.primaryHex;
+		const newCount = Math.min(4, state.studioAccentCount + actualCountToAdd) as
+			| 2
+			| 3
+			| 4;
+		state.studioAccentCount = newCount;
 
-	const applyPrimary = async (hex: string): Promise<void> => {
-		if (!/^#[0-9A-Fa-f]{6}$/.test(hex)) return;
-		const baseChromaName = inferBaseChromaNameFromHex(hex);
-		const dadsInfo =
-			dadsTokens.length > 0 ? findDadsColorByHex(dadsTokens, hex) : null;
-		const primaryStep = dadsInfo?.scale;
+		// Generate new accent colors
+		const current = computePaletteColors(dadsTokens);
+		const backgroundHex = state.lightBackgroundColor || "#ffffff";
+		const existing = current.accentHexes.slice(0, oldAccentCount);
 
-		const desired = Math.max(1, Math.min(3, state.accentCount));
-		const currentAccentHexes = getAccentHexes(state.palettes);
-		const baseAccentHexes =
-			currentAccentHexes.length > 0
-				? currentAccentHexes.slice(0, desired)
-				: [paletteColors.accentHex];
-		const accentCandidates = baseAccentHexes
-			.map((accentHex) => {
-				const info = findDadsColorByHex(dadsTokens, accentHex);
-				return { hex: accentHex, step: info?.scale };
-			})
-			.slice(0, desired);
+		const seed = (state.studioSeed || 0) ^ newCount ^ Date.now();
+		const rnd = createSeededRandom(seed);
+		// Request more candidates to ensure enough unique colors after filtering
+		const picked = await selectRandomAccentCandidates(
+			current.primaryHex,
+			state.activePreset,
+			backgroundHex,
+			newCount + existing.length + 10,
+			rnd,
+		);
+
+		const keepSet = new Set(existing.map((h) => h.toLowerCase()));
+		const newAccents = picked
+			.filter((p) => !keepSet.has(p.hex.toLowerCase()))
+			.slice(0, actualCountToAdd);
+
+		const accentCandidates = [
+			...existing.map((hex) => {
+				const dadsInfo = findDadsColorByHex(dadsTokens, hex);
+				return { hex, step: dadsInfo?.scale };
+			}),
+			...newAccents,
+		].slice(0, newCount);
 
 		await rebuildStudioPalettes({
 			dadsTokens,
-			primaryHex: hex,
-			primaryStep,
-			primaryBaseChromaName: baseChromaName,
+			primaryHex: current.primaryHex,
+			primaryStep: current.primaryStep,
+			primaryBaseChromaName: inferBaseChromaNameFromHex(current.primaryHex),
 			accentCandidates,
 		});
 
 		await renderStudioView(container, callbacks);
 	};
 
-	primaryInput.onchange = () => void applyPrimary(primaryInput.value.trim());
-	primaryColorPicker.onchange = () =>
-		void applyPrimary(primaryColorPicker.value);
+	for (let i = 0; i < placeholderCount; i++) {
+		const placeholder = document.createElement("div");
+		placeholder.className =
+			"studio-toolbar-swatch studio-toolbar-swatch--placeholder";
+		placeholder.setAttribute("role", "button");
+		placeholder.setAttribute("tabindex", "0");
+		placeholder.setAttribute(
+			"aria-label",
+			`${i + 1}個のアクセントカラーを追加`,
+		);
+		placeholder.dataset.placeholderIndex = String(i);
 
-	primaryEditor.appendChild(primaryInput);
-	primaryEditor.appendChild(primaryColorPicker);
-	container.appendChild(primaryEditor);
+		// Hover: highlight all placeholders up to and including this one
+		placeholder.onmouseenter = () => {
+			for (let j = 0; j <= i; j++) {
+				placeholders[j]?.classList.add("studio-toolbar-swatch--will-fill");
+			}
+		};
+		placeholder.onmouseleave = () => {
+			for (const ph of placeholders) {
+				ph.classList.remove("studio-toolbar-swatch--will-fill");
+			}
+		};
+
+		// Click: add colors for all placeholders up to and including this one
+		placeholder.onclick = () => handleAddMultipleAccents(i + 1);
+		placeholder.onkeydown = (e) => {
+			if (e.key === "Enter" || e.key === " ") {
+				e.preventDefault();
+				handleAddMultipleAccents(i + 1);
+			}
+		};
+
+		placeholders.push(placeholder);
+		swatches.appendChild(placeholder);
+	}
+
+	// Add spacer between swatches and controls (one swatch width)
+	const swatchSpacer = document.createElement("div");
+	swatchSpacer.className = "studio-toolbar__swatch-spacer";
+	swatchSpacer.setAttribute("aria-hidden", "true");
+	swatches.appendChild(swatchSpacer);
 
 	const previewSection = document.createElement("section");
 	previewSection.className = "studio-preview";
 
-	const previewColors = buildPreviewColors(paletteColors);
+	const previewColors = buildPreviewColors(paletteColors, bgHex);
 	const preview = createPalettePreview(previewColors, {
 		getDisplayHex,
 		kv: state.previewKv,
-		accentHexes,
+		accentHexes: resolvedAccentHexes,
 	});
 	previewSection.appendChild(preview);
 	container.appendChild(previewSection);
@@ -1000,7 +1387,7 @@ export async function renderStudioView(
 	const a11y = document.createElement("section");
 	a11y.className = "studio-a11y";
 
-	const accentNamedColors = accentHexes.map((hex, index) => ({
+	const accentNamedColors = resolvedAccentHexes.map((hex, index) => ({
 		name: `Accent ${index + 1}`,
 		color: new Color(hex),
 	}));
@@ -1015,7 +1402,7 @@ export async function renderStudioView(
 
 	const failCount = [
 		paletteColors.primaryHex,
-		...accentHexes,
+		...resolvedAccentHexes,
 		paletteColors.semantic.success,
 		paletteColors.semantic.warning,
 		paletteColors.semantic.error,

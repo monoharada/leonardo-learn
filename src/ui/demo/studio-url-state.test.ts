@@ -31,6 +31,24 @@ describe("studio-url-state", () => {
 		expect(decoded).toEqual(input);
 	});
 
+	it("should roundtrip encode/decode (v2)", () => {
+		const input = {
+			v: 2 as const,
+			primary: "#3366cc",
+			accents: ["#259063", "#ff2800", "#35a16b", "#0091ff"],
+			accentCount: 4 as const,
+			preset: "vibrant" as const,
+			locks: { primary: true, accent: false },
+			kv: { locked: false, seed: 0 },
+			studioSeed: 67890,
+		};
+
+		const payload = encodeStudioUrlState(input);
+		const decoded = decodeStudioUrlState(payload);
+
+		expect(decoded).toEqual(input);
+	});
+
 	it("should parse #studio hash", () => {
 		const input = {
 			v: 1 as const,

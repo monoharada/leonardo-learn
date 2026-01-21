@@ -12,26 +12,15 @@ import { state } from "./state";
 import type { ViewMode } from "./types";
 import { cleanupHarmonyViewBackground } from "./views/harmony-view";
 
-/**
- * ナビゲーション要素の型定義（モジュール内部用）
- */
+/** ナビゲーション要素の型定義（モジュール内部用） */
 interface NavigationElements {
-	/** ハーモニービューコンテナ（必須） */
 	harmonyViewEl: HTMLElement;
-	/** メインアプリコンテナ（必須） */
 	appEl: HTMLElement;
-	/** ハーモニービューボタン */
 	viewHarmonyBtn: HTMLElement | null;
-	/** パレットビューボタン */
 	viewPaletteBtn: HTMLElement | null;
-	/** シェードビューボタン */
 	viewShadesBtn: HTMLElement | null;
-	/** アクセシビリティビューボタン */
 	viewAccessibilityBtn: HTMLElement | null;
-	/** スタジオビューボタン */
 	viewStudioBtn: HTMLElement | null;
-	/** スクリーンリーダー用ライブリージョン */
-	liveRegionEl: HTMLElement | null;
 }
 
 /**
@@ -45,35 +34,17 @@ const VIEW_NAMES: Record<ViewMode, string> = {
 	studio: "スタジオ",
 };
 
-/**
- * ボタンのアクティブ状態を設定する（モジュール内部用）
- *
- * style-constantsへの依存を避けるための最小実装。
- * data-active属性とaria-pressed属性を更新する。
- *
- * @param btn 対象のボタン要素
- * @param isActive アクティブ状態
- */
+/** ボタンのアクティブ状態を設定する */
 function setButtonActive(btn: HTMLElement, isActive: boolean): void {
 	btn.dataset.active = String(isActive);
 	btn.setAttribute("aria-pressed", String(isActive));
 }
 
-/**
- * DOM要素からナビゲーション要素を取得する（モジュール内部用）
- *
- * 必須要素が存在しない場合はnullを返す。
- *
- * @returns ナビゲーション要素オブジェクト、または必須要素がない場合はnull
- */
+/** DOM要素からナビゲーション要素を取得する。必須要素がない場合はnullを返す。 */
 function getNavigationElements(): NavigationElements | null {
 	const harmonyViewEl = document.getElementById("harmony-view");
 	const appEl = document.getElementById("app");
-
-	// 必須要素のガード
-	if (!harmonyViewEl || !appEl) {
-		return null;
-	}
+	if (!harmonyViewEl || !appEl) return null;
 
 	return {
 		harmonyViewEl,
@@ -83,18 +54,10 @@ function getNavigationElements(): NavigationElements | null {
 		viewShadesBtn: document.getElementById("view-shades"),
 		viewAccessibilityBtn: document.getElementById("view-accessibility"),
 		viewStudioBtn: document.getElementById("view-studio"),
-		liveRegionEl: document.getElementById("live-region"),
 	};
 }
 
-/**
- * スクリーンリーダーにビュー変更を通知する
- *
- * ライブリージョン要素（#live-region）のテキストを更新し、
- * スクリーンリーダーに変更を通知する。
- *
- * @param viewName 通知するビュー名（日本語）
- */
+/** スクリーンリーダーにビュー変更を通知する */
 export function announceViewChange(viewName: string): void {
 	const liveRegionEl = document.getElementById("live-region");
 	if (liveRegionEl) {
@@ -102,81 +65,61 @@ export function announceViewChange(viewName: string): void {
 	}
 }
 
+/** ヘッダーコントロールの表示/非表示を設定する */
+function setHeaderControlVisibility(id: string, hidden: boolean): void {
+	const control = document.getElementById(id);
+	if (control) {
+		control.style.display = hidden ? "none" : "flex";
+	}
+}
+
 /**
  * ビューを切り替える
  *
- * - state.viewModeを更新
- * - ハーモニービューと詳細ビューの表示切替
- * - ナビゲーションボタンのアクティブ状態を更新
- * - CVDコントロールの表示/非表示を制御
- * - スクリーンリーダーにビュー変更を通知
- * - renderMainコールバックを呼び出し
- * - ページトップにスクロール
- *
- * @param mode 切り替え先のビューモード
- * @param onRenderMain レンダリングコールバック（index.tsから渡される）
+ * 状態更新、表示切替、ナビゲーションボタン更新、
+ * スクリーンリーダー通知、renderMainコールバック呼び出しを行う。
  */
 export function updateViewButtons(
 	mode: ViewMode,
 	onRenderMain: () => void,
 ): void {
-	// ナビゲーション要素を取得（必須要素のガード）
 	const elements = getNavigationElements();
-	if (!elements) {
-		// 必須要素がない場合は処理を中断
-		return;
-	}
+	if (!elements) return;
 
 	// harmony-viewから離れる場合は背景色をリセット
 	if (state.viewMode === "harmony" && mode !== "harmony") {
 		cleanupHarmonyViewBackground();
 	}
 
-	// 状態を更新
 	state.viewMode = mode;
 
 	// ハーモニービューと詳細ビューの表示切替
 	elements.harmonyViewEl.hidden = mode !== "harmony";
 	elements.appEl.hidden = mode === "harmony";
 
-	// すべてのナビゲーションボタンの状態をリセット
-	const navButtons = [
-		elements.viewHarmonyBtn,
-		elements.viewStudioBtn,
-		elements.viewPaletteBtn,
-		elements.viewShadesBtn,
-		elements.viewAccessibilityBtn,
-	].filter((btn): btn is HTMLElement => btn !== null);
-
-	for (const btn of navButtons) {
-		setButtonActive(btn, false);
-	}
-
-	// アクティブなボタンを設定
-	const activeBtnByMode: Record<ViewMode, HTMLElement | null> = {
+	// ナビゲーションボタンの状態を更新
+	const buttonsByMode: Record<ViewMode, HTMLElement | null> = {
 		harmony: elements.viewHarmonyBtn,
 		studio: elements.viewStudioBtn,
 		palette: elements.viewPaletteBtn,
 		shades: elements.viewShadesBtn,
 		accessibility: elements.viewAccessibilityBtn,
 	};
-	const activeBtn = activeBtnByMode[mode];
 
-	if (activeBtn) {
-		setButtonActive(activeBtn, true);
+	for (const [viewMode, btn] of Object.entries(buttonsByMode)) {
+		if (btn) setButtonActive(btn, viewMode === mode);
 	}
 
-	// アクセシビリティ画面ではCVDコントロールを非表示
-	// （画面内で色覚シミュレーションを行うため）
-	const cvdControls = document.getElementById("cvd-controls");
-	if (cvdControls) {
-		cvdControls.style.display = mode === "accessibility" ? "none" : "flex";
-	}
+	// アクセシビリティ画面ではCVDコントロールを非表示（画面内で色覚シミュレーションを行うため）
+	setHeaderControlVisibility("cvd-controls", mode === "accessibility");
 
-	// ビュー名の通知（スクリーンリーダー向け）
+	// スタジオビューではヘッダーのエクスポートコントロールを非表示
+	setHeaderControlVisibility("export-controls", mode === "studio");
+
+	// スタジオビューではヘッダーにフロストガラス効果を適用
+	document.body.classList.toggle("is-studio-view", mode === "studio");
+
 	announceViewChange(VIEW_NAMES[mode]);
-
-	// renderMainコールバックを呼び出し
 	onRenderMain();
 
 	// ページトップにスクロール
@@ -187,19 +130,10 @@ export function updateViewButtons(
 	window.scrollTo({ top: 0, behavior: "instant" });
 }
 
-/**
- * ナビゲーションを初期化する
- *
- * ナビゲーションボタンのイベントハンドラを設定する。
- * 必須要素がない場合は何もしない。
- *
- * @param onRenderMain レンダリングコールバック（index.tsから渡される）
- */
+/** ナビゲーションを初期化する。各ボタンにクリックハンドラを設定。 */
 export function setupNavigation(onRenderMain: () => void): void {
 	const elements = getNavigationElements();
-	if (!elements) {
-		return;
-	}
+	if (!elements) return;
 
 	const buttonsByMode: ReadonlyArray<[ViewMode, HTMLElement | null]> = [
 		["harmony", elements.viewHarmonyBtn],
@@ -210,7 +144,6 @@ export function setupNavigation(onRenderMain: () => void): void {
 	];
 
 	for (const [mode, button] of buttonsByMode) {
-		if (!button) continue;
-		button.onclick = () => updateViewButtons(mode, onRenderMain);
+		if (button) button.onclick = () => updateViewButtons(mode, onRenderMain);
 	}
 }
