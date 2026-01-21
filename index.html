@@ -160,6 +160,24 @@
                 </div>
             </div>
 
+            <!-- Apply Section (Manual view only) -->
+            <div id="apply-section" class="dads-drawer__apply-section" style="display: none;">
+                <label for="apply-target-select" class="dads-label">適用先:</label>
+                <select id="apply-target-select" class="dads-select">
+                    <option value="">-- 選択してください --</option>
+                    <option value="key">キーカラー</option>
+                    <option value="secondary">セカンダリー</option>
+                    <option value="tertiary">ターシャリー</option>
+                    <optgroup label="アクセント">
+                        <option value="accent-1">アクセント 1</option>
+                        <option value="accent-2">アクセント 2</option>
+                        <option value="accent-3">アクセント 3</option>
+                        <option value="accent-4">アクセント 4</option>
+                    </optgroup>
+                </select>
+                <button id="apply-btn" type="button" class="dads-button" data-size="sm" data-type="solid-fill">適用</button>
+            </div>
+
             <!-- Main Content (Scrollable) -->
             <div class="dads-dialog__body">
                 <div class="dads-drawer__grid">

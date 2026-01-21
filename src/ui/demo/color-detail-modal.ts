@@ -18,7 +18,119 @@ import { Color } from "@/core/color";
 import { STEP_NAMES } from "@/ui/style-constants";
 import { syncModalOpenState } from "./modal-scroll-lock";
 import { determineColorMode, state } from "./state";
-import type { ColorDetailModalOptions, PaletteConfig } from "./types";
+import type {
+	ColorDetailModalOptions,
+	ManualApplyTarget,
+	ManualColorSelection,
+	PaletteConfig,
+} from "./types";
+import { applyColorToManualSelection } from "./views/manual-view";
+
+// ============================================================
+// ドロップダウンオプション生成ユーティリティ
+// ============================================================
+
+/** ドロップダウンオプションのラベルマッピング */
+const APPLY_TARGET_LABELS: Record<ManualApplyTarget, string> = {
+	key: "キーカラー",
+	secondary: "セカンダリー",
+	tertiary: "ターシャリー",
+	"accent-1": "アクセント 1",
+	"accent-2": "アクセント 2",
+	"accent-3": "アクセント 3",
+	"accent-4": "アクセント 4",
+};
+
+/**
+ * 現在の選択状態に基づいて利用可能な適用先を取得する
+ *
+ * - キー/セカンダリ/ターシャリは常に選択可能
+ * - アクセントは連続的に選択可能（accent-1が空ならaccent-2以降は選択不可）
+ * - 既に埋まっているスロットは上書き可能
+ *
+ * @param selection 現在のマニュアル選択状態
+ * @returns 利用可能な適用先の配列
+ */
+function getAvailableApplyTargets(
+	selection: ManualColorSelection,
+): ManualApplyTarget[] {
+	const targets: ManualApplyTarget[] = ["key", "secondary", "tertiary"];
+
+	// 埋まっているアクセントを追加（上書き可能）
+	const filledAccents = selection.accentColors
+		.map((c, i) =>
+			c !== null ? (`accent-${i + 1}` as ManualApplyTarget) : null,
+		)
+		.filter((t): t is ManualApplyTarget => t !== null);
+
+	targets.push(...filledAccents);
+
+	// 次の空きスロットを追加（連続性を維持）
+	const firstEmptyIndex = selection.accentColors.indexOf(null);
+	if (firstEmptyIndex !== -1 && firstEmptyIndex < 4) {
+		const nextTarget = `accent-${firstEmptyIndex + 1}` as ManualApplyTarget;
+		if (!targets.includes(nextTarget)) {
+			targets.push(nextTarget);
+		}
+	}
+
+	return targets;
+}
+
+/**
+ * ドロップダウンのオプションを動的に生成する
+ *
+ * @param select ドロップダウン要素
+ * @param selection 現在のマニュアル選択状態
+ * @param preSelectedTarget 事前選択された適用先
+ */
+function populateApplyTargetOptions(
+	select: HTMLSelectElement,
+	selection: ManualColorSelection,
+	preSelectedTarget?: ManualApplyTarget,
+): void {
+	// 既存のオプションをクリア
+	select.innerHTML = "";
+
+	// デフォルトオプションを追加
+	const defaultOption = document.createElement("option");
+	defaultOption.value = "";
+	defaultOption.textContent = "-- 選択してください --";
+	select.appendChild(defaultOption);
+
+	// 利用可能な適用先を取得
+	const availableTargets = getAvailableApplyTargets(selection);
+
+	// 基本カラー（key/secondary/tertiary）のオプションを追加
+	const basicTargets: ManualApplyTarget[] = ["key", "secondary", "tertiary"];
+	for (const target of basicTargets) {
+		const option = document.createElement("option");
+		option.value = target;
+		option.textContent = APPLY_TARGET_LABELS[target];
+		select.appendChild(option);
+	}
+
+	// アクセントカラーのオプションを追加（optgroup内）
+	const accentTargets = availableTargets.filter((t) => t.startsWith("accent-"));
+	if (accentTargets.length > 0) {
+		const optgroup = document.createElement("optgroup");
+		optgroup.label = "アクセント";
+
+		for (const target of accentTargets) {
+			const option = document.createElement("option");
+			option.value = target;
+			option.textContent = APPLY_TARGET_LABELS[target];
+			optgroup.appendChild(option);
+		}
+
+		select.appendChild(optgroup);
+	}
+
+	// 事前選択を適用
+	if (preSelectedTarget && availableTargets.includes(preSelectedTarget)) {
+		select.value = preSelectedTarget;
+	}
+}
 
 /**
  * 最後に作成されたAbortController（テスト用）
@@ -369,6 +481,18 @@ function calculateTokenInfo(
 	};
 }
 
+/** コントラストレベル判定の閾値テーブル */
+const CONTRAST_GRADES: {
+	minRatio: number;
+	level: "success" | "warning" | "error";
+	badgeText: string;
+}[] = [
+	{ minRatio: 7.0, level: "success", badgeText: "AAA" },
+	{ minRatio: 4.5, level: "success", badgeText: "AA" },
+	{ minRatio: 3.0, level: "warning", badgeText: "Large Text" },
+	{ minRatio: 0, level: "error", badgeText: "Fail" },
+];
+
 /**
  * コントラスト情報を計算する
  */
@@ -386,28 +510,14 @@ function calculateContrastInfo(
 	const ratio = Math.round(wcag.contrast * 100) / 100;
 	const lc = Math.round(apca);
 
-	let level: "success" | "warning" | "error";
-	let badgeText: string;
-
-	if (ratio >= 7.0) {
-		level = "success";
-		badgeText = "AAA";
-	} else if (ratio >= 4.5) {
-		level = "success";
-		badgeText = "AA";
-	} else if (ratio >= 3.0) {
-		level = "warning";
-		badgeText = "Large Text";
-	} else {
-		level = "error";
-		badgeText = "Fail";
-	}
+	const grade =
+		CONTRAST_GRADES.find((g) => ratio >= g.minRatio) ?? CONTRAST_GRADES.at(-1);
 
 	return {
 		ratio,
 		apca: lc,
-		level,
-		badgeText,
+		level: grade.level,
+		badgeText: grade.badgeText,
 	};
 }
 
@@ -894,6 +1004,9 @@ export function openColorDetailModal(
 		paletteInfo,
 		readOnly = false,
 		originalHex,
+		showApplySection = false,
+		onApply,
+		preSelectedTarget,
 	} = options;
 
 	// ダイアログ要素を取得
@@ -902,20 +1015,76 @@ export function openColorDetailModal(
 	) as HTMLDialogElement;
 	if (!dialog) return;
 
-	// スクラバーキャンバスを取得
-	let scrubberCanvas = document.getElementById(
-		"tuner-scrubber",
-	) as HTMLCanvasElement | null;
+	// 適用セクションの表示/非表示を設定
+	const applySection = document.getElementById("apply-section");
+	const applySelect = document.getElementById(
+		"apply-target-select",
+	) as HTMLSelectElement | null;
+	const applyBtn = document.getElementById("apply-btn");
 
-	// キャンバスを複製して古いイベントリスナーを削除
-	if (scrubberCanvas) {
-		const newCanvas = scrubberCanvas.cloneNode(true) as HTMLCanvasElement;
-		scrubberCanvas.parentNode?.replaceChild(newCanvas, scrubberCanvas);
-		scrubberCanvas = newCanvas;
+	if (applySection) {
+		applySection.style.display = showApplySection ? "flex" : "none";
+	}
+
+	// プルダウンのオプションを動的に生成（連続選択制約を適用）
+	if (applySelect) {
+		populateApplyTargetOptions(
+			applySelect,
+			state.manualColorSelection,
+			preSelectedTarget,
+		);
 	}
 
 	// AbortControllerを作成（イベントリスナーのクリーンアップ用）
+	// 注: cloneNodeパターンの代わりにAbortControllerを使用
+	// ダイアログクローズ時にabort()が呼ばれ、全てのイベントリスナーが自動的に削除される
 	const abortController = createAbortController();
+
+	// 適用ボタンのイベントハンドラを設定
+	if (showApplySection && applyBtn && applySelect) {
+		applyBtn.addEventListener(
+			"click",
+			() => {
+				const target = applySelect.value as ManualApplyTarget | "";
+				if (!target) {
+					return; // 選択されていない場合は何もしない
+				}
+
+				// originalHexがあれば使用（DADS token hexとの完全一致を保証）
+				// stepColor.toHex()は色空間変換で微妙に異なる値になる可能性がある
+				const hex = originalHex ?? stepColor.toHex();
+				applyColorToManualSelection(target, hex);
+
+				// 成功フィードバックを表示
+				const originalText = applyBtn.textContent;
+				applyBtn.textContent = "適用完了";
+				applyBtn.classList.add("applied");
+
+				setTimeout(() => {
+					applyBtn.textContent = originalText;
+					applyBtn.classList.remove("applied");
+				}, 1500);
+
+				// コールバックを呼び出してツールバーを再描画
+				if (onApply) {
+					onApply();
+				}
+
+				// ドロップダウンオプションを更新（状態が変わったので連続選択制約を再適用）
+				populateApplyTargetOptions(
+					applySelect,
+					state.manualColorSelection,
+					target, // 選択した値を維持
+				);
+			},
+			{ signal: abortController.signal },
+		);
+	}
+
+	// スクラバーキャンバスを取得
+	const scrubberCanvas = document.getElementById(
+		"tuner-scrubber",
+	) as HTMLCanvasElement | null;
 
 	// 現在の色を追跡
 	let currentColor = stepColor;

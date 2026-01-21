@@ -11,44 +11,23 @@ import { chromaNameToDadsHue, normalizeToDadsHue } from "./hue-name-normalizer";
 
 describe("HueNameNormalizer", () => {
 	describe("normalizeToDadsHue", () => {
-		it("should convert 'Blue' to 'blue'", () => {
-			expect(normalizeToDadsHue("Blue")).toBe("blue");
-		});
+		const displayNameCases: [string, string][] = [
+			["Blue", "blue"],
+			["Light Blue", "light-blue"],
+			["Cyan", "cyan"],
+			["Green", "green"],
+			["Lime", "lime"],
+			["Yellow", "yellow"],
+			["Orange", "orange"],
+			["Red", "red"],
+			["Magenta", "magenta"],
+			["Purple", "purple"],
+		];
 
-		it("should convert 'Light Blue' to 'light-blue'", () => {
-			expect(normalizeToDadsHue("Light Blue")).toBe("light-blue");
-		});
-
-		it("should convert 'Cyan' to 'cyan'", () => {
-			expect(normalizeToDadsHue("Cyan")).toBe("cyan");
-		});
-
-		it("should convert 'Green' to 'green'", () => {
-			expect(normalizeToDadsHue("Green")).toBe("green");
-		});
-
-		it("should convert 'Lime' to 'lime'", () => {
-			expect(normalizeToDadsHue("Lime")).toBe("lime");
-		});
-
-		it("should convert 'Yellow' to 'yellow'", () => {
-			expect(normalizeToDadsHue("Yellow")).toBe("yellow");
-		});
-
-		it("should convert 'Orange' to 'orange'", () => {
-			expect(normalizeToDadsHue("Orange")).toBe("orange");
-		});
-
-		it("should convert 'Red' to 'red'", () => {
-			expect(normalizeToDadsHue("Red")).toBe("red");
-		});
-
-		it("should convert 'Magenta' to 'magenta'", () => {
-			expect(normalizeToDadsHue("Magenta")).toBe("magenta");
-		});
-
-		it("should convert 'Purple' to 'purple'", () => {
-			expect(normalizeToDadsHue("Purple")).toBe("purple");
+		it.each(
+			displayNameCases,
+		)("should convert '%s' to '%s'", (input, expected) => {
+			expect(normalizeToDadsHue(input)).toBe(expected);
 		});
 
 		it("should return undefined for unknown display names", () => {
@@ -56,49 +35,45 @@ describe("HueNameNormalizer", () => {
 			expect(normalizeToDadsHue("")).toBeUndefined();
 			expect(normalizeToDadsHue("pink")).toBeUndefined();
 		});
+
+		const validHues = [
+			"blue",
+			"light-blue",
+			"cyan",
+			"green",
+			"lime",
+			"yellow",
+			"orange",
+			"red",
+			"magenta",
+			"purple",
+		];
+
+		it.each(
+			validHues,
+		)("should accept DadsColorHue format '%s' and return as-is", (hue) => {
+			expect(normalizeToDadsHue(hue)).toBe(hue);
+		});
 	});
 
 	describe("chromaNameToDadsHue", () => {
-		it("should convert 'blue' chroma name to 'blue' DadsColorHue", () => {
-			expect(chromaNameToDadsHue("blue")).toBe("blue");
-		});
+		const chromaNameCases: [string, string][] = [
+			["blue", "blue"],
+			["cyan", "light-blue"], // DADS_CHROMAS: { name: "cyan", displayName: "Light Blue" }
+			["teal", "cyan"], // DADS_CHROMAS: { name: "teal", displayName: "Cyan" }
+			["green", "green"],
+			["lime", "lime"],
+			["yellow", "yellow"],
+			["orange", "orange"],
+			["red", "red"],
+			["magenta", "magenta"],
+			["purple", "purple"],
+		];
 
-		it("should convert 'cyan' chroma name to 'light-blue' DadsColorHue", () => {
-			// DADS_CHROMAS: { name: "cyan", displayName: "Light Blue" }
-			expect(chromaNameToDadsHue("cyan")).toBe("light-blue");
-		});
-
-		it("should convert 'teal' chroma name to 'cyan' DadsColorHue", () => {
-			// DADS_CHROMAS: { name: "teal", displayName: "Cyan" }
-			expect(chromaNameToDadsHue("teal")).toBe("cyan");
-		});
-
-		it("should convert 'green' chroma name to 'green' DadsColorHue", () => {
-			expect(chromaNameToDadsHue("green")).toBe("green");
-		});
-
-		it("should convert 'lime' chroma name to 'lime' DadsColorHue", () => {
-			expect(chromaNameToDadsHue("lime")).toBe("lime");
-		});
-
-		it("should convert 'yellow' chroma name to 'yellow' DadsColorHue", () => {
-			expect(chromaNameToDadsHue("yellow")).toBe("yellow");
-		});
-
-		it("should convert 'orange' chroma name to 'orange' DadsColorHue", () => {
-			expect(chromaNameToDadsHue("orange")).toBe("orange");
-		});
-
-		it("should convert 'red' chroma name to 'red' DadsColorHue", () => {
-			expect(chromaNameToDadsHue("red")).toBe("red");
-		});
-
-		it("should convert 'magenta' chroma name to 'magenta' DadsColorHue", () => {
-			expect(chromaNameToDadsHue("magenta")).toBe("magenta");
-		});
-
-		it("should convert 'purple' chroma name to 'purple' DadsColorHue", () => {
-			expect(chromaNameToDadsHue("purple")).toBe("purple");
+		it.each(
+			chromaNameCases,
+		)("should convert '%s' chroma name to '%s' DadsColorHue", (input, expected) => {
+			expect(chromaNameToDadsHue(input)).toBe(expected);
 		});
 
 		it("should return undefined for unknown chroma names", () => {

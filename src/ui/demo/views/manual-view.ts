@@ -41,12 +41,14 @@ import {
 	getActivePalette,
 	parseKeyColor,
 	persistBackgroundColors,
+	persistManualColorSelection,
 	state,
 } from "../state";
 import type {
 	ColorDetailModalOptions,
 	CVDType,
 	HarmonyType,
+	ManualApplyTarget,
 	PaletteConfig,
 } from "../types";
 
@@ -56,6 +58,265 @@ import type {
 export interface ManualViewCallbacks {
 	/** 色クリック時のコールバック（モーダル表示用） */
 	onColorClick: (options: ColorDetailModalOptions) => void;
+}
+
+/**
+ * 現在選択されている適用先（モジュールスコープ変数）
+ *
+ * 注: この変数はモジュールスコープで管理されている。
+ * テスト時には必ず resetApplyTargetState() または setSelectedApplyTarget(null) で
+ * リセットすること。
+ */
+let selectedApplyTarget: ManualApplyTarget | null = null;
+
+/**
+ * 選択されている適用先を取得する
+ */
+export function getSelectedApplyTarget(): ManualApplyTarget | null {
+	return selectedApplyTarget;
+}
+
+/**
+ * 選択されている適用先を設定する
+ */
+export function setSelectedApplyTarget(target: ManualApplyTarget | null): void {
+	selectedApplyTarget = target;
+}
+
+/**
+ * 適用先状態をリセットする（テスト用）
+ *
+ * テストのbeforeEach/afterEachで呼び出し、
+ * テスト間の状態汚染を防ぐ。
+ */
+export function resetApplyTargetState(): void {
+	selectedApplyTarget = null;
+}
+
+/**
+ * マニュアル選択ツールバーに色を適用する
+ * スタジオビューのパレットとも連動する
+ *
+ * @param target 適用先
+ * @param hex 適用する色のHEX値
+ * @param onUpdate 状態更新後のコールバック
+ */
+export function applyColorToManualSelection(
+	target: ManualApplyTarget,
+	hex: string,
+	onUpdate?: () => void,
+): void {
+	const selection = state.manualColorSelection;
+
+	switch (target) {
+		case "key":
+			selection.keyColor = hex;
+			// スタジオビューのPrimaryパレットも更新
+			syncToStudioPalette("Primary", hex);
+			break;
+		case "secondary":
+			selection.secondaryColor = hex;
+			// スタジオビューのSecondaryパレットも更新
+			syncToStudioPalette("Secondary", hex);
+			break;
+		case "tertiary":
+			selection.tertiaryColor = hex;
+			// スタジオビューのTertiaryパレットも更新
+			syncToStudioPalette("Tertiary", hex);
+			break;
+		case "accent-1":
+		case "accent-2":
+		case "accent-3":
+		case "accent-4": {
+			const index = parseInt(target.split("-")[1] ?? "1", 10) - 1;
+			// 配列を必要な長さまで拡張
+			while (selection.accentColors.length <= index) {
+				selection.accentColors.push(null);
+			}
+			selection.accentColors[index] = hex;
+			// スタジオビューのAccentパレットも更新
+			syncToStudioPalette(`Accent ${index + 1}`, hex);
+			break;
+		}
+	}
+
+	// 永続化
+	persistManualColorSelection(selection);
+
+	// 更新コールバック
+	if (onUpdate) {
+		onUpdate();
+	}
+}
+
+/**
+ * マニュアル選択からアクセントカラーを削除する
+ *
+ * 指定されたインデックスのアクセントをnullに設定し、
+ * 対応するパレットも削除する。
+ *
+ * @param index アクセントのインデックス（0-3）
+ * @param onUpdate 状態更新後のコールバック
+ */
+export function deleteAccentFromManualSelection(
+	index: number,
+	onUpdate?: () => void,
+): void {
+	const selection = state.manualColorSelection;
+
+	// インデックス範囲チェック
+	if (index < 0 || index >= selection.accentColors.length) {
+		return;
+	}
+
+	// スロットをクリア
+	selection.accentColors[index] = null;
+
+	// state.palettesからも削除
+	const accentName = `Accent ${index + 1}`;
+	const paletteIndex = state.palettes.findIndex(
+		(p) => p.name.toLowerCase() === accentName.toLowerCase(),
+	);
+	if (paletteIndex >= 0) {
+		state.palettes.splice(paletteIndex, 1);
+	}
+
+	// 永続化
+	persistManualColorSelection(selection);
+
+	// 更新コールバック
+	if (onUpdate) {
+		onUpdate();
+	}
+}
+
+/**
+ * パレット挿入位置を計算する
+ *
+ * パレット順序を維持するための挿入位置を返す:
+ * Primary → Secondary → Tertiary → Accent 1-4
+ *
+ * @param paletteName パレット名
+ * @returns 挿入インデックス（-1の場合は末尾にpush）
+ */
+function calculatePaletteInsertIndex(paletteName: string): number {
+	// Accentパレットは末尾に追加
+	if (paletteName.startsWith("Accent")) {
+		return -1;
+	}
+
+	// 優先度順に検索する基準パレット名を定義
+	// 各パレットは、その前に来るべきパレットの後に挿入される
+	const insertionRules: Record<string, string[]> = {
+		Primary: [], // Primary は常に先頭
+		Secondary: ["primary"], // Secondary は Primary の後
+		Tertiary: ["secondary", "primary"], // Tertiary は Secondary の後、なければ Primary の後
+	};
+
+	const searchOrder = insertionRules[paletteName];
+	if (!searchOrder) {
+		return 0; // 未知のパレットは先頭に
+	}
+
+	// 優先順位の高い基準パレットから順に検索
+	for (const prefix of searchOrder) {
+		const refIndex = state.palettes.findIndex((p) =>
+			p.name.toLowerCase().startsWith(prefix),
+		);
+		if (refIndex >= 0) {
+			return refIndex + 1;
+		}
+	}
+
+	// 基準パレットが見つからない場合は先頭に
+	return 0;
+}
+
+/**
+ * スタジオビューのパレットにキーカラーを同期する
+ *
+ * @param paletteName パレット名（"Primary", "Secondary", "Tertiary", "Accent 1"など）
+ * @param hex 同期する色のHEX値
+ */
+function syncToStudioPalette(paletteName: string, hex: string): void {
+	const existingPalette = state.palettes.find((p) =>
+		p.name.toLowerCase().startsWith(paletteName.toLowerCase()),
+	);
+
+	if (existingPalette) {
+		// 既存パレットのkeyColorsを更新
+		existingPalette.keyColors = [hex];
+		// 色が変わったのでbaseChromaName/stepをクリア（renderManualViewで再計算される）
+		existingPalette.baseChromaName = undefined;
+		existingPalette.step = undefined;
+		return;
+	}
+
+	// 新しいパレットを作成
+	const timestamp = Date.now();
+	const newPalette: PaletteConfig = {
+		id: `manual-${paletteName.toLowerCase().replace(/\s+/g, "-")}-${timestamp}`,
+		name: paletteName,
+		keyColors: [hex],
+		ratios: [21, 15, 10, 7, 4.5, 3, 1],
+		harmony: "none" as HarmonyType,
+	};
+
+	// 挿入位置を計算
+	const insertIndex = calculatePaletteInsertIndex(paletteName);
+
+	if (insertIndex === -1) {
+		// Accentパレットは末尾に追加
+		state.palettes.push(newPalette);
+
+		// studioAccentCountも更新（アクセント番号が現在のカウントより大きい場合）
+		const accentNumber = parseInt(paletteName.replace("Accent ", ""), 10);
+		if (!Number.isNaN(accentNumber) && accentNumber > state.studioAccentCount) {
+			state.studioAccentCount = Math.min(4, accentNumber) as 2 | 3 | 4;
+		}
+	} else {
+		// 計算された位置に挿入
+		state.palettes.splice(insertIndex, 0, newPalette);
+	}
+}
+
+/**
+ * パレット名プレフィックスからキーカラーHEXを取得
+ */
+function getPaletteKeyColorHex(namePrefix: string): string | null {
+	const palette = state.palettes.find((p) =>
+		p.name.toLowerCase().startsWith(namePrefix.toLowerCase()),
+	);
+	if (!palette?.keyColors[0]) return null;
+	return parseKeyColor(palette.keyColors[0]).color;
+}
+
+/**
+ * スタジオパレットからマニュアル選択状態に同期する
+ *
+ * state.palettes に存在する Primary/Secondary/Tertiary/Accent パレットの
+ * keyColors[0] を manualColorSelection に反映する。
+ * これにより、スタジオビューで生成されたパレットがマニュアルビューに反映される。
+ */
+export function syncFromStudioPalettes(): void {
+	const selection = state.manualColorSelection;
+
+	// 背景色と文字色を同期
+	selection.backgroundColor = state.lightBackgroundColor;
+	selection.textColor = state.darkBackgroundColor;
+
+	// Primary/Secondary/Tertiary
+	selection.keyColor = getPaletteKeyColorHex("primary");
+	selection.secondaryColor = getPaletteKeyColorHex("secondary");
+	selection.tertiaryColor = getPaletteKeyColorHex("tertiary");
+
+	// Accents (1-4): 常に4要素の配列として維持
+	selection.accentColors = [1, 2, 3, 4].map((i) =>
+		getPaletteKeyColorHex(`accent ${i}`),
+	);
+
+	// 永続化
+	persistManualColorSelection(selection);
 }
 
 /** Link icon SVG markup for share button */
@@ -270,6 +531,10 @@ export async function renderManualView(
 	container: HTMLElement,
 	callbacks: ManualViewCallbacks,
 ): Promise<void> {
+	// Studio View パレットから Manual View の選択状態を同期
+	// これにより、Studio View で生成されたパレットがツールバーに反映される
+	syncFromStudioPalettes();
+
 	// コンテナをクリアして前のビューのDOMが残らないようにする
 	container.innerHTML = "";
 	container.className = "dads-section";
@@ -315,11 +580,254 @@ export async function renderManualView(
 	backgroundSelectorSection.appendChild(backgroundSelector);
 	container.appendChild(backgroundSelectorSection);
 
-	// ツールバー（共有リンク・エクスポートのみ、生成・戻るボタンなし）
+	// ツールバー（スウォッチ + 共有リンク・エクスポート）
 	const toolbar = document.createElement("section");
 	toolbar.className = "studio-toolbar studio-toolbar--manual";
 	toolbar.setAttribute("role", "region");
 	toolbar.setAttribute("aria-label", "マニュアル選択ツールバー");
+
+	// スウォッチコンテナ
+	const swatches = document.createElement("div");
+	swatches.className = "studio-toolbar__swatches";
+
+	// アクティブ状態を更新するヘルパー
+	const updateActiveState = (
+		clickedWrapper: HTMLElement,
+		target: ManualApplyTarget | null,
+	) => {
+		// 全スウォッチからアクティブ状態を解除
+		for (const el of swatches.querySelectorAll(
+			".studio-toolbar-swatch--active",
+		)) {
+			el.classList.remove("studio-toolbar-swatch--active");
+		}
+		// クリックされたスウォッチをアクティブに
+		if (target) {
+			clickedWrapper.classList.add("studio-toolbar-swatch--active");
+			selectedApplyTarget = target;
+		} else {
+			selectedApplyTarget = null;
+		}
+	};
+
+	// 選択済みスウォッチを作成
+	const createFilledSwatch = (
+		label: string,
+		hex: string,
+		isZoneEnd = false,
+		target?: ManualApplyTarget,
+		onDelete?: () => void,
+	): HTMLElement => {
+		const wrapper = document.createElement("div");
+		wrapper.className = "studio-toolbar-swatch";
+		if (isZoneEnd) {
+			wrapper.classList.add("studio-toolbar-swatch--zone-end");
+		}
+		// ターゲットがある場合はクリック可能に
+		if (target) {
+			wrapper.setAttribute("role", "button");
+			wrapper.setAttribute("tabindex", "0");
+			wrapper.setAttribute(
+				"aria-label",
+				`${label}: ${hex.toUpperCase()} - クリックして適用先に設定`,
+			);
+			wrapper.title = `${label}: ${hex.toUpperCase()} - クリックして適用先に設定`;
+			wrapper.style.cursor = "pointer";
+			// クリックハンドラ
+			wrapper.addEventListener("click", (e) => {
+				// 削除ボタンがクリックされた場合は無視
+				if (
+					(e.target as HTMLElement).closest(".studio-toolbar-swatch__delete")
+				) {
+					return;
+				}
+				if (selectedApplyTarget === target) {
+					// 同じターゲットを再クリックで解除
+					updateActiveState(wrapper, null);
+				} else {
+					updateActiveState(wrapper, target);
+				}
+			});
+			// 初期アクティブ状態を設定
+			if (selectedApplyTarget === target) {
+				wrapper.classList.add("studio-toolbar-swatch--active");
+			}
+		} else {
+			wrapper.setAttribute("role", "img");
+			wrapper.setAttribute("aria-label", `${label}: ${hex.toUpperCase()}`);
+			wrapper.title = `${label}: ${hex.toUpperCase()}`;
+		}
+
+		const circle = document.createElement("span");
+		circle.className = "studio-toolbar-swatch__circle";
+		circle.style.backgroundColor = hex;
+		wrapper.appendChild(circle);
+
+		// 削除ボタンを追加（コールバックが提供されている場合）
+		if (onDelete) {
+			const deleteBtn = document.createElement("button");
+			deleteBtn.type = "button";
+			deleteBtn.className = "studio-toolbar-swatch__delete";
+			deleteBtn.setAttribute("aria-label", `${label}を削除`);
+			deleteBtn.onclick = (e) => {
+				e.stopPropagation();
+				onDelete();
+			};
+			wrapper.appendChild(deleteBtn);
+		}
+
+		return wrapper;
+	};
+
+	// 未選択プレースホルダーを作成
+	const createPlaceholderSwatch = (
+		label: string,
+		isZoneEnd = false,
+		target?: ManualApplyTarget,
+		isDisabled = false,
+	): HTMLElement => {
+		const wrapper = document.createElement("div");
+		wrapper.className =
+			"studio-toolbar-swatch studio-toolbar-swatch--placeholder";
+		if (isZoneEnd) {
+			wrapper.classList.add("studio-toolbar-swatch--zone-end");
+		}
+		if (isDisabled) {
+			wrapper.classList.add("studio-toolbar-swatch--disabled");
+		}
+
+		// 無効化時とそうでない場合で属性を分ける
+		if (!isDisabled && target) {
+			wrapper.setAttribute("role", "button");
+			wrapper.setAttribute("tabindex", "0");
+			wrapper.setAttribute(
+				"aria-label",
+				`${label}（未選択）- クリックして適用先に設定`,
+			);
+			wrapper.title = `${label}（未選択）- クリックして適用先に設定`;
+			wrapper.style.cursor = "pointer";
+
+			// クリックハンドラ
+			wrapper.addEventListener("click", () => {
+				if (selectedApplyTarget === target) {
+					// 同じターゲットを再クリックで解除
+					updateActiveState(wrapper, null);
+				} else {
+					updateActiveState(wrapper, target);
+				}
+			});
+			// 初期アクティブ状態を設定
+			if (selectedApplyTarget === target) {
+				wrapper.classList.add("studio-toolbar-swatch--active");
+			}
+		} else {
+			// 無効化時はクリック不可
+			wrapper.setAttribute("role", "img");
+			wrapper.setAttribute(
+				"aria-label",
+				`${label}（選択不可 - 前のスロットを先に選択してください）`,
+			);
+			wrapper.title = `${label}（前のスロットを先に選択してください）`;
+		}
+
+		return wrapper;
+	};
+
+	// 背景色スウォッチ
+	swatches.appendChild(
+		createFilledSwatch("背景色", state.lightBackgroundColor || "#ffffff"),
+	);
+
+	// テキスト色スウォッチ（zone-end）
+	swatches.appendChild(
+		createFilledSwatch(
+			"テキスト色",
+			state.darkBackgroundColor || "#000000",
+			true,
+		),
+	);
+
+	// Primary スウォッチ（選択済み or プレースホルダー）
+	// state.manualColorSelectionを直接参照（パレットは遅延生成される場合があるため）
+	const primaryHex = state.manualColorSelection.keyColor;
+	if (primaryHex) {
+		swatches.appendChild(
+			createFilledSwatch("キーカラー", primaryHex, false, "key"),
+		);
+	} else {
+		swatches.appendChild(createPlaceholderSwatch("キーカラー", false, "key"));
+	}
+
+	// Secondary スウォッチ（選択済み or プレースホルダー）
+	const secondaryHex = state.manualColorSelection.secondaryColor;
+	if (secondaryHex) {
+		swatches.appendChild(
+			createFilledSwatch("セカンダリ", secondaryHex, false, "secondary"),
+		);
+	} else {
+		swatches.appendChild(
+			createPlaceholderSwatch("セカンダリ", false, "secondary"),
+		);
+	}
+
+	// Tertiary スウォッチ（選択済み or プレースホルダー、zone-end）
+	const tertiaryHex = state.manualColorSelection.tertiaryColor;
+	if (tertiaryHex) {
+		swatches.appendChild(
+			createFilledSwatch("ターシャリ", tertiaryHex, true, "tertiary"),
+		);
+	} else {
+		swatches.appendChild(
+			createPlaceholderSwatch("ターシャリ", true, "tertiary"),
+		);
+	}
+
+	// Accent 1〜4 スウォッチ（選択済み or プレースホルダー）
+	// 連続選択制約: 常に4スロット表示、最初の空きスロットのみクリック可能
+	const firstEmptyAccentIndex =
+		state.manualColorSelection.accentColors.indexOf(null);
+
+	// 常に4スロット表示（Studio Viewと統一）
+	for (let i = 1; i <= 4; i++) {
+		const accentTarget = `accent-${i}` as ManualApplyTarget;
+		// state.manualColorSelectionを直接参照（パレットは遅延生成される場合があるため）
+		const accentHex = state.manualColorSelection.accentColors[i - 1];
+		if (accentHex) {
+			// 削除ハンドラを作成（クロージャでindexをキャプチャ）
+			const deleteHandler = () => {
+				deleteAccentFromManualSelection(i - 1, () => {
+					void renderManualView(container, callbacks);
+				});
+			};
+			swatches.appendChild(
+				createFilledSwatch(
+					`Accent ${i}`,
+					accentHex,
+					false,
+					accentTarget,
+					deleteHandler,
+				),
+			);
+		} else {
+			// 連続選択制約: 最初の空きスロットのみクリック可能、それ以降は無効化
+			const isDisabled =
+				firstEmptyAccentIndex !== -1 && i - 1 > firstEmptyAccentIndex;
+			swatches.appendChild(
+				createPlaceholderSwatch(
+					`Accent ${i}`,
+					false,
+					isDisabled ? undefined : accentTarget,
+					isDisabled,
+				),
+			);
+		}
+	}
+
+	// スウォッチとコントロール間のスペーサー
+	const swatchSpacer = document.createElement("div");
+	swatchSpacer.className = "studio-toolbar__swatch-spacer";
+	swatchSpacer.setAttribute("aria-hidden", "true");
+	swatches.appendChild(swatchSpacer);
 
 	const controls = document.createElement("div");
 	controls.className = "studio-toolbar__controls";
@@ -365,6 +873,7 @@ export async function renderManualView(
 
 	controls.appendChild(shareBtn);
 	controls.appendChild(exportBtn);
+	toolbar.appendChild(swatches);
 	toolbar.appendChild(controls);
 	container.appendChild(toolbar);
 
@@ -389,9 +898,27 @@ export async function renderManualView(
 		}
 
 		// Task 4.2: ロールマッピング生成
-		// state.shadesPalettesが未生成の場合はstate.palettesを使用
-		const palettesForRoleMapping =
-			state.shadesPalettes.length > 0 ? state.shadesPalettes : state.palettes;
+		// Manual Viewでは常にstate.palettesを使用
+		// （applyColorToManualSelection()でsyncToStudioPalette()が呼ばれ、
+		//  state.palettesに新しいパレットが追加されるため）
+		// state.shadesPalettesはStudio View専用
+		const palettesForRoleMapping = state.palettes;
+
+		// baseChromaNameまたはstepが未設定のパレットを更新（Manual Viewで適用した色のため）
+		// roleMapperはbaseChromaNameとstepの両方が必要（role-mapper.ts line 246）
+		for (const palette of palettesForRoleMapping) {
+			if (
+				(!palette.baseChromaName || palette.step === undefined) &&
+				palette.keyColors[0]
+			) {
+				const parsed = parseKeyColor(palette.keyColors[0]);
+				const dadsMatch = findDadsColorByHex(dadsTokens, parsed.color);
+				if (dadsMatch) {
+					palette.baseChromaName = dadsMatch.hue;
+					palette.step = dadsMatch.scale;
+				}
+			}
+		}
 
 		// PaletteInfo形式に変換（UI層→Core層の最小情報）
 		const palettesInfo: PaletteInfo[] = palettesForRoleMapping.map((p) => ({
@@ -593,6 +1120,12 @@ export function renderDadsHueSection(
 					baseChromaName: colorScale.hueName.en,
 				},
 				readOnly: true,
+				showApplySection: true,
+				onApply: () => {
+					// ツールバーを再描画して適用結果を反映
+					void renderManualView(container, callbacks);
+				},
+				preSelectedTarget: selectedApplyTarget ?? undefined,
 			});
 		};
 

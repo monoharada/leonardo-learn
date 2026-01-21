@@ -13,6 +13,7 @@ import type {
 	AccentHarmonyTypeConfig,
 	DemoState,
 	HarmonyTypeConfig,
+	ManualColorSelection,
 	SemanticColorConfig,
 } from "./types";
 
@@ -132,6 +133,16 @@ export const DEFAULT_SEMANTIC_COLOR_CONFIG: SemanticColorConfig = {
 	warningPattern: "auto",
 };
 
+/** マニュアルビュー用の色選択のデフォルト値 */
+export const DEFAULT_MANUAL_COLOR_SELECTION: ManualColorSelection = {
+	backgroundColor: "#ffffff",
+	textColor: "#000000",
+	keyColor: null,
+	secondaryColor: null,
+	tertiaryColor: null,
+	accentColors: [null, null, null, null],
+};
+
 /** デモ機能の初期状態 */
 export const DEFAULT_STATE: DemoState = {
 	palettes: [],
@@ -166,12 +177,5 @@ export const DEFAULT_STATE: DemoState = {
 		seed: 0,
 	},
 	studioTheme: "hero",
-	manualColorSelection: {
-		backgroundColor: "#ffffff",
-		textColor: "#000000",
-		keyColor: null,
-		secondaryColor: null,
-		tertiaryColor: null,
-		accentColors: [null, null, null, null],
-	},
+	manualColorSelection: { ...DEFAULT_MANUAL_COLOR_SELECTION },
 };

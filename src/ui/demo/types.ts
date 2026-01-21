@@ -139,6 +139,16 @@ export interface ManualColorSelection {
 	accentColors: (string | null)[];
 }
 
+/** マニュアル選択ツールバーの適用先 */
+export type ManualApplyTarget =
+	| "key"
+	| "secondary"
+	| "tertiary"
+	| "accent-1"
+	| "accent-2"
+	| "accent-3"
+	| "accent-4";
+
 /** デモ機能のグローバル状態 */
 export interface DemoState {
 	palettes: PaletteConfig[];
@@ -186,6 +196,12 @@ export interface ColorDetailModalOptions {
 	};
 	readOnly?: boolean;
 	originalHex?: string;
+	/** マニュアルビューからの呼び出し時に適用セクションを表示する */
+	showApplySection?: boolean;
+	/** 適用時のコールバック（ツールバー再描画用） */
+	onApply?: () => void;
+	/** プルダウンのデフォルト選択値（ツールバーから事前選択した場合） */
+	preSelectedTarget?: ManualApplyTarget;
 }
 
 /** キーカラーから@stepサフィックスを除去してHEX値のみを返す */

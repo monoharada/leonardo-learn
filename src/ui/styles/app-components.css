@@ -587,6 +587,37 @@
 	display: none;
 }
 
+/* 無効化状態（連続選択制約により選択不可） */
+.studio-toolbar-swatch--disabled {
+	opacity: 0.4;
+	cursor: not-allowed !important;
+}
+
+.studio-toolbar-swatch--disabled:hover {
+	border-color: var(--studio-outline);
+	background: transparent;
+}
+
+/* アクティブ状態（ツールバーで選択された適用先） */
+.studio-toolbar-swatch--active {
+	border-color: var(--color-primary, #3b82f6);
+	box-shadow:
+		0 0 0 2px var(--color-surface, #ffffff),
+		0 0 0 4px var(--color-primary, #3b82f6);
+}
+
+.studio-toolbar-swatch--active::after {
+	opacity: 1;
+}
+
+.studio-toolbar-swatch--placeholder.studio-toolbar-swatch--active {
+	border-color: var(--color-primary, #3b82f6);
+	background: rgba(59, 130, 246, 0.1);
+	box-shadow:
+		0 0 0 2px var(--color-surface, #ffffff),
+		0 0 0 4px var(--color-primary, #3b82f6);
+}
+
 .studio-toolbar__swatch-spacer {
 	display: none;
 }
