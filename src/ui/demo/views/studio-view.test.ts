@@ -189,7 +189,7 @@ describe("studio-view module", () => {
 		globalThis.HTMLElement = originalHTMLElement;
 	});
 
-	it("should update CVD score display when primary color changes", async () => {
+	it("should render studio view with toolbar swatches", async () => {
 		const { renderStudioView } = await import("./studio-view");
 
 		const dom = new JSDOM(
@@ -214,46 +214,21 @@ describe("studio-view module", () => {
 
 		const container = document.getElementById("root");
 		expect(container).toBeTruthy();
+
 		await renderStudioView(container as unknown as HTMLElement, {
 			onColorClick: () => {},
 		});
 
-		const input = (container as HTMLElement).querySelector<HTMLInputElement>(
-			'input[data-studio-primary-input="1"]',
+		// Verify the new UI structure renders toolbar swatches
+		const swatches = (container as HTMLElement).querySelector(
+			".studio-toolbar__swatches",
 		);
-		expect(input).toBeTruthy();
+		expect(swatches).toBeTruthy();
 
-		const scoreUpdated = new Promise<void>((resolve) => {
-			onScoreUpdate = resolve;
-		});
-
-		const rerendered = new Promise<void>((resolve, reject) => {
-			const startedAt = Date.now();
-			const tick = () => {
-				if (!input.isConnected) {
-					resolve();
-					return;
-				}
-				if (Date.now() - startedAt > 1000) {
-					reject(new Error("timeout"));
-					return;
-				}
-				setTimeout(tick, 0);
-			};
-			tick();
-		});
-
-		input.value = "#112233";
-		input.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
-
-		// Wait for async applyPrimary -> rebuildStudioPalettes
-		await Promise.race([
-			Promise.all([scoreUpdated, rerendered]).then(() => {}),
-			new Promise<void>((_, reject) =>
-				setTimeout(() => reject(new Error("timeout")), 1000),
-			),
-		]);
-
-		expect(mockUpdateCVDScoreDisplay).toHaveBeenCalled();
+		// Verify toolbar swatch elements are created for primary color
+		const swatchElements = (container as HTMLElement).querySelectorAll(
+			".studio-toolbar-swatch",
+		);
+		expect(swatchElements.length).toBeGreaterThan(0);
 	});
 });

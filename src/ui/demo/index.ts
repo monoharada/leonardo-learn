@@ -15,12 +15,6 @@ import { loadDadsTokens } from "@/core/tokens/dads-data-provider";
 import { getRandomDadsColor } from "@/core/tokens/random-color-picker";
 import type { DadsToken } from "@/core/tokens/types";
 
-/**
- * Regex pattern to extract base chroma name from DADS source name
- * Removes trailing step number (e.g., "Light Blue 600" -> "Light Blue")
- */
-const DADS_STEP_SUFFIX_PATTERN = /\s+\d+$/;
-
 import { openColorDetailModal } from "./color-detail-modal";
 import {
 	applySimulation,
@@ -50,6 +44,67 @@ import {
 	renderStudioView,
 } from "./views";
 
+/** Regex pattern to extract base chroma name from DADS source name */
+const DADS_STEP_SUFFIX_PATTERN = /\s+\d+$/;
+
+/** Default HEX color used as fallback */
+const DEFAULT_HEX_COLOR = "#3366cc";
+
+/** Default ratios for palette generation */
+const DEFAULT_RATIOS = [21, 15, 10, 7, 4.5, 3, 1];
+
+/**
+ * Get input HEX value from keyColorsInput or return default
+ */
+function getKeyColorHex(input: HTMLInputElement | null): string {
+	return input?.value.trim() || DEFAULT_HEX_COLOR;
+}
+
+/**
+ * Get harmony type from harmony input element
+ */
+function getHarmonyType(): HarmonyType {
+	const harmonyInput = document.getElementById(
+		"harmony",
+	) as HTMLInputElement | null;
+	return harmonyInput
+		? (harmonyInput.value as HarmonyType)
+		: HarmonyType.COMPLEMENTARY;
+}
+
+/**
+ * Initialize DADS harmony system and load tokens
+ * Falls back to HCT if initialization fails
+ */
+async function initializeDadsSystem(): Promise<DadsToken[]> {
+	try {
+		await initializeHarmonyDads();
+		return await loadDadsTokens();
+	} catch (error) {
+		console.warn("DADS initialization failed, using HCT fallback:", error);
+		return [];
+	}
+}
+
+/**
+ * Restore state from localStorage
+ */
+function restorePersistedState(): void {
+	const restoredBackground = loadBackgroundColors();
+	state.lightBackgroundColor = restoredBackground.light;
+	state.darkBackgroundColor = restoredBackground.dark;
+	state.semanticColorConfig = loadSemanticColorConfig();
+}
+
+/**
+ * Clamp accent count to valid range (2-4)
+ */
+function clampAccentCount(count: number): 2 | 3 | 4 {
+	if (count < 2) return 2;
+	if (count > 4) return 4;
+	return count as 2 | 3 | 4;
+}
+
 /**
  * デモ機能を初期化して実行する
  *
@@ -57,17 +112,7 @@ import {
  * 各モジュールのsetup関数を呼び出して初期化する。
  */
 export async function runDemo(): Promise<void> {
-	// DADS Harmony Selectorの初期化
-	// これによりハーモニー生成でDADSトークン選択が使用される
-	// 初期化に失敗してもUIは表示される（HCTフォールバック使用）
-	let dadsTokensCache: DadsToken[] = [];
-	try {
-		await initializeHarmonyDads();
-		// DADSトークンをキャッシュ（Secondary/Tertiary導出用）
-		dadsTokensCache = await loadDadsTokens();
-	} catch (error) {
-		console.warn("DADS initialization failed, using HCT fallback:", error);
-	}
+	const dadsTokensCache = await initializeDadsSystem();
 
 	// 必須DOM要素の取得
 	const app = document.getElementById("app");
@@ -78,67 +123,66 @@ export async function runDemo(): Promise<void> {
 	const generateSystemBtn = document.getElementById("generate-system");
 	const harmonyViewEl = document.getElementById("harmony-view");
 
-	// 必須要素のガード
 	if (!app || !paletteListEl) return;
 
-	// ========================================
-	// localStorage から状態を復元
-	// ========================================
-	const restoredBackground = loadBackgroundColors();
-	state.lightBackgroundColor = restoredBackground.light;
-	state.darkBackgroundColor = restoredBackground.dark;
-	state.semanticColorConfig = loadSemanticColorConfig();
+	// Reassign to const with narrowed type for use in nested functions
+	const appEl: HTMLElement = app;
+	const paletteList: HTMLElement = paletteListEl;
 
-	// ========================================
-	// URL hash から Studio 状態を復元（#studio=<payload>）
-	// ========================================
+	restorePersistedState();
+
 	const studioUrlState = parseStudioUrlHash(window.location.hash);
 	if (studioUrlState && keyColorsInput) {
+		restoreStudioState(studioUrlState, keyColorsInput, dadsTokensCache);
+	} else if (keyColorsInput) {
+		await initializeRandomBrandColor(keyColorsInput);
+	}
+
+	/**
+	 * Restore Studio state from URL hash
+	 */
+	function restoreStudioState(
+		urlState: NonNullable<typeof studioUrlState>,
+		input: HTMLInputElement,
+		tokens: DadsToken[],
+	): void {
 		const timestamp = Date.now();
 		const backgroundHex = "#ffffff";
 
-		state.activePreset = studioUrlState.preset;
-		const restoredAccentCount = studioUrlState.accentCount;
-		state.studioAccentCount = (
-			restoredAccentCount < 3
-				? 3
-				: restoredAccentCount > 6
-					? 6
-					: restoredAccentCount
-		) as 3 | 4 | 5 | 6;
+		state.activePreset = urlState.preset;
+		state.studioAccentCount = clampAccentCount(urlState.accentCount);
 		state.lockedColors = {
 			...state.lockedColors,
-			primary: studioUrlState.locks.primary,
-			accent: studioUrlState.locks.accent,
+			primary: urlState.locks.primary,
+			accent: urlState.locks.accent,
 		};
-		state.previewKv = studioUrlState.kv;
-		state.studioSeed = studioUrlState.studioSeed;
+		state.previewKv = urlState.kv;
+		state.studioSeed = urlState.studioSeed;
 		state.viewMode = "studio";
 
-		// Harmony/Palette等での参照用 hidden input も同期しておく
-		keyColorsInput.value = studioUrlState.primary;
+		input.value = urlState.primary;
 
 		const primaryPalette = {
 			id: `studio-primary-${timestamp}`,
 			name: "Primary",
-			keyColors: [studioUrlState.primary],
-			ratios: [21, 15, 10, 7, 4.5, 3, 1],
+			keyColors: [urlState.primary],
+			ratios: DEFAULT_RATIOS,
 			harmony: HarmonyType.NONE,
 		};
 
 		const derived = createDerivedPalettes(
 			primaryPalette,
 			backgroundHex,
-			dadsTokensCache,
+			tokens,
 		);
 
-		const accentPalettes = studioUrlState.accents
+		const accentPalettes = urlState.accents
 			.slice(0, state.studioAccentCount)
 			.map((hex, index) => ({
 				id: `studio-accent-${timestamp}-${index + 1}`,
 				name: `Accent ${index + 1}`,
 				keyColors: [hex],
-				ratios: [21, 15, 10, 7, 4.5, 3, 1],
+				ratios: DEFAULT_RATIOS,
 				harmony: HarmonyType.NONE,
 			}));
 
@@ -148,26 +192,21 @@ export async function runDemo(): Promise<void> {
 		state.activeHarmonyIndex = 0;
 	}
 
-	// ========================================
-	// 初期ブランドカラーのランダム選択
-	// ========================================
-	// keyColorsInputが存在し、デフォルト値（#3366cc）のままの場合はランダム選択
-	if (keyColorsInput && !studioUrlState) {
-		const currentValue = keyColorsInput.value.trim();
-		// デフォルト値の場合はランダムに選択（背景色を考慮してコントラスト確保）
-		if (currentValue === "#3366cc" || currentValue === "") {
-			try {
-				const backgroundHex = state.lightBackgroundColor || "#ffffff";
-				const randomHex = await getRandomDadsColor({ backgroundHex });
-				keyColorsInput.value = randomHex;
-			} catch (error) {
-				console.warn(
-					"Failed to get random initial color, using default:",
-					error,
-				);
-				// エラー時はデフォルト値を使用
-				keyColorsInput.value = "#3366cc";
-			}
+	/**
+	 * Initialize random brand color if using default value
+	 */
+	async function initializeRandomBrandColor(
+		input: HTMLInputElement,
+	): Promise<void> {
+		const currentValue = input.value.trim();
+		if (currentValue !== DEFAULT_HEX_COLOR && currentValue !== "") return;
+
+		try {
+			const backgroundHex = state.lightBackgroundColor || "#ffffff";
+			input.value = await getRandomDadsColor({ backgroundHex });
+		} catch (error) {
+			console.warn("Failed to get random initial color, using default:", error);
+			input.value = DEFAULT_HEX_COLOR;
 		}
 	}
 
@@ -175,26 +214,29 @@ export async function runDemo(): Promise<void> {
 	// コールバック定義（View→Feature接続）
 	// ========================================
 
-	/**
-	 * 色クリック時のハンドラ（モーダル表示）
-	 */
-	const handleColorClick = (options: ColorDetailModalOptions): void => {
-		openColorDetailModal(options, renderMain);
-	};
+	/** Common UI update after palette changes */
+	function refreshUI(): void {
+		renderSidebar(paletteList, handlePaletteSelect);
+		updateEditor(triggerGenerate);
+		updateCVDScoreDisplay();
+	}
 
-	/**
-	 * ハーモニーカードクリック時のハンドラ
-	 * Section 8: 可変長パレットを生成してパレットビューへ遷移
-	 */
-	const handleHarmonyCardClick = (
+	/** Refresh UI and re-render main view */
+	function refreshUIAndRender(): void {
+		refreshUI();
+		renderMain();
+	}
+
+	function handleColorClick(options: ColorDetailModalOptions): void {
+		openColorDetailModal(options, renderMain);
+	}
+
+	function handleHarmonyCardClick(
 		harmonyType: HarmonyFilterType,
 		paletteColors: string[],
 		candidates?: ScoredCandidate[],
-	): void => {
-		// 現在の背景色を取得（ライトモードのデフォルト）
+	): void {
 		const backgroundColor = state.lightBackgroundColor || "#ffffff";
-		// 新しい共通関数を使用してパレットを生成
-		// DADSトークンを渡してSecondary/TertiaryもDADSステップから選択
 		state.palettes = createPalettesFromHarmonyColors(
 			harmonyType,
 			paletteColors,
@@ -203,34 +245,20 @@ export async function runDemo(): Promise<void> {
 			dadsTokensCache,
 		);
 
-		// アクティブIDを設定（最初のパレットを選択）
 		const firstPalette = state.palettes[0];
 		if (firstPalette) {
 			state.activeId = firstPalette.id;
 		}
 
-		// UIを更新
-		renderSidebar(paletteListEl, handlePaletteSelect);
-		updateEditor(triggerGenerate);
-		updateCVDScoreDisplay();
-
-		// パレットビューに自動遷移
+		refreshUI();
 		updateViewButtons("palette", renderMain);
-	};
+	}
 
-	/**
-	 * アクセント選択時のハンドラ
-	 * Section 7: 選択したアクセント候補をパレットに反映（詳細選択モード用）
-	 */
-	const handleAccentSelect = (candidate: ScoredCandidate): void => {
-		// キーカラーを取得
-		const inputHex = keyColorsInput?.value.trim() || "#3366cc";
+	function handleAccentSelect(candidate: ScoredCandidate): void {
+		const inputHex = getKeyColorHex(keyColorsInput);
 
-		// DADSハーモニーでパレットを生成（アクセント付き）
 		handleGenerate(inputHex, HarmonyType.DADS, {
 			onComplete: () => {
-				// アクセントカラーとしてパレットに追加
-				// dadsSourceName (例: "Light Blue 600") からステップを除去してbaseChromaNameを取得
 				const baseChromaName = candidate.dadsSourceName.replace(
 					DADS_STEP_SUFFIX_PATTERN,
 					"",
@@ -239,150 +267,102 @@ export async function runDemo(): Promise<void> {
 					id: `accent-${Date.now()}`,
 					name: `Accent: ${candidate.dadsSourceName}`,
 					keyColors: [candidate.hex],
-					ratios: [21, 15, 10, 7, 4.5, 3, 1],
+					ratios: DEFAULT_RATIOS,
 					harmony: HarmonyType.DADS,
 					baseChromaName,
 					step: candidate.step,
 				};
 
-				// パレットに追加
 				state.palettes.push(accentPalette);
 				state.activeId = accentPalette.id;
 
-				renderSidebar(paletteListEl, handlePaletteSelect);
-				updateEditor(triggerGenerate);
-				updateCVDScoreDisplay();
-
-				// パレットビューに切り替え
+				refreshUI();
 				updateViewButtons("palette", renderMain);
 			},
 		});
-	};
+	}
 
-	/**
-	 * パレット選択時のハンドラ
-	 */
-	const handlePaletteSelect = (id: string): void => {
+	function handlePaletteSelect(id: string): void {
 		state.activeId = id;
 		state.activeHarmonyIndex = 0;
 		updateEditor(triggerGenerate);
-		renderSidebar(paletteListEl, handlePaletteSelect);
+		renderSidebar(paletteList, handlePaletteSelect);
 		renderMain();
-	};
+	}
 
-	/**
-	 * パレット生成をトリガーするハンドラ（エディタから呼び出し）
-	 */
-	const triggerGenerate = (): void => {
-		const inputHex = keyColorsInput?.value.trim() || "#3366cc";
-
-		const harmonyInput = document.getElementById(
-			"harmony",
-		) as HTMLInputElement | null;
-		const harmonyType = harmonyInput
-			? (harmonyInput.value as HarmonyType)
-			: HarmonyType.COMPLEMENTARY;
-
-		handleGenerate(inputHex, harmonyType, {
-			onComplete: () => {
-				renderSidebar(paletteListEl, handlePaletteSelect);
-				updateEditor(triggerGenerate);
-				updateCVDScoreDisplay();
-				renderMain();
-			},
+	function triggerGenerate(): void {
+		handleGenerate(getKeyColorHex(keyColorsInput), getHarmonyType(), {
+			onComplete: refreshUIAndRender,
 		});
-	};
+	}
 
 	// ========================================
 	// renderMain: ビューのルーティング
 	// ========================================
 
 	/**
+	 * Toggle visibility between harmony view and app container
+	 * NOTE: .dads-section's display:flex overrides hidden attribute, so we use style.display directly
+	 */
+	function setViewVisibility(showHarmony: boolean): void {
+		if (harmonyViewEl) harmonyViewEl.style.display = showHarmony ? "" : "none";
+		appEl.style.display = showHarmony ? "none" : "";
+	}
+
+	/**
 	 * 現在のビューモードに応じてメインコンテンツをレンダリング
 	 */
 	function renderMain(): void {
-		// 現在のビューモードをDOMに反映（CSS側のスクロール制御に使用）
 		const mainContentEl = document.getElementById("main-content");
 		if (mainContentEl) {
 			mainContentEl.dataset.view = state.viewMode;
 		}
 
-		// パレット/シェード/アクセシビリティビューのコンテナを取得
-		let contentContainer = document.getElementById("demo-content");
-		if (!contentContainer) {
-			contentContainer = app;
-		}
-
+		const contentContainer = document.getElementById("demo-content") ?? appEl;
 		if (!contentContainer) return;
 
-		const keyColorHex = keyColorsInput?.value.trim() || "#3366cc";
+		const keyColorHex = getKeyColorHex(keyColorsInput);
 
-		switch (state.viewMode) {
-			case "harmony":
-				// アクセント選定ビュー表示、app非表示
-				// NOTE: .dads-sectionのdisplay:flexがhidden属性を上書きするため、style.displayを直接操作
-				if (harmonyViewEl) harmonyViewEl.style.display = "";
-				if (app) app.style.display = "none";
-				// アクセント選定ビューはharmony-view要素に直接レンダリング
-				if (harmonyViewEl) {
-					renderAccentSelectionView(harmonyViewEl, keyColorHex, {
-						onHarmonyCardClick: handleHarmonyCardClick,
-						onAccentSelect: handleAccentSelect,
-						onColorClick: handleColorClick,
-					});
-				}
-				break;
-
-			case "studio":
-				// ハーモニービュー非表示、app表示
-				// NOTE: .dads-sectionのdisplay:flexがhidden属性を上書きするため、style.displayを直接操作
-				if (harmonyViewEl) harmonyViewEl.style.display = "none";
-				if (app) app.style.display = "";
-				// 再レンダリング時のDOM重複を防ぐためコンテナをクリア
-				contentContainer.innerHTML = "";
-				renderStudioView(contentContainer, {
+		if (state.viewMode === "harmony") {
+			setViewVisibility(true);
+			if (harmonyViewEl) {
+				renderAccentSelectionView(harmonyViewEl, keyColorHex, {
+					onHarmonyCardClick: handleHarmonyCardClick,
+					onAccentSelect: handleAccentSelect,
 					onColorClick: handleColorClick,
-				}).catch(console.error);
-				break;
-
-			case "palette":
-				// ハーモニービュー非表示、app表示
-				// NOTE: .dads-sectionのdisplay:flexがhidden属性を上書きするため、style.displayを直接操作
-				if (harmonyViewEl) harmonyViewEl.style.display = "none";
-				if (app) app.style.display = "";
-				// 再レンダリング時のDOM重複を防ぐためコンテナをクリア
-				contentContainer.innerHTML = "";
-				renderPaletteView(contentContainer, {
-					onColorClick: handleColorClick,
-				}).catch(console.error);
-				break;
-
-			case "shades":
-				// ハーモニービュー非表示、app表示
-				// NOTE: .dads-sectionのdisplay:flexがhidden属性を上書きするため、style.displayを直接操作
-				if (harmonyViewEl) harmonyViewEl.style.display = "none";
-				if (app) app.style.display = "";
-				// 再レンダリング時のDOM重複を防ぐためコンテナをクリア
-				contentContainer.innerHTML = "";
-				renderShadesView(contentContainer, {
-					onColorClick: handleColorClick,
-				}).catch(console.error);
-				break;
-
-			case "accessibility":
-				// ハーモニービュー非表示、app表示
-				// NOTE: .dads-sectionのdisplay:flexがhidden属性を上書きするため、style.displayを直接操作
-				if (harmonyViewEl) harmonyViewEl.style.display = "none";
-				if (app) app.style.display = "";
-				// 再レンダリング時のDOM重複を防ぐためコンテナをクリア
-				contentContainer.innerHTML = "";
-				renderAccessibilityView(contentContainer, {
-					applySimulation,
 				});
-				break;
+			}
+		} else {
+			setViewVisibility(false);
+			contentContainer.innerHTML = "";
+
+			switch (state.viewMode) {
+				case "studio":
+					renderStudioView(contentContainer, {
+						onColorClick: handleColorClick,
+					}).catch(console.error);
+					break;
+
+				case "palette":
+					renderPaletteView(contentContainer, {
+						onColorClick: handleColorClick,
+					}).catch(console.error);
+					break;
+
+				case "shades":
+					renderShadesView(contentContainer, {
+						onColorClick: handleColorClick,
+					}).catch(console.error);
+					break;
+
+				case "accessibility":
+					renderAccessibilityView(contentContainer, {
+						applySimulation,
+					});
+					break;
+			}
 		}
 
-		// ビュー更新後にCVDスコア表示を更新
 		updateCVDScoreDisplay();
 	}
 
@@ -390,101 +370,78 @@ export async function runDemo(): Promise<void> {
 	// モジュール初期化
 	// ========================================
 
-	// ナビゲーションのセットアップ
 	setupNavigation(renderMain);
-
-	// サイドバーの初期レンダリング
-	renderSidebar(paletteListEl, handlePaletteSelect);
-
-	// エディタの初期化
+	renderSidebar(paletteList, handlePaletteSelect);
 	updateEditor(triggerGenerate);
+	setupGenerateButton();
+	setupExportControls();
+	setupCVDControls(document.querySelectorAll("#cvdTypeButtons button"), () => {
+		updateCVDScoreDisplay();
+		renderMain();
+	});
+	setupAddPaletteButton();
 
-	// 生成ボタンのセットアップ
-	if (generateSystemBtn) {
+	// Initial render based on URL state
+	if (studioUrlState) {
+		updateViewButtons("studio", renderMain);
+	} else {
+		renderMain();
+	}
+
+	function setupGenerateButton(): void {
+		if (!generateSystemBtn) return;
+
 		generateSystemBtn.onclick = () => {
-			const inputHex = keyColorsInput?.value.trim() || "#3366cc";
+			const inputHex = getKeyColorHex(keyColorsInput);
 			if (!/^#[0-9A-Fa-f]{6}$/.test(inputHex)) {
 				alert("Please enter a valid hex color (e.g., #0066CC)");
 				return;
 			}
-
-			const harmonyInput = document.getElementById(
-				"harmony",
-			) as HTMLInputElement | null;
-			const harmonyType = harmonyInput
-				? (harmonyInput.value as HarmonyType)
-				: HarmonyType.COMPLEMENTARY;
-
-			handleGenerate(inputHex, harmonyType, {
-				onComplete: () => {
-					renderSidebar(paletteListEl, handlePaletteSelect);
-					updateEditor(triggerGenerate);
-					updateCVDScoreDisplay();
-					renderMain();
-				},
+			handleGenerate(inputHex, getHarmonyType(), {
+				onComplete: refreshUIAndRender,
 			});
 		};
 	}
 
-	// エクスポートハンドラのセットアップ
-	const exportElements = {
-		exportBtn: document.getElementById("export-btn"),
-		exportDialog: document.getElementById(
-			"export-dialog",
-		) as HTMLDialogElement | null,
-		exportArea: document.getElementById(
-			"export-area",
-		) as HTMLTextAreaElement | null,
-		exportFormatButtons: document.querySelectorAll(
-			"#export-format-buttons button",
-		),
-		exportCopyBtn: document.getElementById("export-copy-btn"),
-		exportDownloadBtn: document.getElementById("export-download-btn"),
-	};
-	setupExportHandlers(exportElements);
+	function setupExportControls(): void {
+		setupExportHandlers({
+			exportBtn: document.getElementById("export-btn"),
+			exportDialog: document.getElementById(
+				"export-dialog",
+			) as HTMLDialogElement | null,
+			exportArea: document.getElementById(
+				"export-area",
+			) as HTMLTextAreaElement | null,
+			exportFormatButtons: document.querySelectorAll(
+				"#export-format-buttons button",
+			),
+			exportCopyBtn: document.getElementById("export-copy-btn"),
+			exportDownloadBtn: document.getElementById("export-download-btn"),
+		});
 
-	// ダイレクトエクスポートボタンのセットアップ
-	setupDirectExportButtons(
-		document.getElementById("export-css"),
-		document.getElementById("export-tailwind"),
-		document.getElementById("export-json"),
-	);
+		setupDirectExportButtons(
+			document.getElementById("export-css"),
+			document.getElementById("export-tailwind"),
+			document.getElementById("export-json"),
+		);
+	}
 
-	// CVDコントロールのセットアップ
-	const cvdButtons = document.querySelectorAll("#cvdTypeButtons button");
-	setupCVDControls(cvdButtons, () => {
-		updateCVDScoreDisplay();
-		renderMain();
-	});
+	function setupAddPaletteButton(): void {
+		const addPaletteBtn = document.getElementById("add-palette");
+		if (!addPaletteBtn) return;
 
-	// Add Palette ボタンのセットアップ
-	const addPaletteBtn = document.getElementById("add-palette");
-	if (addPaletteBtn) {
 		addPaletteBtn.onclick = () => {
 			const id = `custom-${Date.now()}`;
 			state.palettes.push({
 				id,
 				name: `Custom Palette ${state.palettes.length + 1}`,
 				keyColors: ["#000", "#fff"],
-				ratios: [21, 15, 10, 7, 4.5, 3, 1],
+				ratios: DEFAULT_RATIOS,
 				harmony: HarmonyType.NONE,
 			});
 			state.activeId = id;
-			renderSidebar(paletteListEl, handlePaletteSelect);
-			updateEditor(triggerGenerate);
+			refreshUI();
 			renderMain();
 		};
-	}
-
-	// ========================================
-	// 初期レンダリング
-	// ========================================
-
-	// URL共有（#studio=...）がある場合は初期表示をStudioへ切替
-	if (studioUrlState) {
-		updateViewButtons("studio", renderMain);
-	} else {
-		// 初期状態でharmonyビューを表示
-		renderMain();
 	}
 }

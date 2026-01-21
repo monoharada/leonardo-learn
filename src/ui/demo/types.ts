@@ -15,18 +15,12 @@ import type { HarmonyType } from "@/core/harmony";
 import type { CudCompatibilityMode } from "@/ui/cud-components";
 import type { ContrastIntensity } from "@/ui/style-constants";
 
-/**
- * キーカラーとステップの組み合わせ
- * ステップは50, 100, 200, ..., 1200のトークン番号
- */
+/** キーカラーとステップの組み合わせ（ステップは50, 100, 200, ..., 1200） */
 export interface KeyColorWithStep {
 	color: string;
 	step?: number;
 }
 
-/**
- * パレット設定
- */
 export interface PaletteConfig {
 	id: string;
 	name: string;
@@ -50,27 +44,15 @@ export interface PaletteConfig {
 	};
 }
 
-/**
- * 明度分布タイプ
- */
 export type LightnessDistribution = "linear" | "easeIn" | "easeOut";
 
-/**
- * 背景色のモード（light/dark）
- * OKLCH明度（L値）で自動判定: L > 0.5 → light, L ≤ 0.5 → dark
- */
+/** 背景色のモード。OKLCH明度（L値）で自動判定: L > 0.5 → light, L <= 0.5 → dark */
 export type ColorMode = "light" | "dark";
 
-/**
- * 背景色入力のバリデーション結果
- * @see Requirements: 1.4, 1.5
- */
+/** 背景色入力のバリデーション結果 */
 export interface BackgroundColorValidationResult {
-	/** バリデーション成功フラグ */
 	valid: boolean;
-	/** エラーメッセージ（valid=false時） */
 	error?: string;
-	/** 変換されたHEX値（valid=true時） */
 	hex?: string;
 }
 
@@ -82,6 +64,8 @@ export type StudioPresetType =
 	| "dark";
 
 export interface LockedColorsState {
+	background: boolean;
+	text: boolean;
 	primary: boolean;
 	accent: boolean;
 	error: boolean;
@@ -90,15 +74,10 @@ export interface LockedColorsState {
 }
 
 export interface PreviewKvState {
-	/** trueならKVは固定seedで表示（パレット変更で自動更新しない） */
 	locked: boolean;
-	/** 固定seed（Shuffleで更新） */
 	seed: number;
 }
 
-/**
- * ビューモード
- */
 export type ViewMode =
 	| "harmony"
 	| "palette"
@@ -106,43 +85,22 @@ export type ViewMode =
 	| "accessibility"
 	| "studio";
 
-/**
- * 警告色パターンタイプ
- * - "yellow": 黄色系（Warning-YL1/YL2: yellow-700/900）
- * - "orange": オレンジ系（Warning-OR1/OR2: orange-600/800）
- * - "auto": CUD分析に基づく自動選択
- */
+/** 警告色パターン: yellow, orange, or auto (CUD分析に基づく自動選択) */
 export type WarningPatternType = "yellow" | "orange" | "auto";
 
-/**
- * 自動選択の詳細情報
- */
 export interface WarningPatternAutoDetails {
-	/** 黄色パターンのスコア（0-100） */
 	yellowScore: number;
-	/** オレンジパターンのスコア（0-100） */
 	orangeScore: number;
-	/** 選択理由の説明 */
 	reason: string;
 }
 
-/**
- * セマンティックカラー設定
- * 警告色のパターン選択状態を管理
- */
 export interface SemanticColorConfig {
-	/** 選択された警告色パターン */
 	warningPattern: WarningPatternType;
-	/** 自動選択時に解決されたパターン（auto時のみ使用） */
 	resolvedWarningPattern?: "yellow" | "orange";
-	/** 自動選択の詳細情報（auto時のみ使用） */
 	autoSelectionDetails?: WarningPatternAutoDetails;
 }
 
-/**
- * ハーモニータイプの設定（カード表示用）
- * @deprecated Section 7以降はAccentHarmonyTypeConfigを使用
- */
+/** @deprecated Section 7以降はAccentHarmonyTypeConfigを使用 */
 export interface HarmonyTypeConfig {
 	id: string;
 	name: string;
@@ -151,25 +109,17 @@ export interface HarmonyTypeConfig {
 	detail: string;
 }
 
-/**
- * アクセント選定用ハーモニータイプ設定
- * HarmonyFilterTypeベースのUI表示用メタデータ
- */
+/** アクセント選定用ハーモニータイプ設定 */
 export interface AccentHarmonyTypeConfig {
 	id: HarmonyFilterType;
 	name: string;
 	description: string;
 }
 
-/**
- * CVDシミュレーションタイプ
- * "normal"はシミュレーションなし、他はCVDType
- */
+/** CVDシミュレーションタイプ。"normal"はシミュレーションなし。 */
 export type CVDSimulationType = "normal" | CVDType;
 
-/**
- * デモ機能のグローバル状態
- */
+/** デモ機能のグローバル状態 */
 export interface DemoState {
 	palettes: PaletteConfig[];
 	shadesPalettes: PaletteConfig[];
@@ -179,37 +129,22 @@ export interface DemoState {
 	lightnessDistribution: LightnessDistribution;
 	viewMode: ViewMode;
 	cvdSimulation: CVDSimulationType;
-	/**
-	 * @deprecated Section 7以降はselectedAccentFilterを使用
-	 */
+	/** @deprecated Section 7以降はselectedAccentFilterを使用 */
 	selectedHarmonyConfig: HarmonyTypeConfig | null;
-	/** 選択されたアクセントハーモニーフィルタ */
 	selectedAccentFilter: HarmonyFilterType;
 	cudMode: CudCompatibilityMode;
-	/** ライト背景色（HEX形式、デフォルト: #ffffff） */
 	lightBackgroundColor: string;
-	/** テキスト色（HEX形式、デフォルト: #000000） */
 	darkBackgroundColor: string;
-	/** アクセントカラー数（1-3）。P+S+T+アクセント=4-6色 */
 	accentCount: 1 | 2 | 3;
-	/** Studioビュー用: アクセントカラー数（3-6）。キーカラーとは別枠 */
-	studioAccentCount: 3 | 4 | 5 | 6;
-	/** セマンティックカラー設定（警告色パターン選択） */
+	studioAccentCount: 2 | 3 | 4;
 	semanticColorConfig: SemanticColorConfig;
-	/** Studioビュー用: ロック状態 */
 	lockedColors: LockedColorsState;
-	/** Studioビュー用: 選択中プリセット */
 	activePreset: StudioPresetType;
-	/** Studioビュー用: 乱数シード（Generateの再現性/デバッグ用） */
 	studioSeed: number;
-	/** PreviewのヒーローKV（メインビジュアル）設定 */
 	previewKv: PreviewKvState;
 }
 
-/**
- * 色詳細モーダルのオプション
- * View→Feature間のコールバック型として共有層に配置
- */
+/** 色詳細モーダルのオプション */
 export interface ColorDetailModalOptions {
 	stepColor: Color;
 	keyColor: Color;
@@ -218,45 +153,28 @@ export interface ColorDetailModalOptions {
 		colors: Color[];
 		keyIndex: number;
 		hexValues?: string[];
-		/** 各色の表示名（カスタムキーカラー用）例: ["プライマリー", "セカンダリー", "ターシャリー"] */
 		names?: string[];
 	};
 	paletteInfo: {
 		name: string;
 		baseChromaName?: string;
-		/** パレットID（名前編集時に必要） */
 		paletteId?: string;
-		/** DADSステップ番号（50, 100, ..., 1200） */
 		step?: number;
 	};
 	readOnly?: boolean;
-	/** クリックした色の元のHEX値 */
 	originalHex?: string;
 }
 
-export type { CVDType } from "@/accessibility/cvd-simulator";
-export type { HarmonyFilterType } from "@/core/accent/harmony-filter-calculator";
-export type { Color } from "@/core/color";
-/**
- * 外部型の再エクスポート
- * モジュール間の依存を簡潔にするため
- */
-export type { HarmonyType } from "@/core/harmony";
-export type { CudCompatibilityMode } from "@/ui/cud-components";
-export type { ContrastIntensity } from "@/ui/style-constants";
-
-/**
- * キーカラーから@stepサフィックスを除去してHEX値のみを返す
- *
- * @example
- * stripStepSuffix("#3366cc@500") // => "#3366cc"
- * stripStepSuffix("#3366cc")     // => "#3366cc"
- * stripStepSuffix("")            // => ""
- *
- * @param keyColor - キーカラー文字列（"#hex" または "#hex@step" 形式）
- * @returns HEX値のみの文字列
- */
+/** キーカラーから@stepサフィックスを除去してHEX値のみを返す */
 export function stripStepSuffix(keyColor: string): string {
 	if (!keyColor) return "";
 	return keyColor.split("@")[0] ?? keyColor;
 }
+
+// Re-exports for module convenience
+export type { CVDType } from "@/accessibility/cvd-simulator";
+export type { HarmonyFilterType } from "@/core/accent/harmony-filter-calculator";
+export type { Color } from "@/core/color";
+export type { HarmonyType } from "@/core/harmony";
+export type { CudCompatibilityMode } from "@/ui/cud-components";
+export type { ContrastIntensity } from "@/ui/style-constants";
