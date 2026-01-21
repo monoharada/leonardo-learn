@@ -12,9 +12,12 @@
 
 import { wcagContrast } from "culori";
 import { generateCandidates } from "@/core/accent/accent-candidate-service";
-import { findNearestChroma } from "@/core/base-chroma";
 import { Color } from "@/core/color";
-import { HarmonyType } from "@/core/harmony";
+import {
+	generateHarmonyPalette,
+	HarmonyType,
+	initializeHarmonyDads,
+} from "@/core/harmony";
 import {
 	findDadsColorByHex,
 	getDadsColorsByHue,
@@ -36,6 +39,14 @@ import type {
 } from "../types";
 import { stripStepSuffix } from "../types";
 import { copyTextToClipboard } from "../utils/clipboard";
+import {
+	type DadsSnapResult,
+	inferBaseChromaNameFromHex,
+	matchesPreset,
+	resolvePresetMinContrast,
+	selectHueDistantColors,
+	snapToNearestDadsToken,
+} from "../utils/dads-snap";
 import {
 	resolveAccentSourcePalette,
 	resolveWarningPattern,
@@ -70,6 +81,17 @@ const STUDIO_PRESET_LABELS: Record<StudioPresetType, string> = {
 	dark: "Dark",
 };
 
+/** Studioでランダム選択対象のハーモニータイプ */
+const STUDIO_HARMONY_TYPES: HarmonyType[] = [
+	HarmonyType.NONE,
+	HarmonyType.COMPLEMENTARY,
+	HarmonyType.TRIADIC,
+	HarmonyType.ANALOGOUS,
+	HarmonyType.SPLIT_COMPLEMENTARY,
+	HarmonyType.TETRADIC,
+	HarmonyType.SQUARE,
+];
+
 function gradeContrast(ratio: number): ContrastBadgeGrade {
 	if (ratio >= CONTRAST_THRESHOLDS.AAA) return "AAA";
 	if (ratio >= CONTRAST_THRESHOLDS.AA) return "AA";
@@ -77,47 +99,10 @@ function gradeContrast(ratio: number): ContrastBadgeGrade {
 	return "Fail";
 }
 
-function resolvePresetMinContrast(preset: StudioPresetType): number {
-	switch (preset) {
-		case "high-contrast":
-			return 7;
-		case "pastel":
-			return 3;
-		default:
-			return 4.5;
-	}
-}
-
-function matchesPreset(hex: string, preset: StudioPresetType): boolean {
-	const oklch = new Color(hex).oklch;
-	if (!oklch) return true;
-
-	const l = oklch.l ?? 0.5;
-	const c = oklch.c ?? 0;
-
-	switch (preset) {
-		case "pastel":
-			return l >= 0.75 && c <= 0.1;
-		case "vibrant":
-			return c >= 0.12 && l >= 0.35 && l <= 0.85;
-		case "dark":
-			return l <= 0.4;
-		case "high-contrast":
-		case "default":
-			return true;
-	}
-}
-
 function pickRandom<T>(items: readonly T[], rnd: () => number): T | null {
 	if (items.length === 0) return null;
 	const index = Math.floor(rnd() * items.length);
 	return items[index] ?? null;
-}
-
-function inferBaseChromaNameFromHex(hex: string): string {
-	const parsed = new Color(hex).oklch;
-	const hue = parsed?.h ?? 0;
-	return findNearestChroma(hue).displayName;
 }
 
 function getPrimaryPalette(): PaletteConfig | undefined {
@@ -334,7 +319,7 @@ async function selectRandomAccentCandidates(
 	backgroundHex: string,
 	count: number,
 	rnd: () => number,
-): Promise<Array<{ hex: string; step?: number; baseChromaName?: string }>> {
+): Promise<DadsSnapResult[]> {
 	const response = await generateCandidates(brandHex, {
 		backgroundHex,
 		limit: Math.max(60, count * 30),
@@ -369,16 +354,134 @@ async function selectRandomAccentCandidates(
 	}));
 }
 
+/**
+ * 補色拡張: Primary補色 + Secondary補色（Primary+210°）の2色を生成
+ * 計算結果は最も近いDADSトークンにスナップする
+ */
+function selectComplementaryExtendedAccents(
+	primaryHex: string,
+	dadsTokens: DadsToken[],
+	preset: StudioPresetType,
+): DadsSnapResult[] {
+	const primaryColor = new Color(primaryHex);
+	const primaryOklch = primaryColor.oklch;
+	const hue = primaryOklch?.h ?? 0;
+	const lightness = primaryOklch?.l ?? 0.5;
+	const chroma = primaryOklch?.c ?? 0.1;
+
+	const results: DadsSnapResult[] = [];
+
+	// Accent 1: 補色（+180°）
+	const complementHue = (hue + 180) % 360;
+	const accent1Color = new Color({
+		mode: "oklch",
+		l: lightness,
+		c: chroma,
+		h: complementHue,
+	});
+	const accent1Calculated = accent1Color.toHex();
+	const snapped1 = snapToNearestDadsToken(
+		accent1Calculated,
+		dadsTokens,
+		preset,
+	);
+	if (snapped1) {
+		results.push(snapped1);
+	}
+
+	// Accent 2: 補色から+30°（Split Complementary風: Primary+210°）
+	const splitHue = (hue + 210) % 360;
+	const accent2Color = new Color({
+		mode: "oklch",
+		l: lightness,
+		c: chroma,
+		h: splitHue,
+	});
+	const accent2Calculated = accent2Color.toHex();
+	const snapped2 = snapToNearestDadsToken(
+		accent2Calculated,
+		dadsTokens,
+		preset,
+	);
+	if (snapped2) {
+		results.push(snapped2);
+	}
+
+	return results;
+}
+
+/**
+ * ハーモニーに基づいてアクセントカラーを生成
+ * targetCountに満たない場合は色相が離れた色で補完
+ */
+async function selectHarmonyAccentCandidates(
+	primaryHex: string,
+	harmonyType: HarmonyType,
+	dadsTokens: DadsToken[],
+	preset: StudioPresetType,
+	backgroundHex: string,
+	rnd: () => number,
+	targetCount: number,
+): Promise<DadsSnapResult[]> {
+	await initializeHarmonyDads();
+
+	const primaryColor = new Color(primaryHex);
+
+	// ハーモニーベースの色を生成
+	let harmonyAccents: DadsSnapResult[];
+
+	if (harmonyType === HarmonyType.COMPLEMENTARY) {
+		harmonyAccents = selectComplementaryExtendedAccents(
+			primaryHex,
+			dadsTokens,
+			preset,
+		);
+	} else {
+		const harmonyPalette = generateHarmonyPalette(primaryColor, harmonyType);
+		const accentColors = harmonyPalette.filter(
+			(sc) => sc.role === "secondary" || sc.role === "accent",
+		);
+		// ハーモニー計算結果を最も近いDADSトークンにスナップ
+		harmonyAccents = [];
+		for (const sc of accentColors) {
+			const calculatedHex = sc.keyColor.toHex();
+			const snapped = snapToNearestDadsToken(calculatedHex, dadsTokens, preset);
+			if (snapped) {
+				harmonyAccents.push(snapped);
+			}
+		}
+	}
+
+	// 不足分を補完
+	if (harmonyAccents.length < targetCount) {
+		const primaryOklch = primaryColor.oklch;
+		const existingHues = [
+			primaryOklch?.h ?? 0,
+			...harmonyAccents.map((a) => new Color(a.hex).oklch?.h ?? 0),
+		];
+
+		const needed = targetCount - harmonyAccents.length;
+		const complementary = selectHueDistantColors(
+			existingHues,
+			needed,
+			dadsTokens,
+			preset,
+			backgroundHex,
+			rnd,
+		);
+
+		harmonyAccents = [...harmonyAccents, ...complementary];
+	}
+
+	return harmonyAccents;
+}
+
 async function rebuildStudioPalettes(options: {
 	dadsTokens: DadsToken[];
 	primaryHex: string;
 	primaryStep?: number;
 	primaryBaseChromaName?: string;
-	accentCandidates?: Array<{
-		hex: string;
-		step?: number;
-		baseChromaName?: string;
-	}>;
+	accentCandidates?: DadsSnapResult[];
 }): Promise<void> {
 	const timestamp = Date.now();
 	const backgroundColor = "#ffffff";
@@ -478,26 +581,38 @@ async function generateNewStudioPalette(
 		primaryBaseChromaName = selected.baseChromaName;
 	}
 
+	// ハーモニータイプをランダム選択
+	const harmonyType = pickRandom(STUDIO_HARMONY_TYPES, rnd) ?? HarmonyType.NONE;
+
 	const targetAccentCount = Math.max(2, Math.min(4, state.studioAccentCount));
-	let accentCandidates: Array<{
-		hex: string;
-		step?: number;
-		baseChromaName?: string;
-	}> = [];
+	let accentCandidates: DadsSnapResult[] = [];
 
 	if (state.lockedColors.accent) {
+		// アクセントがロックされている場合は既存の色を維持
 		const current = currentPrimary.accentHexes.slice(0, targetAccentCount);
 		accentCandidates = current.map((hex) => {
 			const dadsInfo = findDadsColorByHex(dadsTokens, hex);
 			return { hex, step: dadsInfo?.scale };
 		});
-	} else {
+	} else if (harmonyType === HarmonyType.NONE) {
+		// NONE: 従来のランダム候補生成
 		accentCandidates = await selectRandomAccentCandidates(
 			primaryHex,
 			state.activePreset,
 			backgroundHex,
 			targetAccentCount,
 			rnd,
+		);
+	} else {
+		// ハーモニーに基づくアクセント生成
+		accentCandidates = await selectHarmonyAccentCandidates(
+			primaryHex,
+			harmonyType,
+			dadsTokens,
+			state.activePreset,
+			backgroundHex,
+			rnd,
+			targetAccentCount,
 		);
 	}
 
@@ -700,11 +815,7 @@ export async function renderStudioView(
 					const keep = existing.slice(0, desired);
 					const missing = desired - keep.length;
 
-					let extra: Array<{
-						hex: string;
-						step?: number;
-						baseChromaName?: string;
-					}> = [];
+					let extra: DadsSnapResult[] = [];
 					if (missing > 0) {
 						const seed = (state.studioSeed || 0) ^ desired;
 						const rnd = createSeededRandom(seed);
