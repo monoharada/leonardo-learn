@@ -165,4 +165,5 @@ export const DEFAULT_STATE: DemoState = {
 		locked: false,
 		seed: 0,
 	},
+	studioTheme: "hero",
 };

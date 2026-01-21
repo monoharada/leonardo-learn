@@ -9,7 +9,7 @@
  * @module @/ui/demo/studio-url-state
  */
 
-import type { PreviewKvState, StudioPresetType } from "./types";
+import type { PreviewKvState, StudioPresetType, StudioTheme } from "./types";
 
 /** Common fields shared by all StudioUrlState versions */
 interface StudioUrlStateBase {
@@ -19,6 +19,7 @@ interface StudioUrlStateBase {
 	locks: { primary: boolean; accent: boolean };
 	kv: PreviewKvState;
 	studioSeed: number;
+	theme?: StudioTheme;
 }
 
 export interface StudioUrlStateV1 extends StudioUrlStateBase {
@@ -35,21 +36,17 @@ export type StudioUrlState = StudioUrlStateV1 | StudioUrlStateV2;
 
 const STUDIO_HASH_PREFIX = "#studio=" as const;
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null;
-}
+const isRecord = (v: unknown): v is Record<string, unknown> =>
+	typeof v === "object" && v !== null;
 
-function isBoolean(value: unknown): value is boolean {
-	return typeof value === "boolean";
-}
+const isBoolean = (v: unknown): v is boolean => typeof v === "boolean";
 
-function isNumber(value: unknown): value is number {
-	return typeof value === "number" && Number.isFinite(value);
-}
+const isNumber = (v: unknown): v is number =>
+	typeof v === "number" && Number.isFinite(v);
 
-function isHex6(value: unknown): value is string {
-	return typeof value === "string" && /^#[0-9A-Fa-f]{6}$/.test(value.trim());
-}
+const HEX6_PATTERN = /^#[0-9A-Fa-f]{6}$/;
+const isHex6 = (v: unknown): v is string =>
+	typeof v === "string" && HEX6_PATTERN.test(v.trim());
 
 const STUDIO_PRESETS: ReadonlySet<StudioPresetType> = new Set([
 	"default",
@@ -59,14 +56,23 @@ const STUDIO_PRESETS: ReadonlySet<StudioPresetType> = new Set([
 	"dark",
 ]);
 
-function isStudioPreset(value: unknown): value is StudioPresetType {
-	return (
-		typeof value === "string" && STUDIO_PRESETS.has(value as StudioPresetType)
-	);
-}
+const isStudioPreset = (v: unknown): v is StudioPresetType =>
+	typeof v === "string" && STUDIO_PRESETS.has(v as StudioPresetType);
 
-function toLowerHex(value: string): string {
-	return value.trim().toLowerCase();
+const STUDIO_THEMES: ReadonlySet<StudioTheme> = new Set([
+	"pinpoint",
+	"hero",
+	"branding",
+]);
+
+const isStudioTheme = (v: unknown): v is StudioTheme =>
+	typeof v === "string" && STUDIO_THEMES.has(v as StudioTheme);
+
+const toLowerHex = (value: string): string => value.trim().toLowerCase();
+
+/** Node.js/Bun Buffer type for base64 encoding/decoding fallback */
+interface NodeBuffer {
+	from(value: string, encoding: string): { toString(encoding: string): string };
 }
 
 function base64Encode(value: string): string {
@@ -74,9 +80,9 @@ function base64Encode(value: string): string {
 		return globalThis.btoa(value);
 	}
 	// Bun/Node fallback (not used in browser builds)
-	const buf = (globalThis as any).Buffer?.from?.(value, "utf8");
-	if (!buf) throw new Error("No base64 encoder available");
-	return buf.toString("base64");
+	const Buffer = (globalThis as { Buffer?: NodeBuffer }).Buffer;
+	if (!Buffer) throw new Error("No base64 encoder available");
+	return Buffer.from(value, "utf8").toString("base64");
 }
 
 function base64Decode(value: string): string {
@@ -84,9 +90,9 @@ function base64Decode(value: string): string {
 		return globalThis.atob(value);
 	}
 	// Bun/Node fallback (not used in browser builds)
-	const buf = (globalThis as any).Buffer?.from?.(value, "base64");
-	if (!buf) throw new Error("No base64 decoder available");
-	return buf.toString("utf8");
+	const Buffer = (globalThis as { Buffer?: NodeBuffer }).Buffer;
+	if (!Buffer) throw new Error("No base64 decoder available");
+	return Buffer.from(value, "base64").toString("utf8");
 }
 
 function toBase64Url(value: string): string {
@@ -140,6 +146,10 @@ function parseCommonFields(
 	const accentsRaw = parsed.accents;
 	if (!Array.isArray(accentsRaw)) return null;
 
+	// テーマはオプショナル（後方互換性のため）、デフォルトは"hero"
+	const themeRaw = parsed.theme;
+	const theme: StudioTheme = isStudioTheme(themeRaw) ? themeRaw : "hero";
+
 	return {
 		primary: toLowerHex(primaryRaw),
 		accents: accentsRaw.filter(isHex6).map(toLowerHex),
@@ -147,6 +157,7 @@ function parseCommonFields(
 		locks: { primary: locksRaw.primary, accent: locksRaw.accent },
 		kv: { locked: kvRaw.locked, seed: kvRaw.seed },
 		studioSeed: studioSeedRaw,
+		theme,
 	};
 }
 

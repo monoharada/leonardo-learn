@@ -32,6 +32,7 @@ import type {
 	PaletteConfig,
 	PreviewKvState,
 	StudioPresetType,
+	StudioTheme,
 } from "../types";
 import { stripStepSuffix } from "../types";
 import { copyTextToClipboard } from "../utils/clipboard";
@@ -52,6 +53,10 @@ export interface StudioViewCallbacks {
 
 type ContrastBadgeGrade = "AAA" | "AA" | "AA Large" | "Fail";
 
+/** HEX6 color pattern for validation */
+const HEX6_PATTERN = /^#[0-9A-Fa-f]{6}$/;
+const isValidHex6 = (hex: string): boolean => HEX6_PATTERN.test(hex);
+
 const CONTRAST_THRESHOLDS: Record<
 	Exclude<ContrastBadgeGrade, "Fail">,
 	number
@@ -67,6 +72,12 @@ const STUDIO_PRESET_LABELS: Record<StudioPresetType, string> = {
 	pastel: "Pastel",
 	vibrant: "Vibrant",
 	dark: "Dark",
+};
+
+const STUDIO_THEME_LABELS: Record<StudioTheme, string> = {
+	pinpoint: "ピンポイント",
+	hero: "ヒーローエリア",
+	branding: "ブランディング",
 };
 
 function gradeContrast(ratio: number): ContrastBadgeGrade {
@@ -146,14 +157,24 @@ function getAccentPalettes(palettes: PaletteConfig[]): PaletteConfig[] {
 function getAccentHexes(palettes: PaletteConfig[]): string[] {
 	const fromAccents = getAccentPalettes(palettes)
 		.map((p) => stripStepSuffix(p.keyColors[0] ?? ""))
-		.filter((hex) => /^#[0-9A-Fa-f]{6}$/.test(hex));
+		.filter((hex) => isValidHex6(hex));
 
 	if (fromAccents.length > 0) return fromAccents;
 
 	const fallback = stripStepSuffix(
 		resolveAccentSourcePalette(palettes)?.keyColors[0] ?? "",
 	);
-	return /^#[0-9A-Fa-f]{6}$/.test(fallback) ? [fallback] : [];
+	return isValidHex6(fallback) ? [fallback] : [];
+}
+
+function getTertiaryHex(palettes: PaletteConfig[]): string | undefined {
+	const tertiaryPalette = palettes.find(
+		(p) =>
+			p.name === "Tertiary" || p.derivedFrom?.derivationType === "tertiary",
+	);
+	if (!tertiaryPalette) return undefined;
+	const hex = stripStepSuffix(tertiaryPalette.keyColors[0] ?? "");
+	return isValidHex6(hex) ? hex : undefined;
 }
 
 const studioButtonTextResetTimers = new WeakMap<
@@ -214,6 +235,7 @@ function computePaletteColors(dadsTokens: DadsToken[]): {
 	primaryStep?: number;
 	accentHex: string;
 	accentHexes: string[];
+	tertiaryHex?: string;
 	semantic: { error: string; success: string; warning: string };
 } {
 	const primaryPalette = getPrimaryPalette();
@@ -226,6 +248,7 @@ function computePaletteColors(dadsTokens: DadsToken[]): {
 
 	const accentHexes = getAccentHexes(state.palettes);
 	const accentHex = accentHexes[0] || "#259063";
+	const tertiaryHex = getTertiaryHex(state.palettes);
 
 	const warningPattern = resolveWarningPattern(state.semanticColorConfig);
 	const warningHue = warningPattern === "orange" ? "orange" : "yellow";
@@ -236,6 +259,7 @@ function computePaletteColors(dadsTokens: DadsToken[]): {
 		primaryStep,
 		accentHex,
 		accentHexes,
+		tertiaryHex,
 		semantic: {
 			error: getDadsSemanticHex(dadsTokens, "red", 800, "#FF2800"),
 			success: getDadsSemanticHex(dadsTokens, "green", 600, "#35A16B"),
@@ -383,7 +407,7 @@ async function rebuildStudioPalettes(options: {
 	const backgroundColor = "#ffffff";
 
 	const primaryKeyColor =
-		options.primaryStep && /^#[0-9A-Fa-f]{6}$/.test(options.primaryHex)
+		options.primaryStep && isValidHex6(options.primaryHex)
 			? `${options.primaryHex}@${options.primaryStep}`
 			: options.primaryHex;
 
@@ -413,7 +437,7 @@ async function rebuildStudioPalettes(options: {
 			if (!candidate) continue;
 
 			const accentKeyColor =
-				candidate.step && /^#[0-9A-Fa-f]{6}$/.test(candidate.hex)
+				candidate.step && isValidHex6(candidate.hex)
 					? `${candidate.hex}@${candidate.step}`
 					: candidate.hex;
 
@@ -586,6 +610,7 @@ function buildShareUrl(dadsTokens: DadsToken[]): string {
 		},
 		kv: state.previewKv,
 		studioSeed: state.studioSeed,
+		theme: state.studioTheme,
 	};
 
 	const url = new URL(window.location.href);
@@ -673,77 +698,6 @@ export async function renderStudioView(
 		return row;
 	};
 
-	const accentCountButtons = document.createElement("div");
-	accentCountButtons.className = "dads-button-group";
-	accentCountButtons.setAttribute("aria-label", "アクセント色数");
-
-	([2, 3, 4] as const).forEach((count) => {
-		const btn = document.createElement("button");
-		btn.type = "button";
-		btn.className = "dads-button";
-		btn.dataset.size = "sm";
-		btn.dataset.type = "text";
-		btn.dataset.active = String(state.studioAccentCount === count);
-		btn.textContent = String(count);
-		btn.onclick = async () => {
-			state.studioAccentCount = count;
-			try {
-				// 既存Primaryを維持しつつ、アクセントだけ再生成（必要な場合のみ）
-				if (state.palettes.length > 0) {
-					const current = computePaletteColors(dadsTokens);
-					const backgroundHex = "#ffffff";
-					const existing = current.accentHexes;
-					const desired = Math.max(2, Math.min(4, state.studioAccentCount));
-
-					const keep = existing.slice(0, desired);
-					const missing = desired - keep.length;
-
-					let extra: Array<{
-						hex: string;
-						step?: number;
-						baseChromaName?: string;
-					}> = [];
-					if (missing > 0) {
-						const seed = (state.studioSeed || 0) ^ desired;
-						const rnd = createSeededRandom(seed);
-						const picked = await selectRandomAccentCandidates(
-							current.primaryHex,
-							state.activePreset,
-							backgroundHex,
-							desired,
-							rnd,
-						);
-						const keepSet = new Set(keep.map((h) => h.toLowerCase()));
-						extra = picked
-							.filter((p) => !keepSet.has(p.hex.toLowerCase()))
-							.slice(0, missing);
-					}
-
-					const accentCandidates = [
-						...keep.map((hex) => {
-							const dadsInfo = findDadsColorByHex(dadsTokens, hex);
-							return { hex, step: dadsInfo?.scale };
-						}),
-						...extra,
-					].slice(0, desired);
-
-					await rebuildStudioPalettes({
-						dadsTokens,
-						primaryHex: current.primaryHex,
-						primaryStep: current.primaryStep,
-						primaryBaseChromaName: inferBaseChromaNameFromHex(
-							current.primaryHex,
-						),
-						accentCandidates,
-					});
-				}
-			} finally {
-				void renderStudioView(container, callbacks);
-			}
-		};
-		accentCountButtons.appendChild(btn);
-	});
-
 	const presetButtons = document.createElement("div");
 	presetButtons.className = "dads-button-group";
 	presetButtons.setAttribute("aria-label", "ジェネレートプリセット");
@@ -765,9 +719,27 @@ export async function renderStudioView(
 		},
 	);
 
-	settingsPanel.appendChild(
-		createSettingGroup("アクセント色数", accentCountButtons),
-	);
+	// テーマ選択ボタン
+	const themeButtons = document.createElement("div");
+	themeButtons.className = "dads-button-group";
+	themeButtons.setAttribute("aria-label", "テーマ");
+
+	(Object.keys(STUDIO_THEME_LABELS) as StudioTheme[]).forEach((theme) => {
+		const btn = document.createElement("button");
+		btn.type = "button";
+		btn.className = "dads-button";
+		btn.dataset.size = "sm";
+		btn.dataset.type = "text";
+		btn.dataset.active = String(state.studioTheme === theme);
+		btn.textContent = STUDIO_THEME_LABELS[theme];
+		btn.onclick = () => {
+			state.studioTheme = theme;
+			void renderStudioView(container, callbacks);
+		};
+		themeButtons.appendChild(btn);
+	});
+
+	settingsPanel.appendChild(createSettingGroup("テーマ", themeButtons));
 	settingsPanel.appendChild(createSettingGroup("プリセット", presetButtons));
 
 	settingsDetails.onkeydown = (event) => {
@@ -1178,7 +1150,7 @@ export async function renderStudioView(
 
 	// Background color swatch (before Primary)
 	const handleBackgroundColorChange = (newHex: string) => {
-		if (!/^#[0-9A-Fa-f]{6}$/i.test(newHex)) return;
+		if (!isValidHex6(newHex)) return;
 		state.lightBackgroundColor = newHex;
 		// Update preview
 		void renderStudioView(container, callbacks);
@@ -1195,7 +1167,7 @@ export async function renderStudioView(
 
 	// Text color swatch (before Primary)
 	const handleTextColorChange = (newHex: string) => {
-		if (!/^#[0-9A-Fa-f]{6}$/i.test(newHex)) return;
+		if (!isValidHex6(newHex)) return;
 		state.darkBackgroundColor = newHex;
 		// Update preview
 		void renderStudioView(container, callbacks);
@@ -1212,7 +1184,7 @@ export async function renderStudioView(
 
 	// Primary color swatch (with color picker)
 	const handlePrimaryColorChange = async (newHex: string) => {
-		if (!/^#[0-9A-Fa-f]{6}$/i.test(newHex)) return;
+		if (!isValidHex6(newHex)) return;
 		const baseChromaName = inferBaseChromaNameFromHex(newHex);
 		const dadsInfo =
 			dadsTokens.length > 0 ? findDadsColorByHex(dadsTokens, newHex) : null;
@@ -1380,6 +1352,8 @@ export async function renderStudioView(
 		getDisplayHex,
 		kv: state.previewKv,
 		accentHexes: resolvedAccentHexes,
+		tertiaryHex: paletteColors.tertiaryHex,
+		theme: state.studioTheme,
 	});
 	previewSection.appendChild(preview);
 	container.appendChild(previewSection);

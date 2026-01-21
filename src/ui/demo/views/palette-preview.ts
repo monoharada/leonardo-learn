@@ -18,7 +18,7 @@ import { getContrastTextColor } from "@/ui/semantic-role/circular-swatch-transfo
 import bundledMainVisualSvgText from "../assets/main-visual.svg" with {
 	type: "text",
 };
-import type { PreviewKvState } from "../types";
+import type { PreviewKvState, StudioTheme } from "../types";
 
 /**
  * WCAG AA準拠のコントラスト比閾値
@@ -108,6 +108,10 @@ export interface PalettePreviewOptions {
 	kv?: PreviewKvState;
 	/** 複数アクセントの表示用（任意）。先頭がAccent 1想定。 */
 	accentHexes?: string[];
+	/** ターシャリーカラー（ヒーロー背景用） */
+	tertiaryHex?: string;
+	/** テーマタイプ（pinpoint / hero / branding） */
+	theme?: StudioTheme;
 }
 
 function hashStringToSeed(value: string): number {
@@ -634,6 +638,96 @@ function deriveButtonStateColors(primaryHex: string): {
 	};
 }
 
+/**
+ * テーマ別カラー設定のインターフェース
+ */
+interface ThemeColorsInput {
+	primaryHex: string;
+	tertiaryHex: string;
+	dadsLinkColor: string;
+}
+
+/**
+ * テーマ別カラー設定の出力
+ */
+interface ThemeColorsOutput {
+	linkColor: string;
+	headingColor: string;
+	heroBg: string;
+	stripBg: string;
+}
+
+/**
+ * 色を白と混ぜて薄い色を作る
+ *
+ * @param hex 元の色（HEX形式）
+ * @param ratio 混合比率（0-1、0=白、1=元の色）
+ * @returns 薄くなった色（HEX形式）
+ */
+function tintColor(hex: string, ratio: number): string {
+	const color = parse(hex);
+	if (!color) return hex;
+
+	const white = parse("#ffffff");
+	if (!white) return hex;
+
+	const tint = interpolate([white, color], "oklch");
+	const result = tint(ratio);
+	return formatHex(result) || hex;
+}
+
+/**
+ * 薄い色の比率（40%の色 + 60%の白、oklch(0.97 0 0)相当）
+ */
+const TINT_RATIO = 0.4;
+
+/**
+ * テーマに応じた色設定を返す
+ *
+ * - pinpoint: 最小限の色使い（リンクはDADS青、見出しは黒）
+ * - hero: ヒーロー背景に薄い色（現状・デフォルト）
+ * - branding: 色をふんだんに使う（Strip背景にTertiary）
+ */
+function getThemeColors(
+	theme: StudioTheme,
+	input: ThemeColorsInput,
+): ThemeColorsOutput {
+	const { primaryHex, tertiaryHex, dadsLinkColor } = input;
+
+	// 背景が白の場合のニュートラル黒
+	const neutralBlack = "#1A1A1A";
+
+	switch (theme) {
+		case "pinpoint":
+			// 最小限の色使い: リンクはDADS青、見出しは黒、背景は透明
+			return {
+				linkColor: dadsLinkColor,
+				headingColor: neutralBlack,
+				heroBg: "transparent",
+				stripBg: "transparent",
+			};
+
+		case "branding":
+			// ブランドカラーをふんだんに使う: Strip背景にTertiary（薄い色）
+			return {
+				linkColor: primaryHex,
+				headingColor: primaryHex,
+				heroBg: "transparent",
+				stripBg: tintColor(tertiaryHex, TINT_RATIO),
+			};
+
+		case "hero":
+		default:
+			// ヒーロー背景に薄い色（現状維持）
+			return {
+				linkColor: primaryHex,
+				headingColor: primaryHex,
+				heroBg: tintColor(tertiaryHex, TINT_RATIO),
+				stripBg: "transparent",
+			};
+	}
+}
+
 function buildDadsPreviewMarkup(): string {
 	return `
 <div class="preview-page">
@@ -849,6 +943,19 @@ export function createPalettePreview(
 	const buttonState = deriveButtonStateColors(colors.button);
 	const accentHex2 = options.accentHexes?.[1] ?? colors.cardAccent;
 	const accentHex3 = options.accentHexes?.[2] ?? accentHex2;
+	const tertiaryHex = options.tertiaryHex ?? colors.cardAccent;
+	const theme = options.theme ?? "hero";
+
+	// DADS標準のリンク色（青）
+	const DADS_LINK_COLOR = "#0017C1";
+
+	// テーマ別の色設定を計算
+	const themeColors = getThemeColors(theme, {
+		primaryHex: colors.headline,
+		tertiaryHex,
+		dadsLinkColor: DADS_LINK_COLOR,
+	});
+
 	const previewVars: Record<string, string> = {
 		"--preview-bg": colors.background,
 		"--preview-text": colors.text,
@@ -860,17 +967,30 @@ export function createPalettePreview(
 		"--preview-on-primary": colors.buttonText,
 		"--preview-outline-hover-bg": buttonState.outlineHoverBg,
 		"--preview-outline-active-bg": buttonState.outlineActiveBg,
-		"--preview-heading": colors.headline,
+		"--preview-heading": themeColors.headingColor,
 		"--preview-accent": colors.cardAccent,
 		"--preview-accent-2": accentHex2,
 		"--preview-accent-3": accentHex3,
+		"--preview-tertiary": tertiaryHex,
 		"--preview-success": colors.success,
 		"--preview-warning": colors.warning,
 		"--preview-error": colors.error,
+		// テーマ別CSS変数
+		"--preview-link": themeColors.linkColor,
+		"--preview-hero-bg": themeColors.heroBg,
+		"--preview-strip-bg": themeColors.stripBg,
+		// KV背景は常にターシャリー色（テーマに関係なく薄い色）
+		"--preview-kv-bg": tintColor(tertiaryHex, TINT_RATIO),
 	};
 	for (const [name, value] of Object.entries(previewVars)) {
-		container.style.setProperty(name, getDisplayHex(value));
+		// "transparent" や空文字列の場合はCSS変数を設定しない（フォールバック値が使われる）
+		if (value && value !== "transparent") {
+			container.style.setProperty(name, getDisplayHex(value));
+		}
 	}
+
+	// テーマクラスを設定（CSS側でのスタイル切り替え用）
+	container.dataset.theme = theme;
 
 	container.innerHTML = buildDadsPreviewMarkup();
 
@@ -926,10 +1046,10 @@ function initializeKvElement(
 ): void {
 	const seed = computeKvSeed(colors, options.kv);
 
-	kv.dataset.kvBg = "card";
+	kv.dataset.kvBg = "tertiary";
 	kv.dataset.kvMode = options.kv?.locked ? "locked" : "auto";
 	kv.dataset.kvVariant = "main-visual";
-	kv.style.setProperty("--preview-kv-bg", "var(--preview-card)");
+	// --preview-kv-bg はcreate関数で既に設定済み（ターシャリー薄い色）
 
 	applyMainVisualVars(kv, seed);
 

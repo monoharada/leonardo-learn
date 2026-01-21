@@ -63,6 +63,15 @@ export type StudioPresetType =
 	| "vibrant"
 	| "dark";
 
+/**
+ * Studioテーマタイプ
+ *
+ * - pinpoint: 最小限の色使い（ボタンのみPrimary、リンクはDADS青）
+ * - hero: ヒーローエリアに薄い色（現状・デフォルト）
+ * - branding: ブランドカラーをふんだんに使う
+ */
+export type StudioTheme = "pinpoint" | "hero" | "branding";
+
 export interface LockedColorsState {
 	background: boolean;
 	text: boolean;
@@ -142,6 +151,7 @@ export interface DemoState {
 	activePreset: StudioPresetType;
 	studioSeed: number;
 	previewKv: PreviewKvState;
+	studioTheme: StudioTheme;
 }
 
 /** 色詳細モーダルのオプション */

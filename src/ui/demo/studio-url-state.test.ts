@@ -23,6 +23,7 @@ describe("studio-url-state", () => {
 			locks: { primary: true, accent: false },
 			kv: { locked: true, seed: 12345 },
 			studioSeed: 67890,
+			theme: "hero" as const,
 		};
 
 		const payload = encodeStudioUrlState(input);
@@ -41,6 +42,7 @@ describe("studio-url-state", () => {
 			locks: { primary: true, accent: false },
 			kv: { locked: false, seed: 0 },
 			studioSeed: 67890,
+			theme: "branding" as const,
 		};
 
 		const payload = encodeStudioUrlState(input);
@@ -59,6 +61,7 @@ describe("studio-url-state", () => {
 			locks: { primary: false, accent: true },
 			kv: { locked: false, seed: 0 },
 			studioSeed: 0,
+			theme: "pinpoint" as const,
 		};
 
 		const hash = createStudioUrlHash(input);
@@ -81,6 +84,7 @@ describe("studio-url-state", () => {
 			locks: { primary: false, accent: false },
 			kv: { locked: false, seed: 0 },
 			studioSeed: 0,
+			theme: "hero" as const,
 		});
 
 		const decoded = decodeStudioUrlState(payload);
@@ -93,10 +97,31 @@ describe("studio-url-state", () => {
 			locks: { primary: false, accent: false },
 			kv: { locked: false, seed: 0 },
 			studioSeed: 0,
+			theme: "hero",
 		});
 	});
 
 	it("should return null for invalid payload", () => {
 		expect(decodeStudioUrlState("not-base64")).toBeNull();
+	});
+
+	it("should default theme to 'hero' for backwards compatibility", () => {
+		// Create a payload without theme field (simulating old URLs)
+		const legacyPayload = btoa(
+			JSON.stringify({
+				v: 1,
+				primary: "#3366cc",
+				accents: ["#259063"],
+				accentCount: 1,
+				preset: "default",
+				locks: { primary: false, accent: false },
+				kv: { locked: false, seed: 0 },
+				studioSeed: 0,
+			}),
+		);
+
+		const decoded = decodeStudioUrlState(legacyPayload);
+		expect(decoded).not.toBeNull();
+		expect(decoded?.theme).toBe("hero");
 	});
 });
