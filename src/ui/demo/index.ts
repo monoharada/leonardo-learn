@@ -154,6 +154,7 @@ export async function runDemo(): Promise<void> {
 		};
 		state.previewKv = urlState.kv;
 		state.studioSeed = urlState.studioSeed;
+		state.studioTheme = urlState.theme ?? "hero";
 		state.viewMode = "studio";
 
 		input.value = urlState.primary;

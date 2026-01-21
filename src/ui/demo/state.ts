@@ -321,42 +321,13 @@ export function loadSemanticColorConfig(): SemanticColorConfig {
  *
  * DEFAULT_STATEから初期化し、単一ソースを維持。
  * resetState()で同じDEFAULT_STATEにリセットされる。
- *
- * 既存のstate構造を完全に維持:
- * - palettes: パレット設定配列
- * - shadesPalettes: Shadesビュー用の全13色パレット
- * - activeId: 現在選択中のパレットID
- * - activeHarmonyIndex: 現在選択中のハーモニーインデックス（0 = Primary, 1+ = Derived）
- * - contrastIntensity: コントラスト強度
- * - lightnessDistribution: 明度分布
- * - viewMode: 現在のビューモード
- * - cvdSimulation: CVDシミュレーションタイプ
- * - selectedHarmonyConfig: 選択されたハーモニー設定
- * - cudMode: CUD対応モード
- * - lightBackgroundColor: ライト背景色（HEX形式、デフォルト: #ffffff）
- * - darkBackgroundColor: テキスト色（HEX形式、デフォルト: #000000）
- * - semanticColorConfig: セマンティックカラー設定（警告色パターン選択）
  */
 export const state: DemoState = {
+	...DEFAULT_STATE,
 	palettes: [...DEFAULT_STATE.palettes],
 	shadesPalettes: [...DEFAULT_STATE.shadesPalettes],
-	activeId: DEFAULT_STATE.activeId,
-	activeHarmonyIndex: DEFAULT_STATE.activeHarmonyIndex,
-	contrastIntensity: DEFAULT_STATE.contrastIntensity,
-	lightnessDistribution: DEFAULT_STATE.lightnessDistribution,
-	viewMode: DEFAULT_STATE.viewMode,
-	cvdSimulation: DEFAULT_STATE.cvdSimulation,
-	selectedHarmonyConfig: DEFAULT_STATE.selectedHarmonyConfig,
-	selectedAccentFilter: DEFAULT_STATE.selectedAccentFilter,
-	cudMode: DEFAULT_STATE.cudMode,
-	lightBackgroundColor: DEFAULT_STATE.lightBackgroundColor,
-	darkBackgroundColor: DEFAULT_STATE.darkBackgroundColor,
-	accentCount: DEFAULT_STATE.accentCount,
-	studioAccentCount: DEFAULT_STATE.studioAccentCount,
 	semanticColorConfig: { ...DEFAULT_STATE.semanticColorConfig },
 	lockedColors: { ...DEFAULT_STATE.lockedColors },
-	activePreset: DEFAULT_STATE.activePreset,
-	studioSeed: DEFAULT_STATE.studioSeed,
 	previewKv: { ...DEFAULT_STATE.previewKv },
 };
 
@@ -414,24 +385,12 @@ export function parseKeyColor(input: string): KeyColorWithStep {
  * すべてのプロパティをDEFAULT_STATEの値にリセットする。
  */
 export function resetState(): void {
+	// Spread primitive properties from DEFAULT_STATE
+	Object.assign(state, DEFAULT_STATE);
+	// Deep copy array and object properties to prevent shared references
 	state.palettes = [...DEFAULT_STATE.palettes];
 	state.shadesPalettes = [...DEFAULT_STATE.shadesPalettes];
-	state.activeId = DEFAULT_STATE.activeId;
-	state.activeHarmonyIndex = DEFAULT_STATE.activeHarmonyIndex;
-	state.contrastIntensity = DEFAULT_STATE.contrastIntensity;
-	state.lightnessDistribution = DEFAULT_STATE.lightnessDistribution;
-	state.viewMode = DEFAULT_STATE.viewMode;
-	state.cvdSimulation = DEFAULT_STATE.cvdSimulation;
-	state.selectedHarmonyConfig = DEFAULT_STATE.selectedHarmonyConfig;
-	state.selectedAccentFilter = DEFAULT_STATE.selectedAccentFilter;
-	state.cudMode = DEFAULT_STATE.cudMode;
-	state.lightBackgroundColor = DEFAULT_STATE.lightBackgroundColor;
-	state.darkBackgroundColor = DEFAULT_STATE.darkBackgroundColor;
-	state.accentCount = DEFAULT_STATE.accentCount;
-	state.studioAccentCount = DEFAULT_STATE.studioAccentCount;
 	state.semanticColorConfig = { ...DEFAULT_STATE.semanticColorConfig };
 	state.lockedColors = { ...DEFAULT_STATE.lockedColors };
-	state.activePreset = DEFAULT_STATE.activePreset;
-	state.studioSeed = DEFAULT_STATE.studioSeed;
 	state.previewKv = { ...DEFAULT_STATE.previewKv };
 }

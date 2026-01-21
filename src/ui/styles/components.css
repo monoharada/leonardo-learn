@@ -2966,7 +2966,7 @@
 }
 
 .dads-preview--dads-html .preview-container {
-	width: min(1120px, 100%);
+	width: min(1296px, 100%);
 	margin-inline: auto;
 	padding-inline: 1.5rem;
 }
@@ -3051,14 +3051,24 @@
 }
 
 .dads-preview--dads-html .preview-hero {
-	padding: 3.5rem 0 0;
+	padding: 3.5rem 2rem;
+	background: var(
+		--preview-hero-bg,
+		color-mix(in oklch, var(--preview-tertiary) 40%, oklch(0.97 0 0))
+	);
+}
+
+/* ピンポイント・ブランディングテーマではヒーロー背景を透明に */
+.dads-preview--dads-html[data-theme="pinpoint"] .preview-hero,
+.dads-preview--dads-html[data-theme="branding"] .preview-hero {
+	background: transparent;
 }
 
 .dads-preview--dads-html .preview-hero__layout {
 	display: grid;
-	grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
-	align-items: start;
-	gap: 2.5rem;
+	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+	align-items: center;
+	gap: 3rem;
 }
 
 @media (max-width: 48rem) {
@@ -3108,8 +3118,8 @@
 }
 
 .dads-preview--dads-html .preview-kv {
-	width: min(520px, 100%);
-	aspect-ratio: 4 / 3;
+	width: 100%;
+	aspect-ratio: 1 / 1;
 	border-radius: 1rem;
 	border: none;
 	background: var(
@@ -3137,6 +3147,14 @@
 	display: block;
 }
 
+/* SVG内の背景rect要素をターシャリー色に設定 */
+.dads-preview--dads-html .preview-kv svg > rect:first-child {
+	fill: var(
+		--preview-kv-bg,
+		var(--preview-card, var(--color-neutral-solid-gray-50))
+	);
+}
+
 .dads-preview--dads-html .preview-actions .dads-button {
 	--button-color: var(--preview-primary);
 	--button-hover-color: var(--preview-primary-hover);
@@ -3155,7 +3173,10 @@
 }
 
 .dads-preview--dads-html .preview-strip {
-	background: var(--preview-card, var(--color-neutral-solid-gray-50));
+	background: var(
+		--preview-strip-bg,
+		var(--preview-card, var(--color-neutral-solid-gray-50))
+	);
 	border: 1px solid var(--preview-border, var(--color-neutral-solid-gray-200));
 	border-radius: 1.25rem;
 	padding: 1.75rem;
@@ -3962,7 +3983,7 @@
 
 /* ---- link ---- */
 .dads-preview--dads-html .dads-link:any-link {
-	color: var(--color-primitive-blue-1000);
+	color: var(--preview-link, var(--color-primitive-blue-1000));
 	text-decoration: underline;
 	text-decoration-thickness: 0.0625rem;
 	text-underline-offset: 0.1875rem;
@@ -3974,7 +3995,11 @@
 
 @media (hover: hover) {
 	.dads-preview--dads-html .dads-link:hover {
-		color: var(--color-primitive-blue-900);
+		color: color-mix(
+			in oklch,
+			var(--preview-link, var(--color-primitive-blue-1000)) 85%,
+			black
+		);
 		text-decoration-thickness: 0.1875rem;
 	}
 }
