@@ -123,6 +123,22 @@ export interface AccentHarmonyTypeConfig {
 /** CVDシミュレーションタイプ。"normal"はシミュレーションなし。 */
 export type CVDSimulationType = "normal" | CVDType;
 
+/** マニュアルビュー用の色選択状態 */
+export interface ManualColorSelection {
+	/** 背景色（HEX形式） */
+	backgroundColor: string;
+	/** 文字色（HEX形式） */
+	textColor: string;
+	/** キーカラー（プライマリ）- null = 未選択 */
+	keyColor: string | null;
+	/** セカンダリー - null = 未選択 */
+	secondaryColor: string | null;
+	/** ターシャリー - null = 未選択 */
+	tertiaryColor: string | null;
+	/** アクセント配列（最大4つ、null = 未選択スロット） */
+	accentColors: (string | null)[];
+}
+
 /** デモ機能のグローバル状態 */
 export interface DemoState {
 	palettes: PaletteConfig[];
@@ -147,6 +163,8 @@ export interface DemoState {
 	studioSeed: number;
 	previewKv: PreviewKvState;
 	studioTheme: StudioTheme;
+	/** マニュアルビュー用の色選択状態 */
+	manualColorSelection: ManualColorSelection;
 }
 
 /** 色詳細モーダルのオプション */

@@ -124,4 +124,49 @@ describe("studio-url-state", () => {
 		expect(decoded).not.toBeNull();
 		expect(decoded?.theme).toBe("hero");
 	});
+
+	it("should roundtrip V2 with 2 accents (minimum for V2)", () => {
+		const input = {
+			v: 2 as const,
+			primary: "#ff5454",
+			accents: ["#d2a400", "#259d63"],
+			accentCount: 2 as const,
+			preset: "default" as const,
+			locks: { primary: false, accent: false },
+			kv: { locked: false, seed: 12345 },
+			studioSeed: 1768974506835,
+			theme: "hero" as const,
+		};
+
+		const hash = createStudioUrlHash(input);
+		const parsed = parseStudioUrlHash(hash);
+
+		expect(parsed).not.toBeNull();
+		expect(parsed?.v).toBe(2);
+		expect(parsed?.primary).toBe("#ff5454");
+		expect(parsed?.accents).toHaveLength(2);
+		expect(parsed?.accents).toEqual(["#d2a400", "#259d63"]);
+		expect(parsed?.accentCount).toBe(2);
+	});
+
+	it("should roundtrip V2 with 3 accents", () => {
+		const input = {
+			v: 2 as const,
+			primary: "#3366cc",
+			accents: ["#259063", "#ff2800", "#35a16b"],
+			accentCount: 3 as const,
+			preset: "vibrant" as const,
+			locks: { primary: true, accent: false },
+			kv: { locked: false, seed: 0 },
+			studioSeed: 67890,
+			theme: "branding" as const,
+		};
+
+		const hash = createStudioUrlHash(input);
+		const parsed = parseStudioUrlHash(hash);
+
+		expect(parsed).not.toBeNull();
+		expect(parsed?.accents).toHaveLength(3);
+		expect(parsed?.accentCount).toBe(3);
+	});
 });

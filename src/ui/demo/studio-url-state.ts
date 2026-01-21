@@ -10,6 +10,13 @@
  */
 
 import type { PreviewKvState, StudioPresetType, StudioTheme } from "./types";
+import {
+	fromBase64Url,
+	isHex6,
+	isRecord,
+	toBase64Url,
+	toLowerHex,
+} from "./url-state-utils";
 
 /** Common fields shared by all StudioUrlState versions */
 interface StudioUrlStateBase {
@@ -36,17 +43,10 @@ export type StudioUrlState = StudioUrlStateV1 | StudioUrlStateV2;
 
 const STUDIO_HASH_PREFIX = "#studio=" as const;
 
-const isRecord = (v: unknown): v is Record<string, unknown> =>
-	typeof v === "object" && v !== null;
-
 const isBoolean = (v: unknown): v is boolean => typeof v === "boolean";
 
 const isNumber = (v: unknown): v is number =>
 	typeof v === "number" && Number.isFinite(v);
-
-const HEX6_PATTERN = /^#[0-9A-Fa-f]{6}$/;
-const isHex6 = (v: unknown): v is string =>
-	typeof v === "string" && HEX6_PATTERN.test(v.trim());
 
 const STUDIO_PRESETS: ReadonlySet<StudioPresetType> = new Set([
 	"default",
@@ -67,45 +67,6 @@ const STUDIO_THEMES: ReadonlySet<StudioTheme> = new Set([
 
 const isStudioTheme = (v: unknown): v is StudioTheme =>
 	typeof v === "string" && STUDIO_THEMES.has(v as StudioTheme);
-
-const toLowerHex = (value: string): string => value.trim().toLowerCase();
-
-/** Node.js/Bun Buffer type for base64 encoding/decoding fallback */
-interface NodeBuffer {
-	from(value: string, encoding: string): { toString(encoding: string): string };
-}
-
-function base64Encode(value: string): string {
-	if (typeof globalThis.btoa === "function") {
-		return globalThis.btoa(value);
-	}
-	// Bun/Node fallback (not used in browser builds)
-	const Buffer = (globalThis as { Buffer?: NodeBuffer }).Buffer;
-	if (!Buffer) throw new Error("No base64 encoder available");
-	return Buffer.from(value, "utf8").toString("base64");
-}
-
-function base64Decode(value: string): string {
-	if (typeof globalThis.atob === "function") {
-		return globalThis.atob(value);
-	}
-	// Bun/Node fallback (not used in browser builds)
-	const Buffer = (globalThis as { Buffer?: NodeBuffer }).Buffer;
-	if (!Buffer) throw new Error("No base64 decoder available");
-	return Buffer.from(value, "base64").toString("utf8");
-}
-
-function toBase64Url(value: string): string {
-	const base64 = base64Encode(value);
-	return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
-}
-
-function fromBase64Url(base64url: string): string {
-	const normalized = base64url.replace(/-/g, "+").replace(/_/g, "/");
-	const padLen = (4 - (normalized.length % 4)) % 4;
-	const padded = normalized + "=".repeat(padLen);
-	return base64Decode(padded);
-}
 
 export function createStudioUrlHash(state: StudioUrlState): string {
 	return `${STUDIO_HASH_PREFIX}${encodeStudioUrlState(state)}`;
@@ -175,7 +136,8 @@ export function decodeStudioUrlState(payload: string): StudioUrlState | null {
 
 		const accents = common.accents.slice(0, v === 2 ? 6 : 3);
 		if (accents.length === 0) return null;
-		if (v === 2 && accents.length < 3) return null;
+		// V2は2〜4色のアクセントをサポート（UIのstudioAccentCountは2|3|4型）
+		if (v === 2 && accents.length < 2) return null;
 
 		const accentCountRaw = parsed.accentCount;
 

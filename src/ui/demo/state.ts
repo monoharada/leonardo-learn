@@ -329,6 +329,10 @@ export const state: DemoState = {
 	semanticColorConfig: { ...DEFAULT_STATE.semanticColorConfig },
 	lockedColors: { ...DEFAULT_STATE.lockedColors },
 	previewKv: { ...DEFAULT_STATE.previewKv },
+	manualColorSelection: {
+		...DEFAULT_STATE.manualColorSelection,
+		accentColors: [...DEFAULT_STATE.manualColorSelection.accentColors],
+	},
 };
 
 /**
@@ -393,4 +397,8 @@ export function resetState(): void {
 	state.semanticColorConfig = { ...DEFAULT_STATE.semanticColorConfig };
 	state.lockedColors = { ...DEFAULT_STATE.lockedColors };
 	state.previewKv = { ...DEFAULT_STATE.previewKv };
+	state.manualColorSelection = {
+		...DEFAULT_STATE.manualColorSelection,
+		accentColors: [...DEFAULT_STATE.manualColorSelection.accentColors],
+	};
 }
