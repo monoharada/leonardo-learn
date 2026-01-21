@@ -13,6 +13,7 @@ import type { Color } from "../types";
 // DOM環境のモック設定
 globalThis.document = {
 	createElement: (tag: string) => {
+		const classes = new Set<string>();
 		const element = {
 			tag,
 			className: "",
@@ -21,6 +22,17 @@ globalThis.document = {
 			style: {} as Record<string, string>,
 			dataset: {} as Record<string, string>,
 			children: [] as unknown[],
+			classList: {
+				add: (cls: string) => {
+					classes.add(cls);
+					element.className = Array.from(classes).join(" ");
+				},
+				remove: (cls: string) => {
+					classes.delete(cls);
+					element.className = Array.from(classes).join(" ");
+				},
+				contains: (cls: string) => classes.has(cls),
+			},
 			appendChild: (child: unknown) => {
 				element.children.push(child);
 				return child;

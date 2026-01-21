@@ -15,12 +15,13 @@ import { loadDadsTokens } from "@/core/tokens/dads-data-provider";
 import { getRandomDadsColor } from "@/core/tokens/random-color-picker";
 import type { DadsToken } from "@/core/tokens/types";
 
-import { openColorDetailModal } from "./color-detail-modal";
 import {
-	applySimulation,
-	setupCVDControls,
-	updateCVDScoreDisplay,
-} from "./cvd-controls";
+	refreshA11yDrawer,
+	setupA11yDrawer,
+	updateA11yIssueBadge,
+} from "./a11y-drawer";
+import { openColorDetailModal } from "./color-detail-modal";
+import { setupCVDControls, updateCVDScoreDisplay } from "./cvd-controls";
 import { updateEditor } from "./editor";
 import {
 	setupDirectExportButtons,
@@ -38,7 +39,6 @@ import { parseStudioUrlHash } from "./studio-url-state";
 import type { ColorDetailModalOptions } from "./types";
 import {
 	renderAccentSelectionView,
-	renderAccessibilityView,
 	renderPaletteView,
 	renderShadesView,
 	renderStudioView,
@@ -220,6 +220,7 @@ export async function runDemo(): Promise<void> {
 		renderSidebar(paletteList, handlePaletteSelect);
 		updateEditor(triggerGenerate);
 		updateCVDScoreDisplay();
+		updateA11yIssueBadge();
 	}
 
 	/** Refresh UI and re-render main view */
@@ -355,16 +356,12 @@ export async function runDemo(): Promise<void> {
 						onColorClick: handleColorClick,
 					}).catch(console.error);
 					break;
-
-				case "accessibility":
-					renderAccessibilityView(contentContainer, {
-						applySimulation,
-					});
-					break;
 			}
 		}
 
 		updateCVDScoreDisplay();
+		refreshA11yDrawer();
+		updateA11yIssueBadge();
 	}
 
 	// ========================================
@@ -381,6 +378,7 @@ export async function runDemo(): Promise<void> {
 		renderMain();
 	});
 	setupAddPaletteButton();
+	setupA11yDrawer();
 
 	// Initial render based on URL state
 	if (studioUrlState) {
