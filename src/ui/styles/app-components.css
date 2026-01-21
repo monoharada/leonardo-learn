@@ -1174,6 +1174,11 @@
 		0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
+/* コンテンツエリア（ヘッダー間の余白を削除 - 全ビュー共通） */
+.dads-main__content {
+	padding-top: 0;
+}
+
 /* スタジオビュー時のプレビューヘッダー（より軽いボーダーで内部感を演出） */
 .is-studio-view .dads-preview--dads-html .preview-header {
 	border-bottom: 1px solid var(--preview-border, rgba(0, 0, 0, 0.08));
