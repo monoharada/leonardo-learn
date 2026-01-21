@@ -166,4 +166,12 @@ export const DEFAULT_STATE: DemoState = {
 		seed: 0,
 	},
 	studioTheme: "hero",
+	manualColorSelection: {
+		backgroundColor: "#ffffff",
+		textColor: "#000000",
+		keyColor: null,
+		secondaryColor: null,
+		tertiaryColor: null,
+		accentColors: [null, null, null, null],
+	},
 };
