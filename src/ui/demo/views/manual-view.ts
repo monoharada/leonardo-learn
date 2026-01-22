@@ -341,6 +341,24 @@ export function syncFromStudioPalettes(): void {
 /** Link icon SVG markup for share button */
 const LINK_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`;
 
+/** Create a swatch wrapper with optional zone-end styling */
+function createSwatchWrapper(isZoneEnd: boolean): HTMLDivElement {
+	const wrapper = document.createElement("div");
+	wrapper.className = "studio-toolbar-swatch-wrapper";
+	if (isZoneEnd) {
+		wrapper.classList.add("studio-toolbar-swatch-wrapper--zone-end");
+	}
+	return wrapper;
+}
+
+/** Create a swatch label element */
+function createSwatchLabel(text: string): HTMLSpanElement {
+	const label = document.createElement("span");
+	label.className = "studio-toolbar-swatch__label";
+	label.textContent = text;
+	return label;
+}
+
 /**
  * 空状態のメッセージを表示する
  */
@@ -725,12 +743,7 @@ export async function renderManualView(
 		onColorChange: (newHex: string) => void,
 		isZoneEnd = false,
 	): HTMLElement => {
-		// ラッパー（スウォッチ + ラベル）
-		const outerWrapper = document.createElement("div");
-		outerWrapper.className = "studio-toolbar-swatch-wrapper";
-		if (isZoneEnd) {
-			outerWrapper.classList.add("studio-toolbar-swatch-wrapper--zone-end");
-		}
+		const outerWrapper = createSwatchWrapper(isZoneEnd);
 
 		const swatch = document.createElement("div");
 		swatch.className = "studio-toolbar-swatch";
@@ -864,12 +877,7 @@ export async function renderManualView(
 		};
 
 		outerWrapper.appendChild(swatch);
-
-		// ラベル
-		const labelEl = document.createElement("span");
-		labelEl.className = "studio-toolbar-swatch__label";
-		labelEl.textContent = label;
-		outerWrapper.appendChild(labelEl);
+		outerWrapper.appendChild(createSwatchLabel(label));
 
 		return outerWrapper;
 	};
@@ -882,12 +890,7 @@ export async function renderManualView(
 		target?: ManualApplyTarget,
 		onDelete?: () => void,
 	): HTMLElement => {
-		// ラッパー（スウォッチ + ラベル）
-		const outerWrapper = document.createElement("div");
-		outerWrapper.className = "studio-toolbar-swatch-wrapper";
-		if (isZoneEnd) {
-			outerWrapper.classList.add("studio-toolbar-swatch-wrapper--zone-end");
-		}
+		const outerWrapper = createSwatchWrapper(isZoneEnd);
 
 		const swatch = document.createElement("div");
 		swatch.className = "studio-toolbar-swatch";
@@ -946,12 +949,7 @@ export async function renderManualView(
 		}
 
 		outerWrapper.appendChild(swatch);
-
-		// ラベル
-		const labelEl = document.createElement("span");
-		labelEl.className = "studio-toolbar-swatch__label";
-		labelEl.textContent = label;
-		outerWrapper.appendChild(labelEl);
+		outerWrapper.appendChild(createSwatchLabel(label));
 
 		return outerWrapper;
 	};
@@ -963,12 +961,7 @@ export async function renderManualView(
 		target?: ManualApplyTarget,
 		isDisabled = false,
 	): HTMLElement => {
-		// ラッパー（スウォッチ + ラベル）
-		const outerWrapper = document.createElement("div");
-		outerWrapper.className = "studio-toolbar-swatch-wrapper";
-		if (isZoneEnd) {
-			outerWrapper.classList.add("studio-toolbar-swatch-wrapper--zone-end");
-		}
+		const outerWrapper = createSwatchWrapper(isZoneEnd);
 
 		const swatch = document.createElement("div");
 		swatch.className =
@@ -1012,12 +1005,7 @@ export async function renderManualView(
 		}
 
 		outerWrapper.appendChild(swatch);
-
-		// ラベル
-		const labelEl = document.createElement("span");
-		labelEl.className = "studio-toolbar-swatch__label";
-		labelEl.textContent = label;
-		outerWrapper.appendChild(labelEl);
+		outerWrapper.appendChild(createSwatchLabel(label));
 
 		return outerWrapper;
 	};
