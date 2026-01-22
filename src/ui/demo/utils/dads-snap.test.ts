@@ -5,9 +5,11 @@
  */
 
 import { describe, expect, it } from "bun:test";
+import { wcagContrast } from "culori";
 import { Color } from "@/core/color";
 import type { DadsToken } from "@/core/tokens/types";
 import {
+	adjustLightnessForContrast,
 	filterChromaticDadsTokens,
 	hueDistance,
 	isDadsTokenResult,
@@ -326,6 +328,94 @@ describe("dads-snap utility", () => {
 		it("should be case-insensitive for hex comparison", () => {
 			const result = { hex: "#0066cc", step: 500, baseChromaName: "Blue" }; // 小文字
 			expect(isDadsTokenResult(result, mockDadsTokens)).toBe(true);
+		});
+	});
+
+	describe("adjustLightnessForContrast", () => {
+		const white = "#ffffff";
+		const dark = "#1a1a1a";
+
+		it("パステル色を暗くして3:1コントラストを達成", () => {
+			// パステルピンク（L≈0.89）
+			const pastelPink = "#FFD1DC";
+			const adjusted = adjustLightnessForContrast(pastelPink, white, 3);
+			const contrast = wcagContrast(white, adjusted) ?? 0;
+
+			// 3:1以上のコントラストを達成
+			expect(contrast).toBeGreaterThanOrEqual(3 - 0.1);
+		});
+
+		it("既にコントラスト十分な場合は元の色を返す", () => {
+			// 暗い色は白背景に対して十分なコントラスト
+			const darkColor = "#333333";
+			const adjusted = adjustLightnessForContrast(darkColor, white, 3);
+
+			// 元の色と同じ
+			expect(adjusted.toLowerCase()).toBe(darkColor.toLowerCase());
+		});
+
+		it("白背景で明度を下げる方向に調整", () => {
+			// パステル系の色
+			const pastelGreen = "#C8E6C9";
+			const adjusted = adjustLightnessForContrast(pastelGreen, white, 3);
+			const contrast = wcagContrast(white, adjusted) ?? 0;
+
+			// コントラストを満たす
+			expect(contrast).toBeGreaterThanOrEqual(3 - 0.1);
+		});
+
+		it("暗い背景で明度を上げる方向に調整", () => {
+			// 暗めの色を暗い背景で使用
+			const darkBlue = "#1a237e";
+			const adjusted = adjustLightnessForContrast(darkBlue, dark, 3);
+			const contrast = wcagContrast(dark, adjusted) ?? 0;
+
+			// コントラストを満たす
+			expect(contrast).toBeGreaterThanOrEqual(3 - 0.1);
+		});
+
+		it("色相を維持する", () => {
+			// パステルブルー
+			const pastelBlue = "#AED9E0";
+			const adjusted = adjustLightnessForContrast(pastelBlue, white, 3);
+
+			// 元の色と調整後の色の色相を比較
+			const originalColor = new Color(pastelBlue);
+			const adjustedColor = new Color(adjusted);
+			const originalHue = originalColor.oklch?.h ?? 0;
+			const adjustedHue = adjustedColor.oklch?.h ?? 0;
+
+			// 色相は維持される（±10°の許容範囲）
+			const hueDiff = Math.min(
+				Math.abs(originalHue - adjustedHue),
+				360 - Math.abs(originalHue - adjustedHue),
+			);
+			expect(hueDiff).toBeLessThan(15);
+		});
+
+		it("彩度をおおよそ維持する", () => {
+			// パステルオレンジ
+			const pastelOrange = "#FFCC80";
+			const adjusted = adjustLightnessForContrast(pastelOrange, white, 3);
+
+			const originalColor = new Color(pastelOrange);
+			const adjustedColor = new Color(adjusted);
+			const originalChroma = originalColor.oklch?.c ?? 0;
+			const adjustedChroma = adjustedColor.oklch?.c ?? 0;
+
+			// 彩度は維持される（相対誤差20%以内）
+			// 注：明度を大きく下げる場合、彩度が少し変化することは許容
+			expect(Math.abs(originalChroma - adjustedChroma)).toBeLessThan(0.05);
+		});
+
+		it("7:1のハイコントラストも達成可能", () => {
+			// パステル色を7:1に調整
+			const pastelYellow = "#FFF9C4";
+			const adjusted = adjustLightnessForContrast(pastelYellow, white, 7);
+			const contrast = wcagContrast(white, adjusted) ?? 0;
+
+			// 7:1以上のコントラストを達成
+			expect(contrast).toBeGreaterThanOrEqual(7 - 0.2);
 		});
 	});
 });

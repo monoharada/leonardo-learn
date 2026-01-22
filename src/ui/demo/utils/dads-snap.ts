@@ -14,6 +14,105 @@ import type { DadsToken } from "@/core/tokens/types";
 import { deltaEok, toOklab } from "@/utils/color-space";
 import type { StudioPresetType } from "../types";
 
+/**
+ * 色の明度を調整して目標コントラスト比を達成する
+ *
+ * パステル色と明るい背景の組み合わせで使用。
+ * 色相・彩度を可能な限り維持しながら、明度のみを調整。
+ *
+ * @param colorHex - 調整対象の色（HEX）
+ * @param backgroundHex - 背景色（HEX）
+ * @param targetContrast - 目標コントラスト比
+ * @returns 調整後の色（HEX）。既にコントラストを満たしている場合は元の色を返す
+ */
+export function adjustLightnessForContrast(
+	colorHex: string,
+	backgroundHex: string,
+	targetContrast: number,
+): string {
+	const currentContrast = wcagContrast(backgroundHex, colorHex) ?? 0;
+
+	// 既にコントラストを満たしている場合は元の色を返す
+	if (currentContrast >= targetContrast) {
+		return colorHex;
+	}
+
+	const color = new Color(colorHex);
+	const oklch = color.oklch;
+	if (!oklch) return colorHex;
+
+	const background = new Color(backgroundHex);
+	const bgL = background.oklch?.l ?? 0.5;
+
+	// 色相と彩度を維持
+	const hue = oklch.h ?? 0;
+	const chroma = oklch.c ?? 0;
+
+	// 明るい背景に対しては暗くする方向、暗い背景に対しては明るくする方向を探索
+	const isLightBackground = bgL > 0.5;
+
+	// 二分探索で目標コントラストを達成する明度を探す
+	let low: number;
+	let high: number;
+	if (isLightBackground) {
+		// 明るい背景: 明度を下げる方向（0〜現在の明度）
+		low = 0;
+		high = oklch.l ?? 0.5;
+	} else {
+		// 暗い背景: 明度を上げる方向（現在の明度〜1）
+		low = oklch.l ?? 0.5;
+		high = 1;
+	}
+
+	let bestL = oklch.l ?? 0.5;
+	let bestContrast = currentContrast;
+	const maxIterations = 25;
+
+	for (let i = 0; i < maxIterations; i++) {
+		const mid = (low + high) / 2;
+		const candidate = new Color({ mode: "oklch", l: mid, c: chroma, h: hue });
+		const contrast = wcagContrast(backgroundHex, candidate.toHex()) ?? 0;
+
+		// Track the best value that meets or exceeds the target
+		if (contrast >= targetContrast) {
+			if (bestContrast < targetContrast || contrast < bestContrast) {
+				// Found a better solution that meets the target
+				bestContrast = contrast;
+				bestL = mid;
+			}
+		}
+
+		// 明るい背景では明度が低いほどコントラストが高い
+		// 暗い背景では明度が高いほどコントラストが高い
+		if (isLightBackground) {
+			if (contrast < targetContrast) {
+				high = mid; // コントラスト不足 → もっと暗く
+			} else {
+				low = mid; // コントラスト達成 → 元の色に近づける
+			}
+		} else {
+			if (contrast < targetContrast) {
+				low = mid; // コントラスト不足 → もっと明るく
+			} else {
+				high = mid; // コントラスト達成 → 元の色に近づける
+			}
+		}
+
+		// Found exact target or search space exhausted
+		if (Math.abs(high - low) < 0.001) {
+			break;
+		}
+	}
+
+	// If we couldn't find a solution that meets the target, use the most extreme value
+	if (bestContrast < targetContrast) {
+		bestL = isLightBackground ? 0 : 1;
+	}
+
+	const result = new Color({ mode: "oklch", l: bestL, c: chroma, h: hue });
+	return result.toHex();
+}
+
 /** 色相補完時の最小距離（度） */
 export const MIN_HUE_DISTANCE = 30;
 

@@ -42,6 +42,7 @@ import type {
 import { stripStepSuffix } from "../types";
 import { copyTextToClipboard } from "../utils/clipboard";
 import {
+	adjustLightnessForContrast,
 	type DadsSnapResult,
 	inferBaseChromaNameFromHex,
 	matchesPreset,
@@ -255,6 +256,20 @@ function computePaletteColors(dadsTokens: DadsToken[]): {
 	const warningHue = warningPattern === "orange" ? "orange" : "yellow";
 	const warningStep = warningPattern === "orange" ? 600 : 700;
 
+	// Get raw semantic colors
+	const errorHex = getDadsSemanticHex(dadsTokens, "red", 800, "#FF2800");
+	const successHex = getDadsSemanticHex(dadsTokens, "green", 600, "#35A16B");
+	const warningHex = getDadsSemanticHex(
+		dadsTokens,
+		warningHue,
+		warningStep,
+		"#D7C447",
+	);
+
+	// Apply contrast adjustment for semantic colors when needed
+	const bgHex = DEFAULT_STUDIO_BACKGROUND;
+	const minContrast = resolvePresetMinContrast(state.activePreset);
+
 	return {
 		primaryHex,
 		primaryStep,
@@ -263,14 +278,9 @@ function computePaletteColors(dadsTokens: DadsToken[]): {
 		accentHex,
 		accentHexes,
 		semantic: {
-			error: getDadsSemanticHex(dadsTokens, "red", 800, "#FF2800"),
-			success: getDadsSemanticHex(dadsTokens, "green", 600, "#35A16B"),
-			warning: getDadsSemanticHex(
-				dadsTokens,
-				warningHue,
-				warningStep,
-				"#D7C447",
-			),
+			error: adjustLightnessForContrast(errorHex, bgHex, minContrast),
+			success: adjustLightnessForContrast(successHex, bgHex, minContrast),
+			warning: adjustLightnessForContrast(warningHex, bgHex, minContrast),
 		},
 	};
 }
@@ -310,7 +320,18 @@ async function selectRandomPrimaryFromDads(
 		const ratio = wcagContrast(backgroundHex, t.hex);
 		return ratio >= minContrast;
 	});
-	const finalList = contrastFiltered.length > 0 ? contrastFiltered : baseList;
+
+	// コントラスト条件を満たす色がない場合、明度調整を適用
+	let finalList: DadsToken[];
+	if (contrastFiltered.length > 0) {
+		finalList = contrastFiltered;
+	} else {
+		// フォールバック: 明度調整してコントラストを確保
+		finalList = baseList.map((t) => ({
+			...t,
+			hex: adjustLightnessForContrast(t.hex, backgroundHex, minContrast),
+		}));
+	}
 
 	const selected = pickRandom(finalList, rnd) ?? pickRandom(chromatic, rnd);
 	if (!selected) {
@@ -382,7 +403,18 @@ async function selectRandomAccentCandidates(
 	const contrastFiltered = base.filter(
 		(c) => wcagContrast(backgroundHex, c.hex) >= minContrast,
 	);
-	const candidates = contrastFiltered.length > 0 ? contrastFiltered : base;
+
+	// コントラスト条件を満たす色がない場合、明度調整を適用
+	let candidates: typeof base;
+	if (contrastFiltered.length > 0) {
+		candidates = contrastFiltered;
+	} else {
+		// フォールバック: 明度調整してコントラストを確保
+		candidates = base.map((c) => ({
+			...c,
+			hex: adjustLightnessForContrast(c.hex, backgroundHex, minContrast),
+		}));
+	}
 
 	// Prefer higher-ranked candidates while still allowing variety.
 	const top = candidates.slice(0, Math.max(30, count * 20));
@@ -472,6 +504,7 @@ async function selectHarmonyAccentCandidates(
 	await initializeHarmonyDads();
 
 	const primaryColor = new Color(primaryHex);
+	const minContrast = resolvePresetMinContrast(preset);
 
 	// ハーモニーベースの色を生成
 	let harmonyAccents: DadsSnapResult[];
@@ -519,7 +552,17 @@ async function selectHarmonyAccentCandidates(
 		harmonyAccents = [...harmonyAccents, ...complementary];
 	}
 
-	return harmonyAccents;
+	// コントラスト不足の色に明度調整を適用
+	return harmonyAccents.map((accent) => {
+		const currentContrast = wcagContrast(backgroundHex, accent.hex);
+		if (currentContrast && currentContrast >= minContrast) {
+			return accent;
+		}
+		return {
+			...accent,
+			hex: adjustLightnessForContrast(accent.hex, backgroundHex, minContrast),
+		};
+	});
 }
 
 async function rebuildStudioPalettes(options: {
@@ -555,7 +598,37 @@ async function rebuildStudioPalettes(options: {
 		options.dadsTokens,
 	);
 
-	const palettes: PaletteConfig[] = [primaryPalette, ...derived];
+	// Apply contrast adjustment to derived palettes (Secondary/Tertiary) based on preset
+	const minContrast = resolvePresetMinContrast(state.activePreset);
+	const adjustedDerived = derived.map((palette) => {
+		const keyColor = palette.keyColors[0];
+		if (!keyColor) return palette;
+
+		// Extract HEX and step from keyColor (format: "#hex" or "#hex@step")
+		const parts = keyColor.split("@");
+		const hex = parts[0];
+		if (!hex) return palette;
+
+		// Apply contrast adjustment
+		const adjustedHex = adjustLightnessForContrast(
+			hex,
+			backgroundColor,
+			minContrast,
+		);
+
+		// If color was adjusted, update the keyColor (preserve step if present)
+		if (adjustedHex !== hex) {
+			const newKeyColor = parts[1] ? `${adjustedHex}@${parts[1]}` : adjustedHex;
+			return {
+				...palette,
+				keyColors: [newKeyColor],
+			};
+		}
+
+		return palette;
+	});
+
+	const palettes: PaletteConfig[] = [primaryPalette, ...adjustedDerived];
 
 	if (options.accentCandidates && options.accentCandidates.length > 0) {
 		for (let i = 0; i < options.accentCandidates.length; i++) {
