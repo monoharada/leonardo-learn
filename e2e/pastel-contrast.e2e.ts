@@ -238,6 +238,74 @@ test.describe("パステルプリセット コントラスト修正", () => {
 		expect(summaryText).toMatch(/Fail.*0|背景に対してFail.*0/i);
 	});
 
+	test("パステルプリセットでボタン/テキストに濃い色が使われる（スマートカラーロール）", async ({
+		page,
+	}) => {
+		// Studioビューに切り替え
+		await switchToView(page, "studio");
+		await page.waitForSelector(SELECTORS.studioSection, { timeout: 10000 });
+		await page.waitForTimeout(TIMEOUTS.DATA_LOAD);
+
+		// 設定パネルを開いてPastelプリセットを選択
+		await page.waitForTimeout(TIMEOUTS.BEFORE_ACTION);
+		const settingsDetails = page.locator(SELECTORS.settingsDetails);
+		await settingsDetails.click();
+		await page.waitForTimeout(TIMEOUTS.UI_UPDATE);
+
+		const pastelButton = page.locator("button:has-text('Pastel')");
+		await pastelButton.click();
+		await page.waitForTimeout(TIMEOUTS.AFTER_ACTION);
+
+		// 設定パネルを閉じる
+		await settingsDetails.click();
+		await page.waitForTimeout(TIMEOUTS.UI_UPDATE);
+
+		// 配色を生成
+		const generateButton = page.locator(SELECTORS.generateButton);
+		await page.waitForTimeout(TIMEOUTS.BEFORE_ACTION);
+		await generateButton.click();
+		await page.waitForTimeout(TIMEOUTS.GENERATION);
+
+		// プレビュー内のボタンの色を取得
+		const previewButton = page.locator(
+			`${SELECTORS.studioPreview} .preview-button`,
+		);
+
+		// ボタンが存在する場合のみ検証
+		const buttonCount = await previewButton.count();
+		if (buttonCount > 0) {
+			const buttonBgColor = await previewButton
+				.first()
+				.evaluate((el) => getComputedStyle(el).backgroundColor);
+
+			if (buttonBgColor.match(/rgb\(\d+,\s*\d+,\s*\d+\)/)) {
+				const luminance = calculateRelativeLuminance(buttonBgColor);
+				// スマートカラーロールでは、ボタンには濃い色が使われる
+				// 濃い色 = 相対輝度が低い（< 0.5）
+				// 許容範囲を広くして、パステルの暗い版も含める
+				expect(luminance).toBeLessThan(0.6);
+			}
+		}
+
+		// ヘッドラインテキストの色も濃いことを確認
+		const headlineText = page.locator(
+			`${SELECTORS.studioPreview} .preview-hero__heading`,
+		);
+		const headlineCount = await headlineText.count();
+		if (headlineCount > 0) {
+			const headlineColor = await headlineText
+				.first()
+				.evaluate((el) => getComputedStyle(el).color);
+
+			if (headlineColor.match(/rgb\(\d+,\s*\d+,\s*\d+\)/)) {
+				const luminance = calculateRelativeLuminance(headlineColor);
+				// ヘッドラインは濃い色（コントラスト確保のため）
+				// または黒/白のフォールバック
+				expect(luminance).toBeLessThan(0.6);
+			}
+		}
+	});
+
 	test("他のプリセット（Default）が影響を受けない", async ({ page }) => {
 		// Studioビューに切り替え
 		await switchToView(page, "studio");

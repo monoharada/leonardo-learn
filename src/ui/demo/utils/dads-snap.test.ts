@@ -10,6 +10,8 @@ import { Color } from "@/core/color";
 import type { DadsToken } from "@/core/tokens/types";
 import {
 	adjustLightnessForContrast,
+	createPastelColorPair,
+	createSoftBorderColor,
 	filterChromaticDadsTokens,
 	hueDistance,
 	isDadsTokenResult,
@@ -416,6 +418,149 @@ describe("dads-snap utility", () => {
 
 			// 7:1以上のコントラストを達成
 			expect(contrast).toBeGreaterThanOrEqual(7 - 0.2);
+		});
+	});
+
+	describe("createPastelColorPair", () => {
+		const white = "#ffffff";
+
+		it("パステル背景と濃いテキスト色のペアを生成", () => {
+			const pastelPink = "#FFD1DC";
+			const pair = createPastelColorPair(pastelPink, white);
+
+			// 背景は元のパステル色
+			expect(pair.background.toLowerCase()).toBe(pastelPink.toLowerCase());
+
+			// テキストは同じ色相で4.5:1以上のコントラスト
+			const contrast = wcagContrast(white, pair.text) ?? 0;
+			expect(contrast).toBeGreaterThanOrEqual(4.5 - 0.1);
+		});
+
+		it("テキスト色が目標コントラストを達成", () => {
+			const pastelBlue = "#AED9E0";
+			const targetContrast = 4.5;
+			const pair = createPastelColorPair(pastelBlue, white, targetContrast);
+
+			const contrast = wcagContrast(white, pair.text) ?? 0;
+			expect(contrast).toBeGreaterThanOrEqual(targetContrast - 0.1);
+		});
+
+		it("色相を維持する", () => {
+			const pastelGreen = "#C8E6C9";
+			const pair = createPastelColorPair(pastelGreen, white);
+
+			// 元の色と調整後の色の色相を比較
+			const originalColor = new Color(pastelGreen);
+			const textColor = new Color(pair.text);
+			const originalHue = originalColor.oklch?.h ?? 0;
+			const textHue = textColor.oklch?.h ?? 0;
+
+			// 色相は維持される（±15°の許容範囲）
+			const hueDiff = Math.min(
+				Math.abs(originalHue - textHue),
+				360 - Math.abs(originalHue - textHue),
+			);
+			expect(hueDiff).toBeLessThan(15);
+		});
+
+		it("3:1の大きなテキスト用コントラストも指定可能", () => {
+			const pastelOrange = "#FFCC80";
+			const pair = createPastelColorPair(pastelOrange, white, 3);
+
+			const contrast = wcagContrast(white, pair.text) ?? 0;
+			expect(contrast).toBeGreaterThanOrEqual(3 - 0.1);
+		});
+
+		it("暗い背景でも正しく動作", () => {
+			const pastelLavender = "#E1BEE7";
+			const darkBg = "#1a1a1a";
+			const pair = createPastelColorPair(pastelLavender, darkBg, 4.5);
+
+			// 背景は元のパステル色
+			expect(pair.background.toLowerCase()).toBe(pastelLavender.toLowerCase());
+
+			// テキストは暗い背景に対してコントラストを確保
+			const contrast = wcagContrast(darkBg, pair.text) ?? 0;
+			expect(contrast).toBeGreaterThanOrEqual(4.5 - 0.1);
+		});
+
+		it("既にコントラスト十分な場合は元の色をそのまま使用", () => {
+			// 十分に暗い色（白背景で十分なコントラスト）
+			const darkColor = "#333333";
+			const pair = createPastelColorPair(darkColor, white, 4.5);
+
+			// 背景は元の色、テキストも元の色に近い
+			expect(pair.background.toLowerCase()).toBe(darkColor.toLowerCase());
+			// コントラストが既に十分なので、大きな変更はないはず
+			const contrast = wcagContrast(white, pair.text) ?? 0;
+			expect(contrast).toBeGreaterThanOrEqual(4.5);
+		});
+	});
+
+	describe("createSoftBorderColor", () => {
+		it("パステル色から柔らかいボーダー色を生成", () => {
+			const pastelPink = "#FFD1DC";
+			const borderColor = createSoftBorderColor(pastelPink);
+
+			// 有効なHEX色が返される
+			expect(borderColor).toMatch(/^#[0-9a-f]{6}$/i);
+
+			// 元の色より暗い
+			const originalColor = new Color(pastelPink);
+			const border = new Color(borderColor);
+			const originalL = originalColor.oklch?.l ?? 0;
+			const borderL = border.oklch?.l ?? 0;
+			expect(borderL).toBeLessThan(originalL);
+		});
+
+		it("色相を維持する", () => {
+			const pastelBlue = "#AED9E0";
+			const borderColor = createSoftBorderColor(pastelBlue);
+
+			const originalColor = new Color(pastelBlue);
+			const border = new Color(borderColor);
+			const originalHue = originalColor.oklch?.h ?? 0;
+			const borderHue = border.oklch?.h ?? 0;
+
+			// 色相は維持される（±5°の許容範囲）
+			const hueDiff = Math.min(
+				Math.abs(originalHue - borderHue),
+				360 - Math.abs(originalHue - borderHue),
+			);
+			expect(hueDiff).toBeLessThan(5);
+		});
+
+		it("明度の下限が0.6に制限される", () => {
+			// 非常に暗い色（明度が既に低い）
+			const darkColor = "#333333";
+			const borderColor = createSoftBorderColor(darkColor);
+
+			const border = new Color(borderColor);
+			const borderL = border.oklch?.l ?? 0;
+
+			// 明度は0.6以上に維持される（浮動小数点誤差を考慮）
+			expect(borderL).toBeGreaterThanOrEqual(0.59);
+		});
+
+		it("無効な色の場合はフォールバック値を返す", () => {
+			const invalidColor = "not-a-color";
+			const borderColor = createSoftBorderColor(invalidColor);
+
+			// フォールバック値（薄いグレー）
+			expect(borderColor.toLowerCase()).toBe("#e8e8e8");
+		});
+
+		it("彩度を適度に下げる", () => {
+			const pastelGreen = "#C8E6C9";
+			const borderColor = createSoftBorderColor(pastelGreen);
+
+			const originalColor = new Color(pastelGreen);
+			const border = new Color(borderColor);
+			const originalC = originalColor.oklch?.c ?? 0;
+			const borderC = border.oklch?.c ?? 0;
+
+			// 彩度は元の80%以下（ただし元が低彩度なら同等もありえる）
+			expect(borderC).toBeLessThanOrEqual(originalC * 0.81); // 若干のマージン
 		});
 	});
 });

@@ -98,6 +98,99 @@ export function adjustLightnessForContrast(
 	return result.toHex();
 }
 
+/**
+ * パステル色から背景用/テキスト用のカラーペアを生成
+ *
+ * パステルプリセット用の「スマートカラーロール」機能。
+ * パステル色を背景として活用し、同じ色相の濃い色をテキストに使用することで、
+ * パステルの柔らかさを維持しつつアクセシビリティを確保する。
+ *
+ * @param pastelHex - パステル色（HEX）- 背景用にそのまま使用
+ * @param pageBackgroundHex - ページ背景色（HEX）- テキストコントラスト計算の基準
+ * @param textContrastTarget - テキスト用の目標コントラスト比（デフォルト: 4.5）
+ * @returns 背景色とテキスト色のペア
+ */
+export function createPastelColorPair(
+	pastelHex: string,
+	pageBackgroundHex: string,
+	textContrastTarget = 4.5,
+): { background: string; text: string } {
+	const color = new Color(pastelHex);
+	const oklch = color.oklch;
+
+	if (!oklch) {
+		// フォールバック: パステル色をそのまま返す
+		return { background: pastelHex, text: pastelHex };
+	}
+
+	const hue = oklch.h ?? 0;
+	const chroma = oklch.c ?? 0;
+
+	// 背景色はパステル色をそのまま使用
+	const background = pastelHex;
+
+	// テキスト色: 同じ色相で明度を下げてコントラストを確保
+	// adjustLightnessForContrastを使用して目標コントラストを達成
+	const text = adjustLightnessForContrast(
+		pastelHex,
+		pageBackgroundHex,
+		textContrastTarget,
+	);
+
+	// 彩度を少し上げてテキストの視認性を向上
+	// （パステル色は低彩度なので、濃くすると色味が薄くなりがち）
+	const textColor = new Color(text);
+	const textOklch = textColor.oklch;
+	if (textOklch) {
+		// 彩度を1.5倍に（ただし最大0.15まで）
+		const enhancedChroma = Math.min(chroma * 1.5, 0.15);
+		const enhancedText = new Color({
+			mode: "oklch",
+			l: textOklch.l,
+			c: enhancedChroma,
+			h: hue,
+		});
+
+		// 彩度強化後もコントラストが維持されているか確認
+		const enhancedContrast =
+			wcagContrast(pageBackgroundHex, enhancedText.toHex()) ?? 0;
+		if (enhancedContrast >= textContrastTarget) {
+			return { background, text: enhancedText.toHex() };
+		}
+	}
+
+	return { background, text };
+}
+
+/**
+ * パステル背景から柔らかいボーダー色を生成
+ *
+ * 色相を維持しながら、低コントラストで目立たない色に調整する。
+ * パステルプリセット用のボーダー色生成に使用。
+ *
+ * @param pastelHex - パステル色（HEX）
+ * @returns 柔らかいボーダー色（HEX）
+ */
+export function createSoftBorderColor(pastelHex: string): string {
+	try {
+		const color = new Color(pastelHex);
+		const oklch = color.oklch;
+		if (!oklch) return "#E8E8E8";
+
+		// 明度を少し下げ、彩度を維持しつつ色相を保つ
+		const result = new Color({
+			mode: "oklch",
+			l: Math.max((oklch.l ?? 0.9) - 0.15, 0.6),
+			c: (oklch.c ?? 0) * 0.8,
+			h: oklch.h,
+		});
+		return result.toHex();
+	} catch {
+		// 無効な色の場合はフォールバック値を返す
+		return "#E8E8E8";
+	}
+}
+
 /** 色相補完時の最小距離（度） */
 export const MIN_HUE_DISTANCE = 30;
 
@@ -256,6 +349,8 @@ export function isHueFarEnough(hue: number, existingHues: number[]): boolean {
  * 既存色相と十分に離れた色をDADSトークンから選択
  * ハーモニーで生成された色が不足している場合の補完用
  *
+ * コントラストが不足する場合は `adjustLightnessForContrast` でフォールバック
+ *
  * @param existingHues - 既存の色相配列
  * @param needed - 必要な色数
  * @param dadsTokens - DADSトークン配列
@@ -277,10 +372,8 @@ export function selectHueDistantColors(
 	// 選択済みの色相を追跡（既存 + 新規選択分）
 	const usedHues = [...existingHues];
 
-	// DADSトークンから候補を抽出
-	// chromaticカテゴリかつ有効なHEX値を持つトークンのみ
-	const candidates = dadsTokens.filter((token) => {
-		// セマンティックトークン（var()参照）を除外
+	// Step 1: コントラストを含む全条件を満たす候補を抽出
+	const candidatesWithContrast = dadsTokens.filter((token) => {
 		if (token.classification.category !== "chromatic") return false;
 		if (!token.hex.startsWith("#")) return false;
 
@@ -289,19 +382,36 @@ export function selectHueDistantColors(
 		if (!oklch) return false;
 
 		const hue = oklch.h ?? 0;
-
-		// 色相距離チェック
 		if (!isHueFarEnough(hue, usedHues)) return false;
-
-		// プリセットフィルタ
 		if (!matchesPreset(token.hex, preset)) return false;
 
-		// コントラストチェック
 		const contrast = wcagContrast(token.hex, backgroundHex);
 		if (contrast < minContrast) return false;
 
 		return true;
 	});
+
+	// Step 2: コントラストチェックなしの候補（フォールバック用）
+	const candidatesWithoutContrastCheck = dadsTokens.filter((token) => {
+		if (token.classification.category !== "chromatic") return false;
+		if (!token.hex.startsWith("#")) return false;
+
+		const color = new Color(token.hex);
+		const oklch = color.oklch;
+		if (!oklch) return false;
+
+		const hue = oklch.h ?? 0;
+		if (!isHueFarEnough(hue, usedHues)) return false;
+		if (!matchesPreset(token.hex, preset)) return false;
+
+		return true;
+	});
+
+	// コントラストを満たす候補が十分にあればそれを使用、なければフォールバック
+	const needsFallback = candidatesWithContrast.length < needed;
+	const candidates = needsFallback
+		? candidatesWithoutContrastCheck
+		: candidatesWithContrast;
 
 	// Fisher-Yatesシャッフルで均等にランダム化
 	const shuffled = fisherYatesShuffle(candidates, rnd);
@@ -317,8 +427,13 @@ export function selectHueDistantColors(
 
 		// この候補が既に選択した色と十分に離れているか再チェック
 		if (isHueFarEnough(hue, usedHues)) {
+			// フォールバック時は明度調整を適用
+			const finalHex = needsFallback
+				? adjustLightnessForContrast(token.hex, backgroundHex, minContrast)
+				: token.hex;
+
 			selected.push({
-				hex: token.hex,
+				hex: finalHex,
 				step: token.classification.scale,
 				baseChromaName: inferBaseChromaNameFromHex(token.hex),
 			});

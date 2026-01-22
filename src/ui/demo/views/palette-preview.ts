@@ -15,10 +15,32 @@
 
 import { formatHex, interpolate, oklch, parse, wcagContrast } from "culori";
 import { getContrastTextColor } from "@/ui/semantic-role/circular-swatch-transformer";
+import iconAuthSvg from "../assets/icons/authentication_line.svg" with {
+	type: "text",
+};
+import iconChildSvg from "../assets/icons/child_line.svg" with { type: "text" };
+import iconFamilySvg from "../assets/icons/family_line.svg" with {
+	type: "text",
+};
+import iconHealthSvg from "../assets/icons/health_line.svg" with {
+	type: "text",
+};
+import iconHouseSvg from "../assets/icons/house_line.svg" with { type: "text" };
+import iconMotherChildSvg from "../assets/icons/mother_and_child_line.svg" with {
+	type: "text",
+};
+import illustrationPeopleSvgText from "../assets/illustration-people.svg" with {
+	type: "text",
+};
 import bundledMainVisualSvgText from "../assets/main-visual.svg" with {
 	type: "text",
 };
-import type { PreviewKvState, StudioTheme } from "../types";
+import type { PreviewKvState, StudioPresetType, StudioTheme } from "../types";
+import {
+	adjustLightnessForContrast,
+	createPastelColorPair,
+	createSoftBorderColor,
+} from "../utils/dads-snap";
 
 /**
  * WCAG AA準拠のコントラスト比閾値
@@ -112,6 +134,8 @@ export interface PalettePreviewOptions {
 	tertiaryHex?: string;
 	/** テーマタイプ（pinpoint / hero / branding） */
 	theme?: StudioTheme;
+	/** プリセットタイプ（パステル用の色調整に使用） */
+	preset?: StudioPresetType;
 }
 
 function hashStringToSeed(value: string): number {
@@ -531,30 +555,116 @@ export interface ColorMappingInput {
 		link: string;
 	};
 	backgroundColor: string;
+	/** プリセットタイプ（パステル用の特別処理に使用） */
+	preset?: StudioPresetType;
 }
 
 /**
  * パレット状態からプレビュー用カラーにマッピング
  *
  * 薄い色がテキストに使われても読めるよう、コントラスト自動調整を適用
+ *
+ * パステルプリセットの場合は「スマートカラーロール」を適用:
+ * - パステル色を背景・装飾要素に使用
+ * - 同じ色相の濃い色をテキスト・インタラクティブ要素に使用
  */
 export function mapPaletteToPreviewColors(
 	input: ColorMappingInput,
 ): PalettePreviewColors {
-	const { primaryHex, accentHex, semanticColors, backgroundColor } = input;
+	const { primaryHex, accentHex, semanticColors, backgroundColor, preset } =
+		input;
 
 	// 背景色に対するテキスト色を計算
 	const textColorName = getContrastTextColor(backgroundColor);
-	const buttonTextColorName = getContrastTextColor(primaryHex);
 
 	// "black" / "white" を HEX に変換
 	const textColor = textColorName === "black" ? "#000000" : "#FFFFFF";
-	const buttonTextColor =
-		buttonTextColorName === "black" ? "#000000" : "#FFFFFF";
 
 	// フッター用の暗い色（テキスト色をベースに）
 	const footerBg = textColorName === "black" ? "#1A1A1A" : "#F5F5F5";
 	const footerText = textColorName === "black" ? "#FFFFFF" : "#1A1A1A";
+
+	// パステルプリセット用のスマートカラーロール
+	if (preset === "pastel") {
+		// パステル色から背景用/テキスト用のペアを生成
+		const primaryPair = createPastelColorPair(primaryHex, backgroundColor, 4.5);
+		const accentPair = createPastelColorPair(accentHex, backgroundColor, 4.5);
+		const linkPair = createPastelColorPair(
+			semanticColors.link,
+			backgroundColor,
+			4.5,
+		);
+
+		// カード背景: パステル色を薄くして使用
+		const cardBg = primaryPair.background;
+
+		// ボタンテキスト色を計算（濃い色に対して）
+		const buttonTextColorName = getContrastTextColor(primaryPair.text);
+		const buttonTextColor =
+			buttonTextColorName === "black" ? "#000000" : "#FFFFFF";
+
+		// リンク色をカード背景に対してもコントラスト確認
+		// ストリップ内のリンク行はカード背景上に表示されるため
+		const linkOnCardContrast = wcagContrast(cardBg, linkPair.text);
+		const safeLinkColor =
+			linkOnCardContrast >= WCAG_AA_CONTRAST_THRESHOLD
+				? linkPair.text
+				: adjustLightnessForContrast(
+						linkPair.text,
+						cardBg,
+						WCAG_AA_CONTRAST_THRESHOLD,
+					);
+
+		// 見出し色もカード背景に対してコントラスト確認（カード内見出し用）
+		const headlineOnCardContrast = wcagContrast(cardBg, primaryPair.text);
+		const safeHeadlineColor =
+			headlineOnCardContrast >= WCAG_AA_LARGE_TEXT_THRESHOLD
+				? primaryPair.text
+				: adjustLightnessForContrast(
+						primaryPair.text,
+						cardBg,
+						WCAG_AA_LARGE_TEXT_THRESHOLD,
+					);
+
+		return {
+			// 基本色
+			background: backgroundColor,
+			text: textColor,
+
+			// Primary役割: テキストには濃い色、背景にはパステル色
+			headline: safeHeadlineColor, // カード背景にも対応した濃い色
+			headlineText: safeHeadlineColor,
+			button: primaryPair.text, // ボタンはページ背景上なので元のまま
+			buttonText: buttonTextColor,
+
+			// Accent役割: カード背景にパステル色
+			card: cardBg,
+			cardAccent: accentPair.text, // 濃い色
+			cardAccentText: accentPair.text,
+
+			// セマンティック役割
+			link: safeLinkColor, // カード背景にも対応した濃い色
+			linkText: safeLinkColor,
+			error: semanticColors.error,
+			success: semanticColors.success,
+			warning: semanticColors.warning,
+
+			// Logo: 濃い色
+			logo: primaryPair.text,
+			logoText: primaryPair.text,
+
+			// UI要素: パステル色から柔らかいボーダー色を生成
+			border: createSoftBorderColor(primaryPair.background),
+			inputBackground: backgroundColor,
+			footerBackground: footerBg,
+			footerText,
+		};
+	}
+
+	// 通常のマッピング（パステル以外のプリセット）
+	const buttonTextColorName = getContrastTextColor(primaryHex);
+	const buttonTextColor =
+		buttonTextColorName === "black" ? "#000000" : "#FFFFFF";
 
 	// カード背景色
 	// DADS neutralに寄せる（白背景ならgray-50をカード/ボックスの面に使用）
@@ -682,6 +792,78 @@ function tintColor(hex: string, ratio: number): string {
 const TINT_RATIO = 0.4;
 
 /**
+ * SVGイラストの色マッピング（元のRGB→パレット変数名）
+ *
+ * 注意: 髪の色 rgb(13,24,69)、肌の色 rgb(254,202,135)、rgb(203,146,123) は
+ * 人物のリアリティを保つために変更しない。オブジェクトと背景のみ変更する。
+ */
+interface IllustrationColorMap {
+	text: string; // rgb(67,72,81) → スマホフレーム（グレー）
+	accent: string; // rgb(163,190,173) → 背景円（セージグリーン）
+	accent3: string; // rgb(254,151,126) → カード（コーラル）
+	background: string; // rgb(254,254,254) → 白背景
+}
+
+/**
+ * SVGイラストの色を動的に置換
+ *
+ * 髪の色と肌の色は保持し、オブジェクトと背景のみパレット色に置換する。
+ * - 保持: rgb(13,24,69) 髪, rgb(254,202,135) 肌, rgb(203,146,123) 肌影
+ * - 置換: スマホフレーム、背景円、カード、白背景
+ *
+ * @param svgText - 元のSVGテキスト
+ * @param colors - 置換する色マップ
+ * @returns 色置換後のSVGテキスト
+ */
+function replaceIllustrationColors(
+	svgText: string,
+	colors: IllustrationColorMap,
+): string {
+	// 髪と肌の色は変更しない（人物のリアリティ保持）
+	// rgb(13,24,69) → 髪（濃紺）- 保持
+	// rgb(254,202,135) → 肌（ピーチ）- 保持
+	// rgb(203,146,123) → 肌影（タン）- 保持
+
+	const colorReplacements: [RegExp, string][] = [
+		// オブジェクトと背景のみ置換
+		[/fill="rgb\(67,\s*72,\s*81\)"/g, `fill="${colors.text}"`], // スマホフレーム
+		[/fill="rgb\(163,\s*190,\s*173\)"/g, `fill="${colors.accent}"`], // 背景円
+		[/fill="rgb\(254,\s*151,\s*126\)"/g, `fill="${colors.accent3}"`], // カード
+		[/fill="rgb\(254,\s*254,\s*254\)"/g, `fill="${colors.background}"`], // 白背景
+	];
+
+	let result = svgText;
+	for (const [pattern, replacement] of colorReplacements) {
+		result = result.replace(pattern, replacement);
+	}
+	return result;
+}
+
+/**
+ * アイコンSVGの色を置換（currentColorへの変換またはアクセント色適用）
+ *
+ * @param svgText - 元のSVGテキスト
+ * @param accentColor - アクセント色（nullの場合はcurrentColorを使用）
+ * @returns 色置換後のSVGテキスト
+ */
+function replaceIconColor(svgText: string, accentColor: string | null): string {
+	const fillColor = accentColor ?? "currentColor";
+	return svgText.replace(/fill="#1A1A1C"/g, `fill="${fillColor}"`);
+}
+
+/**
+ * アイコンデータ（表示用）
+ */
+const FACILITY_ICONS = [
+	{ svg: iconChildSvg, label: "子ども" },
+	{ svg: iconFamilySvg, label: "家族" },
+	{ svg: iconHealthSvg, label: "健康" },
+	{ svg: iconHouseSvg, label: "住まい" },
+	{ svg: iconMotherChildSvg, label: "母子" },
+	{ svg: iconAuthSvg, label: "認証" },
+] as const;
+
+/**
  * テーマに応じた色設定を返す
  *
  * - pinpoint: 最小限の色使い（リンクはDADS青、見出しは黒）
@@ -777,42 +959,64 @@ function buildDadsPreviewMarkup(): string {
 				</div>
 			</section>
 
-			<section class="preview-section preview-section--strip" aria-label="まとめ">
+			<section class="preview-section preview-section--twocol" aria-label="採用情報">
 				<div class="preview-container">
-					<div class="preview-strip">
-						<div class="preview-strip__layout">
-							<div class="preview-strip__lead">
-								<hgroup class="dads-heading" data-size="24">
-									<h2 class="dads-heading__heading">アクセントは、最大3色まで。</h2>
+					<div class="preview-twocol">
+						<div class="preview-twocol__left">
+							<hgroup class="dads-heading" data-size="18">
+								<h2 class="dads-heading__heading">採用種別</h2>
+							</hgroup>
+							<div class="preview-list" aria-label="採用種別リスト">
+								<a class="preview-list-item dads-link" href="#">
+									<span class="preview-list-item__indicator" aria-hidden="true"></span>
+									<span class="preview-list-item__text">新卒採用</span>
+									<span class="preview-list-item__arrow" aria-hidden="true">→</span>
+								</a>
+								<a class="preview-list-item dads-link" href="#">
+									<span class="preview-list-item__indicator" aria-hidden="true"></span>
+									<span class="preview-list-item__text">中途採用（行政人材）</span>
+									<span class="preview-list-item__arrow" aria-hidden="true">→</span>
+								</a>
+								<a class="preview-list-item dads-link" href="#">
+									<span class="preview-list-item__indicator" aria-hidden="true"></span>
+									<span class="preview-list-item__text">中途採用（民間人材）</span>
+									<span class="preview-list-item__arrow" aria-hidden="true">→</span>
+								</a>
+								<a class="preview-list-item preview-list-item--selected dads-link" href="#">
+									<span class="preview-list-item__indicator" aria-hidden="true"></span>
+									<span class="preview-list-item__text">その他採用（期間業務職員等）</span>
+									<span class="preview-list-item__arrow" aria-hidden="true">→</span>
+								</a>
+							</div>
+						</div>
+						<div class="preview-twocol__right">
+							<article class="preview-card-illustration">
+								<hgroup class="dads-heading" data-size="18">
+									<h3 class="dads-heading__heading">デジタル庁の職員／チーム紹介</h3>
 								</hgroup>
-								<p class="preview-strip__desc">
-									ニュートラルは「面」に、アクセントは「サイン」に。ページ全体のリズムを崩さずに、情報の強弱を作ります。
+								<div class="preview-card-illustration__image" data-preview-illustration="1" aria-label="チーム紹介イラスト">
+									<!-- SVG illustration will be inserted here -->
+								</div>
+								<p class="preview-card-illustration__desc">
+									デジタル庁ではnoteを活用して、働く職員を紹介しています
+									<a class="dads-link" href="#">↗</a>
 								</p>
-								<div class="preview-strip__actions">
-									<button class="dads-button" data-size="md" data-type="outline" type="button">ルールを確認</button>
-									<button class="dads-button" data-size="md" data-type="solid-fill" type="button">設定を開く</button>
-								</div>
-								<div class="preview-strip__legend" aria-label="アクセントのサンプル">
-									<span class="preview-pill" data-tone="accent-1">Accent 1</span>
-									<span class="preview-pill" data-tone="accent-2">Accent 2</span>
-									<span class="preview-pill" data-tone="accent-3">Accent 3</span>
-								</div>
-							</div>
+							</article>
+						</div>
+					</div>
+				</div>
+			</section>
 
-							<div class="preview-strip__links" aria-label="関連リンク">
-								<a class="preview-link-row dads-link" href="#">
-									<span class="preview-link-row__text">配色のコントラスト（AA）</span>
-									<span aria-hidden="true" class="preview-link-row__arrow">→</span>
-								</a>
-								<a class="preview-link-row dads-link" href="#">
-									<span class="preview-link-row__text">ボタンの状態（hover / active）</span>
-									<span aria-hidden="true" class="preview-link-row__arrow">→</span>
-								</a>
-								<a class="preview-link-row dads-link" href="#">
-									<span class="preview-link-row__text">カード面と余白のバランス</span>
-									<span aria-hidden="true" class="preview-link-row__arrow">→</span>
-								</a>
-							</div>
+			<section class="preview-section preview-section--facilities" aria-label="施設案内">
+				<div class="preview-container">
+					<div class="preview-facilities">
+						<div class="preview-facilities__header">
+							<hgroup class="dads-heading" data-size="24">
+								<h2 class="dads-heading__heading">Facilities</h2>
+							</hgroup>
+						</div>
+						<div class="preview-facilities__grid" data-preview-icons="1" aria-label="施設アイコン一覧">
+							<!-- Icons will be inserted dynamically -->
 						</div>
 					</div>
 				</div>
@@ -945,6 +1149,7 @@ export function createPalettePreview(
 	const accentHex3 = options.accentHexes?.[2] ?? accentHex2;
 	const tertiaryHex = options.tertiaryHex ?? colors.cardAccent;
 	const theme = options.theme ?? "hero";
+	const preset = options.preset;
 
 	// DADS標準のリンク色（青）
 	const DADS_LINK_COLOR = "#0017C1";
@@ -955,6 +1160,12 @@ export function createPalettePreview(
 		tertiaryHex,
 		dadsLinkColor: DADS_LINK_COLOR,
 	});
+
+	// パステルプリセット時はmapPaletteToPreviewColorsで計算したリンク色を使用
+	// （カード背景に対するコントラストも確認済み）
+	// 他のプリセットはテーマ別のリンク色を使用
+	const resolvedLinkColor =
+		preset === "pastel" ? colors.linkText : themeColors.linkColor;
 
 	const previewVars: Record<string, string> = {
 		"--preview-bg": colors.background,
@@ -975,8 +1186,8 @@ export function createPalettePreview(
 		"--preview-success": colors.success,
 		"--preview-warning": colors.warning,
 		"--preview-error": colors.error,
-		// テーマ別CSS変数
-		"--preview-link": themeColors.linkColor,
+		// テーマ別CSS変数（パステル時はコントラスト確保済みリンク色を使用）
+		"--preview-link": resolvedLinkColor,
 		"--preview-hero-bg": themeColors.heroBg,
 		"--preview-strip-bg": themeColors.stripBg,
 		// KV背景は常にターシャリー色（テーマに関係なく薄い色）
@@ -992,12 +1203,63 @@ export function createPalettePreview(
 	// テーマクラスを設定（CSS側でのスタイル切り替え用）
 	container.dataset.theme = theme;
 
+	// パステルプリセット用クラスを追加（CSS側でのスタイル切り替え用）
+	if (preset === "pastel") {
+		container.classList.add("dads-preview--pastel");
+	}
+
 	container.innerHTML = buildDadsPreviewMarkup();
 
 	// ---- Hero KV (main visual) ----
 	const kv = container.querySelector<HTMLElement>(".preview-kv");
 	if (kv) {
 		initializeKvElement(kv, colors, options);
+	}
+
+	// ---- Illustration card (two-column section) ----
+	const illustrationContainer = container.querySelector<HTMLElement>(
+		'[data-preview-illustration="1"]',
+	);
+	if (illustrationContainer) {
+		// 髪と肌の色は保持し、オブジェクトと背景のみパレット色に変更
+		const illustrationColors: IllustrationColorMap = {
+			text: getDisplayHex(colors.text), // スマホフレーム
+			accent: getDisplayHex(colors.cardAccent), // 背景円
+			accent3: getDisplayHex(accentHex3), // カード
+			background: getDisplayHex(colors.background), // 白背景
+		};
+		const coloredSvg = replaceIllustrationColors(
+			illustrationPeopleSvgText,
+			illustrationColors,
+		);
+		illustrationContainer.innerHTML = coloredSvg;
+	}
+
+	// ---- Facility icons grid ----
+	const iconsContainer = container.querySelector<HTMLElement>(
+		'[data-preview-icons="1"]',
+	);
+	if (iconsContainer) {
+		// Apply accent color to icons at indices 1, 3, 5 (every other, starting at index 1)
+		const accentIndices = new Set([1, 3, 5]);
+		const iconElements = FACILITY_ICONS.map((icon, index) => {
+			const hasAccent = accentIndices.has(index);
+			const accentColor = hasAccent ? getDisplayHex(colors.cardAccent) : null;
+			const coloredSvg = replaceIconColor(icon.svg, accentColor);
+
+			const wrapper = document.createElement("div");
+			wrapper.className = `preview-facility-icon${hasAccent ? " preview-facility-icon--accent" : ""}`;
+			wrapper.innerHTML = `
+				<div class="preview-facility-icon__icon">${coloredSvg}</div>
+				<span class="preview-facility-icon__label">${icon.label}</span>
+			`;
+			return wrapper;
+		});
+
+		iconsContainer.innerHTML = "";
+		for (const el of iconElements) {
+			iconsContainer.appendChild(el);
+		}
 	}
 
 	return container;

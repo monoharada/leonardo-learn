@@ -291,6 +291,7 @@ function computePaletteColors(
 function buildPreviewColors(
 	input: ReturnType<typeof computePaletteColors>,
 	backgroundHex: string,
+	preset: StudioPresetType,
 ): PalettePreviewColors {
 	return mapPaletteToPreviewColors({
 		primaryHex: input.primaryHex,
@@ -303,6 +304,7 @@ function buildPreviewColors(
 			link: "#0091FF",
 		},
 		backgroundColor: backgroundHex,
+		preset,
 	});
 }
 
@@ -1177,8 +1179,18 @@ export async function renderStudioView(
 
 	const desiredAccentCount = Math.max(2, Math.min(4, state.studioAccentCount));
 	const accentHexes = paletteColors.accentHexes.slice(0, desiredAccentCount);
-	const resolvedAccentHexes =
+	const rawAccentHexes =
 		accentHexes.length > 0 ? accentHexes : [paletteColors.accentHex];
+
+	// パステルプリセット時はアクセント色をコントラスト確保版に変換
+	// プレビュー内のボタン・テキスト要素が読めるようにする
+	const minContrast = resolvePresetMinContrast(state.activePreset);
+	const resolvedAccentHexes =
+		state.activePreset === "pastel"
+			? rawAccentHexes.map((hex) =>
+					adjustLightnessForContrast(hex, bgHex, minContrast),
+				)
+			: rawAccentHexes;
 
 	// Close any open popover when clicking outside
 	let activePopover: HTMLElement | null = null;
@@ -1767,13 +1779,18 @@ export async function renderStudioView(
 	const previewSection = document.createElement("section");
 	previewSection.className = "studio-preview";
 
-	const previewColors = buildPreviewColors(paletteColors, bgHex);
+	const previewColors = buildPreviewColors(
+		paletteColors,
+		bgHex,
+		state.activePreset,
+	);
 	const preview = createPalettePreview(previewColors, {
 		getDisplayHex,
 		kv: state.previewKv,
 		accentHexes: resolvedAccentHexes,
 		tertiaryHex: paletteColors.tertiaryHex,
 		theme: state.studioTheme,
+		preset: state.activePreset,
 	});
 	previewSection.appendChild(preview);
 	container.appendChild(previewSection);
