@@ -229,7 +229,10 @@ function getDadsSemanticHex(
 	);
 }
 
-function computePaletteColors(dadsTokens: DadsToken[]): {
+function computePaletteColors(
+	dadsTokens: DadsToken[],
+	preset: StudioPresetType,
+): {
 	primaryHex: string;
 	primaryStep?: number;
 	secondaryHex?: string;
@@ -268,7 +271,7 @@ function computePaletteColors(dadsTokens: DadsToken[]): {
 
 	// Apply contrast adjustment for semantic colors when needed
 	const bgHex = DEFAULT_STUDIO_BACKGROUND;
-	const minContrast = resolvePresetMinContrast(state.activePreset);
+	const minContrast = resolvePresetMinContrast(preset);
 
 	return {
 		primaryHex,
@@ -321,16 +324,15 @@ async function selectRandomPrimaryFromDads(
 		return ratio >= minContrast;
 	});
 
-	// コントラスト条件を満たす色がない場合、明度調整を適用
+	// コントラスト条件を満たす色がない場合、選択後に明度調整を適用
 	let finalList: DadsToken[];
+	let needsAdjustment = false;
 	if (contrastFiltered.length > 0) {
 		finalList = contrastFiltered;
 	} else {
-		// フォールバック: 明度調整してコントラストを確保
-		finalList = baseList.map((t) => ({
-			...t,
-			hex: adjustLightnessForContrast(t.hex, backgroundHex, minContrast),
-		}));
+		// フォールバック: 選択後に明度調整を適用（パフォーマンス最適化）
+		finalList = baseList;
+		needsAdjustment = true;
 	}
 
 	const selected = pickRandom(finalList, rnd) ?? pickRandom(chromatic, rnd);
@@ -347,7 +349,12 @@ async function selectRandomPrimaryFromDads(
 		inferBaseChromaNameFromHex(selected.hex) ||
 		"Blue";
 
-	return { hex: selected.hex, step, baseChromaName };
+	// 明度調整が必要な場合のみ適用（フォールバック時）
+	const finalHex = needsAdjustment
+		? adjustLightnessForContrast(selected.hex, backgroundHex, minContrast)
+		: selected.hex;
+
+	return { hex: finalHex, step, baseChromaName };
 }
 
 function setLockedColors(patch: Partial<LockedColorsState>): void {
@@ -674,7 +681,7 @@ export async function generateNewStudioPalette(
 	let primaryStep: number | undefined;
 	let primaryBaseChromaName: string | undefined;
 
-	const currentPrimary = computePaletteColors(dadsTokens);
+	const currentPrimary = computePaletteColors(dadsTokens, state.activePreset);
 	if (state.lockedColors.primary) {
 		primaryHex = currentPrimary.primaryHex;
 		primaryStep = currentPrimary.primaryStep;
@@ -804,7 +811,7 @@ function pushUndoSnapshot(): void {
 }
 
 function buildShareUrl(dadsTokens: DadsToken[]): string {
-	const colors = computePaletteColors(dadsTokens);
+	const colors = computePaletteColors(dadsTokens, state.activePreset);
 	const accentHexes = colors.accentHexes.slice(
 		0,
 		Math.max(2, Math.min(4, state.studioAccentCount)),
@@ -935,7 +942,7 @@ export async function renderStudioView(
 			try {
 				// 既存Primaryを維持しつつ、アクセントだけ再生成（必要な場合のみ）
 				if (state.palettes.length > 0) {
-					const current = computePaletteColors(dadsTokens);
+					const current = computePaletteColors(dadsTokens, state.activePreset);
 					const backgroundHex = DEFAULT_STUDIO_BACKGROUND;
 					const existing = current.accentHexes;
 					const desired = Math.max(2, Math.min(4, state.studioAccentCount));
@@ -1086,7 +1093,7 @@ export async function renderStudioView(
 		state.studioSeed = snapshot.studioSeed;
 		state.studioAccentCount = snapshot.studioAccentCount;
 
-		const restored = computePaletteColors(dadsTokens);
+		const restored = computePaletteColors(dadsTokens, state.activePreset);
 		const keyColorsInput = document.getElementById(
 			"keyColors",
 		) as HTMLInputElement | null;
@@ -1165,7 +1172,7 @@ export async function renderStudioView(
 		return;
 	}
 
-	const paletteColors = computePaletteColors(dadsTokens);
+	const paletteColors = computePaletteColors(dadsTokens, state.activePreset);
 	const bgHex = state.lightBackgroundColor || DEFAULT_STUDIO_BACKGROUND;
 
 	const desiredAccentCount = Math.max(2, Math.min(4, state.studioAccentCount));
@@ -1669,7 +1676,7 @@ export async function renderStudioView(
 		state.studioAccentCount = newCount;
 
 		// Generate new accent colors
-		const current = computePaletteColors(dadsTokens);
+		const current = computePaletteColors(dadsTokens, state.activePreset);
 		const backgroundHex =
 			state.lightBackgroundColor || DEFAULT_STUDIO_BACKGROUND;
 		const existing = current.accentHexes.slice(0, oldAccentCount);

@@ -38,6 +38,23 @@ const SELECTORS = {
 };
 
 /**
+ * WCAG コントラスト比基準
+ * @see https://www.w3.org/WAI/WCAG21/Understanding/contrast-minimum.html
+ */
+const CONTRAST_THRESHOLDS = {
+	/** WCAG AA Large Text / UI Components (3:1) */
+	WCAG_AA_LARGE_TEXT: 3,
+	/** WCAG AA Normal Text (4.5:1) */
+	WCAG_AA_NORMAL_TEXT: 4.5,
+} as const;
+
+/**
+ * コントラスト比の許容誤差
+ * 色空間変換（RGB→OKLCH→RGB）時の丸め誤差を考慮
+ */
+const CONTRAST_TOLERANCE = 0.2;
+
+/**
  * RGB文字列からOKLCH明度を計算するヘルパー
  * WCAG relative luminanceに基づく近似値
  */
@@ -127,8 +144,10 @@ test.describe("パステルプリセット コントラスト修正", () => {
 			const luminance = calculateRelativeLuminance(bgColor);
 			const contrast = calculateContrastRatio(whiteLuminance, luminance);
 
-			// 3:1以上のコントラストを確認（許容誤差0.2）
-			expect(contrast).toBeGreaterThanOrEqual(2.8);
+			// WCAG AA Large Text (3:1) 以上のコントラストを確認
+			expect(contrast).toBeGreaterThanOrEqual(
+				CONTRAST_THRESHOLDS.WCAG_AA_LARGE_TEXT - CONTRAST_TOLERANCE,
+			);
 		}
 	});
 
@@ -177,7 +196,9 @@ test.describe("パステルプリセット コントラスト修正", () => {
 				const luminance = calculateRelativeLuminance(bgColor);
 				const contrast = calculateContrastRatio(whiteLuminance, luminance);
 
-				expect(contrast).toBeGreaterThanOrEqual(2.8);
+				expect(contrast).toBeGreaterThanOrEqual(
+					CONTRAST_THRESHOLDS.WCAG_AA_LARGE_TEXT - CONTRAST_TOLERANCE,
+				);
 			}
 		}
 	});
@@ -263,8 +284,11 @@ test.describe("パステルプリセット コントラスト修正", () => {
 			const luminance = calculateRelativeLuminance(bgColor);
 			const contrast = calculateContrastRatio(whiteLuminance, luminance);
 
-			// 4.5:1以上のコントラスト（許容誤差0.3）
-			expect(contrast).toBeGreaterThanOrEqual(4.2);
+			// WCAG AA Normal Text (4.5:1) 以上のコントラストを確認
+			// Defaultプリセットはより厳しい基準を適用するため許容誤差を大きめに設定
+			expect(contrast).toBeGreaterThanOrEqual(
+				CONTRAST_THRESHOLDS.WCAG_AA_NORMAL_TEXT - 0.3,
+			);
 		}
 	});
 });
