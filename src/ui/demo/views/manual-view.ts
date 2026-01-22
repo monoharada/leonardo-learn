@@ -635,15 +635,19 @@ export async function renderManualView(
 		// TRIADICハーモニーでセカンダリー・ターシャリーを生成
 		const palette = generateHarmonyPalette(keyColor, HarmonyType.TRIADIC);
 
-		// パレットからセカンダリー・ターシャリー（Accent）を取得
+		// パレットからセカンダリー・ターシャリーを取得
+		// Note: TRIADICハーモニーでは「Secondary」と「Accent」が返される
+		// マニュアル選択モデルでは「Accent」を「Tertiary」として使用
 		const secondary = palette.find((c) => c.name === "Secondary");
 		const tertiary = palette.find((c) => c.name === "Accent");
 
 		// マニュアル選択状態を更新
 		const selection = state.manualColorSelection;
 		selection.keyColor = hex;
-		selection.secondaryColor = secondary?.keyColor.toHex() ?? null;
-		selection.tertiaryColor = tertiary?.keyColor.toHex() ?? null;
+		selection.secondaryColor =
+			secondary?.keyColor.toHex() ?? DEFAULT_MANUAL_SECONDARY_COLOR;
+		selection.tertiaryColor =
+			tertiary?.keyColor.toHex() ?? DEFAULT_MANUAL_TERTIARY_COLOR;
 
 		// パレット同期
 		applyColorToManualSelection("key", hex);
