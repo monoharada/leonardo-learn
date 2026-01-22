@@ -175,6 +175,8 @@ export interface DemoState {
 	studioTheme: StudioTheme;
 	/** マニュアルビュー用の色選択状態 */
 	manualColorSelection: ManualColorSelection;
+	/** Manual URL から復元された場合にtrue（初回レンダリング時の同期スキップ用） */
+	manualColorRestoredFromUrl: boolean;
 }
 
 /** 色詳細モーダルのオプション */
@@ -207,7 +209,8 @@ export interface ColorDetailModalOptions {
 /** キーカラーから@stepサフィックスを除去してHEX値のみを返す */
 export function stripStepSuffix(keyColor: string): string {
 	if (!keyColor) return "";
-	return keyColor.split("@")[0] ?? keyColor;
+	const parts = keyColor.split("@");
+	return parts[0] ?? keyColor;
 }
 
 // Re-exports for module convenience

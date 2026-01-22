@@ -9,41 +9,32 @@ import { describe, expect, test } from "bun:test";
 // Re-exportされた関数・インターフェースをインポート
 import {
 	type AccessibilityViewHelpers,
-	type HarmonyViewCallbacks,
-	type PaletteViewCallbacks,
+	// studio-view.ts
+	generateNewStudioPalette,
+	type ManualViewCallbacks,
 	// accessibility-view.ts
 	renderAccessibilityView,
 	renderAdjacentShadesAnalysis,
 	renderDadsHueSection,
 	renderDistinguishabilityAnalysis,
-	// harmony-view.ts
-	renderHarmonyView,
-	// palette-view.ts
-	renderPaletteView,
+	// manual-view.ts
+	renderManualView,
 	renderPrimaryBrandSection,
-	// shades-view.ts
-	renderShadesView,
-	// studio-view.ts
 	renderStudioView,
-	type ShadesViewCallbacks,
 	type StudioViewCallbacks,
 } from "./index";
 
 describe("views/index.ts re-exports", () => {
-	test("renderHarmonyView is exported", () => {
-		expect(typeof renderHarmonyView).toBe("function");
-	});
-
-	test("renderPaletteView is exported", () => {
-		expect(typeof renderPaletteView).toBe("function");
-	});
-
-	test("renderShadesView is exported", () => {
-		expect(typeof renderShadesView).toBe("function");
+	test("renderManualView is exported", () => {
+		expect(typeof renderManualView).toBe("function");
 	});
 
 	test("renderStudioView is exported", () => {
 		expect(typeof renderStudioView).toBe("function");
+	});
+
+	test("generateNewStudioPalette is exported", () => {
+		expect(typeof generateNewStudioPalette).toBe("function");
 	});
 
 	test("renderDadsHueSection is exported", () => {
@@ -70,14 +61,7 @@ describe("views/index.ts re-exports", () => {
 	test("type exports compile correctly", () => {
 		// これらの型が正しくエクスポートされていることを確認
 		// コンパイルが通れば型は正しくエクスポートされている
-		const _harmonyCallbacks: HarmonyViewCallbacks = {
-			onHarmonySelect: () => {},
-			onColorClick: () => {},
-		};
-		const _paletteCallbacks: PaletteViewCallbacks = {
-			onColorClick: () => {},
-		};
-		const _shadesCallbacks: ShadesViewCallbacks = {
+		const _manualCallbacks: ManualViewCallbacks = {
 			onColorClick: () => {},
 		};
 		const _accessibilityHelpers: AccessibilityViewHelpers = {

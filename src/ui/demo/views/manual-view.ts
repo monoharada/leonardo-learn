@@ -11,6 +11,7 @@
 
 import { simulateCVD } from "@/accessibility/cvd-simulator";
 import { Color } from "@/core/color";
+import { generateHarmonyPalette, HarmonyType } from "@/core/harmony";
 import { calculateBoundaries } from "@/core/semantic-role/contrast-boundary-calculator";
 import {
 	createSemanticRoleMapper,
@@ -35,7 +36,12 @@ import {
 } from "@/ui/semantic-role/circular-swatch-transformer";
 import { renderBoundaryPills } from "@/ui/semantic-role/contrast-boundary-indicator";
 import { applyOverlay } from "@/ui/semantic-role/semantic-role-overlay";
-import { createBackgroundColorSelector } from "../background-color-selector";
+import { DEBOUNCE_DELAY_MS, debounce } from "../background-color-selector";
+import {
+	DEFAULT_MANUAL_KEY_COLOR,
+	DEFAULT_MANUAL_SECONDARY_COLOR,
+	DEFAULT_MANUAL_TERTIARY_COLOR,
+} from "../constants";
 import { buildManualShareUrl } from "../manual-url-state";
 import {
 	getActivePalette,
@@ -43,14 +49,15 @@ import {
 	persistBackgroundColors,
 	persistManualColorSelection,
 	state,
+	validateBackgroundColor,
 } from "../state";
 import type {
 	ColorDetailModalOptions,
 	CVDType,
-	HarmonyType,
 	ManualApplyTarget,
 	PaletteConfig,
 } from "../types";
+import { clampAccentCount } from "../utils/palette-utils";
 
 /**
  * マニュアル選択ビューのコールバック
@@ -68,6 +75,11 @@ export interface ManualViewCallbacks {
  * リセットすること。
  */
 let selectedApplyTarget: ManualApplyTarget | null = null;
+
+/**
+ * Stored reference for document-level popover click handler cleanup (prevents memory leak)
+ */
+let manualViewClickHandler: ((e: MouseEvent) => void) | null = null;
 
 /**
  * 選択されている適用先を取得する
@@ -180,6 +192,12 @@ export function deleteAccentFromManualSelection(
 	if (paletteIndex >= 0) {
 		state.palettes.splice(paletteIndex, 1);
 	}
+
+	// studioAccentCount も同期（残っているアクセントの数を計算）
+	const remainingAccents = selection.accentColors.filter(
+		(c) => c !== null,
+	).length;
+	state.studioAccentCount = clampAccentCount(remainingAccents);
 
 	// 永続化
 	persistManualColorSelection(selection);
@@ -310,9 +328,10 @@ export function syncFromStudioPalettes(): void {
 	selection.secondaryColor = getPaletteKeyColorHex("secondary");
 	selection.tertiaryColor = getPaletteKeyColorHex("tertiary");
 
-	// Accents (1-4): 常に4要素の配列として維持
+	// Accents: studioAccentCount に従って制限（常に4要素の配列として維持、超過分はnull）
+	const accentCount = state.studioAccentCount;
 	selection.accentColors = [1, 2, 3, 4].map((i) =>
-		getPaletteKeyColorHex(`accent ${i}`),
+		i <= accentCount ? getPaletteKeyColorHex(`accent ${i}`) : null,
 	);
 
 	// 永続化
@@ -533,60 +552,149 @@ export async function renderManualView(
 ): Promise<void> {
 	// Studio View パレットから Manual View の選択状態を同期
 	// これにより、Studio View で生成されたパレットがツールバーに反映される
-	syncFromStudioPalettes();
+	// Bug 1 対応: URL から復元された場合は同期をスキップ（初回のみ）
+	if (state.manualColorRestoredFromUrl) {
+		// フラグをリセット（次回以降は通常の同期を行う）
+		state.manualColorRestoredFromUrl = false;
+	} else {
+		syncFromStudioPalettes();
+	}
 
 	// コンテナをクリアして前のビューのDOMが残らないようにする
 	container.innerHTML = "";
 	container.className = "dads-section";
 
+	// Cleanup orphaned popovers from previous render (prevents DOM accumulation)
+	for (const orphan of document.querySelectorAll(
+		'.studio-swatch-popover[data-manual-view="true"]',
+	)) {
+		orphan.remove();
+	}
+
 	// Requirements: 5.5, 5.6 - ライト背景色をコンテナに適用
 	container.style.backgroundColor = state.lightBackgroundColor;
 
-	// Requirements: 1.1, 5.5 - 背景色セレクターをビュー上部に配置
-	const backgroundSelectorSection = document.createElement("section");
-	backgroundSelectorSection.className = "background-color-selector-wrapper";
-	const backgroundSelector = createBackgroundColorSelector({
-		lightColor: state.lightBackgroundColor,
-		darkColor: state.darkBackgroundColor,
-		onLightColorChange: (hex: string) => {
-			// ライト背景色を更新
-			state.lightBackgroundColor = hex;
-			// Requirements: 5.5 - localStorageに永続化
-			persistBackgroundColors(
-				state.lightBackgroundColor,
-				state.darkBackgroundColor,
-			);
-			// コンテナの背景色を更新
-			container.style.backgroundColor = hex;
-			// 再レンダリング（コントラスト値更新のため）
-			void renderManualView(container, callbacks).catch((err) => {
-				console.error("Failed to re-render shades view:", err);
-			});
-		},
-		onDarkColorChange: (hex: string) => {
-			// ダーク背景色を更新
-			state.darkBackgroundColor = hex;
-			// Requirements: 5.5 - localStorageに永続化
-			persistBackgroundColors(
-				state.lightBackgroundColor,
-				state.darkBackgroundColor,
-			);
-			// 再レンダリング（コントラスト境界の更新のため）
-			void renderManualView(container, callbacks).catch((err) => {
-				console.error("Failed to re-render shades view:", err);
-			});
-		},
-	});
-	backgroundSelectorSection.appendChild(backgroundSelector);
-	container.appendChild(backgroundSelectorSection);
+	// アクティブなポップオーバーを追跡
+	let activePopover: HTMLElement | null = null;
 
-	// ツールバー（スウォッチ + 共有リンク・エクスポート）
+	// ポップオーバーを閉じるヘルパー
+	const closeActivePopover = () => {
+		if (activePopover) {
+			activePopover.dataset.open = "false";
+			activePopover = null;
+		}
+	};
+
+	// Remove previous click handler to prevent memory leak from accumulating listeners
+	if (manualViewClickHandler) {
+		document.removeEventListener("click", manualViewClickHandler);
+	}
+
+	// ドキュメントクリックでポップオーバーを閉じる
+	manualViewClickHandler = (e: MouseEvent) => {
+		if (activePopover && !activePopover.contains(e.target as Node)) {
+			closeActivePopover();
+		}
+	};
+	document.addEventListener("click", manualViewClickHandler);
+
+	// 色変更ハンドラを作成
+	const handleBackgroundColorChange = (hex: string) => {
+		state.lightBackgroundColor = hex;
+		persistBackgroundColors(
+			state.lightBackgroundColor,
+			state.darkBackgroundColor,
+		);
+		container.style.backgroundColor = hex;
+
+		// Update parent #main-content as well
+		const mainContentEl = document.getElementById("main-content");
+		if (mainContentEl) {
+			mainContentEl.style.backgroundColor = hex;
+		}
+
+		void renderManualView(container, callbacks).catch((err) => {
+			console.error("Failed to re-render manual view:", err);
+		});
+	};
+
+	const handleTextColorChange = (hex: string) => {
+		state.darkBackgroundColor = hex;
+		persistBackgroundColors(
+			state.lightBackgroundColor,
+			state.darkBackgroundColor,
+		);
+		void renderManualView(container, callbacks).catch((err) => {
+			console.error("Failed to re-render manual view:", err);
+		});
+	};
+
+	// キーカラー変更ハンドラ（セカンダリー・ターシャリーを自動生成）
+	const handleKeyColorChange = (hex: string) => {
+		const keyColor = new Color(hex);
+		// TRIADICハーモニーでセカンダリー・ターシャリーを生成
+		const palette = generateHarmonyPalette(keyColor, HarmonyType.TRIADIC);
+
+		// パレットからセカンダリー・ターシャリーを取得
+		// Note: TRIADICハーモニーでは「Secondary」と「Accent」が返される
+		// マニュアル選択モデルでは「Accent」を「Tertiary」として使用
+		const secondary = palette.find((c) => c.name === "Secondary");
+		const tertiary = palette.find((c) => c.name === "Accent");
+
+		// マニュアル選択状態を更新
+		const selection = state.manualColorSelection;
+		selection.keyColor = hex;
+		selection.secondaryColor =
+			secondary?.keyColor.toHex() ?? DEFAULT_MANUAL_SECONDARY_COLOR;
+		selection.tertiaryColor =
+			tertiary?.keyColor.toHex() ?? DEFAULT_MANUAL_TERTIARY_COLOR;
+
+		// パレット同期
+		applyColorToManualSelection("key", hex);
+		if (selection.secondaryColor) {
+			applyColorToManualSelection("secondary", selection.secondaryColor);
+		}
+		if (selection.tertiaryColor) {
+			applyColorToManualSelection("tertiary", selection.tertiaryColor);
+		}
+
+		// 永続化
+		persistManualColorSelection(selection);
+
+		// ビューを再描画
+		void renderManualView(container, callbacks).catch((err) => {
+			console.error("Failed to re-render manual view:", err);
+		});
+	};
+
+	// ====================================
+	// 上部ヘッダーセクション（ラベル付きスウォッチ）
+	// ====================================
+	const headerSection = document.createElement("section");
+	headerSection.className = "manual-header-swatches";
+	headerSection.setAttribute("role", "region");
+	headerSection.setAttribute("aria-label", "選択カラースウォッチ");
+	headerSection.style.backgroundColor = state.lightBackgroundColor;
+
+	// ヘッダーセクションの見出しを追加
+	const headerHeading = document.createElement("h2");
+	headerHeading.className = "manual-header-swatches__heading";
+	headerHeading.textContent = "選択中カラー";
+	headerSection.appendChild(headerHeading);
+
+	// スウォッチを配置するコンテナを作成
+	const swatchesContainer = document.createElement("div");
+	swatchesContainer.className = "manual-header-swatches__swatches-container";
+
+	// ====================================
+	// 下部ツールバー（小さいスウォッチ + コントロール）
+	// ====================================
 	const toolbar = document.createElement("section");
 	toolbar.className = "studio-toolbar studio-toolbar--manual";
 	toolbar.setAttribute("role", "region");
 	toolbar.setAttribute("aria-label", "マニュアル選択ツールバー");
 
-	// スウォッチコンテナ
+	// ツールバーのスウォッチコンテナ
 	const swatches = document.createElement("div");
 	swatches.className = "studio-toolbar__swatches";
 
@@ -595,8 +703,8 @@ export async function renderManualView(
 		clickedWrapper: HTMLElement,
 		target: ManualApplyTarget | null,
 	) => {
-		// 全スウォッチからアクティブ状態を解除
-		for (const el of swatches.querySelectorAll(
+		// 全スウォッチからアクティブ状態を解除（ヘッダーセクション内を検索）
+		for (const el of headerSection.querySelectorAll(
 			".studio-toolbar-swatch--active",
 		)) {
 			el.classList.remove("studio-toolbar-swatch--active");
@@ -610,7 +718,163 @@ export async function renderManualView(
 		}
 	};
 
-	// 選択済みスウォッチを作成
+	// 背景色・テキスト色用ポップオーバー付きスウォッチを作成
+	const createColorSwatchWithPopover = (
+		label: string,
+		hex: string,
+		onColorChange: (newHex: string) => void,
+		isZoneEnd = false,
+	): HTMLElement => {
+		// ラッパー（スウォッチ + ラベル）
+		const outerWrapper = document.createElement("div");
+		outerWrapper.className = "studio-toolbar-swatch-wrapper";
+		if (isZoneEnd) {
+			outerWrapper.classList.add("studio-toolbar-swatch-wrapper--zone-end");
+		}
+
+		const swatch = document.createElement("div");
+		swatch.className = "studio-toolbar-swatch";
+		swatch.setAttribute("role", "button");
+		swatch.setAttribute("tabindex", "0");
+		swatch.setAttribute(
+			"aria-label",
+			`${label}: ${hex.toUpperCase()} - クリックして編集`,
+		);
+		swatch.style.cursor = "pointer";
+
+		const circle = document.createElement("span");
+		circle.className = "studio-toolbar-swatch__circle";
+		circle.style.backgroundColor = hex;
+		swatch.appendChild(circle);
+
+		// ポップオーバー
+		const popover = document.createElement("div");
+		popover.className = "studio-swatch-popover";
+		popover.dataset.open = "false";
+		popover.dataset.manualView = "true"; // Mark for cleanup on re-render
+
+		// ロールラベル
+		const roleLabel = document.createElement("div");
+		roleLabel.className = "studio-swatch-popover__role";
+		roleLabel.textContent = label;
+		popover.appendChild(roleLabel);
+
+		// カラーピッカー行
+		const colorRow = document.createElement("div");
+		colorRow.className = "studio-swatch-popover__color-row";
+
+		const colorPicker = document.createElement("input");
+		colorPicker.type = "color";
+		colorPicker.value = hex;
+		colorPicker.className = "studio-swatch-popover__color-picker";
+		colorPicker.setAttribute("aria-label", `${label}の色を選択`);
+		colorPicker.onclick = (e) => e.stopPropagation();
+
+		const hexInput = document.createElement("input");
+		hexInput.type = "text";
+		hexInput.className = "studio-swatch-popover__hex-input";
+		hexInput.value = hex.toUpperCase();
+		hexInput.setAttribute("aria-label", `${label}のカラーコード`);
+		hexInput.onclick = (e) => e.stopPropagation();
+
+		// エラー表示
+		const errorArea = document.createElement("div");
+		errorArea.className = "studio-swatch-popover__error";
+		errorArea.setAttribute("role", "alert");
+
+		// デバウンス付きHEX入力ハンドラ
+		const handleHexChange = (input: unknown) => {
+			const inputStr = String(input);
+			const result = validateBackgroundColor(inputStr);
+			if (result.valid && result.hex) {
+				circle.style.backgroundColor = result.hex;
+				colorPicker.value = result.hex;
+				hexInput.classList.remove("studio-swatch-popover__hex-input--invalid");
+				errorArea.textContent = "";
+				onColorChange(result.hex);
+			} else if (result.error) {
+				hexInput.classList.add("studio-swatch-popover__hex-input--invalid");
+				errorArea.textContent = result.error;
+			}
+		};
+		const debouncedHexInput = debounce(handleHexChange, DEBOUNCE_DELAY_MS);
+
+		colorPicker.oninput = (e) => {
+			e.stopPropagation();
+			const newHex = colorPicker.value;
+			circle.style.backgroundColor = newHex;
+			hexInput.value = newHex.toUpperCase();
+			hexInput.classList.remove("studio-swatch-popover__hex-input--invalid");
+			errorArea.textContent = "";
+			onColorChange(newHex);
+		};
+
+		hexInput.oninput = (e) => {
+			e.stopPropagation();
+			debouncedHexInput(hexInput.value.trim());
+		};
+
+		hexInput.onblur = () => {
+			const result = validateBackgroundColor(hexInput.value.trim());
+			if (result.valid && result.hex) {
+				hexInput.value = result.hex.toUpperCase();
+				hexInput.classList.remove("studio-swatch-popover__hex-input--invalid");
+			}
+		};
+
+		colorRow.appendChild(colorPicker);
+		colorRow.appendChild(hexInput);
+		popover.appendChild(colorRow);
+		popover.appendChild(errorArea);
+
+		// ポップオーバーをbodyに追加（position: fixedのため）
+		document.body.appendChild(popover);
+
+		// スウォッチクリックでポップオーバー表示
+		swatch.onclick = (e) => {
+			e.stopPropagation();
+			if (activePopover === popover) {
+				closeActivePopover();
+				return;
+			}
+			closeActivePopover();
+			const rect = swatch.getBoundingClientRect();
+			// 一旦表示してサイズを取得
+			popover.dataset.open = "true";
+			const popoverRect = popover.getBoundingClientRect();
+			const popoverWidth = popoverRect.width || 180; // フォールバック幅
+
+			// 中央配置を基本として、画面端でクリップしないように調整
+			let leftPos = rect.left + rect.width / 2 - popoverWidth / 2;
+			const rightEdge = leftPos + popoverWidth;
+			const viewportWidth = window.innerWidth;
+
+			// 左端がはみ出す場合
+			if (leftPos < 8) {
+				leftPos = 8;
+			}
+			// 右端がはみ出す場合
+			if (rightEdge > viewportWidth - 8) {
+				leftPos = viewportWidth - popoverWidth - 8;
+			}
+
+			popover.style.top = `${rect.bottom + 8}px`;
+			popover.style.left = `${leftPos}px`;
+			activePopover = popover;
+		};
+
+		outerWrapper.appendChild(swatch);
+
+		// ラベル
+		const labelEl = document.createElement("span");
+		labelEl.className = "studio-toolbar-swatch__label";
+		labelEl.textContent = label;
+		outerWrapper.appendChild(labelEl);
+
+		return outerWrapper;
+	};
+
+	// 選択済みスウォッチを作成（ラベル付き）
 	const createFilledSwatch = (
 		label: string,
 		hex: string,
@@ -618,23 +882,28 @@ export async function renderManualView(
 		target?: ManualApplyTarget,
 		onDelete?: () => void,
 	): HTMLElement => {
-		const wrapper = document.createElement("div");
-		wrapper.className = "studio-toolbar-swatch";
+		// ラッパー（スウォッチ + ラベル）
+		const outerWrapper = document.createElement("div");
+		outerWrapper.className = "studio-toolbar-swatch-wrapper";
 		if (isZoneEnd) {
-			wrapper.classList.add("studio-toolbar-swatch--zone-end");
+			outerWrapper.classList.add("studio-toolbar-swatch-wrapper--zone-end");
 		}
+
+		const swatch = document.createElement("div");
+		swatch.className = "studio-toolbar-swatch";
+
 		// ターゲットがある場合はクリック可能に
 		if (target) {
-			wrapper.setAttribute("role", "button");
-			wrapper.setAttribute("tabindex", "0");
-			wrapper.setAttribute(
+			swatch.setAttribute("role", "button");
+			swatch.setAttribute("tabindex", "0");
+			swatch.setAttribute(
 				"aria-label",
 				`${label}: ${hex.toUpperCase()} - クリックして適用先に設定`,
 			);
-			wrapper.title = `${label}: ${hex.toUpperCase()} - クリックして適用先に設定`;
-			wrapper.style.cursor = "pointer";
+			swatch.title = `${label}: ${hex.toUpperCase()} - クリックして適用先に設定`;
+			swatch.style.cursor = "pointer";
 			// クリックハンドラ
-			wrapper.addEventListener("click", (e) => {
+			swatch.addEventListener("click", (e) => {
 				// 削除ボタンがクリックされた場合は無視
 				if (
 					(e.target as HTMLElement).closest(".studio-toolbar-swatch__delete")
@@ -643,25 +912,25 @@ export async function renderManualView(
 				}
 				if (selectedApplyTarget === target) {
 					// 同じターゲットを再クリックで解除
-					updateActiveState(wrapper, null);
+					updateActiveState(swatch, null);
 				} else {
-					updateActiveState(wrapper, target);
+					updateActiveState(swatch, target);
 				}
 			});
 			// 初期アクティブ状態を設定
 			if (selectedApplyTarget === target) {
-				wrapper.classList.add("studio-toolbar-swatch--active");
+				swatch.classList.add("studio-toolbar-swatch--active");
 			}
 		} else {
-			wrapper.setAttribute("role", "img");
-			wrapper.setAttribute("aria-label", `${label}: ${hex.toUpperCase()}`);
-			wrapper.title = `${label}: ${hex.toUpperCase()}`;
+			swatch.setAttribute("role", "img");
+			swatch.setAttribute("aria-label", `${label}: ${hex.toUpperCase()}`);
+			swatch.title = `${label}: ${hex.toUpperCase()}`;
 		}
 
 		const circle = document.createElement("span");
 		circle.className = "studio-toolbar-swatch__circle";
 		circle.style.backgroundColor = hex;
-		wrapper.appendChild(circle);
+		swatch.appendChild(circle);
 
 		// 削除ボタンを追加（コールバックが提供されている場合）
 		if (onDelete) {
@@ -673,114 +942,136 @@ export async function renderManualView(
 				e.stopPropagation();
 				onDelete();
 			};
-			wrapper.appendChild(deleteBtn);
+			swatch.appendChild(deleteBtn);
 		}
 
-		return wrapper;
+		outerWrapper.appendChild(swatch);
+
+		// ラベル
+		const labelEl = document.createElement("span");
+		labelEl.className = "studio-toolbar-swatch__label";
+		labelEl.textContent = label;
+		outerWrapper.appendChild(labelEl);
+
+		return outerWrapper;
 	};
 
-	// 未選択プレースホルダーを作成
+	// 未選択プレースホルダーを作成（ラベル付き）
 	const createPlaceholderSwatch = (
 		label: string,
 		isZoneEnd = false,
 		target?: ManualApplyTarget,
 		isDisabled = false,
 	): HTMLElement => {
-		const wrapper = document.createElement("div");
-		wrapper.className =
-			"studio-toolbar-swatch studio-toolbar-swatch--placeholder";
+		// ラッパー（スウォッチ + ラベル）
+		const outerWrapper = document.createElement("div");
+		outerWrapper.className = "studio-toolbar-swatch-wrapper";
 		if (isZoneEnd) {
-			wrapper.classList.add("studio-toolbar-swatch--zone-end");
+			outerWrapper.classList.add("studio-toolbar-swatch-wrapper--zone-end");
 		}
+
+		const swatch = document.createElement("div");
+		swatch.className =
+			"studio-toolbar-swatch studio-toolbar-swatch--placeholder";
 		if (isDisabled) {
-			wrapper.classList.add("studio-toolbar-swatch--disabled");
+			swatch.classList.add("studio-toolbar-swatch--disabled");
 		}
 
 		// 無効化時とそうでない場合で属性を分ける
 		if (!isDisabled && target) {
-			wrapper.setAttribute("role", "button");
-			wrapper.setAttribute("tabindex", "0");
-			wrapper.setAttribute(
+			swatch.setAttribute("role", "button");
+			swatch.setAttribute("tabindex", "0");
+			swatch.setAttribute(
 				"aria-label",
 				`${label}（未選択）- クリックして適用先に設定`,
 			);
-			wrapper.title = `${label}（未選択）- クリックして適用先に設定`;
-			wrapper.style.cursor = "pointer";
+			swatch.title = `${label}（未選択）- クリックして適用先に設定`;
+			swatch.style.cursor = "pointer";
 
 			// クリックハンドラ
-			wrapper.addEventListener("click", () => {
+			swatch.addEventListener("click", () => {
 				if (selectedApplyTarget === target) {
 					// 同じターゲットを再クリックで解除
-					updateActiveState(wrapper, null);
+					updateActiveState(swatch, null);
 				} else {
-					updateActiveState(wrapper, target);
+					updateActiveState(swatch, target);
 				}
 			});
 			// 初期アクティブ状態を設定
 			if (selectedApplyTarget === target) {
-				wrapper.classList.add("studio-toolbar-swatch--active");
+				swatch.classList.add("studio-toolbar-swatch--active");
 			}
 		} else {
 			// 無効化時はクリック不可
-			wrapper.setAttribute("role", "img");
-			wrapper.setAttribute(
+			swatch.setAttribute("role", "img");
+			swatch.setAttribute(
 				"aria-label",
 				`${label}（選択不可 - 前のスロットを先に選択してください）`,
 			);
-			wrapper.title = `${label}（前のスロットを先に選択してください）`;
+			swatch.title = `${label}（前のスロットを先に選択してください）`;
 		}
 
-		return wrapper;
+		outerWrapper.appendChild(swatch);
+
+		// ラベル
+		const labelEl = document.createElement("span");
+		labelEl.className = "studio-toolbar-swatch__label";
+		labelEl.textContent = label;
+		outerWrapper.appendChild(labelEl);
+
+		return outerWrapper;
 	};
 
-	// 背景色スウォッチ
-	swatches.appendChild(
-		createFilledSwatch("背景色", state.lightBackgroundColor || "#ffffff"),
+	// ====================================
+	// ヘッダーセクションにラベル付きスウォッチを追加
+	// ====================================
+
+	// 背景色スウォッチ（ポップオーバー付き）
+	swatchesContainer.appendChild(
+		createColorSwatchWithPopover(
+			"背景色",
+			state.lightBackgroundColor || "#ffffff",
+			handleBackgroundColorChange,
+			false,
+		),
 	);
 
-	// テキスト色スウォッチ（zone-end）
-	swatches.appendChild(
-		createFilledSwatch(
-			"テキスト色",
+	// テキスト色スウォッチ（ポップオーバー付き、zone-end）
+	swatchesContainer.appendChild(
+		createColorSwatchWithPopover(
+			"文字色",
 			state.darkBackgroundColor || "#000000",
+			handleTextColorChange,
 			true,
 		),
 	);
 
-	// Primary スウォッチ（選択済み or プレースホルダー）
-	// state.manualColorSelectionを直接参照（パレットは遅延生成される場合があるため）
-	const primaryHex = state.manualColorSelection.keyColor;
-	if (primaryHex) {
-		swatches.appendChild(
-			createFilledSwatch("キーカラー", primaryHex, false, "key"),
-		);
-	} else {
-		swatches.appendChild(createPlaceholderSwatch("キーカラー", false, "key"));
-	}
+	// キーカラースウォッチ（ポップオーバー付き、編集可能）
+	// キーカラーがない場合はデフォルト色を使用
+	const primaryHex =
+		state.manualColorSelection.keyColor || DEFAULT_MANUAL_KEY_COLOR;
+	swatchesContainer.appendChild(
+		createColorSwatchWithPopover(
+			"キーカラー",
+			primaryHex,
+			handleKeyColorChange,
+			false,
+		),
+	);
 
-	// Secondary スウォッチ（選択済み or プレースホルダー）
-	const secondaryHex = state.manualColorSelection.secondaryColor;
-	if (secondaryHex) {
-		swatches.appendChild(
-			createFilledSwatch("セカンダリ", secondaryHex, false, "secondary"),
-		);
-	} else {
-		swatches.appendChild(
-			createPlaceholderSwatch("セカンダリ", false, "secondary"),
-		);
-	}
+	// セカンダリースウォッチ（表示のみ、キーカラーから自動生成）
+	const secondaryHex =
+		state.manualColorSelection.secondaryColor || DEFAULT_MANUAL_SECONDARY_COLOR;
+	swatchesContainer.appendChild(
+		createFilledSwatch("セカンダリ", secondaryHex, false),
+	);
 
-	// Tertiary スウォッチ（選択済み or プレースホルダー、zone-end）
-	const tertiaryHex = state.manualColorSelection.tertiaryColor;
-	if (tertiaryHex) {
-		swatches.appendChild(
-			createFilledSwatch("ターシャリ", tertiaryHex, true, "tertiary"),
-		);
-	} else {
-		swatches.appendChild(
-			createPlaceholderSwatch("ターシャリ", true, "tertiary"),
-		);
-	}
+	// ターシャリースウォッチ（表示のみ、キーカラーから自動生成、zone-end）
+	const tertiaryHex =
+		state.manualColorSelection.tertiaryColor || DEFAULT_MANUAL_TERTIARY_COLOR;
+	swatchesContainer.appendChild(
+		createFilledSwatch("ターシャリ", tertiaryHex, true),
+	);
 
 	// Accent 1〜4 スウォッチ（選択済み or プレースホルダー）
 	// 連続選択制約: 常に4スロット表示、最初の空きスロットのみクリック可能
@@ -788,20 +1079,37 @@ export async function renderManualView(
 		state.manualColorSelection.accentColors.indexOf(null);
 
 	// 常に4スロット表示（Studio Viewと統一）
+	// 削除可能条件の計算用: 埋まっているアクセントの数と最後のインデックス
+	const filledAccentIndices = state.manualColorSelection.accentColors
+		.map((c, idx) => (c !== null ? idx : -1))
+		.filter((idx) => idx !== -1);
+	const filledAccentCount = filledAccentIndices.length;
+	const lastFilledIndex =
+		filledAccentIndices.length > 0
+			? filledAccentIndices[filledAccentIndices.length - 1]
+			: -1;
+
 	for (let i = 1; i <= 4; i++) {
 		const accentTarget = `accent-${i}` as ManualApplyTarget;
 		// state.manualColorSelectionを直接参照（パレットは遅延生成される場合があるため）
 		const accentHex = state.manualColorSelection.accentColors[i - 1];
 		if (accentHex) {
+			// 削除可能条件: 最後の非nullアクセント かつ アクセント数 > 2
+			// (Studio Viewと同じルール: アクセント1,2は削除不可)
+			const isLastFilled = i - 1 === lastFilledIndex;
+			const canDelete = isLastFilled && filledAccentCount > 2;
+
 			// 削除ハンドラを作成（クロージャでindexをキャプチャ）
-			const deleteHandler = () => {
-				deleteAccentFromManualSelection(i - 1, () => {
-					void renderManualView(container, callbacks);
-				});
-			};
-			swatches.appendChild(
+			const deleteHandler = canDelete
+				? () => {
+						deleteAccentFromManualSelection(i - 1, () => {
+							void renderManualView(container, callbacks);
+						});
+					}
+				: undefined;
+			swatchesContainer.appendChild(
 				createFilledSwatch(
-					`Accent ${i}`,
+					`Acc${i}`,
 					accentHex,
 					false,
 					accentTarget,
@@ -812,15 +1120,74 @@ export async function renderManualView(
 			// 連続選択制約: 最初の空きスロットのみクリック可能、それ以降は無効化
 			const isDisabled =
 				firstEmptyAccentIndex !== -1 && i - 1 > firstEmptyAccentIndex;
-			swatches.appendChild(
+			swatchesContainer.appendChild(
 				createPlaceholderSwatch(
-					`Accent ${i}`,
+					`Acc${i}`,
 					false,
 					isDisabled ? undefined : accentTarget,
 					isDisabled,
 				),
 			);
 		}
+	}
+
+	// スウォッチコンテナをヘッダーセクションに追加
+	headerSection.appendChild(swatchesContainer);
+
+	// ====================================
+	// ヘッダーセクションをコンテナに追加
+	// ====================================
+	container.appendChild(headerSection);
+
+	// ====================================
+	// ツールバーに小さいスウォッチを追加（インジケーター用）
+	// ====================================
+
+	// 小さいスウォッチ作成ヘルパー（ラベルなし）
+	const createSmallSwatch = (hex: string | null, isPlaceholder = false) => {
+		const swatch = document.createElement("div");
+		swatch.className = `studio-toolbar-swatch${isPlaceholder ? " studio-toolbar-swatch--placeholder" : ""}`;
+		swatch.setAttribute("role", "img");
+		const circle = document.createElement("span");
+		circle.className = "studio-toolbar-swatch__circle";
+		if (hex) {
+			circle.style.backgroundColor = hex;
+		}
+		swatch.appendChild(circle);
+		return swatch;
+	};
+
+	// 背景色・文字色インジケーター
+	swatches.appendChild(
+		createSmallSwatch(state.lightBackgroundColor || "#ffffff"),
+	);
+	swatches.appendChild(
+		createSmallSwatch(state.darkBackgroundColor || "#000000"),
+	);
+
+	// キーカラー・セカンダリ・ターシャリインジケーター
+	swatches.appendChild(
+		createSmallSwatch(
+			state.manualColorSelection.keyColor,
+			!state.manualColorSelection.keyColor,
+		),
+	);
+	swatches.appendChild(
+		createSmallSwatch(
+			state.manualColorSelection.secondaryColor,
+			!state.manualColorSelection.secondaryColor,
+		),
+	);
+	swatches.appendChild(
+		createSmallSwatch(
+			state.manualColorSelection.tertiaryColor,
+			!state.manualColorSelection.tertiaryColor,
+		),
+	);
+
+	// アクセントインジケーター
+	for (const accentHex of state.manualColorSelection.accentColors) {
+		swatches.appendChild(createSmallSwatch(accentHex, !accentHex));
 	}
 
 	// スウォッチとコントロール間のスペーサー
@@ -948,6 +1315,15 @@ export async function renderManualView(
 
 		// Note: Key Colorsセクションで非DADSキーカラーを表示するため、
 		// renderPrimaryBrandSectionは呼び出さない（重複を避けるため）
+
+		// プリミティブカラーセクションの見出しを追加
+		const primitiveHeading = document.createElement("h2");
+		primitiveHeading.className = "dads-section__heading";
+		primitiveHeading.innerHTML = `
+			<span class="dads-section__heading-en">Primitive Colors</span>
+			<span class="dads-section__heading-ja">(プリミティブカラー)</span>
+		`;
+		container.appendChild(primitiveHeading);
 
 		// 各色相のセクションを描画（Task 4.3: オーバーレイ適用のためにroleMapperを渡す）
 		// brandDadsMatchがある場合は該当スウォッチを円形化

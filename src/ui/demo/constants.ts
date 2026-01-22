@@ -133,10 +133,25 @@ export const DEFAULT_SEMANTIC_COLOR_CONFIG: SemanticColorConfig = {
 	warningPattern: "auto",
 };
 
+/** Default background color (white) */
+const DEFAULT_BACKGROUND_COLOR = "#ffffff";
+
+/** Default text color (black) */
+const DEFAULT_TEXT_COLOR = "#000000";
+
+/** Default key color for Manual View fallback (blue) */
+export const DEFAULT_MANUAL_KEY_COLOR = "#3b82f6";
+
+/** Default secondary color for Manual View fallback (purple) */
+export const DEFAULT_MANUAL_SECONDARY_COLOR = "#a855f7";
+
+/** Default tertiary color for Manual View fallback (amber) */
+export const DEFAULT_MANUAL_TERTIARY_COLOR = "#f59e0b";
+
 /** マニュアルビュー用の色選択のデフォルト値 */
 export const DEFAULT_MANUAL_COLOR_SELECTION: ManualColorSelection = {
-	backgroundColor: "#ffffff",
-	textColor: "#000000",
+	backgroundColor: DEFAULT_BACKGROUND_COLOR,
+	textColor: DEFAULT_TEXT_COLOR,
 	keyColor: null,
 	secondaryColor: null,
 	tertiaryColor: null,
@@ -178,4 +193,5 @@ export const DEFAULT_STATE: DemoState = {
 	},
 	studioTheme: "hero",
 	manualColorSelection: { ...DEFAULT_MANUAL_COLOR_SELECTION },
+	manualColorRestoredFromUrl: false,
 };

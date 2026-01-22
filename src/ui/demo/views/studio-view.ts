@@ -26,6 +26,7 @@ import {
 import type { DadsToken } from "@/core/tokens/types";
 import { detectCvdConfusionPairs } from "@/ui/accessibility/cvd-detection";
 import { updateA11yIssueBadge } from "../a11y-drawer";
+import { HUE_DISPLAY_NAMES } from "../constants";
 import { getDisplayHex, updateCVDScoreDisplay } from "../cvd-controls";
 import { createDerivedPalettes } from "../palette-generator";
 import { parseKeyColor, state, validateBackgroundColor } from "../state";
@@ -313,11 +314,17 @@ async function selectRandomPrimaryFromDads(
 
 	const selected = pickRandom(finalList, rnd) ?? pickRandom(chromatic, rnd);
 	if (!selected) {
-		return { hex: "#00A3BF", baseChromaName: "Blue" };
+		return { hex: "#00A3BF", baseChromaName: "Cyan" };
 	}
 
 	const step = selected.classification.scale;
-	const baseChromaName = inferBaseChromaNameFromHex(selected.hex) || "Blue";
+	// Use DADS token's actual hue classification instead of inferring from hex
+	// This ensures proper matching with getDadsHueFromDisplayName in deriver.ts
+	const dadsHue = selected.classification.hue;
+	const baseChromaName =
+		(dadsHue ? HUE_DISPLAY_NAMES[dadsHue] : undefined) ||
+		inferBaseChromaNameFromHex(selected.hex) ||
+		"Blue";
 
 	return { hex: selected.hex, step, baseChromaName };
 }
@@ -605,9 +612,14 @@ export async function generateNewStudioPalette(
 	if (state.lockedColors.primary) {
 		primaryHex = currentPrimary.primaryHex;
 		primaryStep = currentPrimary.primaryStep;
-		primaryBaseChromaName = inferBaseChromaNameFromHex(
-			currentPrimary.primaryHex,
-		);
+		// Use DADS token's hue classification if available
+		const dadsInfo =
+			dadsTokens.length > 0
+				? findDadsColorByHex(dadsTokens, currentPrimary.primaryHex)
+				: null;
+		primaryBaseChromaName = dadsInfo?.hue
+			? HUE_DISPLAY_NAMES[dadsInfo.hue]
+			: inferBaseChromaNameFromHex(currentPrimary.primaryHex);
 	} else {
 		const selected = await selectRandomPrimaryFromDads(
 			dadsTokens,
@@ -692,6 +704,9 @@ const MAX_UNDO_HISTORY_SIZE = 20;
 // Stored reference for document-level popover click handler cleanup (prevents memory leak)
 let popoverClickHandler: ((e: MouseEvent) => void) | null = null;
 
+// Stored reference for document-level escape key handler cleanup (prevents memory leak)
+let popoverEscapeHandler: ((e: KeyboardEvent) => void) | null = null;
+
 // Check structuredClone availability once at module load time
 const hasStructuredClone = typeof globalThis.structuredClone === "function";
 
@@ -771,6 +786,13 @@ export async function renderStudioView(
 	container: HTMLElement,
 	callbacks: StudioViewCallbacks,
 ): Promise<void> {
+	// Cleanup orphaned popovers from previous render (prevents DOM accumulation)
+	for (const orphan of document.querySelectorAll(
+		'.studio-swatch-popover:not([data-manual-view="true"])',
+	)) {
+		orphan.remove();
+	}
+
 	const renderGeneration = (studioRenderGeneration.get(container) ?? 0) + 1;
 	studioRenderGeneration.set(container, renderGeneration);
 	const isCurrentRender = () =>
@@ -880,13 +902,19 @@ export async function renderStudioView(
 						...extra,
 					].slice(0, desired);
 
+					// Use DADS token's hue classification for proper secondary derivation
+					const primaryDadsInfo = findDadsColorByHex(
+						dadsTokens,
+						current.primaryHex,
+					);
+					const primaryBaseChromaName = primaryDadsInfo?.hue
+						? HUE_DISPLAY_NAMES[primaryDadsInfo.hue]
+						: inferBaseChromaNameFromHex(current.primaryHex);
 					await rebuildStudioPalettes({
 						dadsTokens,
 						primaryHex: current.primaryHex,
 						primaryStep: current.primaryStep,
-						primaryBaseChromaName: inferBaseChromaNameFromHex(
-							current.primaryHex,
-						),
+						primaryBaseChromaName,
 						accentCandidates,
 					});
 				}
@@ -1081,11 +1109,32 @@ export async function renderStudioView(
 
 	// Close any open popover when clicking outside
 	let activePopover: HTMLElement | null = null;
+
+	// Escape key listener management
+	const addEscapeListener = () => {
+		if (popoverEscapeHandler) return;
+		popoverEscapeHandler = (e: KeyboardEvent) => {
+			if (e.key === "Escape" && activePopover) {
+				e.preventDefault();
+				closeActivePopover();
+			}
+		};
+		document.addEventListener("keydown", popoverEscapeHandler);
+	};
+
+	const removeEscapeListener = () => {
+		if (popoverEscapeHandler) {
+			document.removeEventListener("keydown", popoverEscapeHandler);
+			popoverEscapeHandler = null;
+		}
+	};
+
 	const closeActivePopover = () => {
 		if (activePopover) {
 			activePopover.dataset.open = "false";
 			activePopover.remove();
 			activePopover = null;
+			removeEscapeListener();
 		}
 	};
 
@@ -1218,6 +1267,7 @@ export async function renderStudioView(
 		lockType: "background" | "text" | "primary" | "accent" | null,
 		onDelete?: () => void,
 		onColorChange?: (newHex: string) => void,
+		tokenName?: string,
 	): HTMLElement => {
 		const wrapper = document.createElement("div");
 		wrapper.className = "studio-toolbar-swatch";
@@ -1259,11 +1309,29 @@ export async function renderStudioView(
 		popover.className = "studio-swatch-popover";
 		popover.dataset.open = "false";
 
-		// Color role label
+		// Popover header with role label and close button
+		const popoverHeader = document.createElement("div");
+		popoverHeader.className = "studio-swatch-popover__header";
+
 		const roleLabel = document.createElement("div");
 		roleLabel.className = "studio-swatch-popover__role";
 		roleLabel.textContent = label;
-		popover.appendChild(roleLabel);
+		popoverHeader.appendChild(roleLabel);
+
+		const closeButton = document.createElement("button");
+		closeButton.type = "button";
+		closeButton.className = "studio-swatch-popover__close";
+		closeButton.setAttribute("aria-label", "閉じる");
+		closeButton.innerHTML = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+			<path d="M1 1L13 13M1 13L13 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+		</svg>`;
+		closeButton.onclick = (e) => {
+			e.stopPropagation();
+			closeActivePopover();
+		};
+		popoverHeader.appendChild(closeButton);
+
+		popover.appendChild(popoverHeader);
 
 		// Color picker row (for background, text, primary)
 		if (onColorChange) {
@@ -1272,17 +1340,18 @@ export async function renderStudioView(
 			);
 		}
 
-		// Hex code button (copy to clipboard)
+		// Copy icon SVG template
+		const copyIconSvg = `<svg class="studio-swatch-popover__copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+			<rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+			<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+		</svg>`;
+
+		// Hex code copy button
 		const hexBtn = document.createElement("button");
 		hexBtn.type = "button";
-		hexBtn.className = "studio-swatch-popover__hex";
-		hexBtn.innerHTML = `
-			<span>コピー</span>
-			<svg class="studio-swatch-popover__hex-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-				<rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-				<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-			</svg>
-		`;
+		hexBtn.className = "studio-swatch-popover__copy-btn";
+		const displayHex = hex.toUpperCase();
+		hexBtn.innerHTML = `<span>${displayHex}</span>${copyIconSvg}`;
 		hexBtn.onclick = async (e) => {
 			e.stopPropagation();
 			const currentHex = onColorChange ? circle.style.backgroundColor : hex;
@@ -1297,6 +1366,25 @@ export async function renderStudioView(
 			}, 1500);
 		};
 		popover.appendChild(hexBtn);
+
+		// Token name copy button (if available)
+		if (tokenName) {
+			const tokenBtn = document.createElement("button");
+			tokenBtn.type = "button";
+			tokenBtn.className =
+				"studio-swatch-popover__copy-btn studio-swatch-popover__copy-btn--token";
+			tokenBtn.innerHTML = `<span>${tokenName}</span>${copyIconSvg}`;
+			tokenBtn.onclick = async (e) => {
+				e.stopPropagation();
+				const ok = await copyTextToClipboard(tokenName);
+				const originalHtml = tokenBtn.innerHTML;
+				tokenBtn.innerHTML = `<span>${ok ? "コピー完了" : "失敗"}</span>`;
+				setTimeout(() => {
+					tokenBtn.innerHTML = originalHtml;
+				}, 1500);
+			};
+			popover.appendChild(tokenBtn);
+		}
 
 		// Lock toggle (for background, text, primary, accent)
 		if (lockType) {
@@ -1323,10 +1411,12 @@ export async function renderStudioView(
 				popover.style.bottom = `${window.innerHeight - rect.top + 8}px`;
 				popover.dataset.open = "true";
 				activePopover = popover;
+				addEscapeListener();
 			} else {
 				popover.dataset.open = "false";
 				popover.remove();
 				activePopover = null;
+				removeEscapeListener();
 			}
 		};
 
@@ -1382,10 +1472,13 @@ export async function renderStudioView(
 	// Primary color swatch (with color picker)
 	const handlePrimaryColorChange = async (newHex: string) => {
 		if (!isValidHex6(newHex)) return;
-		const baseChromaName = inferBaseChromaNameFromHex(newHex);
 		const dadsInfo =
 			dadsTokens.length > 0 ? findDadsColorByHex(dadsTokens, newHex) : null;
 		const primaryStep = dadsInfo?.scale;
+		// Use DADS token's hue classification if available, otherwise infer from hex
+		const baseChromaName = dadsInfo?.hue
+			? HUE_DISPLAY_NAMES[dadsInfo.hue]
+			: inferBaseChromaNameFromHex(newHex);
 		await rebuildStudioPalettes({
 			dadsTokens,
 			primaryHex: newHex,
@@ -1398,31 +1491,50 @@ export async function renderStudioView(
 		});
 		void renderStudioView(container, callbacks);
 	};
+	const primaryDadsInfo = findDadsColorByHex(
+		dadsTokens,
+		paletteColors.primaryHex,
+	);
 	const primarySwatch = createToolbarSwatchWithPopover(
 		"キーカラー",
 		paletteColors.primaryHex,
 		"primary",
 		undefined,
 		handlePrimaryColorChange,
+		primaryDadsInfo?.token.id,
 	);
 	swatches.appendChild(primarySwatch);
 
 	// Secondary color swatch (if exists)
 	if (paletteColors.secondaryHex) {
+		const secondaryDadsInfo = findDadsColorByHex(
+			dadsTokens,
+			paletteColors.secondaryHex,
+		);
 		const secondarySwatch = createToolbarSwatchWithPopover(
 			"セカンダリ",
 			paletteColors.secondaryHex,
 			null,
+			undefined,
+			undefined,
+			secondaryDadsInfo?.token.id,
 		);
 		swatches.appendChild(secondarySwatch);
 	}
 
 	// Tertiary color swatch (if exists) with zone-end
 	if (paletteColors.tertiaryHex) {
+		const tertiaryDadsInfo = findDadsColorByHex(
+			dadsTokens,
+			paletteColors.tertiaryHex,
+		);
 		const tertiarySwatch = createToolbarSwatchWithPopover(
 			"ターシャリ",
 			paletteColors.tertiaryHex,
 			null,
+			undefined,
+			undefined,
+			tertiaryDadsInfo?.token.id,
 		);
 		tertiarySwatch.classList.add("studio-toolbar-swatch--zone-end");
 		swatches.appendChild(tertiarySwatch);
@@ -1456,12 +1568,15 @@ export async function renderStudioView(
 		// Delete button only on the LAST accent, and only if count > 2 (minimum required)
 		const isLastAccent = i === resolvedAccentHexes.length - 1;
 		const canDelete = isLastAccent && state.studioAccentCount > 2;
+		const accentDadsInfo = findDadsColorByHex(dadsTokens, hex);
 		swatches.appendChild(
 			createToolbarSwatchWithPopover(
 				`Accent ${i + 1}`,
 				hex,
 				lockType as "accent" | null,
 				canDelete ? handleDeleteAccent : undefined,
+				undefined,
+				accentDadsInfo?.token.id,
 			),
 		);
 	}
@@ -1517,11 +1632,16 @@ export async function renderStudioView(
 			...newAccents,
 		].slice(0, newCount);
 
+		// Use DADS token's hue classification for proper secondary derivation
+		const primaryDadsInfo = findDadsColorByHex(dadsTokens, current.primaryHex);
+		const primaryBaseChromaName = primaryDadsInfo?.hue
+			? HUE_DISPLAY_NAMES[primaryDadsInfo.hue]
+			: inferBaseChromaNameFromHex(current.primaryHex);
 		await rebuildStudioPalettes({
 			dadsTokens,
 			primaryHex: current.primaryHex,
 			primaryStep: current.primaryStep,
-			primaryBaseChromaName: inferBaseChromaNameFromHex(current.primaryHex),
+			primaryBaseChromaName,
 			accentCandidates,
 		});
 

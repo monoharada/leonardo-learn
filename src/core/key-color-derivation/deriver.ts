@@ -374,7 +374,10 @@ function deriveFromDadsTokens(
 	// Secondary DerivedColor を構築
 	let secondary: DerivedColor;
 	if (secondaryCandidate) {
-		const secondaryColor = new Color(secondaryCandidate.hex);
+		// DADS tokens are already in sRGB gamut, skip clamping to preserve exact hex values
+		const secondaryColor = new Color(secondaryCandidate.hex, {
+			skipClamp: true,
+		});
 		const secondaryHct = toHct(secondaryColor);
 		secondary = {
 			color: secondaryColor,
@@ -397,7 +400,8 @@ function deriveFromDadsTokens(
 	// Tertiary DerivedColor を構築
 	let tertiary: DerivedColor;
 	if (tertiaryCandidate) {
-		const tertiaryColor = new Color(tertiaryCandidate.hex);
+		// DADS tokens are already in sRGB gamut, skip clamping to preserve exact hex values
+		const tertiaryColor = new Color(tertiaryCandidate.hex, { skipClamp: true });
 		const tertiaryHct = toHct(tertiaryColor);
 		tertiary = {
 			color: tertiaryColor,

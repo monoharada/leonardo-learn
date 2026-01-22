@@ -9,16 +9,19 @@
  */
 
 import { HarmonyType, initializeHarmonyDads } from "@/core/harmony";
-import { loadDadsTokens } from "@/core/tokens/dads-data-provider";
+import {
+	findDadsColorByHex,
+	loadDadsTokens,
+} from "@/core/tokens/dads-data-provider";
 import { getRandomDadsColor } from "@/core/tokens/random-color-picker";
 import type { DadsToken } from "@/core/tokens/types";
-
 import {
 	refreshA11yDrawer,
 	setupA11yDrawer,
 	updateA11yIssueBadge,
 } from "./a11y-drawer";
 import { openColorDetailModal } from "./color-detail-modal";
+import { HUE_DISPLAY_NAMES } from "./constants";
 import { setupCVDControls, updateCVDScoreDisplay } from "./cvd-controls";
 import { updateEditor } from "./editor";
 import {
@@ -32,6 +35,7 @@ import { renderSidebar } from "./sidebar";
 import { loadBackgroundColors, loadSemanticColorConfig, state } from "./state";
 import { parseStudioUrlHash } from "./studio-url-state";
 import type { ColorDetailModalOptions, ManualColorSelection } from "./types";
+import { clampAccentCount } from "./utils/palette-utils";
 import {
 	generateNewStudioPalette,
 	renderManualView,
@@ -85,15 +89,6 @@ function restorePersistedState(): void {
 	state.lightBackgroundColor = restoredBackground.light;
 	state.darkBackgroundColor = restoredBackground.dark;
 	state.semanticColorConfig = loadSemanticColorConfig();
-}
-
-/**
- * Clamp accent count to valid range (2-4)
- */
-function clampAccentCount(count: number): 2 | 3 | 4 {
-	if (count < 2) return 2;
-	if (count > 4) return 4;
-	return count as 2 | 3 | 4;
 }
 
 /**
@@ -165,12 +160,22 @@ export async function runDemo(): Promise<void> {
 
 		input.value = urlState.primary;
 
+		// Look up DADS token info for proper Secondary/Tertiary derivation
+		const cleanPrimaryHex = urlState.primary.replace(/@\d+$/, "");
+		const dadsInfo =
+			tokens.length > 0 ? findDadsColorByHex(tokens, cleanPrimaryHex) : null;
+		const baseChromaName = dadsInfo?.hue
+			? HUE_DISPLAY_NAMES[dadsInfo.hue]
+			: undefined;
+
 		const primaryPalette = {
 			id: `studio-primary-${timestamp}`,
 			name: "Primary",
 			keyColors: [urlState.primary],
 			ratios: DEFAULT_RATIOS,
 			harmony: HarmonyType.NONE,
+			baseChromaName,
+			step: dadsInfo?.scale,
 		};
 
 		const derived = createDerivedPalettes(
@@ -211,6 +216,9 @@ export async function runDemo(): Promise<void> {
 
 		// Manual View に切り替え
 		state.viewMode = "manual";
+
+		// Bug 1 対応: URL から復元されたことをマーク（syncFromStudioPalettes スキップ用）
+		state.manualColorRestoredFromUrl = true;
 
 		// パレット生成（選択された色からパレットを生成）
 		const timestamp = Date.now();
@@ -270,6 +278,19 @@ export async function runDemo(): Promise<void> {
 		state.shadesPalettes = [];
 		state.activeId = palettes[0]?.id ?? "";
 		state.activeHarmonyIndex = 0;
+
+		// Bug 3 対応: Studio ビュー用の状態も同期
+		// Studio ビューに切り替えた際も同じ色が表示されるようにする
+		if (keyColorsInput && selection.keyColor) {
+			keyColorsInput.value = selection.keyColor;
+		}
+
+		// アクセント数を計算して studioAccentCount を更新
+		const accentCount = selection.accentColors.filter((c) => c !== null).length;
+		state.studioAccentCount = clampAccentCount(accentCount);
+
+		// studioSeed を設定（パレット再生成に必要）
+		state.studioSeed = timestamp;
 	}
 
 	/**
@@ -337,6 +358,13 @@ export async function runDemo(): Promise<void> {
 		const mainContentEl = document.getElementById("main-content");
 		if (mainContentEl) {
 			mainContentEl.dataset.view = state.viewMode;
+
+			// Apply background color for manual view
+			if (state.viewMode === "manual") {
+				mainContentEl.style.backgroundColor = state.lightBackgroundColor;
+			} else {
+				mainContentEl.style.backgroundColor = ""; // Reset for other views
+			}
 		}
 
 		const contentContainer = document.getElementById("demo-content") ?? appEl;
