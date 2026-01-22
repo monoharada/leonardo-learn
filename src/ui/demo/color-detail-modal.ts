@@ -42,6 +42,37 @@ const APPLY_TARGET_LABELS: Record<ManualApplyTarget, string> = {
 };
 
 /**
+ * 適用先に対応する既存の色を取得する
+ *
+ * @param selection マニュアル選択状態
+ * @param target 適用先
+ * @returns 既存の色（HEX）またはnull
+ */
+function getColorForTarget(
+	selection: ManualColorSelection,
+	target: ManualApplyTarget,
+): string | null {
+	switch (target) {
+		case "key":
+			return selection.keyColor;
+		case "secondary":
+			return selection.secondaryColor;
+		case "tertiary":
+			return selection.tertiaryColor;
+		case "accent-1":
+			return selection.accentColors[0] ?? null;
+		case "accent-2":
+			return selection.accentColors[1] ?? null;
+		case "accent-3":
+			return selection.accentColors[2] ?? null;
+		case "accent-4":
+			return selection.accentColors[3] ?? null;
+		default:
+			return null;
+	}
+}
+
+/**
  * 現在の選択状態に基づいて利用可能な適用先を取得する
  *
  * - キー/セカンダリ/ターシャリは常に選択可能
@@ -78,6 +109,39 @@ function getAvailableApplyTargets(
 }
 
 /**
+ * オプション要素に既存色のスタイルとスウォッチを適用する
+ *
+ * Chrome 134+ / Edge 134+ では appearance: base-select により
+ * option内に任意のHTML要素（カラースウォッチ）を配置可能
+ *
+ * @param option オプション要素
+ * @param selection マニュアル選択状態
+ * @param target 適用先
+ */
+function applyColorStyleToOption(
+	option: HTMLOptionElement,
+	selection: ManualColorSelection,
+	target: ManualApplyTarget,
+): void {
+	const existingColor = getColorForTarget(selection, target);
+	if (existingColor) {
+		// カラースウォッチを作成（Chrome 134+ / Edge 134+）
+		const swatch = document.createElement("span");
+		swatch.className = "dads-color-swatch";
+		swatch.style.backgroundColor = existingColor;
+
+		// オプションの内容をクリアしてスウォッチとテキストを追加
+		option.textContent = "";
+		option.appendChild(swatch);
+		option.appendChild(
+			document.createTextNode(
+				` ${APPLY_TARGET_LABELS[target]} (${existingColor.toUpperCase()})`,
+			),
+		);
+	}
+}
+
+/**
  * ドロップダウンのオプションを動的に生成する
  *
  * @param select ドロップダウン要素
@@ -107,6 +171,7 @@ function populateApplyTargetOptions(
 		const option = document.createElement("option");
 		option.value = target;
 		option.textContent = APPLY_TARGET_LABELS[target];
+		applyColorStyleToOption(option, selection, target);
 		select.appendChild(option);
 	}
 
@@ -120,6 +185,7 @@ function populateApplyTargetOptions(
 			const option = document.createElement("option");
 			option.value = target;
 			option.textContent = APPLY_TARGET_LABELS[target];
+			applyColorStyleToOption(option, selection, target);
 			optgroup.appendChild(option);
 		}
 
@@ -164,18 +230,17 @@ const DISPLAY_CHROMA = 0.3;
  * 色相を0-360の範囲に正規化する
  */
 function normalizeHue(hue: number): number {
-	let normalized = hue % 360;
-	if (normalized < 0) normalized += 360;
-	return normalized;
+	const normalized = hue % 360;
+	return normalized < 0 ? normalized + 360 : normalized;
 }
 
 /**
  * 色相の差を計算する（-180〜180度の範囲で返す）
  */
 function calculateHueDifference(currentHue: number, centerHue: number): number {
-	let diff = currentHue - centerHue;
-	if (diff > 180) diff -= 360;
-	if (diff < -180) diff += 360;
+	const diff = currentHue - centerHue;
+	if (diff > 180) return diff - 360;
+	if (diff < -180) return diff + 360;
 	return diff;
 }
 

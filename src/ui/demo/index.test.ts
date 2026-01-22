@@ -95,9 +95,8 @@ describe("index.ts module", () => {
 
 		it("should import from views barrel", async () => {
 			const viewsModule = await import("./views");
-			expect(viewsModule.renderHarmonyView).toBeDefined();
-			expect(viewsModule.renderPaletteView).toBeDefined();
-			expect(viewsModule.renderShadesView).toBeDefined();
+			expect(viewsModule.renderManualView).toBeDefined();
+			expect(viewsModule.renderStudioView).toBeDefined();
 			expect(viewsModule.renderAccessibilityView).toBeDefined();
 		});
 	});

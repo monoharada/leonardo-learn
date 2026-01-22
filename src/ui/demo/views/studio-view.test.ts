@@ -34,7 +34,11 @@ mock.module("./palette-preview", () => ({
 
 mock.module("@/core/tokens/dads-data-provider", () => ({
 	loadDadsTokens: async () => [{ dummy: true }],
-	findDadsColorByHex: () => ({ scale: 600 }),
+	findDadsColorByHex: () => ({
+		token: { id: "mock-token-id", hex: "#00A3BF" },
+		hue: "cyan",
+		scale: 600,
+	}),
 	getDadsColorsByHue: () => ({
 		colors: [
 			{ scale: 800, hex: "#FF2800" }, // error
