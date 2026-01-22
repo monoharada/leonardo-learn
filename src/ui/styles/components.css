@@ -572,7 +572,7 @@
 	display: inline-flex;
 	align-items: center;
 	gap: 0.25rem;
-	margin-left: 0.75rem;
+	margin-left: 0;
 }
 
 .dads-a11y-trigger svg {
@@ -1592,18 +1592,47 @@
 
 .dads-drawer__apply-section .dads-select {
 	flex: 1;
-	max-width: 200px;
+	max-width: 240px;
 	padding: 0.375rem 0.75rem;
 	font-size: 0.875rem;
 	border: 1px solid var(--color-border, #e5e7eb);
 	border-radius: var(--border-radius-md, 0.375rem);
 	background: white;
+	/*
+	 * Chrome 134+ / Edge 134+ カスタマイズ可能なselect
+	 * NOTE: Firefox/Safari では標準のselect表示にフォールバック
+	 * カラースウォッチはChrome/Edgeのみで表示される
+	 */
+	appearance: base-select;
+}
+
+/* カスタマイズ可能なselectのポップオーバー */
+.dads-drawer__apply-section .dads-select,
+.dads-drawer__apply-section ::picker(select) {
+	appearance: base-select;
 }
 
 .dads-drawer__apply-section .dads-select:focus {
 	outline: none;
 	border-color: var(--color-primary, #3b82f6);
 	box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+/* カラースウォッチ付きオプション */
+.dads-drawer__apply-section .dads-select option {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0.375rem 0.5rem;
+}
+
+.dads-color-swatch {
+	display: inline-block;
+	width: 1rem;
+	height: 1rem;
+	border-radius: 0.25rem;
+	border: 1px solid rgba(0, 0, 0, 0.15);
+	flex-shrink: 0;
 }
 
 /* Drawer Body Grid */
@@ -2966,12 +2995,12 @@
 	background: var(--color-neutral-white);
 }
 
-/* プレビューは“擬似サイト”として全幅表示（コンテナに閉じ込めない） */
+/* プレビューは"擬似サイト"として全幅表示（親パディングを打ち消してオーバーフローを防ぐ） */
 .dads-preview-section .dads-preview,
 .studio-preview .dads-preview {
-	width: 100vw;
-	margin-left: calc(50% - 50vw);
-	margin-right: calc(50% - 50vw);
+	width: calc(100% + 4rem);
+	margin-left: -2rem;
+	margin-right: -2rem;
 	border: none;
 	border-radius: 0;
 	box-shadow: none;
