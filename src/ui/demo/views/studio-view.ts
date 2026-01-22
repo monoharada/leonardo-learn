@@ -786,6 +786,13 @@ export async function renderStudioView(
 	container: HTMLElement,
 	callbacks: StudioViewCallbacks,
 ): Promise<void> {
+	// Cleanup orphaned popovers from previous render (prevents DOM accumulation)
+	for (const orphan of document.querySelectorAll(
+		'.studio-swatch-popover:not([data-manual-view="true"])',
+	)) {
+		orphan.remove();
+	}
+
 	const renderGeneration = (studioRenderGeneration.get(container) ?? 0) + 1;
 	studioRenderGeneration.set(container, renderGeneration);
 	const isCurrentRender = () =>

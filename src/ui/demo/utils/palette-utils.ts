@@ -45,3 +45,19 @@ export function resolveWarningPattern(
 	}
 	return config.warningPattern;
 }
+
+/** Minimum accent count for Studio View */
+export const MIN_ACCENT_COUNT = 2;
+
+/** Maximum accent count for Studio View */
+export const MAX_ACCENT_COUNT = 4;
+
+/**
+ * Clamp accent count to valid range (2-4)
+ */
+export function clampAccentCount(count: number): 2 | 3 | 4 {
+	return Math.max(MIN_ACCENT_COUNT, Math.min(MAX_ACCENT_COUNT, count)) as
+		| 2
+		| 3
+		| 4;
+}

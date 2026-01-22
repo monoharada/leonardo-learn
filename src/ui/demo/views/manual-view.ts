@@ -57,6 +57,7 @@ import type {
 	ManualApplyTarget,
 	PaletteConfig,
 } from "../types";
+import { clampAccentCount } from "../utils/palette-utils";
 
 /**
  * マニュアル選択ビューのコールバック
@@ -158,22 +159,6 @@ export function applyColorToManualSelection(
 	if (onUpdate) {
 		onUpdate();
 	}
-}
-
-/** Minimum accent count for Studio View */
-const MIN_ACCENT_COUNT = 2;
-
-/** Maximum accent count for Studio View */
-const MAX_ACCENT_COUNT = 4;
-
-/**
- * Clamp accent count to valid range (2-4)
- */
-function clampAccentCount(count: number): 2 | 3 | 4 {
-	return Math.max(MIN_ACCENT_COUNT, Math.min(MAX_ACCENT_COUNT, count)) as
-		| 2
-		| 3
-		| 4;
 }
 
 /**

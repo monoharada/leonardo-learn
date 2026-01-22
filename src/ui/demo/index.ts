@@ -35,6 +35,7 @@ import { renderSidebar } from "./sidebar";
 import { loadBackgroundColors, loadSemanticColorConfig, state } from "./state";
 import { parseStudioUrlHash } from "./studio-url-state";
 import type { ColorDetailModalOptions, ManualColorSelection } from "./types";
+import { clampAccentCount } from "./utils/palette-utils";
 import {
 	generateNewStudioPalette,
 	renderManualView,
@@ -46,12 +47,6 @@ const DEFAULT_HEX_COLOR = "#3366cc";
 
 /** Default ratios for palette generation */
 const DEFAULT_RATIOS = [21, 15, 10, 7, 4.5, 3, 1];
-
-/** Minimum accent count for Studio View */
-const MIN_ACCENT_COUNT = 2;
-
-/** Maximum accent count for Studio View */
-const MAX_ACCENT_COUNT = 4;
 
 /**
  * Get input HEX value from keyColorsInput or return default
@@ -94,16 +89,6 @@ function restorePersistedState(): void {
 	state.lightBackgroundColor = restoredBackground.light;
 	state.darkBackgroundColor = restoredBackground.dark;
 	state.semanticColorConfig = loadSemanticColorConfig();
-}
-
-/**
- * Clamp accent count to valid range (2-4)
- */
-function clampAccentCount(count: number): 2 | 3 | 4 {
-	return Math.max(MIN_ACCENT_COUNT, Math.min(MAX_ACCENT_COUNT, count)) as
-		| 2
-		| 3
-		| 4;
 }
 
 /**
