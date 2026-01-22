@@ -222,10 +222,24 @@ function getDadsSemanticHex(
 	step: number,
 	fallback: string,
 ): string {
-	return (
-		getDadsColorsByHue(dadsTokens, hue).colors.find((c) => c.scale === step)
-			?.hex ?? fallback
-	);
+	const colors = getDadsColorsByHue(dadsTokens, hue).colors;
+	return colors.find((c) => c.scale === step)?.hex ?? fallback;
+}
+
+/** Lookup DADS info and derive base chroma name from hex */
+function getDadsInfoWithChromaName(
+	dadsTokens: DadsToken[],
+	hex: string,
+): {
+	dadsInfo: ReturnType<typeof findDadsColorByHex> | undefined;
+	baseChromaName: string;
+} {
+	const dadsInfo =
+		dadsTokens.length > 0 ? findDadsColorByHex(dadsTokens, hex) : undefined;
+	const baseChromaName = dadsInfo?.hue
+		? (HUE_DISPLAY_NAMES[dadsInfo.hue] ?? inferBaseChromaNameFromHex(hex))
+		: inferBaseChromaNameFromHex(hex);
+	return { dadsInfo, baseChromaName };
 }
 
 function computePaletteColors(dadsTokens: DadsToken[]): {
@@ -612,14 +626,11 @@ export async function generateNewStudioPalette(
 	if (state.lockedColors.primary) {
 		primaryHex = currentPrimary.primaryHex;
 		primaryStep = currentPrimary.primaryStep;
-		// Use DADS token's hue classification if available
-		const dadsInfo =
-			dadsTokens.length > 0
-				? findDadsColorByHex(dadsTokens, currentPrimary.primaryHex)
-				: null;
-		primaryBaseChromaName = dadsInfo?.hue
-			? HUE_DISPLAY_NAMES[dadsInfo.hue]
-			: inferBaseChromaNameFromHex(currentPrimary.primaryHex);
+		const { baseChromaName } = getDadsInfoWithChromaName(
+			dadsTokens,
+			currentPrimary.primaryHex,
+		);
+		primaryBaseChromaName = baseChromaName;
 	} else {
 		const selected = await selectRandomPrimaryFromDads(
 			dadsTokens,
@@ -902,14 +913,8 @@ export async function renderStudioView(
 						...extra,
 					].slice(0, desired);
 
-					// Use DADS token's hue classification for proper secondary derivation
-					const primaryDadsInfo = findDadsColorByHex(
-						dadsTokens,
-						current.primaryHex,
-					);
-					const primaryBaseChromaName = primaryDadsInfo?.hue
-						? HUE_DISPLAY_NAMES[primaryDadsInfo.hue]
-						: inferBaseChromaNameFromHex(current.primaryHex);
+					const { baseChromaName: primaryBaseChromaName } =
+						getDadsInfoWithChromaName(dadsTokens, current.primaryHex);
 					await rebuildStudioPalettes({
 						dadsTokens,
 						primaryHex: current.primaryHex,
@@ -1472,17 +1477,14 @@ export async function renderStudioView(
 	// Primary color swatch (with color picker)
 	const handlePrimaryColorChange = async (newHex: string) => {
 		if (!isValidHex6(newHex)) return;
-		const dadsInfo =
-			dadsTokens.length > 0 ? findDadsColorByHex(dadsTokens, newHex) : null;
-		const primaryStep = dadsInfo?.scale;
-		// Use DADS token's hue classification if available, otherwise infer from hex
-		const baseChromaName = dadsInfo?.hue
-			? HUE_DISPLAY_NAMES[dadsInfo.hue]
-			: inferBaseChromaNameFromHex(newHex);
+		const { dadsInfo, baseChromaName } = getDadsInfoWithChromaName(
+			dadsTokens,
+			newHex,
+		);
 		await rebuildStudioPalettes({
 			dadsTokens,
 			primaryHex: newHex,
-			primaryStep,
+			primaryStep: dadsInfo?.scale,
 			primaryBaseChromaName: baseChromaName,
 			accentCandidates: paletteColors.accentHexes.map((hex) => {
 				const info = findDadsColorByHex(dadsTokens, hex);
@@ -1632,11 +1634,10 @@ export async function renderStudioView(
 			...newAccents,
 		].slice(0, newCount);
 
-		// Use DADS token's hue classification for proper secondary derivation
-		const primaryDadsInfo = findDadsColorByHex(dadsTokens, current.primaryHex);
-		const primaryBaseChromaName = primaryDadsInfo?.hue
-			? HUE_DISPLAY_NAMES[primaryDadsInfo.hue]
-			: inferBaseChromaNameFromHex(current.primaryHex);
+		const { baseChromaName: primaryBaseChromaName } = getDadsInfoWithChromaName(
+			dadsTokens,
+			current.primaryHex,
+		);
 		await rebuildStudioPalettes({
 			dadsTokens,
 			primaryHex: current.primaryHex,

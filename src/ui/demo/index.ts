@@ -48,6 +48,32 @@ const DEFAULT_HEX_COLOR = "#3366cc";
 /** Default ratios for palette generation */
 const DEFAULT_RATIOS = [21, 15, 10, 7, 4.5, 3, 1];
 
+/** Create a basic palette configuration */
+function createBasicPalette(
+	id: string,
+	name: string,
+	keyColor: string,
+	options?: { baseChromaName?: string; step?: number },
+): {
+	id: string;
+	name: string;
+	keyColors: string[];
+	ratios: number[];
+	harmony: HarmonyType;
+	baseChromaName?: string;
+	step?: number;
+} {
+	return {
+		id,
+		name,
+		keyColors: [keyColor],
+		ratios: DEFAULT_RATIOS,
+		harmony: HarmonyType.NONE,
+		baseChromaName: options?.baseChromaName,
+		step: options?.step,
+	};
+}
+
 /**
  * Get input HEX value from keyColorsInput or return default
  */
@@ -168,15 +194,12 @@ export async function runDemo(): Promise<void> {
 			? HUE_DISPLAY_NAMES[dadsInfo.hue]
 			: undefined;
 
-		const primaryPalette = {
-			id: `studio-primary-${timestamp}`,
-			name: "Primary",
-			keyColors: [urlState.primary],
-			ratios: DEFAULT_RATIOS,
-			harmony: HarmonyType.NONE,
-			baseChromaName,
-			step: dadsInfo?.scale,
-		};
+		const primaryPalette = createBasicPalette(
+			`studio-primary-${timestamp}`,
+			"Primary",
+			urlState.primary,
+			{ baseChromaName, step: dadsInfo?.scale },
+		);
 
 		const derived = createDerivedPalettes(
 			primaryPalette,
@@ -186,13 +209,13 @@ export async function runDemo(): Promise<void> {
 
 		const accentPalettes = urlState.accents
 			.slice(0, state.studioAccentCount)
-			.map((hex, index) => ({
-				id: `studio-accent-${timestamp}-${index + 1}`,
-				name: `Accent ${index + 1}`,
-				keyColors: [hex],
-				ratios: DEFAULT_RATIOS,
-				harmony: HarmonyType.NONE,
-			}));
+			.map((hex, index) =>
+				createBasicPalette(
+					`studio-accent-${timestamp}-${index + 1}`,
+					`Accent ${index + 1}`,
+					hex,
+				),
+			);
 
 		state.palettes = [primaryPalette, ...derived, ...accentPalettes];
 		state.shadesPalettes = [];
@@ -222,55 +245,38 @@ export async function runDemo(): Promise<void> {
 
 		// パレット生成（選択された色からパレットを生成）
 		const timestamp = Date.now();
-		const palettes: Array<{
-			id: string;
+		const palettes: ReturnType<typeof createBasicPalette>[] = [];
+
+		// Primary/Secondary/Tertiaryパレット
+		const mainColors: Array<{
+			key: string;
 			name: string;
-			keyColors: string[];
-			ratios: number[];
-			harmony: HarmonyType;
-		}> = [];
+			color: string | null;
+		}> = [
+			{ key: "primary", name: "Primary", color: selection.keyColor },
+			{ key: "secondary", name: "Secondary", color: selection.secondaryColor },
+			{ key: "tertiary", name: "Tertiary", color: selection.tertiaryColor },
+		];
 
-		if (selection.keyColor) {
-			palettes.push({
-				id: `manual-primary-${timestamp}`,
-				name: "Primary",
-				keyColors: [selection.keyColor],
-				ratios: DEFAULT_RATIOS,
-				harmony: HarmonyType.NONE,
-			});
-		}
-
-		if (selection.secondaryColor) {
-			palettes.push({
-				id: `manual-secondary-${timestamp}`,
-				name: "Secondary",
-				keyColors: [selection.secondaryColor],
-				ratios: DEFAULT_RATIOS,
-				harmony: HarmonyType.NONE,
-			});
-		}
-
-		if (selection.tertiaryColor) {
-			palettes.push({
-				id: `manual-tertiary-${timestamp}`,
-				name: "Tertiary",
-				keyColors: [selection.tertiaryColor],
-				ratios: DEFAULT_RATIOS,
-				harmony: HarmonyType.NONE,
-			});
+		for (const { key, name, color } of mainColors) {
+			if (color) {
+				palettes.push(
+					createBasicPalette(`manual-${key}-${timestamp}`, name, color),
+				);
+			}
 		}
 
 		// アクセントカラーをパレットに追加
 		for (let i = 0; i < selection.accentColors.length; i++) {
 			const accentColor = selection.accentColors[i];
 			if (accentColor) {
-				palettes.push({
-					id: `manual-accent-${timestamp}-${i + 1}`,
-					name: `Accent ${i + 1}`,
-					keyColors: [accentColor],
-					ratios: DEFAULT_RATIOS,
-					harmony: HarmonyType.NONE,
-				});
+				palettes.push(
+					createBasicPalette(
+						`manual-accent-${timestamp}-${i + 1}`,
+						`Accent ${i + 1}`,
+						accentColor,
+					),
+				);
 			}
 		}
 
@@ -462,13 +468,14 @@ export async function runDemo(): Promise<void> {
 
 		addPaletteBtn.onclick = () => {
 			const id = `custom-${Date.now()}`;
-			state.palettes.push({
+			const newPalette = createBasicPalette(
 				id,
-				name: `Custom Palette ${state.palettes.length + 1}`,
-				keyColors: ["#000", "#fff"],
-				ratios: DEFAULT_RATIOS,
-				harmony: HarmonyType.NONE,
-			});
+				`Custom Palette ${state.palettes.length + 1}`,
+				"#000",
+			);
+			// Custom palettes support multiple key colors
+			newPalette.keyColors = ["#000", "#fff"];
+			state.palettes.push(newPalette);
 			state.activeId = id;
 			refreshUI();
 			renderMain();
