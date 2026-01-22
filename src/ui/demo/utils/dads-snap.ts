@@ -52,19 +52,12 @@ export function adjustLightnessForContrast(
 	const isLightBackground = bgL > 0.5;
 
 	// 二分探索で目標コントラストを達成する明度を探す
-	let low: number;
-	let high: number;
-	if (isLightBackground) {
-		// 明るい背景: 明度を下げる方向（0〜現在の明度）
-		low = 0;
-		high = oklch.l ?? 0.5;
-	} else {
-		// 暗い背景: 明度を上げる方向（現在の明度〜1）
-		low = oklch.l ?? 0.5;
-		high = 1;
-	}
+	// 明るい背景: 明度を下げる（0〜現在）、暗い背景: 明度を上げる（現在〜1）
+	const currentL = oklch.l ?? 0.5;
+	let low = isLightBackground ? 0 : currentL;
+	let high = isLightBackground ? currentL : 1;
 
-	let bestL = oklch.l ?? 0.5;
+	let bestL = currentL;
 	let bestContrast = currentContrast;
 	const maxIterations = 25;
 
@@ -76,32 +69,24 @@ export function adjustLightnessForContrast(
 		// Track the best value that meets or exceeds the target
 		if (contrast >= targetContrast) {
 			if (bestContrast < targetContrast || contrast < bestContrast) {
-				// Found a better solution that meets the target
 				bestContrast = contrast;
 				bestL = mid;
 			}
 		}
 
-		// 明るい背景では明度が低いほどコントラストが高い
-		// 暗い背景では明度が高いほどコントラストが高い
+		// Adjust search range based on contrast result
+		// Light background: lower lightness = higher contrast
+		// Dark background: higher lightness = higher contrast
+		const needMoreContrast = contrast < targetContrast;
 		if (isLightBackground) {
-			if (contrast < targetContrast) {
-				high = mid; // コントラスト不足 → もっと暗く
-			} else {
-				low = mid; // コントラスト達成 → 元の色に近づける
-			}
+			if (needMoreContrast) high = mid;
+			else low = mid;
 		} else {
-			if (contrast < targetContrast) {
-				low = mid; // コントラスト不足 → もっと明るく
-			} else {
-				high = mid; // コントラスト達成 → 元の色に近づける
-			}
+			if (needMoreContrast) low = mid;
+			else high = mid;
 		}
 
-		// Found exact target or search space exhausted
-		if (Math.abs(high - low) < 0.001) {
-			break;
-		}
+		if (Math.abs(high - low) < 0.001) break;
 	}
 
 	// If we couldn't find a solution that meets the target, use the most extreme value

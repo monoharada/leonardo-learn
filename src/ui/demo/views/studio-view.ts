@@ -604,28 +604,21 @@ async function rebuildStudioPalettes(options: {
 		const keyColor = palette.keyColors[0];
 		if (!keyColor) return palette;
 
-		// Extract HEX and step from keyColor (format: "#hex" or "#hex@step")
-		const parts = keyColor.split("@");
-		const hex = parts[0];
+		// Extract HEX and optional step from keyColor (format: "#hex" or "#hex@step")
+		const [hex, step] = keyColor.split("@");
 		if (!hex) return palette;
 
-		// Apply contrast adjustment
 		const adjustedHex = adjustLightnessForContrast(
 			hex,
 			backgroundColor,
 			minContrast,
 		);
+		if (adjustedHex === hex) return palette;
 
-		// If color was adjusted, update the keyColor (preserve step if present)
-		if (adjustedHex !== hex) {
-			const newKeyColor = parts[1] ? `${adjustedHex}@${parts[1]}` : adjustedHex;
-			return {
-				...palette,
-				keyColors: [newKeyColor],
-			};
-		}
-
-		return palette;
+		return {
+			...palette,
+			keyColors: [step ? `${adjustedHex}@${step}` : adjustedHex],
+		};
 	});
 
 	const palettes: PaletteConfig[] = [primaryPalette, ...adjustedDerived];
