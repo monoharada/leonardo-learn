@@ -801,7 +801,7 @@ interface IllustrationColorMap {
 	text: string; // rgb(67,72,81) → スマホフレーム（グレー）
 	accent: string; // rgb(163,190,173) → 背景円（セージグリーン）
 	accent3: string; // rgb(254,151,126) → カード（コーラル）
-	background: string; // rgb(254,254,254) → 白背景
+	background: string; // rgb(254,254,254) → 白い面積（スマホ画面等）→ カード背景色
 }
 
 /**
@@ -1222,11 +1222,12 @@ export function createPalettePreview(
 	);
 	if (illustrationContainer) {
 		// 髪と肌の色は保持し、オブジェクトと背景のみパレット色に変更
+		// 大きな白い面積（スマホ画面など）はカード背景色に合わせる
 		const illustrationColors: IllustrationColorMap = {
 			text: getDisplayHex(colors.text), // スマホフレーム
 			accent: getDisplayHex(colors.cardAccent), // 背景円
 			accent3: getDisplayHex(accentHex3), // カード
-			background: getDisplayHex(colors.background), // 白背景
+			background: getDisplayHex(colors.card), // 白い面積 → カード背景色
 		};
 		const coloredSvg = replaceIllustrationColors(
 			illustrationPeopleSvgText,
