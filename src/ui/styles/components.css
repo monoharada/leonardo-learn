@@ -3495,11 +3495,7 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	background: color-mix(
-		in oklch,
-		var(--preview-card, var(--color-neutral-solid-gray-50)) 50%,
-		var(--preview-bg, var(--color-neutral-white))
-	);
+	background: var(--preview-card, var(--color-neutral-solid-gray-50));
 }
 
 .dads-preview--dads-html .preview-card-illustration__image svg {
