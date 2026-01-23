@@ -51,6 +51,12 @@ const WCAG_AA_CONTRAST_THRESHOLD = 4.5;
 const WCAG_AA_LARGE_TEXT_THRESHOLD = 3;
 
 /**
+ * イラスト内手元カードの最小コントラスト比
+ * - 2.0: 同色で完全に消えるケースを確実に回避しつつ、過度に強い差にならない推奨値
+ */
+const ILLUSTRATION_MIN_CONTRAST = 2.0;
+
+/**
  * テキストに使用する色がコントラスト要件を満たすかチェックし、
  * 不十分な場合はフォールバック色を返す
  *
@@ -79,6 +85,36 @@ export function getTextSafeColor(
 	// 背景が明るい場合は黒系、暗い場合は白系にフォールバック
 	const bgTextColor = getContrastTextColor(backgroundColor);
 	return bgTextColor === "black" ? "#1A1A1A" : "#F5F5F5";
+}
+
+/**
+ * イラスト内の手元カード色に対するコントラスト最小化
+ *
+ * SVGイラスト（illustration-people.svg）内の手元カード（rgb(254,151,126) → accent3）が
+ * テーブル面（colors.card）と同化して消える現象を防ぐため、
+ * 背景に対する最小コントラストを確保するように色を調整する。
+ *
+ * 色相・彩度を維持し、明度のみを調整することで、配色の美しさを損なわない。
+ *
+ * @param cardColor - イラスト用カード色（HEX）
+ * @param backgroundColor - テーブル面背景色（HEX）
+ * @param minContrast - 最小コントラスト比（デフォルト: 2.0）
+ * @returns 調整後の色（HEX）。既にコントラストを満たしている場合は元の色を返す
+ */
+function ensureIllustrationCardContrast(
+	cardColor: string,
+	backgroundColor: string,
+	minContrast: number,
+): string {
+	const contrast = wcagContrast(backgroundColor, cardColor) ?? 0;
+
+	// 既にコントラストを満たしている場合は元の色を返す
+	if (contrast >= minContrast) {
+		return cardColor;
+	}
+
+	// コントラスト不足 → 明度調整で補正（色相・彩度は維持）
+	return adjustLightnessForContrast(cardColor, backgroundColor, minContrast);
 }
 
 /**
@@ -1223,10 +1259,15 @@ export function createPalettePreview(
 	if (illustrationContainer) {
 		// 髪と肌の色は保持し、オブジェクトと背景のみパレット色に変更
 		// 大きな白い面積（スマホ画面など）はカード背景色に合わせる
+		// 手元カード（accent3）は背景に対するコントラストを確保して消えないようにする
 		const illustrationColors: IllustrationColorMap = {
 			text: getDisplayHex(colors.text), // スマホフレーム
 			accent: getDisplayHex(colors.cardAccent), // 背景円
-			accent3: getDisplayHex(accentHex3), // カード
+			accent3: ensureIllustrationCardContrast(
+				getDisplayHex(accentHex3),
+				getDisplayHex(colors.card),
+				ILLUSTRATION_MIN_CONTRAST,
+			), // カード（手元：背景に対する最小コントラスト確保）
 			background: getDisplayHex(colors.card), // 白い面積 → カード背景色
 		};
 		const coloredSvg = replaceIllustrationColors(
