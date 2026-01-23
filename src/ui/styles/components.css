@@ -3367,8 +3367,7 @@
 }
 
 /* パステルプリセット専用スタイル */
-.dads-preview--pastel.dads-preview--dads-html
-	.preview-page
+.dads-preview--pastel.dads-preview--dads-html .preview-page
 	.preview-link-row.dads-link:any-link {
 	border-top-color: color-mix(
 		in oklch,
@@ -3388,9 +3387,20 @@
 
 .dads-preview--dads-html .preview-twocol {
 	display: grid;
-	grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+	grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); /* 比率逆転 */
 	gap: 2rem;
 	align-items: start;
+}
+
+.dads-preview--dads-html .preview-twocol__left {
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+	order: 2; /* デスクトップで右側に移動 */
+}
+
+.dads-preview--dads-html .preview-twocol__right {
+	order: 1; /* デスクトップで左側に移動 */
 }
 
 @media (max-width: 64rem) {
@@ -3398,12 +3408,11 @@
 		grid-template-columns: 1fr;
 		gap: 1.5rem;
 	}
-}
 
-.dads-preview--dads-html .preview-twocol__left {
-	display: flex;
-	flex-direction: column;
-	gap: 1rem;
+	.dads-preview--dads-html .preview-twocol__left,
+	.dads-preview--dads-html .preview-twocol__right {
+		order: initial; /* モバイルはDOM順（リスト→カード）を維持 */
+	}
 }
 
 .dads-preview--dads-html .preview-list {
@@ -3443,7 +3452,9 @@
 	transition: background-color 0.15s ease;
 }
 
-.dads-preview--dads-html .preview-list-item--selected .preview-list-item__indicator {
+.dads-preview--dads-html
+	.preview-list-item--selected
+	.preview-list-item__indicator {
 	background: var(--preview-primary, var(--color-primitive-blue-1000));
 }
 
@@ -3477,25 +3488,51 @@
 	);
 }
 
-/* Illustration card (右カード) */
+/* Illustration card (左カード: 上下二分割レイアウト) */
 .dads-preview--dads-html .preview-card-illustration {
+	position: relative;
 	display: flex;
 	flex-direction: column;
-	gap: 1rem;
-	padding: 1.5rem;
+	padding: 0;
 	border: 1px solid var(--preview-border, var(--color-neutral-solid-gray-200));
 	border-radius: 0.75rem;
 	background: var(--preview-bg, var(--color-neutral-white));
+	overflow: hidden;
+}
+
+/* ホバー・フォーカス時にリンク青の枠 */
+@media (hover: hover) {
+	.dads-preview--dads-html .preview-card-illustration:hover {
+		border-color: var(--preview-link, var(--color-primitive-blue-1000));
+		box-shadow: 0 0 0 2px var(--preview-link, var(--color-primitive-blue-1000));
+	}
+}
+
+.dads-preview--dads-html .preview-card-illustration:focus-within {
+	border-color: var(--preview-link, var(--color-primitive-blue-1000));
+	box-shadow: 0 0 0 2px var(--preview-link, var(--color-primitive-blue-1000));
+}
+
+/* カード内見出しリンクの ::before で全面クリック領域を作成 */
+.dads-preview--dads-html .preview-card-illustration__body
+	.dads-heading
+	a.dads-link::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	z-index: 1;
 }
 
 .dads-preview--dads-html .preview-card-illustration__image {
 	aspect-ratio: 4 / 3;
-	border-radius: 0.5rem;
 	overflow: hidden;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	background: var(--preview-card, var(--color-neutral-solid-gray-50));
+	background: var(
+		--preview-illustration-bg,
+		var(--preview-card, var(--color-neutral-solid-gray-50))
+	);
 }
 
 .dads-preview--dads-html .preview-card-illustration__image svg {
@@ -3504,7 +3541,14 @@
 	object-fit: contain;
 }
 
-.dads-preview--dads-html .preview-card-illustration__desc {
+.dads-preview--dads-html .preview-card-illustration__body {
+	padding: 1rem;
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+}
+
+.dads-preview--dads-html .preview-card-illustration__body p {
 	margin: 0;
 	font-size: 0.875rem;
 	line-height: 1.6;
@@ -3573,7 +3617,9 @@
 	height: 100%;
 }
 
-.dads-preview--dads-html .preview-facility-icon--accent .preview-facility-icon__icon {
+.dads-preview--dads-html
+	.preview-facility-icon--accent
+	.preview-facility-icon__icon {
 	color: var(--preview-accent, var(--color-primitive-orange-700));
 }
 

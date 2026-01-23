@@ -88,16 +88,19 @@ export function getTextSafeColor(
 }
 
 /**
- * イラスト内の手元カード色に対するコントラスト最小化
+ * イラスト内の手元カード色に対するコントラスト保証
  *
  * SVGイラスト（illustration-people.svg）内の手元カード（rgb(254,151,126) → accent3）が
- * テーブル面（colors.card）と同化して消える現象を防ぐため、
+ * テーブル面（--iv-accent）と同化して消える現象を防ぐため、
  * 背景に対する最小コントラストを確保するように色を調整する。
  *
  * 色相・彩度を維持し、明度のみを調整することで、配色の美しさを損なわない。
  *
- * @param cardColor - イラスト用カード色（HEX）
- * @param backgroundColor - テーブル面背景色（HEX）
+ * 重要: CVDシミュレーションモードでは、cardColor と backgroundColor の両方が
+ * getDisplayHex() で変換された表示色である必要がある。
+ *
+ * @param cardColor - イラスト用カード色（HEX、表示色変換済み）
+ * @param backgroundColor - カードが載る背景色（HEX、表示色変換済み）。通常はテーブル面（--iv-accent）
  * @param minContrast - 最小コントラスト比（デフォルト: 2.0）
  * @returns 調整後の色（HEX）。既にコントラストを満たしている場合は元の色を返す
  */
@@ -828,52 +831,10 @@ function tintColor(hex: string, ratio: number): string {
 const TINT_RATIO = 0.4;
 
 /**
- * SVGイラストの色マッピング（元のRGB→パレット変数名）
- *
- * 注意: 髪の色 rgb(13,24,69)、肌の色 rgb(254,202,135)、rgb(203,146,123) は
- * 人物のリアリティを保つために変更しない。オブジェクトと背景のみ変更する。
+ * イラスト背景用の薄い色の比率（25%の色 + 75%の白）
+ * KV背景(0.4)より明らかに薄い色
  */
-interface IllustrationColorMap {
-	text: string; // rgb(67,72,81) → スマホフレーム（グレー）
-	accent: string; // rgb(163,190,173) → 背景円（セージグリーン）
-	accent3: string; // rgb(254,151,126) → カード（コーラル）
-	background: string; // rgb(254,254,254) → 白い面積（スマホ画面等）→ カード背景色
-}
-
-/**
- * SVGイラストの色を動的に置換
- *
- * 髪の色と肌の色は保持し、オブジェクトと背景のみパレット色に置換する。
- * - 保持: rgb(13,24,69) 髪, rgb(254,202,135) 肌, rgb(203,146,123) 肌影
- * - 置換: スマホフレーム、背景円、カード、白背景
- *
- * @param svgText - 元のSVGテキスト
- * @param colors - 置換する色マップ
- * @returns 色置換後のSVGテキスト
- */
-function replaceIllustrationColors(
-	svgText: string,
-	colors: IllustrationColorMap,
-): string {
-	// 髪と肌の色は変更しない（人物のリアリティ保持）
-	// rgb(13,24,69) → 髪（濃紺）- 保持
-	// rgb(254,202,135) → 肌（ピーチ）- 保持
-	// rgb(203,146,123) → 肌影（タン）- 保持
-
-	const colorReplacements: [RegExp, string][] = [
-		// オブジェクトと背景のみ置換
-		[/fill="rgb\(67,\s*72,\s*81\)"/g, `fill="${colors.text}"`], // スマホフレーム
-		[/fill="rgb\(163,\s*190,\s*173\)"/g, `fill="${colors.accent}"`], // 背景円
-		[/fill="rgb\(254,\s*151,\s*126\)"/g, `fill="${colors.accent3}"`], // カード
-		[/fill="rgb\(254,\s*254,\s*254\)"/g, `fill="${colors.background}"`], // 白背景
-	];
-
-	let result = svgText;
-	for (const [pattern, replacement] of colorReplacements) {
-		result = result.replace(pattern, replacement);
-	}
-	return result;
-}
+const ILLUSTRATION_TINT_RATIO = 0.25;
 
 /**
  * アイコンSVGの色を置換（currentColorへの変換またはアクセント色適用）
@@ -946,7 +907,7 @@ function getThemeColors(
 	}
 }
 
-function buildDadsPreviewMarkup(): string {
+export function buildDadsPreviewMarkup(): string {
 	return `
 <div class="preview-page">
 	<div class="preview-surface">
@@ -1027,16 +988,15 @@ function buildDadsPreviewMarkup(): string {
 						</div>
 						<div class="preview-twocol__right">
 							<article class="preview-card-illustration">
-								<hgroup class="dads-heading" data-size="18">
-									<h3 class="dads-heading__heading">デジタル庁の職員／チーム紹介</h3>
-								</hgroup>
-								<div class="preview-card-illustration__image" data-preview-illustration="1" aria-label="チーム紹介イラスト">
+								<div class="preview-card-illustration__image" data-preview-illustration="1" aria-label="サービス紹介イラスト">
 									<!-- SVG illustration will be inserted here -->
 								</div>
-								<p class="preview-card-illustration__desc">
-									デジタル庁ではnoteを活用して、働く職員を紹介しています
-									<a class="dads-link" href="#">↗</a>
-								</p>
+								<div class="preview-card-illustration__body">
+									<hgroup class="dads-heading" data-size="18">
+										<h3 class="dads-heading__heading"><a class="dads-link" href="#">行政サービス室のデジタル化推進 ↗</a></h3>
+									</hgroup>
+									<p>窓口手続きのオンライン化により、24時間いつでも申請・届出が可能です。</p>
+								</div>
 							</article>
 						</div>
 					</div>
@@ -1177,6 +1137,7 @@ export function createPalettePreview(
 ): HTMLElement {
 	const container = document.createElement("div");
 	container.className = "dads-preview dads-preview--dads-html";
+	const containerStyle = container.style;
 
 	const getDisplayHex = options.getDisplayHex ?? ((hex) => hex);
 
@@ -1203,6 +1164,8 @@ export function createPalettePreview(
 	const resolvedLinkColor =
 		preset === "pastel" ? colors.linkText : themeColors.linkColor;
 
+	const kvBgBase = tintColor(tertiaryHex, TINT_RATIO);
+	const illustrationBgBase = tintColor(tertiaryHex, ILLUSTRATION_TINT_RATIO);
 	const previewVars: Record<string, string> = {
 		"--preview-bg": colors.background,
 		"--preview-text": colors.text,
@@ -1227,12 +1190,14 @@ export function createPalettePreview(
 		"--preview-hero-bg": themeColors.heroBg,
 		"--preview-strip-bg": themeColors.stripBg,
 		// KV背景は常にターシャリー色（テーマに関係なく薄い色）
-		"--preview-kv-bg": tintColor(tertiaryHex, TINT_RATIO),
+		"--preview-kv-bg": kvBgBase,
+		// イラスト背景はKVより薄い色（ILLUSTRATION_TINT_RATIO = 0.25）
+		"--preview-illustration-bg": illustrationBgBase,
 	};
 	for (const [name, value] of Object.entries(previewVars)) {
 		// "transparent" や空文字列の場合はCSS変数を設定しない（フォールバック値が使われる）
 		if (value && value !== "transparent") {
-			container.style.setProperty(name, getDisplayHex(value));
+			containerStyle.setProperty(name, getDisplayHex(value));
 		}
 	}
 
@@ -1257,24 +1222,37 @@ export function createPalettePreview(
 		'[data-preview-illustration="1"]',
 	);
 	if (illustrationContainer) {
-		// 髪と肌の色は保持し、オブジェクトと背景のみパレット色に変更
-		// 大きな白い面積（スマホ画面など）はカード背景色に合わせる
-		// 手元カード（accent3）は背景に対するコントラストを確保して消えないようにする
-		const illustrationColors: IllustrationColorMap = {
-			text: getDisplayHex(colors.text), // スマホフレーム
-			accent: getDisplayHex(colors.cardAccent), // 背景円
-			accent3: ensureIllustrationCardContrast(
-				getDisplayHex(accentHex3),
-				getDisplayHex(colors.card),
+		// SVGをそのまま挿入（CSS変数で色を制御）
+		illustrationContainer.innerHTML = illustrationPeopleSvgText;
+
+		// 表示色（CVD変換後）をCSS変数の値から取得して単一ソース化
+		const textDisplay =
+			containerStyle.getPropertyValue("--preview-text").trim() ||
+			getDisplayHex(colors.text);
+		const tableSurfaceDisplay =
+			containerStyle.getPropertyValue("--preview-accent").trim() ||
+			getDisplayHex(colors.cardAccent);
+		const accent3Display =
+			containerStyle.getPropertyValue("--preview-accent-3").trim() ||
+			getDisplayHex(accentHex3);
+		const illustrationBgDisplay =
+			containerStyle.getPropertyValue("--preview-illustration-bg").trim() ||
+			getDisplayHex(illustrationBgBase);
+
+		// 手元カード（--iv-accent3）はテーブル面（--iv-accent）の上に重なるため、
+		// コントラストチェックはテーブル面に対して行う
+		const illustrationStyle = illustrationContainer.style;
+		illustrationStyle.setProperty("--iv-text", textDisplay);
+		illustrationStyle.setProperty("--iv-accent", tableSurfaceDisplay);
+		illustrationStyle.setProperty(
+			"--iv-accent3",
+			ensureIllustrationCardContrast(
+				accent3Display,
+				tableSurfaceDisplay,
 				ILLUSTRATION_MIN_CONTRAST,
-			), // カード（手元：背景に対する最小コントラスト確保）
-			background: getDisplayHex(colors.card), // 白い面積 → カード背景色
-		};
-		const coloredSvg = replaceIllustrationColors(
-			illustrationPeopleSvgText,
-			illustrationColors,
+			),
 		);
-		illustrationContainer.innerHTML = coloredSvg;
+		illustrationStyle.setProperty("--iv-background", illustrationBgDisplay);
 	}
 
 	// ---- Facility icons grid ----
