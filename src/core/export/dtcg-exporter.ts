@@ -5,7 +5,10 @@
  * semanticトークンとaliasトークンの分離をサポートします。
  */
 
-import type { Color } from "../color";
+import { Color } from "../color";
+import { DADS_COLORS } from "../harmony";
+import { chromaNameToDadsHue } from "../semantic-role/hue-name-normalizer";
+import { getCachedDadsTokens } from "../tokens/dads-data-provider";
 
 /**
  * DTCGエクスポートオプション
@@ -228,4 +231,73 @@ export function exportWithAliases(
 		tokens,
 		json: JSON.stringify(tokens, null, indent),
 	};
+}
+
+/**
+ * DADS semantic/link トークンを実値で出力（同期版）
+ *
+ * キャッシュされたDADSトークンを使用してsemantic/linkトークンを生成する。
+ * 事前にloadDadsTokens()が呼ばれていることを前提とする。
+ *
+ * @param warningPattern - Warning のパターン（"yellow" | "orange"）
+ * @returns semantic/link トークンのレコード
+ */
+export function exportDadsSemanticLinkTokensSync(
+	warningPattern: "yellow" | "orange",
+): {
+	semantic: Record<string, DTCGToken>;
+	link: Record<string, DTCGToken>;
+} {
+	const cachedTokens = getCachedDadsTokens();
+	if (!cachedTokens) {
+		// キャッシュがない場合は空のオブジェクトを返す
+		return { semantic: {}, link: {} };
+	}
+
+	const tokenByHueScale = new Map<string, (typeof cachedTokens)[number]>();
+	for (const token of cachedTokens) {
+		if (token.classification.category !== "chromatic") continue;
+		tokenByHueScale.set(
+			`${token.classification.hue}:${token.classification.scale}`,
+			token,
+		);
+	}
+
+	const semantic: Record<string, DTCGToken> = {};
+	const link: Record<string, DTCGToken> = {};
+
+	for (const dadsColor of DADS_COLORS) {
+		// semantic と link のみ（accent は除外）
+		if (dadsColor.category !== "semantic" && dadsColor.category !== "link") {
+			continue;
+		}
+
+		// Warning フィルタ
+		if (dadsColor.name.startsWith("Warning-")) {
+			const isYellow = dadsColor.name.startsWith("Warning-YL");
+			const isOrange = dadsColor.name.startsWith("Warning-OR");
+			if (isYellow && warningPattern !== "yellow") continue;
+			if (isOrange && warningPattern !== "orange") continue;
+		}
+
+		// DADS トークンから OKLCH 値を取得
+		const dadsHue = chromaNameToDadsHue(dadsColor.chromaName);
+		if (!dadsHue) continue;
+
+		const token = tokenByHueScale.get(`${dadsHue}:${dadsColor.step}`);
+		if (!token) continue;
+
+		const outputToken: DTCGToken = {
+			$value: toOklchString(new Color(token.hex)),
+			$type: "color",
+		};
+
+		if (dadsColor.category === "semantic") {
+			semantic[dadsColor.name] = outputToken;
+		} else {
+			link[dadsColor.name] = outputToken;
+		}
+	}
+
+	return { semantic, link };
 }

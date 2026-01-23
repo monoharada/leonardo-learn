@@ -2211,13 +2211,21 @@
 .dads-swatch__role-label {
 	position: static;
 	transform: none;
-	font-size: var(--font-size-14);
+	font-size: var(--font-size-16);
 	font-weight: 600;
 	line-height: 1;
 	pointer-events: none;
 	z-index: 1;
 	white-space: nowrap;
 	/* color はインラインstyleで動的設定 */
+}
+
+/* マルチラインロールラベル（brand + DADS semantic/link 同時表示、または DADS semantic + link 同時表示用） */
+.dads-swatch__role-label--multiline {
+	font-size: var(--font-size-14);
+	line-height: 1.2;
+	text-align: center;
+	white-space: pre-line; /* <br>による改行を尊重し、意図しない折り返しを防止 */
 }
 
 /* 円形スウォッチ + ロール名のラッパー */

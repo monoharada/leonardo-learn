@@ -12,10 +12,13 @@ import { JSDOM } from "jsdom";
 import type { SemanticRole } from "@/core/semantic-role/types";
 import {
 	getContrastTextColor,
+	getDadsKatakanaLabel,
 	getShortLabel,
 	ROLE_PRIORITY,
 	selectPriorityRole,
 	transformToCircle,
+	transformToCircleWithBrandAndDads,
+	transformToCircleWithMultipleRoles,
 	wrapCircularSwatchWithRoleName,
 } from "./circular-swatch-transformer";
 
@@ -490,6 +493,315 @@ describe("CircularSwatchTransformer", () => {
 			expect(parentElement.contains(wrapper)).toBe(true);
 			// swatchElementはwrapperの子になっている
 			expect(wrapper.contains(swatchElement)).toBe(true);
+		});
+	});
+
+	describe("getDadsKatakanaLabel", () => {
+		it("Success-1 → 'サクセス1'", () => {
+			const role: SemanticRole = {
+				name: "Success-1",
+				category: "semantic",
+				semanticSubType: "success",
+				source: "dads",
+				fullName: "[Semantic] Success-1",
+				shortLabel: "Su",
+			};
+			expect(getDadsKatakanaLabel(role)).toBe("サクセス1");
+		});
+
+		it("Success-2 → 'サクセス2'", () => {
+			const role: SemanticRole = {
+				name: "Success-2",
+				category: "semantic",
+				semanticSubType: "success",
+				source: "dads",
+				fullName: "[Semantic] Success-2",
+				shortLabel: "Su",
+			};
+			expect(getDadsKatakanaLabel(role)).toBe("サクセス2");
+		});
+
+		it("Error-1 → 'エラー1'", () => {
+			const role: SemanticRole = {
+				name: "Error-1",
+				category: "semantic",
+				semanticSubType: "error",
+				source: "dads",
+				fullName: "[Semantic] Error-1",
+				shortLabel: "E",
+			};
+			expect(getDadsKatakanaLabel(role)).toBe("エラー1");
+		});
+
+		it("Warning-OR2 → 'ワーニング2'", () => {
+			const role: SemanticRole = {
+				name: "Warning-OR2",
+				category: "semantic",
+				semanticSubType: "warning",
+				source: "dads",
+				fullName: "[Semantic] Warning-OR2",
+				shortLabel: "W",
+			};
+			expect(getDadsKatakanaLabel(role)).toBe("ワーニング2");
+		});
+
+		it("Warning-YL1 → 'ワーニング1'", () => {
+			const role: SemanticRole = {
+				name: "Warning-YL1",
+				category: "semantic",
+				semanticSubType: "warning",
+				source: "dads",
+				fullName: "[Semantic] Warning-YL1",
+				shortLabel: "W",
+			};
+			expect(getDadsKatakanaLabel(role)).toBe("ワーニング1");
+		});
+
+		it("Link-Default → 'リンク Default'", () => {
+			const role: SemanticRole = {
+				name: "Link-Default",
+				category: "link",
+				source: "dads",
+				fullName: "[Link] Link-Default",
+				shortLabel: "L",
+			};
+			expect(getDadsKatakanaLabel(role)).toBe("リンク Default");
+		});
+
+		it("Link-Visited → 'リンク Visited'", () => {
+			const role: SemanticRole = {
+				name: "Link-Visited",
+				category: "link",
+				source: "dads",
+				fullName: "[Link] Link-Visited",
+				shortLabel: "L",
+			};
+			expect(getDadsKatakanaLabel(role)).toBe("リンク Visited");
+		});
+
+		it("Link-Active → 'リンク Active'", () => {
+			const role: SemanticRole = {
+				name: "Link-Active",
+				category: "link",
+				source: "dads",
+				fullName: "[Link] Link-Active",
+				shortLabel: "L",
+			};
+			expect(getDadsKatakanaLabel(role)).toBe("リンク Active");
+		});
+	});
+
+	describe("transformToCircleWithMultipleRoles", () => {
+		let swatchElement: HTMLElement;
+
+		beforeEach(() => {
+			swatchElement = document.createElement("div");
+			swatchElement.classList.add("dads-swatch");
+		});
+
+		it("orange-800: semantic + link の2行表示", () => {
+			const roles: SemanticRole[] = [
+				{
+					name: "Warning-OR2",
+					category: "semantic",
+					semanticSubType: "warning",
+					source: "dads",
+					fullName: "[Semantic] Warning-OR2",
+					shortLabel: "W",
+				},
+				{
+					name: "Link-Active",
+					category: "link",
+					source: "dads",
+					fullName: "[Link] Link-Active",
+					shortLabel: "L",
+				},
+			];
+
+			transformToCircleWithMultipleRoles(swatchElement, roles, "#F97316");
+
+			expect(swatchElement.classList.contains("dads-swatch--circular")).toBe(
+				true,
+			);
+
+			const label = swatchElement.querySelector(".dads-swatch__role-label");
+			expect(label).not.toBeNull();
+			// textContent は br を含まないのでテキストが結合される
+			expect(label?.textContent).toBe("ワーニング2リンク Active");
+			// childNodes: text, br, text
+			expect(label?.childNodes.length).toBe(3);
+			expect(
+				label?.classList.contains("dads-swatch__role-label--multiline"),
+			).toBe(true);
+		});
+
+		it("単一ロールの場合、マルチラインクラスが付与されない", () => {
+			const roles: SemanticRole[] = [
+				{
+					name: "Success-1",
+					category: "semantic",
+					semanticSubType: "success",
+					source: "dads",
+					fullName: "[Semantic] Success-1",
+					shortLabel: "Su",
+				},
+			];
+
+			transformToCircleWithMultipleRoles(swatchElement, roles, "#22C55E");
+
+			const label = swatchElement.querySelector(".dads-swatch__role-label");
+			expect(label?.textContent).toBe("サクセス1");
+			expect(
+				label?.classList.contains("dads-swatch__role-label--multiline"),
+			).toBe(false);
+		});
+
+		it("semantic を link より優先表示（semantic が先）", () => {
+			const roles: SemanticRole[] = [
+				{
+					name: "Link-Active",
+					category: "link",
+					source: "dads",
+					fullName: "[Link] Link-Active",
+					shortLabel: "L",
+				},
+				{
+					name: "Warning-OR2",
+					category: "semantic",
+					semanticSubType: "warning",
+					source: "dads",
+					fullName: "[Semantic] Warning-OR2",
+					shortLabel: "W",
+				},
+			];
+
+			transformToCircleWithMultipleRoles(swatchElement, roles, "#F97316");
+
+			const label = swatchElement.querySelector(".dads-swatch__role-label");
+			// semantic (Warning) が先になる
+			expect(label?.childNodes[0]?.textContent).toBe("ワーニング2");
+		});
+	});
+
+	describe("transformToCircleWithBrandAndDads", () => {
+		let swatchElement: HTMLElement;
+
+		beforeEach(() => {
+			swatchElement = document.createElement("div");
+			swatchElement.classList.add("dads-swatch");
+		});
+
+		it("brand + DADS semantic の2行表示（brand優先）", () => {
+			const brandRole: SemanticRole = {
+				name: "Primary",
+				category: "primary",
+				source: "brand",
+				fullName: "[Primary] Primary",
+				shortLabel: "P",
+			};
+			const dadsRoles: SemanticRole[] = [
+				{
+					name: "Success-2",
+					category: "semantic",
+					semanticSubType: "success",
+					source: "dads",
+					fullName: "[Semantic] Success-2",
+					shortLabel: "Su",
+				},
+			];
+
+			transformToCircleWithBrandAndDads(
+				swatchElement,
+				brandRole,
+				dadsRoles,
+				"#22C55E",
+			);
+
+			expect(swatchElement.classList.contains("dads-swatch--circular")).toBe(
+				true,
+			);
+
+			const label = swatchElement.querySelector(".dads-swatch__role-label");
+			expect(label).not.toBeNull();
+			// textContent は br を含まないのでテキストが結合される
+			expect(label?.textContent).toBe("プライマリサクセス2");
+			// childNodes: text, br, text
+			expect(label?.childNodes.length).toBe(3);
+			expect(
+				label?.classList.contains("dads-swatch__role-label--multiline"),
+			).toBe(true);
+		});
+
+		it("brand が1行目に表示されること", () => {
+			const brandRole: SemanticRole = {
+				name: "Secondary",
+				category: "secondary",
+				source: "brand",
+				fullName: "[Secondary] Secondary",
+				shortLabel: "S",
+			};
+			const dadsRoles: SemanticRole[] = [
+				{
+					name: "Warning-YL1",
+					category: "semantic",
+					semanticSubType: "warning",
+					source: "dads",
+					fullName: "[Semantic] Warning-YL1",
+					shortLabel: "W",
+				},
+			];
+
+			transformToCircleWithBrandAndDads(
+				swatchElement,
+				brandRole,
+				dadsRoles,
+				"#EAB308",
+			);
+
+			const label = swatchElement.querySelector(".dads-swatch__role-label");
+			// 1行目は brand role
+			expect(label?.childNodes[0]?.textContent).toBe("セカンダリ");
+		});
+
+		it("複数のDADS rolesがsemantic優先でソートされる", () => {
+			const brandRole: SemanticRole = {
+				name: "Primary",
+				category: "primary",
+				source: "brand",
+				fullName: "[Primary] Primary",
+				shortLabel: "P",
+			};
+			const dadsRoles: SemanticRole[] = [
+				{
+					name: "Link-Active",
+					category: "link",
+					source: "dads",
+					fullName: "[Link] Link-Active",
+					shortLabel: "L",
+				},
+				{
+					name: "Warning-OR2",
+					category: "semantic",
+					semanticSubType: "warning",
+					source: "dads",
+					fullName: "[Semantic] Warning-OR2",
+					shortLabel: "W",
+				},
+			];
+
+			transformToCircleWithBrandAndDads(
+				swatchElement,
+				brandRole,
+				dadsRoles,
+				"#F97316",
+			);
+
+			const label = swatchElement.querySelector(".dads-swatch__role-label");
+			// childNodes: text(プライマリ), br, text(ワーニング2), br, text(リンク Active)
+			expect(label?.childNodes.length).toBe(5);
+			expect(label?.childNodes[0]?.textContent).toBe("プライマリ");
+			expect(label?.childNodes[2]?.textContent).toBe("ワーニング2"); // semantic first
+			expect(label?.childNodes[4]?.textContent).toBe("リンク Active"); // link second
 		});
 	});
 });

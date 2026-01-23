@@ -12,10 +12,35 @@
 
 import type { SemanticRole } from "@/core/semantic-role/types";
 import type { DadsColorHue } from "@/core/tokens/types";
+import { state } from "@/ui/demo/state";
 import {
 	selectPriorityRole,
 	transformToCircle,
+	transformToCircleWithBrandAndDads,
+	transformToCircleWithMultipleRoles,
 } from "./circular-swatch-transformer";
+
+/**
+ * Warningパターン設定に基づいてロールをフィルタ
+ */
+function filterByWarningPattern(roles: SemanticRole[]): SemanticRole[] {
+	const pattern = state.semanticColorConfig.warningPattern;
+	const effectivePattern =
+		pattern === "auto"
+			? (state.semanticColorConfig.resolvedWarningPattern ?? "yellow")
+			: pattern;
+
+	return roles.filter((role) => {
+		if (!role.name.startsWith("Warning-")) return true;
+		if (role.name.startsWith("Warning-YL")) {
+			return effectivePattern === "yellow";
+		}
+		if (role.name.startsWith("Warning-OR")) {
+			return effectivePattern === "orange";
+		}
+		return true;
+	});
+}
 
 /** ハーモニーロールカテゴリ（円形化対象） */
 const HARMONY_CATEGORIES = ["primary", "secondary", "tertiary", "accent"];
@@ -65,28 +90,72 @@ export function applyOverlay(
 	// キーボードフォーカス可能にする
 	swatchElement.setAttribute("tabindex", "0");
 
-	// 複数ロールから優先ロールを選択
-	const priorityRole = selectPriorityRole(roles);
+	// 1. Warning パターンフィルタを最初に適用
+	const filteredRoles = filterByWarningPattern(roles);
+	if (filteredRoles.length === 0) {
+		return;
+	}
 
-	// 円形化条件: ブランド由来のハーモニーロール（primary/secondary/accent）のみ
-	// DADS公式ロール（source="dads"）やhue-scale特定不可のブランドロールは円形化しない
+	// 2. 優先ロール選択
+	const priorityRole = selectPriorityRole(filteredRoles);
+
+	// 3. DADS semantic/link ロールを抽出
+	const dadsSemanticLinkRoles = filteredRoles.filter(
+		(r) =>
+			r.source === "dads" &&
+			(r.category === "semantic" || r.category === "link"),
+	);
+
+	// 4. brand harmony ロールを抽出（primary/secondary/tertiary/accent で source !== "dads"）
+	const brandHarmonyRoles = filteredRoles.filter(
+		(r) => r.source !== "dads" && HARMONY_CATEGORIES.includes(r.category),
+	);
+
+	// 5. 円形化条件判定
+	const hasBrandHarmony = brandHarmonyRoles.length > 0;
+	const hasDadsSemanticLink = dadsSemanticLinkRoles.length > 0;
+
 	const shouldCircularize =
 		backgroundColor !== undefined &&
-		priorityRole.source !== "dads" &&
-		HARMONY_CATEGORIES.includes(priorityRole.category) &&
+		(hasBrandHarmony || hasDadsSemanticLink) &&
 		!isUnresolvedBrandSwatch(isBrand, dadsHue, scale);
 
 	if (shouldCircularize) {
-		transformToCircle(swatchElement, priorityRole, backgroundColor);
+		if (hasBrandHarmony && hasDadsSemanticLink) {
+			// Case A: brand + DADS semantic/link が共存
+			// → brand を優先表示（ROLE_PRIORITYに基づいて選択）、DADS semantic/link を2行目に追加
+			const brandPriorityRole = selectPriorityRole(brandHarmonyRoles);
+			transformToCircleWithBrandAndDads(
+				swatchElement,
+				brandPriorityRole,
+				dadsSemanticLinkRoles,
+				backgroundColor,
+			);
+		} else if (hasDadsSemanticLink) {
+			// Case B: DADS semantic/link のみ
+			transformToCircleWithMultipleRoles(
+				swatchElement,
+				dadsSemanticLinkRoles,
+				backgroundColor,
+			);
+		} else {
+			// Case C: brand harmony のみ（既存動作）
+			transformToCircle(swatchElement, priorityRole, backgroundColor);
+		}
 	}
 
-	// ツールチップ更新（既存titleに追記）
+	// ツールチップ更新（既存titleに追記）- warningPatternフィルタ適用後のロールを使用
 	const existingTitle = swatchElement.getAttribute("title") || "";
-	const newTitle = mergeTooltipContent(existingTitle, roles);
+	const newTitle = mergeTooltipContent(existingTitle, filteredRoles);
 	swatchElement.setAttribute("title", newTitle);
 
-	// アクセシビリティ用説明要素の生成とaria-describedby設定
-	const descId = createAccessibleDescription(dadsHue, scale, roles, isBrand);
+	// アクセシビリティ用説明要素の生成とaria-describedby設定 - warningPatternフィルタ適用後のロールを使用
+	const descId = createAccessibleDescription(
+		dadsHue,
+		scale,
+		filteredRoles,
+		isBrand,
+	);
 
 	// hue-scale特定不可のブランドロールの場合はaria-describedbyを設定しない
 	if (descId !== null) {
@@ -98,11 +167,11 @@ export function applyOverlay(
 			existingDesc.remove();
 		}
 
-		// 説明要素をDOMに追加
+		// 説明要素をDOMに追加 - warningPatternフィルタ適用後のロールを使用
 		const descElement = createAccessibleDescriptionElement(
 			dadsHue,
 			scale,
-			roles,
+			filteredRoles,
 			isBrand,
 		);
 		if (descElement) {

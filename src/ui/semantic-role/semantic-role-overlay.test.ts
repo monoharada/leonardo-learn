@@ -15,6 +15,7 @@ global.HTMLElement = dom.window.HTMLElement;
 
 import type { SemanticRole } from "@/core/semantic-role/types";
 import type { DadsColorHue } from "@/core/tokens/types";
+import { state } from "@/ui/demo/state";
 import {
 	applyOverlay,
 	createAccessibleDescription,
@@ -569,6 +570,162 @@ describe("SemanticRoleOverlay", () => {
 
 			// hue-scale特定不可の場合はnull（ARIA要素生成不要）
 			expect(element).toBeNull();
+		});
+	});
+
+	describe("warningPattern filtering - tooltip/ARIA一致", () => {
+		let originalWarningPattern: "yellow" | "orange" | "auto";
+		let originalResolvedWarningPattern: "yellow" | "orange" | undefined;
+
+		beforeEach(() => {
+			// 元の値を保存
+			originalWarningPattern = state.semanticColorConfig.warningPattern;
+			originalResolvedWarningPattern =
+				state.semanticColorConfig.resolvedWarningPattern;
+		});
+
+		afterEach(() => {
+			// 元の値に復元
+			state.semanticColorConfig.warningPattern = originalWarningPattern;
+			state.semanticColorConfig.resolvedWarningPattern =
+				originalResolvedWarningPattern;
+		});
+
+		it("warningPattern='yellow'の場合、Warning-OR*がtooltipから除外される", () => {
+			state.semanticColorConfig.warningPattern = "yellow";
+
+			const roles: SemanticRole[] = [
+				{
+					name: "Warning-YL",
+					category: "semantic",
+					fullName: "[Semantic] Warning-YL",
+					shortLabel: "W",
+				},
+				{
+					name: "Warning-OR",
+					category: "semantic",
+					fullName: "[Semantic] Warning-OR",
+					shortLabel: "W",
+				},
+				{
+					name: "Success",
+					category: "semantic",
+					fullName: "[Semantic] Success",
+					shortLabel: "Su",
+				},
+			];
+
+			applyOverlay(
+				swatchElement,
+				"yellow" as DadsColorHue,
+				500,
+				roles,
+				false,
+				"#EAB308",
+			);
+
+			const title = swatchElement.getAttribute("title") || "";
+			expect(title).toContain("[Semantic] Warning-YL");
+			expect(title).not.toContain("[Semantic] Warning-OR");
+			expect(title).toContain("[Semantic] Success");
+		});
+
+		it("warningPattern='orange'の場合、Warning-YL*がtooltipから除外される", () => {
+			state.semanticColorConfig.warningPattern = "orange";
+
+			const roles: SemanticRole[] = [
+				{
+					name: "Warning-YL",
+					category: "semantic",
+					fullName: "[Semantic] Warning-YL",
+					shortLabel: "W",
+				},
+				{
+					name: "Warning-OR",
+					category: "semantic",
+					fullName: "[Semantic] Warning-OR",
+					shortLabel: "W",
+				},
+			];
+
+			applyOverlay(
+				swatchElement,
+				"orange" as DadsColorHue,
+				500,
+				roles,
+				false,
+				"#F97316",
+			);
+
+			const title = swatchElement.getAttribute("title") || "";
+			expect(title).not.toContain("[Semantic] Warning-YL");
+			expect(title).toContain("[Semantic] Warning-OR");
+		});
+
+		it("warningPatternフィルタがARIA説明要素にも適用される", () => {
+			state.semanticColorConfig.warningPattern = "yellow";
+
+			const roles: SemanticRole[] = [
+				{
+					name: "Warning-YL",
+					category: "semantic",
+					fullName: "[Semantic] Warning-YL",
+					shortLabel: "W",
+				},
+				{
+					name: "Warning-OR",
+					category: "semantic",
+					fullName: "[Semantic] Warning-OR",
+					shortLabel: "W",
+				},
+			];
+
+			applyOverlay(
+				swatchElement,
+				"yellow" as DadsColorHue,
+				500,
+				roles,
+				false,
+				"#EAB308",
+			);
+
+			const descElement = document.getElementById("swatch-yellow-500-desc");
+			expect(descElement).not.toBeNull();
+			expect(descElement?.textContent).toContain("[Semantic] Warning-YL");
+			expect(descElement?.textContent).not.toContain("[Semantic] Warning-OR");
+		});
+
+		it("warningPattern='auto'でresolvedWarningPattern='orange'の場合、Warning-YL*がフィルタされる", () => {
+			state.semanticColorConfig.warningPattern = "auto";
+			state.semanticColorConfig.resolvedWarningPattern = "orange";
+
+			const roles: SemanticRole[] = [
+				{
+					name: "Warning-YL-Subtle",
+					category: "semantic",
+					fullName: "[Semantic] Warning-YL-Subtle",
+					shortLabel: "W",
+				},
+				{
+					name: "Warning-OR-Subtle",
+					category: "semantic",
+					fullName: "[Semantic] Warning-OR-Subtle",
+					shortLabel: "W",
+				},
+			];
+
+			applyOverlay(
+				swatchElement,
+				"orange" as DadsColorHue,
+				300,
+				roles,
+				false,
+				"#FDBA74",
+			);
+
+			const title = swatchElement.getAttribute("title") || "";
+			expect(title).not.toContain("Warning-YL-Subtle");
+			expect(title).toContain("Warning-OR-Subtle");
 		});
 	});
 });
