@@ -121,10 +121,9 @@ describe("シェードビュー統合テスト", () => {
 					"#22C55E",
 				);
 
-				// Issue #39: セマンティックロール（success等）は円形化しない
-				// プライマリーのみ円形化する新仕様
+				// DADS semantic/link ロールは円形化される（バッジ廃止、スウォッチ内ラベル表示）
 				expect(swatchElement.classList.contains("dads-swatch--circular")).toBe(
-					false,
+					true,
 				);
 				// tabindexが設定されていること（オーバーレイは適用される）
 				expect(swatchElement.getAttribute("tabindex")).toBe("0");

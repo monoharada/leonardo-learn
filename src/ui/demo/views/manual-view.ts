@@ -1282,9 +1282,10 @@ export async function renderManualView(
 			step: p.step,
 		}));
 
-		// 現在のハーモニー種別を取得（アクティブパレットのharmony）
+		// Manual View では常に DADS ロールを有効にする
+		// （activePalette.harmony が "none" でも DADS semantic/link を表示）
 		const activePalette = getActivePalette();
-		const harmonyType: HarmonyType | string = activePalette?.harmony ?? "dads";
+		const harmonyType = HarmonyType.DADS;
 
 		// SemanticRoleMapperを生成
 		const roleMapper = createSemanticRoleMapper(palettesInfo, harmonyType);
@@ -1498,16 +1499,21 @@ export function renderDadsHueSection(
 		// lookupRolesはDADS+ブランド統合済みロールを返却（hue-scale特定可能なブランドロールを含む）
 		// セマンティックロールのオーバーレイ適用とロール名表示
 		if (roleMapper) {
-			const roles = roleMapper.lookupRoles(
+			const allRoles = roleMapper.lookupRoles(
 				colorScale.hue as DadsColorHue,
 				colorItem.scale,
 			);
-			if (roles.length > 0) {
+			// DADS accent を除外（DADS semantic/link と競合するため）
+			// ※ brand accent は残す（ユーザー選択色のマーカーとして必要）
+			const displayRoles = allRoles.filter(
+				(role) => !(role.source === "dads" && role.category === "accent"),
+			);
+			if (displayRoles.length > 0) {
 				applyOverlay(
 					swatch,
 					colorScale.hue as DadsColorHue,
 					colorItem.scale,
-					roles,
+					displayRoles,
 					false,
 					colorItem.hex,
 				);

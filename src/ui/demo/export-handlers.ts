@@ -10,7 +10,10 @@
 
 import { Color } from "@/core/color";
 import { exportToCSS } from "@/core/export/css-exporter";
-import { exportToDTCG } from "@/core/export/dtcg-exporter";
+import {
+	exportDadsSemanticLinkTokensSync,
+	exportToDTCG,
+} from "@/core/export/dtcg-exporter";
 import { exportToTailwind } from "@/core/export/tailwind-exporter";
 import { findColorForContrast, isWarmYellowHue } from "@/core/solver";
 import {
@@ -194,8 +197,15 @@ export function getExportContent(format: ExportFormat): string {
 			return result.config;
 		}
 		case "json": {
-			const result = exportToDTCG(colors);
-			return result.json;
+			const baseResult = exportToDTCG(colors);
+
+			// Warning パターンを取得
+			const warningPattern = getActiveWarningPattern();
+
+			// DADS semantic/link トークンを追加
+			const dadsTokens = exportDadsSemanticLinkTokensSync(warningPattern);
+
+			return JSON.stringify({ ...baseResult.tokens, ...dadsTokens }, null, 2);
 		}
 	}
 }

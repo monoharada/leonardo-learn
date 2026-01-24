@@ -154,6 +154,18 @@ export function clearTokenCache(): void {
 }
 
 /**
+ * キャッシュされたDADSトークンを同期的に取得
+ *
+ * 事前にloadDadsTokens()が呼ばれてキャッシュが存在することを前提とする。
+ * キャッシュが存在しない場合はnullを返す。
+ *
+ * @returns キャッシュされたDADSトークン配列、またはnull
+ */
+export function getCachedDadsTokens(): DadsToken[] | null {
+	return tokenCache;
+}
+
+/**
  * 特定の色相のカラースケールを取得する
  *
  * @param tokens - DADSトークン配列

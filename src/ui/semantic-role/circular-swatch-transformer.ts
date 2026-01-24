@@ -84,6 +84,32 @@ export function getKatakanaLabel(role: SemanticRole): string {
 }
 
 /**
+ * DADS semantic/link ロール用のカタカナラベルを生成
+ * @param role - セマンティックロール
+ * @returns カタカナラベル（例: "サクセス1", "リンク Default"）
+ */
+export function getDadsKatakanaLabel(role: SemanticRole): string {
+	// semantic カテゴリ: サブタイプ + 番号
+	if (role.category === "semantic" && role.semanticSubType) {
+		const baseName = SEMANTIC_SUBTYPE_KATAKANA[role.semanticSubType] || "";
+		// role.name から番号を抽出（例: "Success-1" → "1", "Warning-YL2" → "2"）
+		const match = role.name.match(/(\d+)$/);
+		const num = match ? match[1] : "";
+		return `${baseName}${num}`;
+	}
+
+	// link カテゴリ: "リンク" + variant
+	if (role.category === "link") {
+		const parts = role.name.split("-");
+		const variant = parts.length > 1 ? parts.slice(1).join("-") : "";
+		return `リンク ${variant}`;
+	}
+
+	// フォールバック
+	return getKatakanaLabel(role);
+}
+
+/**
  * ロールから短縮ラベルを取得
  *
  * @param role - セマンティックロール
@@ -161,6 +187,72 @@ export function getContrastTextColor(
 	return contrastWithBlack >= contrastWithWhite ? "black" : "white";
 }
 
+function prepareCircularSwatch(swatchElement: HTMLElement): void {
+	// 円形化クラスを追加
+	swatchElement.classList.add("dads-swatch--circular");
+
+	// 既存のラベルを削除（再適用時の重複防止）
+	swatchElement.querySelector(".dads-swatch__role-label")?.remove();
+}
+
+function insertFirst(parent: HTMLElement, child: HTMLElement): void {
+	const firstChild = parent.firstChild;
+	if (firstChild) {
+		parent.insertBefore(child, firstChild);
+	} else {
+		parent.appendChild(child);
+	}
+}
+
+function setScaleHexLabelTextColor(
+	swatchElement: HTMLElement,
+	textColor: "black" | "white",
+): void {
+	const scaleLabel = swatchElement.querySelector(
+		".dads-swatch__scale",
+	) as HTMLElement | null;
+	const hexLabel = swatchElement.querySelector(
+		".dads-swatch__hex",
+	) as HTMLElement | null;
+
+	if (scaleLabel) scaleLabel.style.color = textColor;
+	if (hexLabel) hexLabel.style.color = textColor;
+}
+
+function sortSemanticLinkRoles(roles: SemanticRole[]): SemanticRole[] {
+	const rank = (role: SemanticRole): number => {
+		if (role.category === "semantic") return 0;
+		if (role.category === "link") return 1;
+		return 2;
+	};
+	return [...roles].sort((a, b) => rank(a) - rank(b));
+}
+
+function setLabelLines(
+	label: HTMLElement,
+	lines: string[],
+	options: { multiline?: boolean } = {},
+): void {
+	const { multiline = lines.length > 1 } = options;
+
+	if (multiline) {
+		label.classList.add("dads-swatch__role-label--multiline");
+	}
+
+	if (lines.length <= 1) {
+		label.textContent = lines[0] || "";
+		return;
+	}
+
+	// DOM操作で改行を挿入（innerHTMLを避ける）
+	lines.forEach((text, index) => {
+		if (index > 0) {
+			label.appendChild(document.createElement("br"));
+		}
+		label.appendChild(document.createTextNode(text));
+	});
+}
+
 /**
  * スウォッチを円形に変形
  *
@@ -175,14 +267,7 @@ export function transformToCircle(
 	role: SemanticRole,
 	backgroundColor: string,
 ): void {
-	// 円形化クラスを追加
-	swatchElement.classList.add("dads-swatch--circular");
-
-	// 既存のラベルを削除（再適用時の重複防止）
-	const existingLabel = swatchElement.querySelector(".dads-swatch__role-label");
-	if (existingLabel) {
-		existingLabel.remove();
-	}
+	prepareCircularSwatch(swatchElement);
 
 	// テキスト色を背景色に応じて設定
 	const textColor = getContrastTextColor(backgroundColor);
@@ -190,27 +275,14 @@ export function transformToCircle(
 	// カタカナロールラベル要素を生成（大きい1文字ラベルの代わり）
 	const label = document.createElement("span");
 	label.classList.add("dads-swatch__role-label");
-	label.textContent = getKatakanaLabel(role);
+	setLabelLines(label, [getKatakanaLabel(role)]);
 	label.style.color = textColor;
 
 	// ロールラベルを最初の子要素として挿入（scale/hexの前に配置）
-	const firstChild = swatchElement.firstChild;
-	if (firstChild) {
-		swatchElement.insertBefore(label, firstChild);
-	} else {
-		swatchElement.appendChild(label);
-	}
+	insertFirst(swatchElement, label);
 
 	// scale/hexラベルのテキスト色も更新
-	const scaleLabel = swatchElement.querySelector(
-		".dads-swatch__scale",
-	) as HTMLElement | null;
-	const hexLabel = swatchElement.querySelector(
-		".dads-swatch__hex",
-	) as HTMLElement | null;
-
-	if (scaleLabel) scaleLabel.style.color = textColor;
-	if (hexLabel) hexLabel.style.color = textColor;
+	setScaleHexLabelTextColor(swatchElement, textColor);
 }
 
 /**
@@ -244,4 +316,77 @@ export function wrapCircularSwatchWithRoleName(
 	wrapper.appendChild(roleNameLabel);
 
 	return wrapper;
+}
+
+/**
+ * 複数のDADS semantic/linkロールを円形スウォッチ内に表示
+ * @param swatchElement - 対象のスウォッチDOM要素
+ * @param roles - 表示するロール配列（フィルタ済み）
+ * @param backgroundColor - スウォッチの背景色
+ */
+export function transformToCircleWithMultipleRoles(
+	swatchElement: HTMLElement,
+	roles: SemanticRole[],
+	backgroundColor: string,
+): void {
+	prepareCircularSwatch(swatchElement);
+
+	// テキスト色を背景色に応じて設定
+	const textColor = getContrastTextColor(backgroundColor);
+
+	// ラベル生成
+	const label = document.createElement("span");
+	label.classList.add("dads-swatch__role-label");
+
+	const labelLines = sortSemanticLinkRoles(roles).map(getDadsKatakanaLabel);
+	setLabelLines(label, labelLines);
+
+	label.style.color = textColor;
+
+	// ラベルを最初の子要素として挿入
+	insertFirst(swatchElement, label);
+
+	// scale/hexラベルのテキスト色も更新
+	setScaleHexLabelTextColor(swatchElement, textColor);
+}
+
+/**
+ * brand role + DADS semantic/link を円形スウォッチ内に表示
+ * brand を1行目（優先）、DADS semantic/link を2行目以降に表示
+ *
+ * @param swatchElement - 対象のスウォッチDOM要素
+ * @param brandRole - brand harmony ロール（優先表示）
+ * @param dadsRoles - DADS semantic/link ロール配列
+ * @param backgroundColor - スウォッチの背景色
+ */
+export function transformToCircleWithBrandAndDads(
+	swatchElement: HTMLElement,
+	brandRole: SemanticRole,
+	dadsRoles: SemanticRole[],
+	backgroundColor: string,
+): void {
+	prepareCircularSwatch(swatchElement);
+
+	// テキスト色を背景色に応じて設定
+	const textColor = getContrastTextColor(backgroundColor);
+
+	// ラベル生成
+	const label = document.createElement("span");
+	label.classList.add("dads-swatch__role-label");
+	setLabelLines(
+		label,
+		[
+			getKatakanaLabel(brandRole),
+			...sortSemanticLinkRoles(dadsRoles).map(getDadsKatakanaLabel),
+		],
+		{ multiline: true },
+	);
+
+	label.style.color = textColor;
+
+	// ラベルを最初の子要素として挿入
+	insertFirst(swatchElement, label);
+
+	// scale/hexラベルのテキスト色も更新
+	setScaleHexLabelTextColor(swatchElement, textColor);
 }
