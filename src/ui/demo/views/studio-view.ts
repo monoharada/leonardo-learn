@@ -42,6 +42,7 @@ import type {
 import { stripStepSuffix } from "../types";
 import { copyTextToClipboard } from "../utils/clipboard";
 import {
+	adjustLightnessForContrast,
 	type DadsSnapResult,
 	inferBaseChromaNameFromHex,
 	matchesPreset,
@@ -242,7 +243,10 @@ function getDadsInfoWithChromaName(
 	return { dadsInfo, baseChromaName };
 }
 
-function computePaletteColors(dadsTokens: DadsToken[]): {
+function computePaletteColors(
+	dadsTokens: DadsToken[],
+	preset: StudioPresetType,
+): {
 	primaryHex: string;
 	primaryStep?: number;
 	secondaryHex?: string;
@@ -269,6 +273,20 @@ function computePaletteColors(dadsTokens: DadsToken[]): {
 	const warningHue = warningPattern === "orange" ? "orange" : "yellow";
 	const warningStep = warningPattern === "orange" ? 600 : 700;
 
+	// Get raw semantic colors
+	const errorHex = getDadsSemanticHex(dadsTokens, "red", 800, "#FF2800");
+	const successHex = getDadsSemanticHex(dadsTokens, "green", 600, "#35A16B");
+	const warningHex = getDadsSemanticHex(
+		dadsTokens,
+		warningHue,
+		warningStep,
+		"#D7C447",
+	);
+
+	// Apply contrast adjustment for semantic colors when needed
+	const bgHex = DEFAULT_STUDIO_BACKGROUND;
+	const minContrast = resolvePresetMinContrast(preset);
+
 	return {
 		primaryHex,
 		primaryStep,
@@ -277,14 +295,9 @@ function computePaletteColors(dadsTokens: DadsToken[]): {
 		accentHex,
 		accentHexes,
 		semantic: {
-			error: getDadsSemanticHex(dadsTokens, "red", 800, "#FF2800"),
-			success: getDadsSemanticHex(dadsTokens, "green", 600, "#35A16B"),
-			warning: getDadsSemanticHex(
-				dadsTokens,
-				warningHue,
-				warningStep,
-				"#D7C447",
-			),
+			error: adjustLightnessForContrast(errorHex, bgHex, minContrast),
+			success: adjustLightnessForContrast(successHex, bgHex, minContrast),
+			warning: adjustLightnessForContrast(warningHex, bgHex, minContrast),
 		},
 	};
 }
@@ -292,6 +305,7 @@ function computePaletteColors(dadsTokens: DadsToken[]): {
 function buildPreviewColors(
 	input: ReturnType<typeof computePaletteColors>,
 	backgroundHex: string,
+	preset: StudioPresetType,
 ): PalettePreviewColors {
 	return mapPaletteToPreviewColors({
 		primaryHex: input.primaryHex,
@@ -304,6 +318,7 @@ function buildPreviewColors(
 			link: "#0091FF",
 		},
 		backgroundColor: backgroundHex,
+		preset,
 	});
 }
 
@@ -324,7 +339,17 @@ async function selectRandomPrimaryFromDads(
 		const ratio = wcagContrast(backgroundHex, t.hex);
 		return ratio >= minContrast;
 	});
-	const finalList = contrastFiltered.length > 0 ? contrastFiltered : baseList;
+
+	// コントラスト条件を満たす色がない場合、選択後に明度調整を適用
+	let finalList: DadsToken[];
+	let needsAdjustment = false;
+	if (contrastFiltered.length > 0) {
+		finalList = contrastFiltered;
+	} else {
+		// フォールバック: 選択後に明度調整を適用（パフォーマンス最適化）
+		finalList = baseList;
+		needsAdjustment = true;
+	}
 
 	const selected = pickRandom(finalList, rnd) ?? pickRandom(chromatic, rnd);
 	if (!selected) {
@@ -340,7 +365,12 @@ async function selectRandomPrimaryFromDads(
 		inferBaseChromaNameFromHex(selected.hex) ||
 		"Blue";
 
-	return { hex: selected.hex, step, baseChromaName };
+	// 明度調整が必要な場合のみ適用（フォールバック時）
+	const finalHex = needsAdjustment
+		? adjustLightnessForContrast(selected.hex, backgroundHex, minContrast)
+		: selected.hex;
+
+	return { hex: finalHex, step, baseChromaName };
 }
 
 function setLockedColors(patch: Partial<LockedColorsState>): void {
@@ -396,7 +426,18 @@ async function selectRandomAccentCandidates(
 	const contrastFiltered = base.filter(
 		(c) => wcagContrast(backgroundHex, c.hex) >= minContrast,
 	);
-	const candidates = contrastFiltered.length > 0 ? contrastFiltered : base;
+
+	// コントラスト条件を満たす色がない場合、明度調整を適用
+	let candidates: typeof base;
+	if (contrastFiltered.length > 0) {
+		candidates = contrastFiltered;
+	} else {
+		// フォールバック: 明度調整してコントラストを確保
+		candidates = base.map((c) => ({
+			...c,
+			hex: adjustLightnessForContrast(c.hex, backgroundHex, minContrast),
+		}));
+	}
 
 	// Prefer higher-ranked candidates while still allowing variety.
 	const top = candidates.slice(0, Math.max(30, count * 20));
@@ -486,6 +527,7 @@ async function selectHarmonyAccentCandidates(
 	await initializeHarmonyDads();
 
 	const primaryColor = new Color(primaryHex);
+	const minContrast = resolvePresetMinContrast(preset);
 
 	// ハーモニーベースの色を生成
 	let harmonyAccents: DadsSnapResult[];
@@ -533,7 +575,17 @@ async function selectHarmonyAccentCandidates(
 		harmonyAccents = [...harmonyAccents, ...complementary];
 	}
 
-	return harmonyAccents;
+	// コントラスト不足の色に明度調整を適用
+	return harmonyAccents.map((accent) => {
+		const currentContrast = wcagContrast(backgroundHex, accent.hex);
+		if (currentContrast && currentContrast >= minContrast) {
+			return accent;
+		}
+		return {
+			...accent,
+			hex: adjustLightnessForContrast(accent.hex, backgroundHex, minContrast),
+		};
+	});
 }
 
 async function rebuildStudioPalettes(options: {
@@ -569,7 +621,30 @@ async function rebuildStudioPalettes(options: {
 		options.dadsTokens,
 	);
 
-	const palettes: PaletteConfig[] = [primaryPalette, ...derived];
+	// Apply contrast adjustment to derived palettes (Secondary/Tertiary) based on preset
+	const minContrast = resolvePresetMinContrast(state.activePreset);
+	const adjustedDerived = derived.map((palette) => {
+		const keyColor = palette.keyColors[0];
+		if (!keyColor) return palette;
+
+		// Extract HEX and optional step from keyColor (format: "#hex" or "#hex@step")
+		const [hex, step] = keyColor.split("@");
+		if (!hex) return palette;
+
+		const adjustedHex = adjustLightnessForContrast(
+			hex,
+			backgroundColor,
+			minContrast,
+		);
+		if (adjustedHex === hex) return palette;
+
+		return {
+			...palette,
+			keyColors: [step ? `${adjustedHex}@${step}` : adjustedHex],
+		};
+	});
+
+	const palettes: PaletteConfig[] = [primaryPalette, ...adjustedDerived];
 
 	if (options.accentCandidates && options.accentCandidates.length > 0) {
 		for (let i = 0; i < options.accentCandidates.length; i++) {
@@ -622,7 +697,7 @@ export async function generateNewStudioPalette(
 	let primaryStep: number | undefined;
 	let primaryBaseChromaName: string | undefined;
 
-	const currentPrimary = computePaletteColors(dadsTokens);
+	const currentPrimary = computePaletteColors(dadsTokens, state.activePreset);
 	if (state.lockedColors.primary) {
 		primaryHex = currentPrimary.primaryHex;
 		primaryStep = currentPrimary.primaryStep;
@@ -749,7 +824,7 @@ function pushUndoSnapshot(): void {
 }
 
 function buildShareUrl(dadsTokens: DadsToken[]): string {
-	const colors = computePaletteColors(dadsTokens);
+	const colors = computePaletteColors(dadsTokens, state.activePreset);
 	const accentHexes = colors.accentHexes.slice(
 		0,
 		Math.max(2, Math.min(4, state.studioAccentCount)),
@@ -880,7 +955,7 @@ export async function renderStudioView(
 			try {
 				// 既存Primaryを維持しつつ、アクセントだけ再生成（必要な場合のみ）
 				if (state.palettes.length > 0) {
-					const current = computePaletteColors(dadsTokens);
+					const current = computePaletteColors(dadsTokens, state.activePreset);
 					const backgroundHex = DEFAULT_STUDIO_BACKGROUND;
 					const existing = current.accentHexes;
 					const desired = Math.max(2, Math.min(4, state.studioAccentCount));
@@ -1025,7 +1100,7 @@ export async function renderStudioView(
 		state.studioSeed = snapshot.studioSeed;
 		state.studioAccentCount = snapshot.studioAccentCount;
 
-		const restored = computePaletteColors(dadsTokens);
+		const restored = computePaletteColors(dadsTokens, state.activePreset);
 		const keyColorsInput = document.getElementById(
 			"keyColors",
 		) as HTMLInputElement | null;
@@ -1104,13 +1179,23 @@ export async function renderStudioView(
 		return;
 	}
 
-	const paletteColors = computePaletteColors(dadsTokens);
+	const paletteColors = computePaletteColors(dadsTokens, state.activePreset);
 	const bgHex = state.lightBackgroundColor || DEFAULT_STUDIO_BACKGROUND;
 
 	const desiredAccentCount = Math.max(2, Math.min(4, state.studioAccentCount));
 	const accentHexes = paletteColors.accentHexes.slice(0, desiredAccentCount);
-	const resolvedAccentHexes =
+	const rawAccentHexes =
 		accentHexes.length > 0 ? accentHexes : [paletteColors.accentHex];
+
+	// パステルプリセット時はアクセント色をコントラスト確保版に変換
+	// プレビュー内のボタン・テキスト要素が読めるようにする
+	const minContrast = resolvePresetMinContrast(state.activePreset);
+	const resolvedAccentHexes =
+		state.activePreset === "pastel"
+			? rawAccentHexes.map((hex) =>
+					adjustLightnessForContrast(hex, bgHex, minContrast),
+				)
+			: rawAccentHexes;
 
 	// Close any open popover when clicking outside
 	let activePopover: HTMLElement | null = null;
@@ -1605,7 +1690,7 @@ export async function renderStudioView(
 		state.studioAccentCount = newCount;
 
 		// Generate new accent colors
-		const current = computePaletteColors(dadsTokens);
+		const current = computePaletteColors(dadsTokens, state.activePreset);
 		const backgroundHex =
 			state.lightBackgroundColor || DEFAULT_STUDIO_BACKGROUND;
 		const existing = current.accentHexes.slice(0, oldAccentCount);
@@ -1695,13 +1780,18 @@ export async function renderStudioView(
 	const previewSection = document.createElement("section");
 	previewSection.className = "studio-preview";
 
-	const previewColors = buildPreviewColors(paletteColors, bgHex);
+	const previewColors = buildPreviewColors(
+		paletteColors,
+		bgHex,
+		state.activePreset,
+	);
 	const preview = createPalettePreview(previewColors, {
 		getDisplayHex,
 		kv: state.previewKv,
 		accentHexes: resolvedAccentHexes,
 		tertiaryHex: paletteColors.tertiaryHex,
 		theme: state.studioTheme,
+		preset: state.activePreset,
 	});
 	previewSection.appendChild(preview);
 	container.appendChild(previewSection);

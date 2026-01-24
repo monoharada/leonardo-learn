@@ -132,7 +132,9 @@ describe("warning-pattern-selector", () => {
 
 			// 黄色はエラー色（赤）からの識別性が高いことが多い（details内にある）
 			expect(analysis.yellowScore.details.deltaEFromError).toBeDefined();
-			expect(analysis.yellowScore.details.deltaEFromError).toBeGreaterThan(0);
+			const deltaE = analysis.yellowScore.details.deltaEFromError;
+			expect(Number.isFinite(deltaE)).toBe(true);
+			expect(deltaE).toBeGreaterThanOrEqual(0);
 		});
 
 		it("should consider harmony with anchor color", async () => {

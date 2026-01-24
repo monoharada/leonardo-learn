@@ -15,8 +15,74 @@
  * - Accent → カード背景、アクセント要素
  */
 
-import { describe, expect, it } from "bun:test";
-import type { PalettePreviewColors, PreviewSection } from "./palette-preview";
+import { afterAll, beforeAll, describe, expect, it } from "bun:test";
+import type {
+	PalettePreviewColors,
+	PalettePreviewOptions,
+	PreviewSection,
+} from "./palette-preview";
+
+const BASE_PREVIEW_COLORS: PalettePreviewColors = {
+	// 基本色
+	background: "#FFFFFF",
+	text: "#1A1A1A",
+
+	// Primary役割
+	headline: "#00A3BF",
+	headlineText: "#00A3BF",
+	button: "#00A3BF",
+	buttonText: "#FFFFFF",
+
+	// Accent役割
+	card: "#F5F5F5",
+	cardAccent: "#259063",
+	cardAccentText: "#259063",
+
+	// セマンティック役割（正しい用途）
+	link: "#0091FF",
+	linkText: "#0091FF",
+	error: "#FF2800",
+	success: "#35A16B",
+	warning: "#D7C447",
+
+	// Logo
+	logo: "#00A3BF",
+	logoText: "#00A3BF",
+
+	// UI要素
+	border: "#E0E0E0",
+	inputBackground: "#FFFFFF",
+	footerBackground: "#1A1A1A",
+	footerText: "#FFFFFF",
+};
+
+function makePreviewColors(
+	overrides: Partial<PalettePreviewColors> = {},
+): PalettePreviewColors {
+	return { ...BASE_PREVIEW_COLORS, ...overrides };
+}
+
+function getStyleVar(el: HTMLElement, name: string): string {
+	return el.style.getPropertyValue(name).trim();
+}
+
+function getIllustrationEl(container: HTMLElement): HTMLElement {
+	const el = container.querySelector<HTMLElement>(
+		'[data-preview-illustration="1"]',
+	);
+	if (!el) {
+		throw new Error("Illustration element not found");
+	}
+	return el;
+}
+
+const identityGetDisplayHex: NonNullable<
+	PalettePreviewOptions["getDisplayHex"]
+> = (hex) => hex;
+
+const blackGetDisplayHex: NonNullable<
+	PalettePreviewOptions["getDisplayHex"]
+> = () => "#000000";
 
 describe("palette-preview module", () => {
 	describe("exports", () => {
@@ -35,39 +101,7 @@ describe("palette-preview module", () => {
 
 	describe("PalettePreviewColors interface", () => {
 		it("should have all required color properties", () => {
-			const colors: PalettePreviewColors = {
-				// 基本色
-				background: "#FFFFFF",
-				text: "#1A1A1A",
-
-				// Primary役割
-				headline: "#00A3BF",
-				headlineText: "#00A3BF",
-				button: "#00A3BF",
-				buttonText: "#FFFFFF",
-
-				// Accent役割
-				card: "#F5F5F5",
-				cardAccent: "#259063",
-				cardAccentText: "#259063",
-
-				// セマンティック役割（正しい用途）
-				link: "#0091FF",
-				linkText: "#0091FF",
-				error: "#FF2800",
-				success: "#35A16B",
-				warning: "#D7C447",
-
-				// Logo
-				logo: "#00A3BF",
-				logoText: "#00A3BF",
-
-				// UI要素
-				border: "#E0E0E0",
-				inputBackground: "#FFFFFF",
-				footerBackground: "#1A1A1A",
-				footerText: "#FFFFFF",
-			};
+			const colors: PalettePreviewColors = makePreviewColors();
 
 			expect(colors.background).toBe("#FFFFFF");
 			expect(colors.headline).toBe("#00A3BF");
@@ -237,6 +271,72 @@ describe("palette-preview module", () => {
 		});
 	});
 
+	describe("illustration card markup structure", () => {
+		let buildDadsPreviewMarkup: () => string;
+
+		beforeAll(async () => {
+			({ buildDadsPreviewMarkup } = await import("./palette-preview"));
+		});
+
+		/**
+		 * NOTE: DOM操作を伴うテストは主にE2Eテスト（Playwright）でカバー。
+		 * ここではマークアップ文字列の構造をテストする。
+		 *
+		 * CVDモード時の色整合性:
+		 * - --preview-kv-bg と --iv-background が一致すること
+		 * - 両方とも getDisplayHex() による表示色変換が適用されていること
+		 * - ensureIllustrationCardContrast() は表示色ベースの背景で計算すること
+		 *
+		 * 受入基準:
+		 * 1. イラストカードが「上：画像 / 下：見出し+説明」の2分割レイアウト
+		 * 2. 見出しが「行政サービス室のデジタル化推進」
+		 * 3. 「デジタル庁」文言が完全に削除
+		 * 4. SVGの色がCSS変数で制御（replaceIllustrationColors削除）
+		 */
+
+		it("should render illustration card with image-first structure", () => {
+			const markup = buildDadsPreviewMarkup();
+
+			// 構造: preview-card-illustration__image が先、preview-card-illustration__body が後
+			const imageMatch = markup.indexOf("preview-card-illustration__image");
+			const bodyMatch = markup.indexOf("preview-card-illustration__body");
+
+			expect(imageMatch).toBeGreaterThan(-1);
+			expect(bodyMatch).toBeGreaterThan(-1);
+			expect(imageMatch).toBeLessThan(bodyMatch); // imageが先に来る
+		});
+
+		it("should render illustration heading with correct text", () => {
+			const markup = buildDadsPreviewMarkup();
+
+			expect(markup).toContain("行政サービス室のデジタル化推進");
+		});
+
+		it("should not contain デジタル庁 text in illustration card heading or description", () => {
+			const markup = buildDadsPreviewMarkup();
+
+			// イラストカード内のテキストを抽出（preview-card-illustration部分）
+			const illustrationStart = markup.indexOf(
+				'class="preview-card-illustration"',
+			);
+			const illustrationEnd = markup.indexOf("</article>", illustrationStart);
+			const illustrationMarkup = markup.substring(
+				illustrationStart,
+				illustrationEnd,
+			);
+
+			// イラストカード内に「デジタル庁」が含まれていないことを確認
+			expect(illustrationMarkup).not.toContain("デジタル庁");
+		});
+
+		it("should render description text in body section", () => {
+			const markup = buildDadsPreviewMarkup();
+
+			// 新しい説明文
+			expect(markup).toContain("窓口手続きのオンライン化");
+		});
+	});
+
 	describe("color mapping from palette state", () => {
 		it("should extract primary color for headline and button", async () => {
 			const { mapPaletteToPreviewColors } = await import("./palette-preview");
@@ -341,6 +441,125 @@ describe("palette-preview module", () => {
 			// コントラスト十分なので元の色がそのまま使用される
 			expect(colors.headlineText).toBe(darkPrimary);
 			expect(colors.cardAccentText).toBe(darkAccent);
+		});
+	});
+
+	describe("CVDモード時のCSS変数整合性", () => {
+		let createPalettePreview: typeof import("./palette-preview").createPalettePreview;
+
+		/**
+		 * JSDOM環境でcreate関数を呼び出し、CVDシミュレーション（getDisplayHex）を
+		 * 適用した際に --preview-illustration-bg と --iv-background が一致することを検証する。
+		 *
+		 * 重要: 非identity なstub（常に "#000000" を返す）を使用することで、
+		 * 修正前では「たまたま一致」することを防ぎ、変換適用を明示的に検証する。
+		 */
+
+		// JSDOM環境をセットアップ
+		let originalDocument: typeof globalThis.document;
+		let originalDOMParser: typeof globalThis.DOMParser;
+
+		beforeAll(async () => {
+			({ createPalettePreview } = await import("./palette-preview"));
+
+			// JSDOMをダイナミックインポート
+			const { JSDOM } = await import("jsdom");
+			const dom = new JSDOM("<!DOCTYPE html><html><body></body></html>");
+
+			originalDocument = globalThis.document;
+			originalDOMParser = globalThis.DOMParser;
+
+			// @ts-expect-error: JSDOM環境でグローバルを上書き
+			globalThis.document = dom.window.document;
+			// @ts-expect-error: JSDOM環境でグローバルを上書き
+			globalThis.DOMParser = dom.window.DOMParser;
+		});
+
+		afterAll(() => {
+			// グローバルを復元
+			// @ts-expect-error: 元の値を復元
+			globalThis.document = originalDocument;
+			// @ts-expect-error: 元の値を復元
+			globalThis.DOMParser = originalDOMParser;
+		});
+
+		it("--preview-illustration-bg と --iv-background が一致する（getDisplayHex適用後）", () => {
+			const container = createPalettePreview(makePreviewColors(), {
+				getDisplayHex: blackGetDisplayHex,
+				tertiaryHex: "#FF6B6B", // ターシャリー色（イラスト背景計算に使用）
+			});
+
+			const illustrationBg = getStyleVar(
+				container,
+				"--preview-illustration-bg",
+			);
+			const ivBg = getStyleVar(getIllustrationEl(container), "--iv-background");
+
+			// Assert: 両方とも stub の返り値と一致（"#000000"）
+			expect(illustrationBg).toBe("#000000");
+			expect(ivBg).toBe("#000000");
+			expect(illustrationBg).toBe(ivBg); // 最重要: 両者が一致
+		});
+
+		it("--preview-kv-bg と --preview-illustration-bg は異なる値を持つ", () => {
+			const container = createPalettePreview(makePreviewColors(), {
+				getDisplayHex: identityGetDisplayHex,
+				tertiaryHex: "#FF6B6B",
+			});
+
+			const kvBg = getStyleVar(container, "--preview-kv-bg");
+			const illustrationBg = getStyleVar(
+				container,
+				"--preview-illustration-bg",
+			);
+
+			expect(kvBg).not.toBe("");
+			expect(illustrationBg).not.toBe("");
+			expect(kvBg).not.toBe(illustrationBg);
+		});
+
+		it("手元カード（--iv-accent3）がテーブル面（--iv-accent）と同色の場合、コントラスト調整が適用される", () => {
+			const colors = makePreviewColors({
+				cardAccent: "#A3BEAD", // テーブル面の色
+				cardAccentText: "#A3BEAD",
+			});
+
+			const container = createPalettePreview(colors, {
+				getDisplayHex: identityGetDisplayHex,
+				accentHexes: [colors.cardAccent, colors.cardAccent],
+				tertiaryHex: "#A3BEAD",
+			});
+
+			const illustrationEl = getIllustrationEl(container);
+			const ivAccent = getStyleVar(illustrationEl, "--iv-accent").toLowerCase();
+			const ivAccent3 = getStyleVar(
+				illustrationEl,
+				"--iv-accent3",
+			).toLowerCase();
+
+			expect(ivAccent).toBe("#a3bead");
+			expect(ivAccent3).not.toBe(ivAccent);
+		});
+
+		it("調整後の手元カードはテーブル面に対して最小コントラスト比2.0以上を持つ", async () => {
+			const { wcagContrast } = await import("culori");
+			const colors = makePreviewColors({
+				cardAccent: "#A3BEAD",
+				cardAccentText: "#A3BEAD",
+			});
+
+			const container = createPalettePreview(colors, {
+				getDisplayHex: identityGetDisplayHex,
+				accentHexes: [colors.cardAccent, colors.cardAccent],
+				tertiaryHex: "#A3BEAD",
+			});
+
+			const illustrationEl = getIllustrationEl(container);
+			const ivAccent = getStyleVar(illustrationEl, "--iv-accent");
+			const ivAccent3 = getStyleVar(illustrationEl, "--iv-accent3");
+
+			const contrast = wcagContrast(ivAccent, ivAccent3) ?? 0;
+			expect(contrast).toBeGreaterThanOrEqual(2.0);
 		});
 	});
 });

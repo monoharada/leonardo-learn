@@ -3340,7 +3340,11 @@
 		var(--preview-card, var(--color-neutral-solid-gray-50)) 85%,
 		var(--color-neutral-white)
 	);
-	text-decoration: none;
+	text-decoration: underline;
+	text-decoration-thickness: 0.0625rem;
+	text-underline-offset: 0.1875rem;
+	/* リンク行は--preview-linkを使用（パステル時はコントラスト確保済み） */
+	color: var(--preview-link, var(--color-primitive-blue-1000));
 }
 
 .dads-preview--dads-html .preview-strip__links .preview-link-row:first-child {
@@ -3354,11 +3358,275 @@
 			var(--preview-card, var(--color-neutral-solid-gray-50)) 70%,
 			var(--color-neutral-white)
 		);
+		text-decoration-thickness: 0.1875rem;
 	}
 }
 
 .dads-preview--dads-html .preview-link-row__arrow {
 	color: var(--color-neutral-solid-gray-700);
+}
+
+/* パステルプリセット専用スタイル */
+.dads-preview--pastel.dads-preview--dads-html .preview-page
+	.preview-link-row.dads-link:any-link {
+	border-top-color: color-mix(
+		in oklch,
+		var(--preview-border, var(--color-neutral-solid-gray-200)) 50%,
+		transparent
+	);
+	padding: 1rem 1.25rem;
+}
+
+/* ============================================
+   Two-column section (採用情報レイアウト)
+   ============================================ */
+
+.dads-preview--dads-html .preview-section--twocol {
+	padding: 2.5rem 0;
+}
+
+.dads-preview--dads-html .preview-twocol {
+	display: grid;
+	grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); /* 比率逆転 */
+	gap: 2rem;
+	align-items: start;
+}
+
+.dads-preview--dads-html .preview-twocol__left {
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+	order: 2; /* デスクトップで右側に移動 */
+}
+
+.dads-preview--dads-html .preview-twocol__right {
+	order: 1; /* デスクトップで左側に移動 */
+}
+
+@media (max-width: 64rem) {
+	.dads-preview--dads-html .preview-twocol {
+		grid-template-columns: 1fr;
+		gap: 1.5rem;
+	}
+
+	.dads-preview--dads-html .preview-twocol__left,
+	.dads-preview--dads-html .preview-twocol__right {
+		order: initial; /* モバイルはDOM順（リスト→カード）を維持 */
+	}
+}
+
+.dads-preview--dads-html .preview-list {
+	display: flex;
+	flex-direction: column;
+	border: 1px solid var(--preview-border, var(--color-neutral-solid-gray-200));
+	border-radius: 0.5rem;
+	overflow: hidden;
+}
+
+.dads-preview--dads-html .preview-list-item.dads-link:any-link {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	padding: 1rem 1.25rem;
+	background: var(--preview-bg, var(--color-neutral-white));
+	border-top: 1px solid
+		var(--preview-border, var(--color-neutral-solid-gray-200));
+	text-decoration: none;
+	color: var(--preview-link, var(--color-primitive-blue-1000));
+	transition:
+		background-color 0.15s ease,
+		box-shadow 0.15s ease;
+}
+
+.dads-preview--dads-html .preview-list-item:first-child {
+	border-top: none;
+}
+
+.dads-preview--dads-html .preview-list-item__indicator {
+	flex-shrink: 0;
+	width: 1rem;
+	height: 1rem;
+	border: 2px solid var(--preview-primary, var(--color-primitive-blue-1000));
+	border-radius: 50%;
+	background: transparent;
+	transition: background-color 0.15s ease;
+}
+
+.dads-preview--dads-html
+	.preview-list-item--selected
+	.preview-list-item__indicator {
+	background: var(--preview-primary, var(--color-primitive-blue-1000));
+}
+
+.dads-preview--dads-html .preview-list-item__text {
+	flex: 1;
+	font-size: 0.9375rem;
+	line-height: 1.5;
+}
+
+.dads-preview--dads-html .preview-list-item__arrow {
+	flex-shrink: 0;
+	color: var(--color-neutral-solid-gray-600);
+	font-size: 0.875rem;
+}
+
+@media (hover: hover) {
+	.dads-preview--dads-html .preview-list-item.dads-link:hover {
+		background: color-mix(
+			in oklch,
+			var(--preview-primary, var(--color-primitive-blue-1000)) 8%,
+			var(--preview-bg, var(--color-neutral-white))
+		);
+	}
+}
+
+.dads-preview--dads-html .preview-list-item--selected.dads-link:any-link {
+	background: color-mix(
+		in oklch,
+		var(--preview-primary, var(--color-primitive-blue-1000)) 12%,
+		var(--preview-bg, var(--color-neutral-white))
+	);
+}
+
+/* Illustration card (左カード: 上下二分割レイアウト) */
+.dads-preview--dads-html .preview-card-illustration {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	padding: 0;
+	border: 1px solid var(--preview-border, var(--color-neutral-solid-gray-200));
+	border-radius: 0.75rem;
+	background: var(--preview-bg, var(--color-neutral-white));
+	overflow: hidden;
+}
+
+/* ホバー・フォーカス時にリンク青の枠 */
+@media (hover: hover) {
+	.dads-preview--dads-html .preview-card-illustration:hover {
+		border-color: var(--preview-link, var(--color-primitive-blue-1000));
+		box-shadow: 0 0 0 2px var(--preview-link, var(--color-primitive-blue-1000));
+	}
+}
+
+.dads-preview--dads-html .preview-card-illustration:focus-within {
+	border-color: var(--preview-link, var(--color-primitive-blue-1000));
+	box-shadow: 0 0 0 2px var(--preview-link, var(--color-primitive-blue-1000));
+}
+
+/* カード内見出しリンクの ::before で全面クリック領域を作成 */
+.dads-preview--dads-html .preview-card-illustration__body
+	.dads-heading
+	a.dads-link::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	z-index: 1;
+}
+
+.dads-preview--dads-html .preview-card-illustration__image {
+	aspect-ratio: 4 / 3;
+	overflow: hidden;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: var(
+		--preview-illustration-bg,
+		var(--preview-card, var(--color-neutral-solid-gray-50))
+	);
+}
+
+.dads-preview--dads-html .preview-card-illustration__image svg {
+	width: 100%;
+	height: 100%;
+	object-fit: contain;
+}
+
+.dads-preview--dads-html .preview-card-illustration__body {
+	padding: 1rem;
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+}
+
+.dads-preview--dads-html .preview-card-illustration__body p {
+	margin: 0;
+	font-size: 0.875rem;
+	line-height: 1.6;
+	color: var(--preview-text, var(--color-neutral-solid-gray-800));
+}
+
+/* ============================================
+   Facilities section (アイコングリッド)
+   ============================================ */
+
+.dads-preview--dads-html .preview-section--facilities {
+	padding: 2rem 0 2.5rem;
+	background: var(--preview-bg, var(--color-neutral-white));
+}
+
+.dads-preview--dads-html .preview-facilities {
+	display: flex;
+	flex-direction: column;
+	gap: 1.5rem;
+}
+
+.dads-preview--dads-html .preview-facilities__header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+
+.dads-preview--dads-html .preview-facilities__grid {
+	display: grid;
+	grid-template-columns: repeat(6, minmax(0, 1fr));
+	gap: 1rem;
+}
+
+@media (max-width: 64rem) {
+	.dads-preview--dads-html .preview-facilities__grid {
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+	}
+}
+
+@media (max-width: 36rem) {
+	.dads-preview--dads-html .preview-facilities__grid {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}
+
+.dads-preview--dads-html .preview-facility-icon {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 1rem;
+	border: 1px solid var(--preview-border, var(--color-neutral-solid-gray-200));
+	border-radius: 0.5rem;
+	background: var(--preview-bg, var(--color-neutral-white));
+	text-align: center;
+}
+
+.dads-preview--dads-html .preview-facility-icon__icon {
+	width: 2.5rem;
+	height: 2.5rem;
+	color: var(--color-neutral-solid-gray-600);
+}
+
+.dads-preview--dads-html .preview-facility-icon__icon svg {
+	width: 100%;
+	height: 100%;
+}
+
+.dads-preview--dads-html
+	.preview-facility-icon--accent
+	.preview-facility-icon__icon {
+	color: var(--preview-accent, var(--color-primitive-orange-700));
+}
+
+.dads-preview--dads-html .preview-facility-icon__label {
+	font-size: 0.75rem;
+	color: var(--color-neutral-solid-gray-700);
+	line-height: 1.4;
 }
 
 .dads-preview--dads-html .preview-section-head {
@@ -3597,13 +3865,17 @@
 	gap: 0.5rem;
 	margin-top: 0.25rem;
 	font-weight: 700;
-	text-decoration: none;
+	text-decoration: underline;
+	text-decoration-thickness: 0.0625rem;
+	text-underline-offset: 0.1875rem;
 }
 
 .dads-preview--dads-html
 	.preview-page
 	.preview-article__title.dads-link:any-link {
-	text-decoration: none;
+	text-decoration: underline;
+	text-decoration-thickness: 0.0625rem;
+	text-underline-offset: 0.1875rem;
 }
 
 @media (hover: hover) {
