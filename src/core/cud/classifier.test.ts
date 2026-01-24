@@ -3,15 +3,9 @@ import {
 	classifyColor,
 	classifyHue,
 	classifyLightness,
-	type HueCluster,
 	isSameCluster,
-	type LightnessBucket,
 } from "./classifier";
-import {
-	CUD_ACCENT_COLORS,
-	CUD_BASE_COLORS,
-	CUD_NEUTRAL_COLORS,
-} from "./colors";
+import { CUD_ACCENT_COLORS, CUD_NEUTRAL_COLORS } from "./colors";
 
 describe("Color Classifier", () => {
 	describe("classifyHue (Task 4.1)", () => {

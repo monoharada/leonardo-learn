@@ -28,7 +28,7 @@ beforeEach(() => {
 describe("HarmonyTypeCard", () => {
 	it("カードが正しくレンダリングされる", () => {
 		const onClick = mock(() => {});
-		const card = new HarmonyTypeCard(
+		const _card = new HarmonyTypeCard(
 			container,
 			HARMONY_TYPE_CARD_CONFIGS[0],
 			onClick,
@@ -44,7 +44,7 @@ describe("HarmonyTypeCard", () => {
 	it("タイトルと説明が表示される", () => {
 		const onClick = mock(() => {});
 		const config = HARMONY_TYPE_CARD_CONFIGS[0];
-		const card = new HarmonyTypeCard(container, config, onClick);
+		const _card = new HarmonyTypeCard(container, config, onClick);
 
 		const title = container.querySelector(".harmony-type-card__title");
 		const description = container.querySelector(
@@ -57,7 +57,7 @@ describe("HarmonyTypeCard", () => {
 
 	it("3つのプレビュースウォッチが表示される", () => {
 		const onClick = mock(() => {});
-		const card = new HarmonyTypeCard(
+		const _card = new HarmonyTypeCard(
 			container,
 			HARMONY_TYPE_CARD_CONFIGS[0],
 			onClick,
@@ -69,7 +69,7 @@ describe("HarmonyTypeCard", () => {
 
 	it("クリックでコールバックが呼ばれる", () => {
 		const onClick = mock(() => {});
-		const card = new HarmonyTypeCard(
+		const _card = new HarmonyTypeCard(
 			container,
 			HARMONY_TYPE_CARD_CONFIGS[0],
 			onClick,
@@ -159,7 +159,7 @@ describe("HarmonyTypeCard", () => {
 describe("DetailSelectCard", () => {
 	it("詳細選択カードがレンダリングされる", () => {
 		const onClick = mock(() => {});
-		const card = new DetailSelectCard(container, onClick);
+		const _card = new DetailSelectCard(container, onClick);
 
 		const cardElement = container.querySelector(".harmony-type-card--detail");
 		expect(cardElement).not.toBeNull();
@@ -167,7 +167,7 @@ describe("DetailSelectCard", () => {
 
 	it("クリックでコールバックが呼ばれる", () => {
 		const onClick = mock(() => {});
-		const card = new DetailSelectCard(container, onClick);
+		const _card = new DetailSelectCard(container, onClick);
 
 		const cardElement = container.querySelector(
 			".harmony-type-card--detail",

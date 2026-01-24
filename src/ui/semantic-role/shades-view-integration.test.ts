@@ -6,7 +6,7 @@
  */
 
 import { JSDOM } from "jsdom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { HarmonyType } from "@/core/harmony";
 import {
 	createSemanticRoleMapper,
@@ -498,7 +498,7 @@ describe("シェードビュー統合テスト", () => {
 		});
 
 		it("未解決ロールバーのバッジ色がCVDシミュレーションの影響を受けないこと", async () => {
-			const { renderUnresolvedRolesBar, ROLE_CATEGORY_COLORS } = await import(
+			const { renderUnresolvedRolesBar } = await import(
 				"./external-role-info-bar"
 			);
 
@@ -1038,7 +1038,7 @@ describe("シェードビュー統合テスト", () => {
 		});
 
 		it("白背景境界ピルが正しいscale位置に表示されること", async () => {
-			const { renderBoundaryPills, createBoundaryPill } = await import(
+			const { createBoundaryPill } = await import(
 				"./contrast-boundary-indicator"
 			);
 			const { calculateBoundaries } = await import(

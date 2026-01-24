@@ -32,7 +32,7 @@
 		"test:e2e:ui": "playwright test --ui",
 		"serve": "serve",
 		"type-check": "tsc --noEmit",
-		"lint": "biome lint .",
+		"lint": "biome lint . --error-on-warnings",
 		"lint:fix": "biome lint --write .",
 		"format": "biome format --write .",
 		"check": "biome check --write ."

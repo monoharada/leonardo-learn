@@ -261,7 +261,7 @@ describe("BackgroundColorSelector module", () => {
 	describe("two-color section structure", () => {
 		it("should create light section with dynamic class", () => {
 			const content = readSourceFile();
-			expect(content).toContain("background-color-selector__section--${mode}");
+			expect(content).toContain(`background-color-selector__section--\${mode}`);
 		});
 
 		it("should create sections for light and dark modes", () => {

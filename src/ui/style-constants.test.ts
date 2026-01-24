@@ -340,7 +340,7 @@ describe("style-constants", () => {
 				"./style-constants"
 			);
 
-			const mockStyle: Record<string, string> = {};
+			const _mockStyle: Record<string, string> = {};
 			const mockElement = {
 				style: {
 					backgroundColor: "",

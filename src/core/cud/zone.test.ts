@@ -5,13 +5,10 @@
  */
 import { describe, expect, test } from "bun:test";
 import {
-	type CudZone,
 	classifyZone,
 	DEFAULT_ZONE_THRESHOLDS,
 	getZoneClassification,
 	validateThresholds,
-	type ZoneClassification,
-	type ZoneThresholds,
 } from "./zone";
 
 describe("CUD Zone Classification (Task 1.1)", () => {

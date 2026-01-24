@@ -4,12 +4,16 @@
 
 import { describe, expect, it } from "bun:test";
 import { Color } from "../color";
+import type { BrandToken, DadsReference, DadsToken } from "../tokens/types";
 import {
 	type CudCommentData,
 	exportScalesToCSS,
 	exportToCSS,
+	exportToCSSv2,
 	formatCudComment,
+	formatDerivationComment,
 	generateSemanticTokenName,
+	hexToRgba,
 } from "./css-exporter";
 
 describe("CSSExporter", () => {
@@ -360,10 +364,7 @@ describe("CSSExporter", () => {
 describe("CSSExporter v2", () => {
 	describe("exportToCSSv2", () => {
 		// Requirements 10.1, 10.2: DADSプリミティブとブランドトークンの出力
-		it("DADSプリミティブを--dads-{color}形式で出力する", async () => {
-			const { exportToCSSv2 } = await import("./css-exporter");
-			const { BrandToken, DadsToken } = await import("../tokens/types");
-
+		it("DADSプリミティブを--dads-{color}形式で出力する", () => {
 			const dadsTokens: DadsToken[] = [
 				{
 					id: "dads-blue-500",
@@ -383,10 +384,7 @@ describe("CSSExporter v2", () => {
 			expect(result).toContain("#0066cc");
 		});
 
-		it("ブランドトークンを--brand-{role}-{shade}形式で出力する", async () => {
-			const { exportToCSSv2 } = await import("./css-exporter");
-			const { BrandToken, DadsToken } = await import("../tokens/types");
-
+		it("ブランドトークンを--brand-{role}-{shade}形式で出力する", () => {
 			const brandTokens: BrandToken[] = [
 				{
 					id: "brand-primary-500",
@@ -409,10 +407,7 @@ describe("CSSExporter v2", () => {
 		});
 
 		// Requirement 10.3: alpha値を持つトークンはrgba()形式で出力
-		it("alpha値を持つトークンはrgba(R, G, B, alpha)形式で出力する", async () => {
-			const { exportToCSSv2 } = await import("./css-exporter");
-			const { BrandToken, DadsToken } = await import("../tokens/types");
-
+		it("alpha値を持つトークンはrgba(R, G, B, alpha)形式で出力する", () => {
 			const dadsTokens: DadsToken[] = [
 				{
 					id: "dads-neutral-gray-500",
@@ -451,10 +446,7 @@ describe("CSSExporter v2", () => {
 		});
 
 		// Requirement 10.4: alpha値がないか1の場合は#RRGGBB形式で出力
-		it("alpha値がないか1の場合は#RRGGBB形式で出力する", async () => {
-			const { exportToCSSv2 } = await import("./css-exporter");
-			const { BrandToken, DadsToken } = await import("../tokens/types");
-
+		it("alpha値がないか1の場合は#RRGGBB形式で出力する", () => {
 			const dadsTokens: DadsToken[] = [
 				{
 					id: "dads-red-500",
@@ -485,10 +477,7 @@ describe("CSSExporter v2", () => {
 		});
 
 		// Requirement 10.5: derivationコメント（参照先DADS、deltaE、派生タイプ）を追加
-		it("derivationコメント（参照先DADS、deltaE、派生タイプ）を追加する", async () => {
-			const { exportToCSSv2 } = await import("./css-exporter");
-			const { BrandToken } = await import("../tokens/types");
-
+		it("derivationコメント（参照先DADS、deltaE、派生タイプ）を追加する", () => {
 			const brandTokens: BrandToken[] = [
 				{
 					id: "brand-accent-500",
@@ -513,10 +502,7 @@ describe("CSSExporter v2", () => {
 		});
 
 		// Requirement 10.5: 不変性を示すコメントをDADSセクションに追加
-		it("不変性を示すコメントをDADSセクションに追加する", async () => {
-			const { exportToCSSv2 } = await import("./css-exporter");
-			const { DadsToken } = await import("../tokens/types");
-
+		it("不変性を示すコメントをDADSセクションに追加する", () => {
 			const dadsTokens: DadsToken[] = [
 				{
 					id: "dads-blue-500",
@@ -534,10 +520,7 @@ describe("CSSExporter v2", () => {
 			expect(result).toMatch(/DADS.*(?:Immutable|不変|変更不可)/i);
 		});
 
-		it("DADSトークンとブランドトークンを分離したセクションで出力する", async () => {
-			const { exportToCSSv2 } = await import("./css-exporter");
-			const { BrandToken, DadsToken } = await import("../tokens/types");
-
+		it("DADSトークンとブランドトークンを分離したセクションで出力する", () => {
 			const dadsTokens: DadsToken[] = [
 				{
 					id: "dads-blue-500",
@@ -574,10 +557,7 @@ describe("CSSExporter v2", () => {
 			expect(dadsIndex).toBeLessThan(brandIndex);
 		});
 
-		it("includeDadsTokens=falseの場合はDADSトークンを出力しない", async () => {
-			const { exportToCSSv2 } = await import("./css-exporter");
-			const { BrandToken, DadsToken } = await import("../tokens/types");
-
+		it("includeDadsTokens=falseの場合はDADSトークンを出力しない", () => {
 			const dadsTokens: DadsToken[] = [
 				{
 					id: "dads-blue-500",
@@ -612,9 +592,7 @@ describe("CSSExporter v2", () => {
 			expect(result).toContain("--brand-primary-500");
 		});
 
-		it("空のトークン配列でも正常に動作する", async () => {
-			const { exportToCSSv2 } = await import("./css-exporter");
-
+		it("空のトークン配列でも正常に動作する", () => {
 			const result = exportToCSSv2([], []);
 
 			expect(result).toContain(":root");
@@ -623,10 +601,7 @@ describe("CSSExporter v2", () => {
 	});
 
 	describe("formatDerivationComment", () => {
-		it("派生情報を正しいフォーマットでコメント化する", async () => {
-			const { formatDerivationComment } = await import("./css-exporter");
-			const { DadsReference } = await import("../tokens/types");
-
+		it("派生情報を正しいフォーマットでコメント化する", () => {
 			const dadsRef: DadsReference = {
 				tokenId: "dads-blue-500",
 				tokenHex: "#0066cc",
@@ -644,16 +619,12 @@ describe("CSSExporter v2", () => {
 	});
 
 	describe("hexToRgba", () => {
-		it("HEXとalphaからrgba文字列を生成する", async () => {
-			const { hexToRgba } = await import("./css-exporter");
-
+		it("HEXとalphaからrgba文字列を生成する", () => {
 			const result = hexToRgba("#ff0000", 0.5);
 			expect(result).toBe("rgba(255, 0, 0, 0.5)");
 		});
 
-		it("小文字HEXも正しく処理する", async () => {
-			const { hexToRgba } = await import("./css-exporter");
-
+		it("小文字HEXも正しく処理する", () => {
 			const result = hexToRgba("#00ff00", 0.75);
 			expect(result).toBe("rgba(0, 255, 0, 0.75)");
 		});

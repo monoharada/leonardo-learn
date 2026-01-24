@@ -7,10 +7,7 @@
 
 import { beforeEach, describe, expect, test } from "bun:test";
 import type { HarmonyFilterType } from "../../core/accent/harmony-filter-calculator";
-import {
-	type HarmonyFilterChangeCallback,
-	HarmonyFilterUI,
-} from "./harmony-filter-ui";
+import { HarmonyFilterUI } from "./harmony-filter-ui";
 
 describe("HarmonyFilterUI", () => {
 	let filter: HarmonyFilterUI;

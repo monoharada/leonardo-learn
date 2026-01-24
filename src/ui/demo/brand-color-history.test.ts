@@ -245,10 +245,17 @@ describe("brand-color-history module", () => {
 
 			const stored = localStorage.getItem(BRAND_COLOR_HISTORY_STORAGE_KEY);
 			expect(stored).not.toBeNull();
+			if (!stored) {
+				throw new Error(
+					`Expected localStorage item: ${BRAND_COLOR_HISTORY_STORAGE_KEY}`,
+				);
+			}
 
-			const parsed = JSON.parse(stored!);
+			const parsed = JSON.parse(stored) as unknown[];
 			expect(parsed).toHaveLength(1);
-			expect(parsed[0].brandColorHex).toBe("#3366cc");
+			expect((parsed[0] as { brandColorHex: string }).brandColorHex).toBe(
+				"#3366cc",
+			);
 		});
 
 		it("should save empty array", () => {
@@ -266,10 +273,18 @@ describe("brand-color-history module", () => {
 			persistBrandColorHistory([entry2]);
 
 			const stored = localStorage.getItem(BRAND_COLOR_HISTORY_STORAGE_KEY);
-			const parsed = JSON.parse(stored!);
+			expect(stored).not.toBeNull();
+			if (!stored) {
+				throw new Error(
+					`Expected localStorage item: ${BRAND_COLOR_HISTORY_STORAGE_KEY}`,
+				);
+			}
+			const parsed = JSON.parse(stored) as unknown[];
 
 			expect(parsed).toHaveLength(1);
-			expect(parsed[0].brandColorHex).toBe("#00ff00");
+			expect((parsed[0] as { brandColorHex: string }).brandColorHex).toBe(
+				"#00ff00",
+			);
 		});
 	});
 

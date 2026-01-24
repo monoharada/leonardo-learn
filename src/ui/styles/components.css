@@ -728,11 +728,6 @@
 	aspect-ratio: 1; /* 正方形で統一 */
 }
 
-/* 円形スウォッチは親と同サイズ（aspect-ratio: 1は継承） */
-.dads-scale .dads-swatch--circular {
-	box-sizing: border-box;
-}
-
 .dads-scale .dads-swatch[data-key-color="true"] {
 	flex: 0 0 80px; /* キーカラーは正方形（高さと同じ幅） */
 }
@@ -856,6 +851,28 @@
 
 .dads-contrast-card[data-bg="black"] .dads-contrast-card__ratio {
 	color: white;
+}
+
+/* Contrast Card Internal Layout */
+.dads-contrast-card__header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+
+.dads-contrast-card__value {
+	display: flex;
+	align-items: baseline;
+	gap: 0.5rem;
+}
+
+.dads-contrast-card__unit {
+	font-size: 0.8rem;
+	color: var(--color-neutral-solid-gray-400);
+}
+
+.dads-contrast-card[data-bg="black"] .dads-contrast-card__unit {
+	color: var(--color-neutral-solid-gray-600);
 }
 
 .dads-contrast-card__preview {
@@ -1607,8 +1624,8 @@
 }
 
 /* カスタマイズ可能なselectのポップオーバー */
-.dads-drawer__apply-section .dads-select,
-.dads-drawer__apply-section ::picker(select) {
+/* biome-ignore lint/correctness/noUnknownPseudoElement: Chrome 134+ base-select pseudo element */
+.dads-drawer__apply-section .dads-select::picker(select) {
 	appearance: base-select;
 }
 
@@ -1678,28 +1695,6 @@
 .dads-drawer__tuner-help {
 	margin: 0;
 	font-size: 0.8rem;
-	color: var(--color-neutral-solid-gray-600);
-}
-
-/* Contrast Card Internal Layout */
-.dads-contrast-card__header {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-}
-
-.dads-contrast-card__value {
-	display: flex;
-	align-items: baseline;
-	gap: 0.5rem;
-}
-
-.dads-contrast-card__unit {
-	font-size: 0.8rem;
-	color: var(--color-neutral-solid-gray-400);
-}
-
-.dads-contrast-card[data-bg="black"] .dads-contrast-card__unit {
 	color: var(--color-neutral-solid-gray-600);
 }
 
@@ -1944,6 +1939,32 @@
 	white-space: nowrap;
 }
 
+.dads-radio-group {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 1rem;
+}
+
+.dads-radio-label {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	cursor: pointer;
+	font-size: var(--font-size-14);
+	color: var(--demo-text-color, var(--color-neutral-solid-gray-800));
+}
+
+.dads-radio-label:hover {
+	color: var(--color-primitive-blue-900);
+}
+
+.dads-radio {
+	width: 18px;
+	height: 18px;
+	accent-color: var(--color-primitive-blue-900);
+	cursor: pointer;
+}
+
 /* セグメンテッドコントロール（パレット色数選択用） */
 .dads-segmented-control {
 	display: inline-flex;
@@ -2183,15 +2204,20 @@
 	padding: 8px;
 }
 
+/* 円形スウォッチは親と同サイズ（aspect-ratio: 1は継承） */
+.dads-scale .dads-swatch--circular {
+	box-sizing: border-box;
+}
+
 /* 円形スウォッチ内のscale/hexラベルを表示 */
 .dads-swatch--circular .dads-swatch__scale {
-	display: block !important;
+	display: block;
 	font-size: var(--font-size-14);
 	line-height: 1;
 }
 
 .dads-swatch--circular .dads-swatch__hex {
-	display: block !important;
+	display: block;
 	font-size: var(--font-size-14);
 	font-weight: 400;
 	line-height: 1;
@@ -2626,32 +2652,6 @@
 	font-size: var(--font-size-10);
 	font-family: var(--font-family-mono);
 	opacity: 0.8;
-}
-
-.dads-radio-group {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 1rem;
-}
-
-.dads-radio-label {
-	display: flex;
-	align-items: center;
-	gap: 0.5rem;
-	cursor: pointer;
-	font-size: var(--font-size-14);
-	color: var(--demo-text-color, var(--color-neutral-solid-gray-800));
-}
-
-.dads-radio-label:hover {
-	color: var(--color-primitive-blue-900);
-}
-
-.dads-radio {
-	width: 18px;
-	height: 18px;
-	accent-color: var(--color-primitive-blue-900);
-	cursor: pointer;
 }
 
 .dads-auto-selection-info {
@@ -3113,10 +3113,6 @@
 
 .dads-preview--dads-html .preview-page .dads-link:active {
 	color: var(--preview-primary-active, var(--color-primitive-orange-800));
-}
-
-.dads-preview--dads-html .preview-hero .dads-heading {
-	color: var(--preview-heading, var(--color-neutral-solid-gray-900));
 }
 
 .dads-preview--dads-html .preview-hero {
@@ -4135,6 +4131,10 @@
 .dads-preview--dads-html .dads-heading {
 	color: var(--demo-text-color, var(--color-neutral-solid-gray-800));
 	font-family: var(--font-family-sans);
+}
+
+.dads-preview--dads-html .preview-hero .dads-heading {
+	color: var(--preview-heading, var(--color-neutral-solid-gray-900));
 }
 
 .dads-preview--dads-html .dads-heading[data-size="64"] {

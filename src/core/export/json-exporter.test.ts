@@ -2,7 +2,12 @@ import { describe, expect, test } from "bun:test";
 import { Color } from "../color";
 import { generateM3ToneScale } from "../strategies/m3-generator";
 import { generateNeutralScale } from "../system/neutral-scale";
-import { exportToJSON, type JSONExportOptions } from "./json-exporter";
+import type { BrandToken, DadsToken } from "../tokens/types";
+import {
+	exportToJSON,
+	exportToJSONv2,
+	type JSONExportOptions,
+} from "./json-exporter";
 
 describe("JSONExporter", () => {
 	describe("exportToJSON", () => {
@@ -484,10 +489,7 @@ describe("JSONExporter", () => {
 describe("JSONExporter v2", () => {
 	describe("exportToJSONv2", () => {
 		// Requirement 11.1: dadsTokensオブジェクトにid, hex, nameJa, nameEn, source, immutableプロパティを含める
-		test("should output dadsTokens with id, hex, nameJa, nameEn, source, immutable properties", async () => {
-			const { exportToJSONv2 } = await import("./json-exporter");
-			const { DadsToken } = await import("../tokens/types");
-
+		test("should output dadsTokens with id, hex, nameJa, nameEn, source, immutable properties", () => {
 			const dadsTokens: DadsToken[] = [
 				{
 					id: "dads-blue-500",
@@ -517,10 +519,7 @@ describe("JSONExporter v2", () => {
 		});
 
 		// Requirement 11.2: alpha値を持つDadsTokenにはalphaプロパティを追加
-		test("should include alpha property when DadsToken has alpha value", async () => {
-			const { exportToJSONv2 } = await import("./json-exporter");
-			const { DadsToken } = await import("../tokens/types");
-
+		test("should include alpha property when DadsToken has alpha value", () => {
 			const dadsTokens: DadsToken[] = [
 				{
 					id: "dads-neutral-gray-500-alpha",
@@ -542,10 +541,7 @@ describe("JSONExporter v2", () => {
 		});
 
 		// Requirement 11.3: brandTokensオブジェクトにid, hex, source, originalHex, dadsReferenceを含める
-		test("should output brandTokens with id, hex, source, originalHex, dadsReference", async () => {
-			const { exportToJSONv2 } = await import("./json-exporter");
-			const { BrandToken } = await import("../tokens/types");
-
+		test("should output brandTokens with id, hex, source, originalHex, dadsReference", () => {
 			const brandTokens: BrandToken[] = [
 				{
 					id: "brand-primary-500",
@@ -580,10 +576,7 @@ describe("JSONExporter v2", () => {
 		});
 
 		// Requirement 11.4: dadsReferenceにtokenId, tokenHex, tokenAlpha, deltaE, derivationType, zoneを含める
-		test("should include complete dadsReference with tokenId, tokenHex, tokenAlpha, deltaE, derivationType, zone", async () => {
-			const { exportToJSONv2 } = await import("./json-exporter");
-			const { BrandToken } = await import("../tokens/types");
-
+		test("should include complete dadsReference with tokenId, tokenHex, tokenAlpha, deltaE, derivationType, zone", () => {
 			const brandTokens: BrandToken[] = [
 				{
 					id: "brand-overlay-500",
@@ -613,10 +606,7 @@ describe("JSONExporter v2", () => {
 		});
 
 		// Requirement 11.5: cudSummaryにcomplianceRate, mode, zoneDistributionを出力
-		test("should output cudSummary with complianceRate, mode, zoneDistribution", async () => {
-			const { exportToJSONv2 } = await import("./json-exporter");
-			const { BrandToken } = await import("../tokens/types");
-
+		test("should output cudSummary with complianceRate, mode, zoneDistribution", () => {
 			const brandTokens: BrandToken[] = [
 				{
 					id: "brand-primary-500",
@@ -656,9 +646,7 @@ describe("JSONExporter v2", () => {
 		});
 
 		// Requirement 11.6: metadataにversion, generatedAt, tokenSchemaを含める
-		test("should include metadata with version, generatedAt, tokenSchema", async () => {
-			const { exportToJSONv2 } = await import("./json-exporter");
-
+		test("should include metadata with version, generatedAt, tokenSchema", () => {
 			const result = exportToJSONv2([]);
 
 			expect(result.metadata).toBeDefined();
@@ -672,10 +660,7 @@ describe("JSONExporter v2", () => {
 		});
 
 		// v1/v2切り替え - デフォルトはv2
-		test("should use v2 output format by default", async () => {
-			const { exportToJSONv2 } = await import("./json-exporter");
-			const { BrandToken } = await import("../tokens/types");
-
+		test("should use v2 output format by default", () => {
 			const brandTokens: BrandToken[] = [
 				{
 					id: "brand-primary-500",
@@ -700,10 +685,7 @@ describe("JSONExporter v2", () => {
 		});
 
 		// v1互換出力
-		test("should support v1 output format when outputVersion is v1", async () => {
-			const { exportToJSONv2 } = await import("./json-exporter");
-			const { BrandToken } = await import("../tokens/types");
-
+		test("should support v1 output format when outputVersion is v1", () => {
 			const brandTokens: BrandToken[] = [
 				{
 					id: "brand-primary-500",
@@ -727,9 +709,7 @@ describe("JSONExporter v2", () => {
 		});
 
 		// 空配列でも正常動作
-		test("should handle empty token arrays", async () => {
-			const { exportToJSONv2 } = await import("./json-exporter");
-
+		test("should handle empty token arrays", () => {
 			const result = exportToJSONv2([]);
 
 			expect(result.brandTokens).toBeDefined();
@@ -739,10 +719,7 @@ describe("JSONExporter v2", () => {
 		});
 
 		// brandNamespaceオプション
-		test("should use brandNamespace option for token grouping", async () => {
-			const { exportToJSONv2 } = await import("./json-exporter");
-			const { BrandToken } = await import("../tokens/types");
-
+		test("should use brandNamespace option for token grouping", () => {
 			const brandTokens: BrandToken[] = [
 				{
 					id: "brand-primary-500",
@@ -764,10 +741,7 @@ describe("JSONExporter v2", () => {
 		});
 
 		// includeDadsTokens=falseでDADSトークンを除外
-		test("should exclude dadsTokens when includeDadsTokens is false", async () => {
-			const { exportToJSONv2 } = await import("./json-exporter");
-			const { DadsToken } = await import("../tokens/types");
-
+		test("should exclude dadsTokens when includeDadsTokens is false", () => {
 			const dadsTokens: DadsToken[] = [
 				{
 					id: "dads-blue-500",
@@ -788,10 +762,7 @@ describe("JSONExporter v2", () => {
 		});
 
 		// 複数のDADSトークンとブランドトークンの処理
-		test("should handle multiple DADS tokens and brand tokens", async () => {
-			const { exportToJSONv2 } = await import("./json-exporter");
-			const { BrandToken, DadsToken } = await import("../tokens/types");
-
+		test("should handle multiple DADS tokens and brand tokens", () => {
 			const dadsTokens: DadsToken[] = [
 				{
 					id: "dads-blue-500",
@@ -843,11 +814,11 @@ describe("JSONExporter v2", () => {
 				dadsTokens,
 			});
 
-			expect(Object.keys(result.dadsTokens!)).toHaveLength(2);
+			const dadsTokensOutput = result.dadsTokens;
+			expect(dadsTokensOutput).toBeDefined();
+			if (!dadsTokensOutput) throw new Error("dadsTokens should be defined");
+			expect(Object.keys(dadsTokensOutput)).toHaveLength(2);
 			expect(Object.keys(result.brandTokens)).toHaveLength(2);
 		});
 	});
 });
-
-// BrandToken型のインポート（テスト用）
-import type { BrandToken, DadsToken } from "../tokens/types";

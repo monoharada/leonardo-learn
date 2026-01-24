@@ -56,6 +56,15 @@ const localStorageMock = createLocalStorageMock();
 (globalThis as unknown as { localStorage: Storage }).localStorage =
 	localStorageMock as Storage;
 
+function readLocalStorageJson<T>(key: string): T {
+	const stored = localStorage.getItem(key);
+	expect(stored).not.toBeNull();
+	if (!stored) {
+		throw new Error(`Expected localStorage item: ${key}`);
+	}
+	return JSON.parse(stored) as T;
+}
+
 describe("state module", () => {
 	beforeEach(() => {
 		resetState();
@@ -572,10 +581,9 @@ describe("state module", () => {
 		it("should save light and dark colors to localStorage as JSON", () => {
 			persistBackgroundColors("#f8fafc", "#18181b");
 
-			const stored = localStorage.getItem(BACKGROUND_COLOR_STORAGE_KEY);
-			expect(stored).not.toBeNull();
-
-			const parsed = JSON.parse(stored!);
+			const parsed = readLocalStorageJson<{ light: string; dark: string }>(
+				BACKGROUND_COLOR_STORAGE_KEY,
+			);
 			expect(parsed.light).toBe("#f8fafc");
 			expect(parsed.dark).toBe("#18181b");
 		});
@@ -583,8 +591,9 @@ describe("state module", () => {
 		it("should save default values correctly", () => {
 			persistBackgroundColors("#ffffff", "#000000");
 
-			const stored = localStorage.getItem(BACKGROUND_COLOR_STORAGE_KEY);
-			const parsed = JSON.parse(stored!);
+			const parsed = readLocalStorageJson<{ light: string; dark: string }>(
+				BACKGROUND_COLOR_STORAGE_KEY,
+			);
 			expect(parsed.light).toBe("#ffffff");
 			expect(parsed.dark).toBe("#000000");
 		});
@@ -593,8 +602,9 @@ describe("state module", () => {
 			persistBackgroundColors("#ffffff", "#000000");
 			persistBackgroundColors("#f8fafc", "#18181b");
 
-			const stored = localStorage.getItem(BACKGROUND_COLOR_STORAGE_KEY);
-			const parsed = JSON.parse(stored!);
+			const parsed = readLocalStorageJson<{ light: string; dark: string }>(
+				BACKGROUND_COLOR_STORAGE_KEY,
+			);
 			expect(parsed.light).toBe("#f8fafc");
 			expect(parsed.dark).toBe("#18181b");
 		});
@@ -700,18 +710,18 @@ describe("state module", () => {
 		it("should save yellow pattern to localStorage", () => {
 			persistSemanticColorConfig({ warningPattern: "yellow" });
 
-			const stored = localStorage.getItem(SEMANTIC_COLOR_CONFIG_STORAGE_KEY);
-			expect(stored).not.toBeNull();
-
-			const parsed = JSON.parse(stored!);
+			const parsed = readLocalStorageJson<{ warningPattern: string }>(
+				SEMANTIC_COLOR_CONFIG_STORAGE_KEY,
+			);
 			expect(parsed.warningPattern).toBe("yellow");
 		});
 
 		it("should save orange pattern to localStorage", () => {
 			persistSemanticColorConfig({ warningPattern: "orange" });
 
-			const stored = localStorage.getItem(SEMANTIC_COLOR_CONFIG_STORAGE_KEY);
-			const parsed = JSON.parse(stored!);
+			const parsed = readLocalStorageJson<{ warningPattern: string }>(
+				SEMANTIC_COLOR_CONFIG_STORAGE_KEY,
+			);
 			expect(parsed.warningPattern).toBe("orange");
 		});
 
@@ -726,8 +736,11 @@ describe("state module", () => {
 				},
 			});
 
-			const stored = localStorage.getItem(SEMANTIC_COLOR_CONFIG_STORAGE_KEY);
-			const parsed = JSON.parse(stored!);
+			const parsed = readLocalStorageJson<{
+				warningPattern: string;
+				resolvedWarningPattern: string;
+				autoSelectionDetails: unknown;
+			}>(SEMANTIC_COLOR_CONFIG_STORAGE_KEY);
 			expect(parsed.warningPattern).toBe("auto");
 			expect(parsed.resolvedWarningPattern).toBe("yellow");
 			expect(parsed.autoSelectionDetails).toBeDefined();
@@ -737,8 +750,9 @@ describe("state module", () => {
 			persistSemanticColorConfig({ warningPattern: "yellow" });
 			persistSemanticColorConfig({ warningPattern: "orange" });
 
-			const stored = localStorage.getItem(SEMANTIC_COLOR_CONFIG_STORAGE_KEY);
-			const parsed = JSON.parse(stored!);
+			const parsed = readLocalStorageJson<{ warningPattern: string }>(
+				SEMANTIC_COLOR_CONFIG_STORAGE_KEY,
+			);
 			expect(parsed.warningPattern).toBe("orange");
 		});
 	});

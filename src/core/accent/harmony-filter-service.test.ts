@@ -7,7 +7,6 @@
 
 import { describe, expect, it } from "bun:test";
 import type { ScoredCandidate } from "./accent-candidate-service";
-import type { ScoreWeights } from "./balance-score-calculator";
 import {
 	filterByHarmonyType,
 	findNearestAlternatives,
@@ -168,8 +167,6 @@ describe("HarmonyFilterService", () => {
 		});
 
 		it("should skip score recalculation (Requirement 6.3)", () => {
-			const originalScores = mockCandidates.map((c) => c.score.total);
-
 			const result = filterByHarmonyType(mockCandidates, "triadic", 0);
 
 			// Verify scores are unchanged

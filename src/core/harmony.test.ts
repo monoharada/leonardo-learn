@@ -22,7 +22,7 @@ describe("getVibrancyAdjustment - Boundary Value Tests", () => {
 			const result = getVibrancyAdjustment(30);
 
 			// intensity = 1 - |30 - 40| / 20 = 1 - 10/20 = 0.5
-			const expectedIntensity = 0.5;
+			const _expectedIntensity = 0.5;
 			expect(result.toneBoost).toBe(4); // 8 * 0.5 = 4
 			expect(result.chromaMultiplier).toBe(1.1);
 			expect(result.toneBlendFactor).toBeCloseTo(0.775, 2); // 0.7 + 0.15 * 0.5

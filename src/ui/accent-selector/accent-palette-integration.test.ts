@@ -8,7 +8,7 @@
  * このファイルでは型とエクスポート、依存関係、ロジックの確認を行う。
  */
 
-import { beforeEach, describe, expect, it } from "bun:test";
+import { describe, expect, it } from "bun:test";
 import type { ScoredCandidate } from "../../core/accent/accent-candidate-service";
 import type { BalanceScoreResult } from "../../core/accent/balance-score-calculator";
 

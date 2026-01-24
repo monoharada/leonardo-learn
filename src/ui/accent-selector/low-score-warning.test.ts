@@ -10,7 +10,7 @@
  * - 追加は許可する動作
  */
 
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { beforeEach, describe, expect, mock, test } from "bun:test";
 import type { ScoredCandidate } from "../../core/accent/accent-candidate-service";
 import type { BalanceScoreResult } from "../../core/accent/balance-score-calculator";
 

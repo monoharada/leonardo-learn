@@ -1,10 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { CUD_ACCENT_COLORS } from "./colors";
-import {
-	type CvdSimulationResult,
-	type CvdSimulationType,
-	simulateCvdWithFormats,
-} from "./cvd";
+import { simulateCvdWithFormats } from "./cvd";
 
 describe("CVD Simulator Extension (Task 5.1)", () => {
 	describe("simulateCvdWithFormats", () => {

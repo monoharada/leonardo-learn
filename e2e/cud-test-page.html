@@ -169,22 +169,23 @@
 
     <script type="module">
         // Import CUD components and functions
-        import {Color, 
-            CUD_MODE_CONFIGS,createAnchorColor, 
+        import {
+            Color,
+            CUD_MODE_CONFIGS,
+            createAnchorColor,
             createCudModeSelectorWithPersistence,
             createModeBadge,
-            createOptimizationController,
-            createPaletteProcessor,
-            createProgressUI,exportToCSS, exportToJSON, generateCudValidationSummary, 
+            exportToCSS,
+            exportToJSON,
+            generateCudValidationSummary,
             loadCudMode,
             processPaletteWithMode
-        } from '../dist/index.js';
+        } from "../dist/index.js";
 
         // State
         let currentMode = loadCudMode();
         let currentAnchor = null;
         let currentPalette = ['#FF2800', '#35A16B', '#0041FF', '#FF9900'];
-        const processor = null;
 
         // DOM Elements
         const modeSelectorContainer = document.getElementById('mode-selector-container');
@@ -196,7 +197,6 @@
         const anchorInfoEl = document.getElementById('anchor-info');
         const paletteColorsInput = document.getElementById('palette-colors');
         const optimizeBtn = document.getElementById('optimize-btn');
-        const progressContainer = document.getElementById('progress-container');
         const palettePreview = document.getElementById('palette-preview');
         const badgeContainer = document.getElementById('badge-container');
         const optimizationResultEl = document.getElementById('optimization-result');

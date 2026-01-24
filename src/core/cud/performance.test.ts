@@ -37,7 +37,6 @@ import { createAnchorColor } from "./anchor";
 import { type OptimizationOptions, optimizePalette } from "./optimizer";
 import {
 	createOptimizationCache,
-	type OptimizationCache,
 	optimizePaletteWithCache,
 } from "./optimizer-cache";
 

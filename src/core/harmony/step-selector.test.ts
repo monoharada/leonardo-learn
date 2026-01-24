@@ -69,9 +69,9 @@ describe("step-selector", () => {
 				const result = selectDadsStep("blue", context, allTokens, new Set());
 
 				expect(result).not.toBeNull();
-				expect(result!.classification.hue).toBe("blue");
-				expect(result!.classification.scale).toBeGreaterThanOrEqual(500);
-				expect(result!.classification.scale).toBeLessThanOrEqual(700);
+				expect(result?.classification.hue).toBe("blue");
+				expect(result?.classification.scale).toBeGreaterThanOrEqual(500);
+				expect(result?.classification.scale).toBeLessThanOrEqual(700);
 			});
 
 			test("selects mid-range step for secondary role", () => {
@@ -82,9 +82,9 @@ describe("step-selector", () => {
 				const result = selectDadsStep("yellow", context, allTokens, new Set());
 
 				expect(result).not.toBeNull();
-				expect(result!.classification.hue).toBe("yellow");
-				expect(result!.classification.scale).toBeGreaterThanOrEqual(500);
-				expect(result!.classification.scale).toBeLessThanOrEqual(700);
+				expect(result?.classification.hue).toBe("yellow");
+				expect(result?.classification.scale).toBeGreaterThanOrEqual(500);
+				expect(result?.classification.scale).toBeLessThanOrEqual(700);
 			});
 		});
 
@@ -97,9 +97,9 @@ describe("step-selector", () => {
 				const result = selectDadsStep("red", context, allTokens, new Set());
 
 				expect(result).not.toBeNull();
-				expect(result!.classification.hue).toBe("red");
-				expect(result!.classification.scale).toBeGreaterThanOrEqual(200);
-				expect(result!.classification.scale).toBeLessThanOrEqual(400);
+				expect(result?.classification.hue).toBe("red");
+				expect(result?.classification.scale).toBeGreaterThanOrEqual(200);
+				expect(result?.classification.scale).toBeLessThanOrEqual(400);
 			});
 		});
 
@@ -112,9 +112,9 @@ describe("step-selector", () => {
 				const result = selectDadsStep("green", context, allTokens, new Set());
 
 				expect(result).not.toBeNull();
-				expect(result!.classification.hue).toBe("green");
-				expect(result!.classification.scale).toBeGreaterThanOrEqual(800);
-				expect(result!.classification.scale).toBeLessThanOrEqual(1000);
+				expect(result?.classification.hue).toBe("green");
+				expect(result?.classification.scale).toBeGreaterThanOrEqual(800);
+				expect(result?.classification.scale).toBeLessThanOrEqual(1000);
 			});
 		});
 
@@ -128,7 +128,7 @@ describe("step-selector", () => {
 				const result = selectDadsStep("blue", context, allTokens, usedIds);
 
 				expect(result).not.toBeNull();
-				expect(result!.id).not.toBe("dads-blue-600");
+				expect(result?.id).not.toBe("dads-blue-600");
 			});
 
 			test("falls back to next preference when primary is used", () => {
@@ -146,7 +146,7 @@ describe("step-selector", () => {
 
 				expect(result).not.toBeNull();
 				// Should fall back to adjacent steps (400 or 800)
-				expect([400, 800]).toContain(result!.classification.scale);
+				expect([400, 800]).toContain(result?.classification.scale);
 			});
 
 			test("returns null when all tokens of hue are used", () => {
@@ -194,7 +194,7 @@ describe("step-selector", () => {
 
 					expect(result).not.toBeNull();
 					// Result hue should be the DADS token's actual hue name
-					expect(result!.classification.hue).toBe(hueMapping[localHue]);
+					expect(result?.classification.hue).toBe(hueMapping[localHue]);
 				});
 			}
 		});
@@ -263,9 +263,9 @@ describe("step-selector", () => {
 			expect(results[1]).not.toBeNull();
 			expect(results[2]).not.toBeNull();
 
-			expect(results[0]!.classification.hue).toBe("blue");
-			expect(results[1]!.classification.hue).toBe("yellow");
-			expect(results[2]!.classification.hue).toBe("red");
+			expect(results[0]?.classification.hue).toBe("blue");
+			expect(results[1]?.classification.hue).toBe("yellow");
+			expect(results[2]?.classification.hue).toBe("red");
 		});
 
 		test("avoids duplicate selections across palette", () => {
@@ -293,9 +293,9 @@ describe("step-selector", () => {
 			expect(results[1]).not.toBeNull();
 
 			// Both should be blue, but different IDs
-			expect(results[0]!.classification.hue).toBe("blue");
-			expect(results[1]!.classification.hue).toBe("blue");
-			expect(results[0]!.id).not.toBe(results[1]!.id);
+			expect(results[0]?.classification.hue).toBe("blue");
+			expect(results[1]?.classification.hue).toBe("blue");
+			expect(results[0]?.id).not.toBe(results[1]?.id);
 		});
 
 		test("returns null for selections when all tokens exhausted", () => {
@@ -345,8 +345,8 @@ describe("step-selector", () => {
 			expect(results[1]).not.toBeNull();
 
 			// Verify mapped hue names
-			expect(results[0]!.classification.hue).toBe("light-blue");
-			expect(results[1]!.classification.hue).toBe("cyan");
+			expect(results[0]?.classification.hue).toBe("light-blue");
+			expect(results[1]?.classification.hue).toBe("cyan");
 		});
 	});
 });

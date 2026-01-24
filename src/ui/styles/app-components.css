@@ -590,7 +590,7 @@
 /* 無効化状態（連続選択制約により選択不可） */
 .studio-toolbar-swatch--disabled {
 	opacity: 0.4;
-	cursor: not-allowed !important;
+	cursor: not-allowed;
 }
 
 .studio-toolbar-swatch--disabled:hover {
@@ -948,8 +948,7 @@
 	pointer-events: none;
 }
 
-/* Double selector specificity to override opacity: 0 without !important */
-.studio-toast.studio-toast[data-visible="true"] {
+.studio-toast[data-visible="true"] {
 	opacity: 1;
 }
 
