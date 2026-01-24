@@ -1342,7 +1342,7 @@ test.describe("コントラスト境界表示", () => {
 			await page.waitForFunction(
 				() => {
 					const status = document.getElementById("status");
-					return status && status.textContent?.includes("Complete");
+					return status?.textContent?.includes("Complete");
 				},
 				{ timeout: 10000 },
 			);
@@ -1703,8 +1703,11 @@ test.describe("アクセシビリティ専用テスト", () => {
 			// 改行を含む場合があるため、[\s\S]で全文取得
 			const roleMatch = titleAttr?.match(/セマンティックロール:\s*([\s\S]+)/);
 			expect(roleMatch).not.toBeNull();
+			if (!roleMatch) {
+				throw new Error(`Unexpected title format: ${titleAttr ?? ""}`);
+			}
 			// 改行またはカンマで分割してロール名を抽出
-			const rolesFromTitle = roleMatch![1]
+			const rolesFromTitle = roleMatch[1]
 				.split(/[,\n]/)
 				.map((r) => r.trim())
 				.filter((r) => r.length > 0);

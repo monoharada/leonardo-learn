@@ -108,9 +108,8 @@ export class DadsHarmonySelector {
 		const usedTokenIds = new Set<string>();
 		const colors: HarmonyPaletteColor[] = [];
 
-		for (let i = 0; i < offsets.length; i++) {
-			const offset = offsets[i]!;
-			const role = roles[i] ?? "accent";
+		for (const [index, offset] of offsets.entries()) {
+			const role = roles[index] ?? "accent";
 
 			// Calculate target hue
 			const targetHue = normalizeHue(primaryHue + offset);

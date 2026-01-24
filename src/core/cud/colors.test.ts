@@ -4,10 +4,8 @@ import {
 	CUD_BASE_COLORS,
 	CUD_COLOR_SET,
 	CUD_NEUTRAL_COLORS,
-	type CudColor,
 	type CudGroup,
 	computeOklchStats,
-	type OklchStats,
 } from "./colors";
 
 describe("CUD Colors", () => {

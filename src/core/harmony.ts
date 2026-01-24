@@ -783,8 +783,9 @@ export function generateHarmonyPalette(
 			const scaleCache = new Map<string, Color[]>();
 
 			const getScaleForChroma = (chromaName: string, hue: number): Color[] => {
-				if (scaleCache.has(chromaName)) {
-					return scaleCache.get(chromaName)!;
+				const cached = scaleCache.get(chromaName);
+				if (cached) {
+					return cached;
 				}
 
 				// キーカラー（step 600相当、中間明度）を生成
@@ -816,11 +817,13 @@ export function generateHarmonyPalette(
 
 				// stepに対応するインデックスから色を取得
 				const stepIndex = STEP_TO_INDEX[dadsDef.step] ?? 6; // デフォルト600
-				const colorFromScale = scale[stepIndex] ?? scale[6]!;
+				const fallbackColor = scale[6];
+				if (!fallbackColor) continue;
+				const colorFromScale = scale[stepIndex] ?? fallbackColor;
 
 				palette.push({
 					name: dadsDef.name,
-					keyColor: colorFromScale!,
+					keyColor: colorFromScale,
 					role: dadsDef.category === "semantic" ? "semantic" : "accent",
 					baseChromaName: chromaDef.displayName,
 					step: dadsDef.step,

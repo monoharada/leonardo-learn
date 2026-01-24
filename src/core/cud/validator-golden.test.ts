@@ -3,11 +3,7 @@
  * Requirement 10.2: CUD完全一致パレット → ok: true、危険な組み合わせ → 適切なissue生成を確認
  */
 import { describe, expect, test } from "bun:test";
-import {
-	CUD_ACCENT_COLORS,
-	CUD_BASE_COLORS,
-	CUD_NEUTRAL_COLORS,
-} from "./colors";
+import { CUD_ACCENT_COLORS } from "./colors";
 import { type PaletteColor, validatePalette } from "./validator";
 
 describe("Validator Golden Pattern Tests (Task 10.2)", () => {

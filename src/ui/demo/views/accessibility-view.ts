@@ -1051,7 +1051,7 @@ function renderSortingValidationSection(
 		event.preventDefault();
 
 		const href = link.getAttribute("href");
-		const anchorId = href && href.startsWith("#") ? href.slice(1) : null;
+		const anchorId = href?.startsWith("#") ? href.slice(1) : null;
 
 		const kind = link.getAttribute("data-a11y-kind");
 		if (kind === "boundary") {

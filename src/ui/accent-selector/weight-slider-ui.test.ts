@@ -6,11 +6,7 @@
  */
 
 import { beforeEach, describe, expect, test } from "bun:test";
-import {
-	type ScoreWeights,
-	WeightSliderUI,
-	type WeightsChangeCallback,
-} from "./weight-slider-ui";
+import { type ScoreWeights, WeightSliderUI } from "./weight-slider-ui";
 
 describe("WeightSliderUI", () => {
 	let slider: WeightSliderUI;

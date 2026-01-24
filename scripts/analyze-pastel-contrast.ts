@@ -82,23 +82,23 @@ function calculateDistribution(
 
 	for (const c of contrasts) {
 		if (c < 1.5) {
-			distribution["< 1.5:1 (非常に低い)"]!.count++;
+			distribution["< 1.5:1 (非常に低い)"].count++;
 		} else if (c < 2) {
-			distribution["1.5:1 - 2:1 (低い)"]!.count++;
+			distribution["1.5:1 - 2:1 (低い)"].count++;
 		} else if (c < 3) {
-			distribution["2:1 - 3:1 (やや低い)"]!.count++;
+			distribution["2:1 - 3:1 (やや低い)"].count++;
 		} else if (c < 4.5) {
-			distribution["3:1 - 4.5:1 (AA Large)"]!.count++;
+			distribution["3:1 - 4.5:1 (AA Large)"].count++;
 		} else if (c < 7) {
-			distribution["4.5:1 - 7:1 (AA Normal)"]!.count++;
+			distribution["4.5:1 - 7:1 (AA Normal)"].count++;
 		} else {
-			distribution[">= 7:1 (AAA)"]!.count++;
+			distribution[">= 7:1 (AAA)"].count++;
 		}
 	}
 
 	const total = contrasts.length;
 	for (const key of Object.keys(distribution)) {
-		distribution[key]!.percentage = (distribution[key]!.count / total) * 100;
+		distribution[key].percentage = (distribution[key].count / total) * 100;
 	}
 
 	return distribution;

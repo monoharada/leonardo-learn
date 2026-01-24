@@ -46,7 +46,7 @@ describe("DadsHarmonySelector", () => {
 			const result = selector.generateComplementary("#0056FF");
 
 			expect(result.colors[0]).toBeDefined();
-			const secondaryHex = result.colors[0]!.token.hex;
+			const secondaryHex = result.colors[0]?.token.hex;
 			const secondaryOklch = oklch(secondaryHex);
 
 			// Complementary of blue should be in yellow range (60-100)
@@ -58,8 +58,8 @@ describe("DadsHarmonySelector", () => {
 			const result = selector.generateComplementary("#FF0000");
 
 			expect(result.colors[0]).toBeDefined();
-			expect(result.colors[0]!.token.source).toBe("dads");
-			expect(result.colors[0]!.token.id).toMatch(/^dads-/);
+			expect(result.colors[0]?.token.source).toBe("dads");
+			expect(result.colors[0]?.token.id).toMatch(/^dads-/);
 		});
 	});
 

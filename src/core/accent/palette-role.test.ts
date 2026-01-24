@@ -5,7 +5,7 @@
  * Issue #7: palette-role.ts のテストカバレッジ追加
  */
 
-import { describe, expect, it, mock, spyOn } from "bun:test";
+import { describe, expect, it, spyOn } from "bun:test";
 import {
 	ANALOGOUS_ROLE_CONFIG,
 	COMPLEMENTARY_ROLE_CONFIG,
@@ -15,7 +15,6 @@ import {
 	getRolesForCount,
 	MONOCHROMATIC_ROLE_CONFIG,
 	PALETTE_ROLES,
-	type PaletteRole,
 	type PaletteRoleId,
 	SHADES_ROLE_CONFIG,
 	SPLIT_COMPLEMENTARY_ROLE_CONFIG,

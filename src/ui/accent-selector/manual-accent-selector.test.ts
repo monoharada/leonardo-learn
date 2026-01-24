@@ -14,12 +14,9 @@
  * - エラー時はスコア非表示で色選択のみ許可
  */
 
-import { beforeEach, describe, expect, mock, test } from "bun:test";
-import type {
-	BalanceScoreResult,
-	ScoreWeights,
-} from "../../core/accent/balance-score-calculator";
-import type { DadsColorHue, DadsToken } from "../../core/tokens/types";
+import { beforeEach, describe, expect, test } from "bun:test";
+import type { BalanceScoreResult } from "../../core/accent/balance-score-calculator";
+import type { DadsToken } from "../../core/tokens/types";
 
 // Mock loadDadsTokens before importing ManualAccentSelector
 const mockTokens: DadsToken[] = [
@@ -78,10 +75,8 @@ const mockTokens: DadsToken[] = [
 
 // Import after setting up mocks
 import {
-	type DadsTokenCategory,
 	groupTokensByCategory,
 	ManualAccentSelector,
-	type ManualSelectorState,
 } from "./manual-accent-selector";
 
 describe("ManualAccentSelector", () => {

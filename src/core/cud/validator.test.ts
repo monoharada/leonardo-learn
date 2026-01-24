@@ -1,16 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import {
-	CUD_ACCENT_COLORS,
-	CUD_BASE_COLORS,
-	CUD_NEUTRAL_COLORS,
-} from "./colors";
-import {
-	type PaletteColor,
-	type ValidationIssue,
-	type ValidationOptions,
-	type ValidationResult,
-	validatePalette,
-} from "./validator";
+import { CUD_ACCENT_COLORS } from "./colors";
+import { type PaletteColor, validatePalette } from "./validator";
 
 describe("Palette Validator (Task 6)", () => {
 	describe("validatePalette - Basic Structure (Task 6.1)", () => {
@@ -138,7 +128,9 @@ describe("Palette Validator (Task 6)", () => {
 				{ hex: "#FFFFFF", role: "background" }, // White
 			];
 			// Normal contrast might pass 4.5:1 but fail 7:1
-			const normalResult = validatePalette(palette, { assumeSmallText: false });
+			const _normalResult = validatePalette(palette, {
+				assumeSmallText: false,
+			});
 			const smallTextResult = validatePalette(palette, {
 				assumeSmallText: true,
 			});
@@ -183,7 +175,7 @@ describe("Palette Validator (Task 6)", () => {
 				{ hex: "#F5F000", role: "accent" }, // Very close to yellow
 			];
 			const result = validatePalette(palette);
-			const similarIssue = result.issues.find((i) => i.type === "too_similar");
+			const _similarIssue = result.issues.find((i) => i.type === "too_similar");
 			// May be detected depending on threshold
 			expect(result.issues).toBeDefined();
 		});
@@ -212,7 +204,7 @@ describe("Palette Validator (Task 6)", () => {
 				{ hex: "#FFFFFF", role: "background" },
 			];
 			const result = validatePalette(palette);
-			const goodExampleIssue = result.issues.find(
+			const _goodExampleIssue = result.issues.find(
 				(i) => i.type === "cud_good_example_like",
 			);
 			// May or may not be detected based on implementation

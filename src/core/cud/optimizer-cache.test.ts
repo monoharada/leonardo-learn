@@ -11,7 +11,6 @@ import type { OptimizationOptions } from "./optimizer";
 import {
 	createOptimizationCache,
 	type OptimizationCache,
-	type OptimizationCacheKey,
 	optimizePaletteWithCache,
 } from "./optimizer-cache";
 
@@ -76,7 +75,7 @@ describe("Optimizer Cache", () => {
 				options,
 				cache,
 			);
-			const firstProcessingTime = result1.processingTimeMs;
+			const _firstProcessingTime = result1.processingTimeMs;
 
 			// 2回目の呼び出し（キャッシュヒット）
 			const result2 = optimizePaletteWithCache(
@@ -331,7 +330,7 @@ describe("Optimizer Cache", () => {
 				options,
 				cache,
 			);
-			const firstTime = result1.processingTimeMs;
+			const _firstTime = result1.processingTimeMs;
 
 			// 2回目の呼び出し（キャッシュヒット）
 			const result2 = optimizePaletteWithCache(

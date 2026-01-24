@@ -172,7 +172,7 @@ describe("パフォーマンステスト", () => {
 		 * 典型的なDADSカラースケール（13スケール）を生成
 		 * 明るい色から暗い色へのグラデーション
 		 */
-		function generateTypicalColorScale(hue: string): ColorItem[] {
+		function generateTypicalColorScale(_hue: string): ColorItem[] {
 			// 実際のDADSカラースケールに近いHEX値を生成
 			// scale 50（最も明るい）からscale 1200（最も暗い）
 			const hexByScale: Record<number, string> = {
@@ -729,10 +729,10 @@ describe("パフォーマンステスト", () => {
 
 			// Requirements 5.2: DOM要素数を検証
 			const finalBar = renderUnresolvedRolesBar(unresolvedRoles);
-			container.appendChild(finalBar!);
+			container.appendChild(finalBar);
 			// 未解決ロールバーの子要素数を検証
 			// 先頭ラベル（1つ）+ 各ロールのバッジ（n個）= 1 + n
-			expect(finalBar!.childElementCount).toBe(unresolvedRoles.length + 1);
+			expect(finalBar?.childElementCount).toBe(unresolvedRoles.length + 1);
 
 			// クリーンアップ
 			container.remove();
@@ -1002,7 +1002,7 @@ describe("パフォーマンステスト", () => {
 			// オーバーレイ付きスウォッチは各2つの子要素を持つ（ラベル + 説明要素）
 			for (const idx of roleSwatchIndices) {
 				const swatch = verifySwatches[idx];
-				if (swatch && swatch.classList.contains("dads-swatch--circular")) {
+				if (swatch?.classList.contains("dads-swatch--circular")) {
 					expect(swatch.childElementCount).toBe(2);
 				}
 			}

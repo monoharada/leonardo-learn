@@ -4,7 +4,7 @@
  */
 
 import { JSDOM } from "jsdom";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // JSDOMでdocumentをセットアップ
 const dom = new JSDOM("<!DOCTYPE html><html><body></body></html>");
@@ -13,7 +13,7 @@ global.Event = dom.window.Event;
 global.HTMLElement = dom.window.HTMLElement;
 
 // テスト対象の型定義（実装前のためここで定義）
-import type { CudCompatibilityMode, CudModeConfig } from "./cud-components";
+import type { CudCompatibilityMode } from "./cud-components";
 
 describe("CUD Mode Selector - タスク6.1", () => {
 	describe("CudCompatibilityMode型", () => {
@@ -142,9 +142,7 @@ describe("CUD Mode Selector - タスク6.1", () => {
 		});
 
 		it("各オプションにアイコンが含まれている", async () => {
-			const { createCudModeSelector, CUD_MODE_CONFIGS } = await import(
-				"./cud-components"
-			);
+			const { createCudModeSelector } = await import("./cud-components");
 
 			const selector = createCudModeSelector(mockCallback);
 			const options = selector.querySelectorAll("option");

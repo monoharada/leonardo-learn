@@ -8,14 +8,7 @@
 import { describe, expect, it } from "bun:test";
 import { parse } from "culori";
 import type { ColorObject } from "./color-space";
-import {
-	calculateContrastResult,
-	getContrast,
-	getContrastLevel,
-	WCAG_RATIO_AA,
-	WCAG_RATIO_AA_LARGE,
-	WCAG_RATIO_AAA,
-} from "./wcag";
+import { calculateContrastResult, getContrastLevel } from "./wcag";
 
 /**
  * HEX文字列をColorObject（OKLCH）に変換するヘルパー

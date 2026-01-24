@@ -197,7 +197,7 @@ export function createSeededRandom(seed: number): () => number {
 
 function pickOne<T>(rnd: () => number, items: readonly [T, ...T[]]): T {
 	const index = Math.floor(rnd() * items.length);
-	return items[index]!;
+	return items[index] ?? items[0];
 }
 
 const MAIN_VISUAL_SVG_PATHS: readonly [string, ...string[]] = [
@@ -507,7 +507,11 @@ function shuffleArray<T>(array: T[], rnd: () => number): T[] {
 	const result = [...array];
 	for (let i = result.length - 1; i > 0; i--) {
 		const j = Math.floor(rnd() * (i + 1));
-		[result[i], result[j]] = [result[j]!, result[i]!];
+		const left = result[i];
+		const right = result[j];
+		if (left === undefined || right === undefined) continue;
+		result[i] = right;
+		result[j] = left;
 	}
 	return result;
 }
@@ -894,8 +898,6 @@ function getThemeColors(
 				heroBg: "transparent",
 				stripBg: tintColor(tertiaryHex, TINT_RATIO),
 			};
-
-		case "hero":
 		default:
 			// ヒーロー背景に薄い色（現状維持）
 			return {
