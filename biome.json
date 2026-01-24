@@ -18,6 +18,18 @@
 			"recommended": true
 		}
 	},
+	"overrides": [
+		{
+			"includes": ["src/ui/styles/dads-html-preview.css"],
+			"linter": {
+				"rules": {
+					"complexity": {
+						"noImportantStyles": "off"
+					}
+				}
+			}
+		}
+	],
 	"javascript": {
 		"formatter": {
 			"quoteStyle": "double"
