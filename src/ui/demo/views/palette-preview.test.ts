@@ -16,6 +16,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
+import { JSDOM } from "jsdom";
 import type {
 	PalettePreviewColors,
 	PalettePreviewOptions,
@@ -74,6 +75,25 @@ function getIllustrationEl(container: HTMLElement): HTMLElement {
 		throw new Error("Illustration element not found");
 	}
 	return el;
+}
+
+function installJSDOMGlobals(): () => void {
+	const dom = new JSDOM("<!DOCTYPE html><html><body></body></html>");
+
+	const originalDocument = globalThis.document;
+	const originalDOMParser = globalThis.DOMParser;
+
+	// @ts-expect-error: JSDOM環境でグローバルを上書き
+	globalThis.document = dom.window.document;
+	// @ts-expect-error: JSDOM環境でグローバルを上書き
+	globalThis.DOMParser = dom.window.DOMParser;
+
+	return () => {
+		// @ts-expect-error: 元の値を復元
+		globalThis.document = originalDocument;
+		// @ts-expect-error: 元の値を復元
+		globalThis.DOMParser = originalDOMParser;
+	};
 }
 
 const identityGetDisplayHex: NonNullable<
@@ -455,32 +475,15 @@ describe("palette-preview module", () => {
 		 * 修正前では「たまたま一致」することを防ぎ、変換適用を明示的に検証する。
 		 */
 
-		// JSDOM環境をセットアップ
-		let originalDocument: typeof globalThis.document;
-		let originalDOMParser: typeof globalThis.DOMParser;
+		let restoreJSDOMGlobals: (() => void) | null = null;
 
 		beforeAll(async () => {
 			({ createPalettePreview } = await import("./palette-preview"));
-
-			// JSDOMをダイナミックインポート
-			const { JSDOM } = await import("jsdom");
-			const dom = new JSDOM("<!DOCTYPE html><html><body></body></html>");
-
-			originalDocument = globalThis.document;
-			originalDOMParser = globalThis.DOMParser;
-
-			// @ts-expect-error: JSDOM環境でグローバルを上書き
-			globalThis.document = dom.window.document;
-			// @ts-expect-error: JSDOM環境でグローバルを上書き
-			globalThis.DOMParser = dom.window.DOMParser;
+			restoreJSDOMGlobals = installJSDOMGlobals();
 		});
 
 		afterAll(() => {
-			// グローバルを復元
-			// @ts-expect-error: 元の値を復元
-			globalThis.document = originalDocument;
-			// @ts-expect-error: 元の値を復元
-			globalThis.DOMParser = originalDOMParser;
+			restoreJSDOMGlobals?.();
 		});
 
 		it("--preview-illustration-bg と --iv-background が一致する（getDisplayHex適用後）", () => {
@@ -560,6 +563,73 @@ describe("palette-preview module", () => {
 
 			const contrast = wcagContrast(ivAccent, ivAccent3) ?? 0;
 			expect(contrast).toBeGreaterThanOrEqual(2.0);
+		});
+	});
+
+	describe("Facilities DOM（リンクタイル）", () => {
+		let createPalettePreview: typeof import("./palette-preview").createPalettePreview;
+
+		let restoreJSDOMGlobals: (() => void) | null = null;
+
+		beforeAll(async () => {
+			({ createPalettePreview } = await import("./palette-preview"));
+			restoreJSDOMGlobals = installJSDOMGlobals();
+		});
+
+		afterAll(() => {
+			restoreJSDOMGlobals?.();
+		});
+
+		it("should render Facilities tiles as links with square boxes and labels", () => {
+			const container = createPalettePreview(makePreviewColors(), {
+				getDisplayHex: identityGetDisplayHex,
+			});
+
+			const facilities = container.querySelector(
+				".preview-section--facilities",
+			);
+			expect(facilities).toBeTruthy();
+			expect(
+				facilities?.querySelector(".preview-facilities__left")?.textContent,
+			).toContain("桜川市 オンライン窓口");
+			expect(
+				facilities?.querySelector(".preview-facilities__heading")?.textContent,
+			).toContain("手続き案内");
+
+			const grid = facilities?.querySelector(".preview-facilities__grid");
+			expect(grid).toBeTruthy();
+			expect(grid?.tagName).toBe("NAV");
+
+			const tiles = Array.from(
+				container.querySelectorAll<HTMLAnchorElement>(
+					".preview-facility-tile.dads-link",
+				),
+			);
+			expect(tiles.length).toBe(6);
+
+			for (const tile of tiles) {
+				expect(tile.tagName).toBe("A");
+				expect(tile.getAttribute("href")).toBe("#");
+				expect(tile.querySelector(".preview-facility-tile__box")).toBeTruthy();
+				expect(tile.querySelector(".preview-facility-tile__icon")).toBeTruthy();
+				expect(
+					tile.querySelector(".preview-facility-tile__label"),
+				).toBeTruthy();
+			}
+
+			const labels = tiles.map((tile) =>
+				tile
+					.querySelector(".preview-facility-tile__label")
+					?.textContent?.trim(),
+			);
+			expect(labels).toEqual([
+				"子育て・教育",
+				"戸籍・家族",
+				"健康・医療",
+				"住まい・引っ越し",
+				"妊娠・出産",
+				"申請・認証",
+			]);
 		});
 	});
 });
