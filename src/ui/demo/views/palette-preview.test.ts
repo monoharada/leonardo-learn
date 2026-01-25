@@ -93,15 +93,34 @@ function installJSDOMGlobals(): () => void {
 		globalThis.document = originalDocument;
 		// @ts-expect-error: 元の値を復元
 		globalThis.DOMParser = originalDOMParser;
+		dom.window.close();
 	};
 }
 
-function withJSDOMGlobals(fn: () => void): void {
+function isPromiseLike<T>(value: unknown): value is PromiseLike<T> {
+	return (
+		(typeof value === "object" || typeof value === "function") &&
+		value !== null &&
+		"then" in value &&
+		typeof (value as { then?: unknown }).then === "function"
+	);
+}
+
+function withJSDOMGlobals<T>(fn: () => T): T;
+function withJSDOMGlobals<T>(fn: () => Promise<T>): Promise<T>;
+function withJSDOMGlobals<T>(fn: () => T | Promise<T>): T | Promise<T> {
 	const restore = installJSDOMGlobals();
 	try {
-		fn();
-	} finally {
+		const result = fn();
+		if (isPromiseLike<T>(result)) {
+			return Promise.resolve(result).finally(restore);
+		}
+
 		restore();
+		return result;
+	} catch (error) {
+		restore();
+		throw error;
 	}
 }
 
@@ -626,9 +645,11 @@ describe("palette-preview module", () => {
 					expect(
 						tile.querySelector(".preview-facility-tile__icon"),
 					).toBeTruthy();
-					expect(
-						tile.querySelector(".preview-facility-tile__label"),
-					).toBeTruthy();
+					const label = tile.querySelector<HTMLElement>(
+						".preview-facility-tile__label",
+					);
+					expect(label).toBeTruthy();
+					expect(label?.querySelector("wbr")).toBeTruthy();
 				}
 
 				const labels = tiles.map((tile) =>

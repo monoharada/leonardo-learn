@@ -847,17 +847,35 @@ const ILLUSTRATION_TINT_RATIO = 0.25;
  * @returns currentColor 化したSVGテキスト
  */
 function replaceIconColor(svgText: string): string {
-	return svgText.replace(/fill="#1A1A1C"/g, 'fill="currentColor"');
+	return svgText
+		.replace(/fill="#1A1A1C"/gi, 'fill="currentColor"')
+		.replace(/stroke="#1A1A1C"/gi, 'stroke="currentColor"');
 }
 
 /**
- * ラベルの折返しヒント（・の直後にwbr）を付与
+ * ラベルの折返しヒント（・の直後にwbr）をDOMとして付与
  *
+ * @param target - ラベル要素
  * @param label - 表示用ラベル（プレーンテキスト）
- * @returns wbr を含むHTML文字列
  */
-function addLabelWbrHints(label: string): string {
-	return label.replaceAll("・", "・<wbr>");
+function applyLabelWbrHints(target: HTMLElement, label: string): void {
+	const fragment = document.createDocumentFragment();
+	let buffer = "";
+
+	for (const char of label) {
+		buffer += char;
+		if (char === "・") {
+			fragment.append(document.createTextNode(buffer));
+			buffer = "";
+			fragment.append(document.createElement("wbr"));
+		}
+	}
+
+	if (buffer) {
+		fragment.append(document.createTextNode(buffer));
+	}
+
+	target.replaceChildren(fragment);
 }
 
 /**
@@ -1303,12 +1321,21 @@ export function createPalettePreview(
 				const wrapper = document.createElement("a");
 				wrapper.className = `preview-facility-tile dads-link${hasAccent ? " preview-facility-tile--accent" : ""}`;
 				wrapper.href = tile.href;
-				wrapper.innerHTML = `
-					<span class="preview-facility-tile__box" aria-hidden="true">
-						<span class="preview-facility-tile__icon">${iconSvg}</span>
-					</span>
-					<span class="preview-facility-tile__label">${addLabelWbrHints(tile.label)}</span>
-				`;
+
+				const box = document.createElement("span");
+				box.className = "preview-facility-tile__box";
+				box.setAttribute("aria-hidden", "true");
+
+				const icon = document.createElement("span");
+				icon.className = "preview-facility-tile__icon";
+				icon.innerHTML = iconSvg;
+
+				const label = document.createElement("span");
+				label.className = "preview-facility-tile__label";
+				applyLabelWbrHints(label, tile.label);
+
+				box.append(icon);
+				wrapper.append(box, label);
 				return wrapper;
 			}),
 		);

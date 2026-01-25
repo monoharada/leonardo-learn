@@ -3578,8 +3578,8 @@
 	.dads-preview--dads-html .preview-facilities {
 		grid-template-columns: 1fr;
 		grid-template-areas:
-			"left"
 			"heading"
+			"left"
 			"grid";
 		gap: 2rem;
 	}
@@ -3705,6 +3705,7 @@
 	line-height: 1.6;
 	text-align: center;
 	word-break: keep-all;
+	overflow-wrap: break-word;
 }
 
 .dads-preview--dads-html .preview-facility-tile.dads-link:focus-visible {
