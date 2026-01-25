@@ -3713,12 +3713,14 @@
 }
 
 @media (hover: hover) {
-	.dads-preview--dads-html .preview-facility-tile.dads-link:hover
+	.dads-preview--dads-html
+		.preview-facility-tile.dads-link:hover
 		.preview-facility-tile__box {
 		border-color: var(--preview-link, var(--color-primitive-blue-1000));
 	}
 
-	.dads-preview--dads-html .preview-facility-tile.dads-link:hover
+	.dads-preview--dads-html
+		.preview-facility-tile.dads-link:hover
 		.preview-facility-tile__icon {
 		color: var(--preview-link, var(--color-primitive-blue-1000));
 	}
