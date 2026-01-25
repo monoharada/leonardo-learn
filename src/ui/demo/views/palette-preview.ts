@@ -15,6 +15,19 @@
 
 import { formatHex, interpolate, oklch, parse, wcagContrast } from "culori";
 import { getContrastTextColor } from "@/ui/semantic-role/circular-swatch-transformer";
+// イラストカードセクション用SVG
+import illustrationM10Svg from "../../../../public/images/illustrations/m_10_white.svg" with {
+	type: "text",
+};
+import illustrationM11Svg from "../../../../public/images/illustrations/m_11_warmgray.svg" with {
+	type: "text",
+};
+import illustrationM12Svg from "../../../../public/images/illustrations/m_12_white.svg" with {
+	type: "text",
+};
+import illustrationM14Svg from "../../../../public/images/illustrations/m_14_white.svg" with {
+	type: "text",
+};
 import iconAuthSvg from "../assets/icons/authentication_line.svg" with {
 	type: "text",
 };
@@ -853,6 +866,38 @@ function replaceIconColor(svgText: string): string {
 }
 
 /**
+ * イラストSVGの色をCSS変数に置き換える
+ *
+ * @param svgText - SVGテキスト
+ * @param primaryVar - プライマリ色のCSS変数名
+ * @param secondaryVar - セカンダリ色のCSS変数名
+ * @returns 色が置き換えられたSVGテキスト
+ */
+function replaceIllustrationColors(
+	svgText: string,
+	primaryVar: string,
+	secondaryVar: string,
+): string {
+	if (typeof DOMParser === "undefined") return svgText;
+
+	const doc = new DOMParser().parseFromString(svgText, "image/svg+xml");
+	const svg = doc.querySelector("svg");
+	if (!svg) return svgText;
+
+	const setFill = (selector: string, fill: string) => {
+		for (const el of svg.querySelectorAll(selector)) {
+			el.setAttribute("fill", fill);
+		}
+	};
+
+	setFill(".illustration-colorizable", `var(${primaryVar})`);
+	setFill(".illustration-colorizable-secondary", `var(${secondaryVar})`);
+	setFill(".illustration-colorizable-tertiary", "var(--preview-text)");
+
+	return svg.outerHTML || svgText;
+}
+
+/**
  * ラベルの折返しヒント（・の直後にwbr）をDOMとして付与
  *
  * @param target - ラベル要素
@@ -888,6 +933,46 @@ const FACILITY_TILES = [
 	{ svg: iconHouseSvg, label: "住まい・引っ越し", href: "#" },
 	{ svg: iconMotherChildSvg, label: "妊娠・出産", href: "#" },
 	{ svg: iconAuthSvg, label: "申請・認証", href: "#" },
+] as const;
+
+/**
+ * イラストカードセクション用の設定
+ */
+const ILLUSTRATION_CARDS = [
+	{
+		svg: illustrationM10Svg,
+		title: "申請・届出（オンライン）",
+		description: "各種申請や届出を、いつでもオンラインで手続きできます。",
+		href: "#",
+	},
+	{
+		svg: illustrationM11Svg,
+		title: "郵送での書類提出",
+		description: "申請書類をポストへ投函して提出。郵送での受付も案内します。",
+		href: "#",
+	},
+	{
+		svg: illustrationM12Svg,
+		title: "窓口相談・予約",
+		description: "来庁前に相談や予約ができ、必要書類も事前に確認できます。",
+		href: "#",
+	},
+	{
+		svg: illustrationM14Svg,
+		title: "自宅に届く通知",
+		description: "通知書や交付書類が自宅に届き、大切なお知らせを受け取れます。",
+		href: "#",
+	},
+] as const;
+
+/**
+ * イラストカードに適用するパレット色のCSS変数（循環させる）
+ */
+const ILLUSTRATION_CARD_COLOR_VARS = [
+	"--preview-accent",
+	"--preview-accent-2",
+	"--preview-accent-3",
+	"--preview-tertiary",
 ] as const;
 
 /**
@@ -1066,6 +1151,24 @@ export function buildDadsPreviewMarkup(): string {
 						<nav class="preview-facilities__grid" data-preview-icons="1" aria-label="カテゴリ一覧">
 							<!-- Icons will be inserted dynamically -->
 						</nav>
+					</div>
+				</div>
+			</section>
+
+			<section class="preview-section preview-section--illustration-cards" aria-label="市民サービスの利用シーン">
+				<div class="preview-container">
+					<div class="preview-section-head">
+						<hgroup class="dads-heading" data-size="36">
+							<h2 class="dads-heading__heading">市民サービスの利用シーン</h2>
+						</hgroup>
+						<div class="preview-section-head__body">
+							<p class="preview-section-head__desc">
+								申請・窓口・郵送など、行政サービスの代表的な場面に配色を当てはめて印象を確認できます。
+							</p>
+						</div>
+					</div>
+					<div class="preview-topics preview-illustration-grid" data-illustration-grid="1">
+						<!-- Illustration cards will be inserted dynamically -->
 					</div>
 				</div>
 			</section>
@@ -1337,6 +1440,51 @@ export function createPalettePreview(
 				box.append(icon);
 				wrapper.append(box, label);
 				return wrapper;
+			}),
+		);
+	}
+
+	// ---- Illustration cards grid ----
+	const illustrationGridContainer = container.querySelector<HTMLElement>(
+		'[data-illustration-grid="1"]',
+	);
+	if (illustrationGridContainer) {
+		illustrationGridContainer.replaceChildren(
+			...ILLUSTRATION_CARDS.map((card, index) => {
+				const primaryVar =
+					ILLUSTRATION_CARD_COLOR_VARS[
+						index % ILLUSTRATION_CARD_COLOR_VARS.length
+					] ?? "--preview-accent";
+				const secondaryVar =
+					ILLUSTRATION_CARD_COLOR_VARS[
+						(index + 1) % ILLUSTRATION_CARD_COLOR_VARS.length
+					] ?? "--preview-accent-2";
+				const colorizedSvg = replaceIllustrationColors(
+					card.svg,
+					primaryVar,
+					secondaryVar,
+				);
+
+				const cardElement = document.createElement("article");
+				cardElement.className = "preview-illustration-card";
+
+				const imageWrapper = document.createElement("div");
+				imageWrapper.className = "preview-illustration-card__image";
+				imageWrapper.innerHTML = colorizedSvg;
+
+				const title = document.createElement("h3");
+				title.className = "preview-illustration-card__title";
+				const link = document.createElement("a");
+				link.href = card.href;
+				link.textContent = card.title;
+				title.appendChild(link);
+
+				const description = document.createElement("p");
+				description.className = "preview-illustration-card__description";
+				description.textContent = card.description;
+
+				cardElement.append(imageWrapper, title, description);
+				return cardElement;
 			}),
 		);
 	}
