@@ -15,7 +15,7 @@
  * - Accent → カード背景、アクセント要素
  */
 
-import { afterAll, beforeAll, describe, expect, it } from "bun:test";
+import { beforeAll, describe, expect, it } from "bun:test";
 import { JSDOM } from "jsdom";
 import type {
 	PalettePreviewColors,
@@ -94,6 +94,15 @@ function installJSDOMGlobals(): () => void {
 		// @ts-expect-error: 元の値を復元
 		globalThis.DOMParser = originalDOMParser;
 	};
+}
+
+function withJSDOMGlobals(fn: () => void): void {
+	const restore = installJSDOMGlobals();
+	try {
+		fn();
+	} finally {
+		restore();
+	}
 }
 
 const identityGetDisplayHex: NonNullable<
@@ -475,73 +484,78 @@ describe("palette-preview module", () => {
 		 * 修正前では「たまたま一致」することを防ぎ、変換適用を明示的に検証する。
 		 */
 
-		let restoreJSDOMGlobals: (() => void) | null = null;
-
 		beforeAll(async () => {
 			({ createPalettePreview } = await import("./palette-preview"));
-			restoreJSDOMGlobals = installJSDOMGlobals();
-		});
-
-		afterAll(() => {
-			restoreJSDOMGlobals?.();
 		});
 
 		it("--preview-illustration-bg と --iv-background が一致する（getDisplayHex適用後）", () => {
-			const container = createPalettePreview(makePreviewColors(), {
-				getDisplayHex: blackGetDisplayHex,
-				tertiaryHex: "#FF6B6B", // ターシャリー色（イラスト背景計算に使用）
+			withJSDOMGlobals(() => {
+				const container = createPalettePreview(makePreviewColors(), {
+					getDisplayHex: blackGetDisplayHex,
+					tertiaryHex: "#FF6B6B", // ターシャリー色（イラスト背景計算に使用）
+				});
+
+				const illustrationBg = getStyleVar(
+					container,
+					"--preview-illustration-bg",
+				);
+				const ivBg = getStyleVar(
+					getIllustrationEl(container),
+					"--iv-background",
+				);
+
+				// Assert: 両方とも stub の返り値と一致（"#000000"）
+				expect(illustrationBg).toBe("#000000");
+				expect(ivBg).toBe("#000000");
+				expect(illustrationBg).toBe(ivBg); // 最重要: 両者が一致
 			});
-
-			const illustrationBg = getStyleVar(
-				container,
-				"--preview-illustration-bg",
-			);
-			const ivBg = getStyleVar(getIllustrationEl(container), "--iv-background");
-
-			// Assert: 両方とも stub の返り値と一致（"#000000"）
-			expect(illustrationBg).toBe("#000000");
-			expect(ivBg).toBe("#000000");
-			expect(illustrationBg).toBe(ivBg); // 最重要: 両者が一致
 		});
 
 		it("--preview-kv-bg と --preview-illustration-bg は異なる値を持つ", () => {
-			const container = createPalettePreview(makePreviewColors(), {
-				getDisplayHex: identityGetDisplayHex,
-				tertiaryHex: "#FF6B6B",
+			withJSDOMGlobals(() => {
+				const container = createPalettePreview(makePreviewColors(), {
+					getDisplayHex: identityGetDisplayHex,
+					tertiaryHex: "#FF6B6B",
+				});
+
+				const kvBg = getStyleVar(container, "--preview-kv-bg");
+				const illustrationBg = getStyleVar(
+					container,
+					"--preview-illustration-bg",
+				);
+
+				expect(kvBg).not.toBe("");
+				expect(illustrationBg).not.toBe("");
+				expect(kvBg).not.toBe(illustrationBg);
 			});
-
-			const kvBg = getStyleVar(container, "--preview-kv-bg");
-			const illustrationBg = getStyleVar(
-				container,
-				"--preview-illustration-bg",
-			);
-
-			expect(kvBg).not.toBe("");
-			expect(illustrationBg).not.toBe("");
-			expect(kvBg).not.toBe(illustrationBg);
 		});
 
 		it("手元カード（--iv-accent3）がテーブル面（--iv-accent）と同色の場合、コントラスト調整が適用される", () => {
-			const colors = makePreviewColors({
-				cardAccent: "#A3BEAD", // テーブル面の色
-				cardAccentText: "#A3BEAD",
+			withJSDOMGlobals(() => {
+				const colors = makePreviewColors({
+					cardAccent: "#A3BEAD", // テーブル面の色
+					cardAccentText: "#A3BEAD",
+				});
+
+				const container = createPalettePreview(colors, {
+					getDisplayHex: identityGetDisplayHex,
+					accentHexes: [colors.cardAccent, colors.cardAccent],
+					tertiaryHex: "#A3BEAD",
+				});
+
+				const illustrationEl = getIllustrationEl(container);
+				const ivAccent = getStyleVar(
+					illustrationEl,
+					"--iv-accent",
+				).toLowerCase();
+				const ivAccent3 = getStyleVar(
+					illustrationEl,
+					"--iv-accent3",
+				).toLowerCase();
+
+				expect(ivAccent).toBe("#a3bead");
+				expect(ivAccent3).not.toBe(ivAccent);
 			});
-
-			const container = createPalettePreview(colors, {
-				getDisplayHex: identityGetDisplayHex,
-				accentHexes: [colors.cardAccent, colors.cardAccent],
-				tertiaryHex: "#A3BEAD",
-			});
-
-			const illustrationEl = getIllustrationEl(container);
-			const ivAccent = getStyleVar(illustrationEl, "--iv-accent").toLowerCase();
-			const ivAccent3 = getStyleVar(
-				illustrationEl,
-				"--iv-accent3",
-			).toLowerCase();
-
-			expect(ivAccent).toBe("#a3bead");
-			expect(ivAccent3).not.toBe(ivAccent);
 		});
 
 		it("調整後の手元カードはテーブル面に対して最小コントラスト比2.0以上を持つ", async () => {
@@ -550,86 +564,87 @@ describe("palette-preview module", () => {
 				cardAccent: "#A3BEAD",
 				cardAccentText: "#A3BEAD",
 			});
+			withJSDOMGlobals(() => {
+				const container = createPalettePreview(colors, {
+					getDisplayHex: identityGetDisplayHex,
+					accentHexes: [colors.cardAccent, colors.cardAccent],
+					tertiaryHex: "#A3BEAD",
+				});
 
-			const container = createPalettePreview(colors, {
-				getDisplayHex: identityGetDisplayHex,
-				accentHexes: [colors.cardAccent, colors.cardAccent],
-				tertiaryHex: "#A3BEAD",
+				const illustrationEl = getIllustrationEl(container);
+				const ivAccent = getStyleVar(illustrationEl, "--iv-accent");
+				const ivAccent3 = getStyleVar(illustrationEl, "--iv-accent3");
+
+				const contrast = wcagContrast(ivAccent, ivAccent3) ?? 0;
+				expect(contrast).toBeGreaterThanOrEqual(2.0);
 			});
-
-			const illustrationEl = getIllustrationEl(container);
-			const ivAccent = getStyleVar(illustrationEl, "--iv-accent");
-			const ivAccent3 = getStyleVar(illustrationEl, "--iv-accent3");
-
-			const contrast = wcagContrast(ivAccent, ivAccent3) ?? 0;
-			expect(contrast).toBeGreaterThanOrEqual(2.0);
 		});
 	});
 
 	describe("Facilities DOM（リンクタイル）", () => {
 		let createPalettePreview: typeof import("./palette-preview").createPalettePreview;
 
-		let restoreJSDOMGlobals: (() => void) | null = null;
-
 		beforeAll(async () => {
 			({ createPalettePreview } = await import("./palette-preview"));
-			restoreJSDOMGlobals = installJSDOMGlobals();
-		});
-
-		afterAll(() => {
-			restoreJSDOMGlobals?.();
 		});
 
 		it("should render Facilities tiles as links with square boxes and labels", () => {
-			const container = createPalettePreview(makePreviewColors(), {
-				getDisplayHex: identityGetDisplayHex,
-			});
+			withJSDOMGlobals(() => {
+				const container = createPalettePreview(makePreviewColors(), {
+					getDisplayHex: identityGetDisplayHex,
+				});
 
-			const facilities = container.querySelector(
-				".preview-section--facilities",
-			);
-			expect(facilities).toBeTruthy();
-			expect(
-				facilities?.querySelector(".preview-facilities__left")?.textContent,
-			).toContain("桜川市 オンライン窓口");
-			expect(
-				facilities?.querySelector(".preview-facilities__heading")?.textContent,
-			).toContain("手続き案内");
-
-			const grid = facilities?.querySelector(".preview-facilities__grid");
-			expect(grid).toBeTruthy();
-			expect(grid?.tagName).toBe("NAV");
-
-			const tiles = Array.from(
-				container.querySelectorAll<HTMLAnchorElement>(
-					".preview-facility-tile.dads-link",
-				),
-			);
-			expect(tiles.length).toBe(6);
-
-			for (const tile of tiles) {
-				expect(tile.tagName).toBe("A");
-				expect(tile.getAttribute("href")).toBe("#");
-				expect(tile.querySelector(".preview-facility-tile__box")).toBeTruthy();
-				expect(tile.querySelector(".preview-facility-tile__icon")).toBeTruthy();
+				const facilities = container.querySelector(
+					".preview-section--facilities",
+				);
+				expect(facilities).toBeTruthy();
 				expect(
-					tile.querySelector(".preview-facility-tile__label"),
-				).toBeTruthy();
-			}
+					facilities?.querySelector(".preview-facilities__left")?.textContent,
+				).toContain("桜川市 オンライン窓口");
+				expect(
+					facilities?.querySelector(".preview-facilities__heading")
+						?.textContent,
+				).toContain("手続き案内");
 
-			const labels = tiles.map((tile) =>
-				tile
-					.querySelector(".preview-facility-tile__label")
-					?.textContent?.trim(),
-			);
-			expect(labels).toEqual([
-				"子育て・教育",
-				"戸籍・家族",
-				"健康・医療",
-				"住まい・引っ越し",
-				"妊娠・出産",
-				"申請・認証",
-			]);
+				const grid = facilities?.querySelector(".preview-facilities__grid");
+				expect(grid).toBeTruthy();
+				expect(grid?.tagName).toBe("NAV");
+
+				const tiles = Array.from(
+					container.querySelectorAll<HTMLAnchorElement>(
+						".preview-facility-tile.dads-link",
+					),
+				);
+				expect(tiles.length).toBe(6);
+
+				for (const tile of tiles) {
+					expect(tile.tagName).toBe("A");
+					expect(tile.getAttribute("href")).toBe("#");
+					expect(
+						tile.querySelector(".preview-facility-tile__box"),
+					).toBeTruthy();
+					expect(
+						tile.querySelector(".preview-facility-tile__icon"),
+					).toBeTruthy();
+					expect(
+						tile.querySelector(".preview-facility-tile__label"),
+					).toBeTruthy();
+				}
+
+				const labels = tiles.map((tile) =>
+					tile
+						.querySelector(".preview-facility-tile__label")
+						?.textContent?.trim(),
+				);
+				expect(labels).toEqual([
+					"子育て・教育",
+					"戸籍・家族",
+					"健康・医療",
+					"住まい・引っ越し",
+					"妊娠・出産",
+					"申請・認証",
+				]);
+			});
 		});
 	});
 });
