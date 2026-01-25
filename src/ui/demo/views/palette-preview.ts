@@ -841,27 +841,53 @@ const TINT_RATIO = 0.4;
 const ILLUSTRATION_TINT_RATIO = 0.25;
 
 /**
- * アイコンSVGの色を置換（currentColorへの変換またはアクセント色適用）
+ * アイコンSVGの色を currentColor に統一（CSS側で色を制御する）
  *
  * @param svgText - 元のSVGテキスト
- * @param accentColor - アクセント色（nullの場合はcurrentColorを使用）
- * @returns 色置換後のSVGテキスト
+ * @returns currentColor 化したSVGテキスト
  */
-function replaceIconColor(svgText: string, accentColor: string | null): string {
-	const fillColor = accentColor ?? "currentColor";
-	return svgText.replace(/fill="#1A1A1C"/g, `fill="${fillColor}"`);
+function replaceIconColor(svgText: string): string {
+	return svgText
+		.replace(/fill="#1A1A1C"/gi, 'fill="currentColor"')
+		.replace(/stroke="#1A1A1C"/gi, 'stroke="currentColor"');
+}
+
+/**
+ * ラベルの折返しヒント（・の直後にwbr）をDOMとして付与
+ *
+ * @param target - ラベル要素
+ * @param label - 表示用ラベル（プレーンテキスト）
+ */
+function applyLabelWbrHints(target: HTMLElement, label: string): void {
+	const fragment = document.createDocumentFragment();
+	let buffer = "";
+
+	for (const char of label) {
+		buffer += char;
+		if (char === "・") {
+			fragment.append(document.createTextNode(buffer));
+			buffer = "";
+			fragment.append(document.createElement("wbr"));
+		}
+	}
+
+	if (buffer) {
+		fragment.append(document.createTextNode(buffer));
+	}
+
+	target.replaceChildren(fragment);
 }
 
 /**
  * アイコンデータ（表示用）
  */
-const FACILITY_ICONS = [
-	{ svg: iconChildSvg, label: "子ども" },
-	{ svg: iconFamilySvg, label: "家族" },
-	{ svg: iconHealthSvg, label: "健康" },
-	{ svg: iconHouseSvg, label: "住まい" },
-	{ svg: iconMotherChildSvg, label: "母子" },
-	{ svg: iconAuthSvg, label: "認証" },
+const FACILITY_TILES = [
+	{ svg: iconChildSvg, label: "子育て・教育", href: "#" },
+	{ svg: iconFamilySvg, label: "戸籍・家族", href: "#" },
+	{ svg: iconHealthSvg, label: "健康・医療", href: "#" },
+	{ svg: iconHouseSvg, label: "住まい・引っ越し", href: "#" },
+	{ svg: iconMotherChildSvg, label: "妊娠・出産", href: "#" },
+	{ svg: iconAuthSvg, label: "申請・認証", href: "#" },
 ] as const;
 
 /**
@@ -958,44 +984,48 @@ export function buildDadsPreviewMarkup(): string {
 				</div>
 			</section>
 
-			<section class="preview-section preview-section--twocol" aria-label="採用情報">
+			<section class="preview-section preview-section--twocol" aria-label="行政サービス案内">
 				<div class="preview-container">
+					<div class="preview-twocol__header">
+						<hgroup class="dads-heading" data-size="24">
+							<h2 class="dads-heading__heading">行政サービス案内</h2>
+						</hgroup>
+					</div>
 					<div class="preview-twocol">
 						<div class="preview-twocol__left">
 							<hgroup class="dads-heading" data-size="18">
-								<h2 class="dads-heading__heading">採用種別</h2>
+								<h3 class="dads-heading__heading">手続きカテゴリ</h3>
 							</hgroup>
-							<div class="preview-list" aria-label="採用種別リスト">
+							<div class="preview-list" aria-label="手続きカテゴリ一覧">
 								<a class="preview-list-item dads-link" href="#">
-									<span class="preview-list-item__indicator" aria-hidden="true"></span>
-									<span class="preview-list-item__text">新卒採用</span>
+									<span class="preview-list-item__text">住民票・証明書</span>
 									<span class="preview-list-item__arrow" aria-hidden="true">→</span>
 								</a>
 								<a class="preview-list-item dads-link" href="#">
-									<span class="preview-list-item__indicator" aria-hidden="true"></span>
-									<span class="preview-list-item__text">中途採用（行政人材）</span>
+									<span class="preview-list-item__text">引っ越し（転入・転出）</span>
 									<span class="preview-list-item__arrow" aria-hidden="true">→</span>
 								</a>
 								<a class="preview-list-item dads-link" href="#">
-									<span class="preview-list-item__indicator" aria-hidden="true"></span>
-									<span class="preview-list-item__text">中途採用（民間人材）</span>
+									<span class="preview-list-item__text">子育て（手当・医療）</span>
 									<span class="preview-list-item__arrow" aria-hidden="true">→</span>
 								</a>
-								<a class="preview-list-item preview-list-item--selected dads-link" href="#">
-									<span class="preview-list-item__indicator" aria-hidden="true"></span>
-									<span class="preview-list-item__text">その他採用（期間業務職員等）</span>
+								<a class="preview-list-item dads-link" href="#">
+									<span class="preview-list-item__text">税・納付（オンライン）</span>
 									<span class="preview-list-item__arrow" aria-hidden="true">→</span>
 								</a>
 							</div>
 						</div>
 						<div class="preview-twocol__right">
+							<hgroup class="dads-heading" data-size="18">
+								<h3 class="dads-heading__heading">注目のオンライン手続き</h3>
+							</hgroup>
 							<article class="preview-card-illustration">
 								<div class="preview-card-illustration__image" data-preview-illustration="1" aria-label="サービス紹介イラスト">
 									<!-- SVG illustration will be inserted here -->
 								</div>
 								<div class="preview-card-illustration__body">
 									<hgroup class="dads-heading" data-size="18">
-										<h3 class="dads-heading__heading"><a class="dads-link" href="#">行政サービス室のデジタル化推進 ↗</a></h3>
+										<h4 class="dads-heading__heading"><a class="dads-link" href="#">行政サービス室のデジタル化推進 ↗</a></h4>
 									</hgroup>
 									<p>窓口手続きのオンライン化により、24時間いつでも申請・届出が可能です。</p>
 								</div>
@@ -1005,17 +1035,37 @@ export function buildDadsPreviewMarkup(): string {
 				</div>
 			</section>
 
-			<section class="preview-section preview-section--facilities" aria-label="施設案内">
+			<section class="preview-section preview-section--facilities" aria-label="カテゴリ案内">
 				<div class="preview-container">
 					<div class="preview-facilities">
-						<div class="preview-facilities__header">
-							<hgroup class="dads-heading" data-size="24">
-								<h2 class="dads-heading__heading">Facilities</h2>
+						<hgroup class="dads-heading preview-facilities__heading" data-size="45">
+							<h2 class="dads-heading__heading">手続き案内</h2>
+						</hgroup>
+						<div class="preview-facilities__left">
+							<hgroup class="dads-heading" data-size="36">
+								<p class="dads-heading__heading">行政サービス案内</p>
 							</hgroup>
+							<hgroup class="dads-heading" data-size="45">
+								<p class="dads-heading__heading">桜川市 オンライン窓口</p>
+							</hgroup>
+							<p class="preview-facilities__meta">市民課（架空）</p>
+							<hgroup class="dads-heading" data-size="20">
+								<p class="dads-heading__heading">
+									カテゴリから、必要な手続きを探せます。
+								</p>
+							</hgroup>
+							<div class="preview-facilities__body">
+								<p>
+									住民票、引っ越し、子育て、税など、よくある手続きをカテゴリ別にまとめています。
+								</p>
+								<p>
+									オンライン申請が可能なものは、24時間いつでも手続きできます（架空の案内です）。
+								</p>
+							</div>
 						</div>
-						<div class="preview-facilities__grid" data-preview-icons="1" aria-label="施設アイコン一覧">
+						<nav class="preview-facilities__grid" data-preview-icons="1" aria-label="カテゴリ一覧">
 							<!-- Icons will be inserted dynamically -->
-						</div>
+						</nav>
 					</div>
 				</div>
 			</section>
@@ -1262,26 +1312,33 @@ export function createPalettePreview(
 		'[data-preview-icons="1"]',
 	);
 	if (iconsContainer) {
-		// Apply accent color to icons at indices 1, 3, 5 (every other, starting at index 1)
-		const accentIndices = new Set([1, 3, 5]);
-		const iconElements = FACILITY_ICONS.map((icon, index) => {
-			const hasAccent = accentIndices.has(index);
-			const accentColor = hasAccent ? getDisplayHex(colors.cardAccent) : null;
-			const coloredSvg = replaceIconColor(icon.svg, accentColor);
+		// アクセントは2つおき（0始まりで奇数index）に適用
+		iconsContainer.replaceChildren(
+			...FACILITY_TILES.map((tile, index) => {
+				const hasAccent = index % 2 === 1;
+				const iconSvg = replaceIconColor(tile.svg);
 
-			const wrapper = document.createElement("div");
-			wrapper.className = `preview-facility-icon${hasAccent ? " preview-facility-icon--accent" : ""}`;
-			wrapper.innerHTML = `
-				<div class="preview-facility-icon__icon">${coloredSvg}</div>
-				<span class="preview-facility-icon__label">${icon.label}</span>
-			`;
-			return wrapper;
-		});
+				const wrapper = document.createElement("a");
+				wrapper.className = `preview-facility-tile dads-link${hasAccent ? " preview-facility-tile--accent" : ""}`;
+				wrapper.href = tile.href;
 
-		iconsContainer.innerHTML = "";
-		for (const el of iconElements) {
-			iconsContainer.appendChild(el);
-		}
+				const box = document.createElement("span");
+				box.className = "preview-facility-tile__box";
+				box.setAttribute("aria-hidden", "true");
+
+				const icon = document.createElement("span");
+				icon.className = "preview-facility-tile__icon";
+				icon.innerHTML = iconSvg;
+
+				const label = document.createElement("span");
+				label.className = "preview-facility-tile__label";
+				applyLabelWbrHints(label, tile.label);
+
+				box.append(icon);
+				wrapper.append(box, label);
+				return wrapper;
+			}),
+		);
 	}
 
 	return container;

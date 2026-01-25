@@ -6,12 +6,12 @@
  * @module @/ui/demo/views/accessibility-view.test
  */
 
-import { beforeEach, describe, expect, it, mock } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import { resetState, state } from "../state";
 import type { Color } from "../types";
 
 // DOM環境のモック設定
-globalThis.document = {
+const mockDocument = {
 	createElement: (tag: string) => {
 		const classes = new Set<string>();
 		const element = {
@@ -53,6 +53,7 @@ globalThis.document = {
 	getElementById: () => null,
 	body: {},
 } as unknown as Document;
+const originalDocument = globalThis.document;
 
 // CVD関連のモック
 mock.module("@/accessibility/cvd-simulator", () => ({
@@ -125,7 +126,12 @@ mock.module("@/ui/style-constants", () => ({
 
 describe("accessibility-view", () => {
 	beforeEach(() => {
+		globalThis.document = mockDocument;
 		resetState();
+	});
+
+	afterEach(() => {
+		globalThis.document = originalDocument;
 	});
 
 	describe("renderAccessibilityView", () => {
