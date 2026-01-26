@@ -1,4 +1,12 @@
-import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
+import {
+	afterAll,
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	it,
+	mock,
+} from "bun:test";
 import { JSDOM } from "jsdom";
 import { resetState, state } from "../state";
 import type { PaletteConfig } from "../types";
@@ -160,6 +168,10 @@ mock.module("../utils/dads-snap", () => ({
 describe("studio-view accent generation", () => {
 	const originalDocument = globalThis.document;
 	const originalHTMLElement = globalThis.HTMLElement;
+
+	afterAll(() => {
+		mock.restore();
+	});
 
 	beforeEach(() => {
 		resetState();

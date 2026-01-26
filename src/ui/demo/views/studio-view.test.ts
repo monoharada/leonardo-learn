@@ -5,7 +5,15 @@
  * このファイルでは、Studio内の配色変更で識別性スコア表示が更新されることを最小限確認する。
  */
 
-import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
+import {
+	afterAll,
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	it,
+	mock,
+} from "bun:test";
 import { JSDOM } from "jsdom";
 import { HarmonyType } from "@/core/harmony";
 import { resetState, state } from "../state";
@@ -24,6 +32,10 @@ mock.module("../cvd-controls", () => ({
 
 mock.module("../palette-generator", () => ({
 	createDerivedPalettes: () => [],
+}));
+
+mock.module("../a11y-drawer", () => ({
+	updateA11yIssueBadge: () => {},
 }));
 
 mock.module("./palette-preview", () => ({
@@ -176,11 +188,16 @@ mock.module("@/core/accent/accent-candidate-service", () => ({
 
 mock.module("@/ui/accessibility/cvd-detection", () => ({
 	detectCvdConfusionPairs: () => [],
+	detectColorConflicts: () => [],
 }));
 
 describe("studio-view module", () => {
 	const originalDocument = globalThis.document;
 	const originalHTMLElement = globalThis.HTMLElement;
+
+	afterAll(() => {
+		mock.restore();
+	});
 
 	beforeEach(() => {
 		resetState();
