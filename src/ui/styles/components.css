@@ -3742,8 +3742,7 @@
 }
 
 /* イラストカードセクション: 見出しとリード文を縦積み */
-.dads-preview--dads-html
-	.preview-section--illustration-cards
+.dads-preview--dads-html .preview-section--illustration-cards
 	.preview-section-head {
 	grid-template-columns: 1fr;
 	gap: 1rem;
@@ -5677,6 +5676,7 @@
 	content: "";
 	position: absolute;
 	inset: 0;
+	z-index: 1;
 }
 
 .dads-preview--dads-html .preview-illustration-card__title a:hover {

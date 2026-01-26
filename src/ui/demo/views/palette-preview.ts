@@ -1451,14 +1451,15 @@ export function createPalettePreview(
 	if (illustrationGridContainer) {
 		illustrationGridContainer.replaceChildren(
 			...ILLUSTRATION_CARDS.map((card, index) => {
+				// Non-null assertions safe: modulo guarantees valid index
 				const primaryVar =
 					ILLUSTRATION_CARD_COLOR_VARS[
 						index % ILLUSTRATION_CARD_COLOR_VARS.length
-					] ?? "--preview-accent";
+					]!;
 				const secondaryVar =
 					ILLUSTRATION_CARD_COLOR_VARS[
 						(index + 1) % ILLUSTRATION_CARD_COLOR_VARS.length
-					] ?? "--preview-accent-2";
+					]!;
 				const colorizedSvg = replaceIllustrationColors(
 					card.svg,
 					primaryVar,
@@ -1471,6 +1472,13 @@ export function createPalettePreview(
 				const imageWrapper = document.createElement("div");
 				imageWrapper.className = "preview-illustration-card__image";
 				imageWrapper.innerHTML = colorizedSvg;
+
+				// Add aria attributes for decorative SVG
+				const svg = imageWrapper.querySelector("svg");
+				if (svg) {
+					svg.setAttribute("aria-hidden", "true");
+					svg.setAttribute("focusable", "false");
+				}
 
 				const title = document.createElement("h3");
 				title.className = "preview-illustration-card__title";
