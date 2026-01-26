@@ -201,6 +201,12 @@ export interface DadsSnapResult {
 	baseChromaName?: string;
 }
 
+/** DADSスナップ候補（近傍トークン探索用） */
+export interface DadsSnapCandidate extends DadsSnapResult {
+	/** ターゲット色との距離（OKLab deltaE） */
+	deltaE: number;
+}
+
 /**
  * プリセットに基づいて色がマッチするか判定
  */
@@ -261,6 +267,52 @@ export function filterChromaticDadsTokens(
 }
 
 /**
+ * 計算色に近いDADSトークン候補をdeltaE順で返す（近傍探索用）
+ *
+ * - chromaticカテゴリのみ
+ * - presetフィルタを適用（該当が空なら全chromatic）
+ */
+export function findNearestDadsTokenCandidates(
+	hex: string,
+	dadsTokens: DadsToken[],
+	preset: StudioPresetType,
+	limit: number,
+): DadsSnapCandidate[] {
+	const targetOklab = toOklab(hex);
+	if (!targetOklab) return [];
+
+	const finalLimit = Number.isFinite(limit)
+		? Math.max(0, Math.floor(limit))
+		: 0;
+	if (finalLimit === 0) return [];
+
+	const chromaticTokens = filterChromaticDadsTokens(dadsTokens);
+
+	const filteredTokens = chromaticTokens.filter((token) =>
+		matchesPreset(token.hex, preset),
+	);
+	const candidates =
+		filteredTokens.length > 0 ? filteredTokens : chromaticTokens;
+
+	const scored: Array<{ token: DadsToken; deltaE: number }> = [];
+	for (const token of candidates) {
+		const tokenOklab = toOklab(token.hex);
+		if (!tokenOklab) continue;
+		const dE = deltaEok(targetOklab, tokenOklab);
+		scored.push({ token, deltaE: dE });
+	}
+
+	scored.sort((a, b) => a.deltaE - b.deltaE);
+
+	return scored.slice(0, finalLimit).map(({ token, deltaE }) => ({
+		hex: token.hex,
+		step: token.classification.scale,
+		baseChromaName: inferBaseChromaNameFromHex(token.hex),
+		deltaE,
+	}));
+}
+
+/**
  * 計算で生成された色を最も近いDADSトークンにスナップする
  * OKLab色差（deltaE）を使用して最も近い色を見つける
  *
@@ -274,41 +326,13 @@ export function snapToNearestDadsToken(
 	dadsTokens: DadsToken[],
 	preset: StudioPresetType,
 ): DadsSnapResult | null {
-	const targetOklab = toOklab(hex);
-	if (!targetOklab) return null;
-
-	// chromaticカテゴリかつ有効なHEX値を持つトークンのみ
-	const chromaticTokens = filterChromaticDadsTokens(dadsTokens);
-
-	// プリセットでフィルタ（オプション）
-	const filteredTokens = chromaticTokens.filter((token) =>
-		matchesPreset(token.hex, preset),
-	);
-
-	// フィルタ後が空なら全chromaticから選択
-	const candidates =
-		filteredTokens.length > 0 ? filteredTokens : chromaticTokens;
-
-	let bestToken: DadsToken | null = null;
-	let bestDeltaE = Number.POSITIVE_INFINITY;
-
-	for (const token of candidates) {
-		const tokenOklab = toOklab(token.hex);
-		if (!tokenOklab) continue;
-
-		const dE = deltaEok(targetOklab, tokenOklab);
-		if (dE < bestDeltaE) {
-			bestDeltaE = dE;
-			bestToken = token;
-		}
-	}
-
-	if (!bestToken) return null;
-
+	const candidates = findNearestDadsTokenCandidates(hex, dadsTokens, preset, 1);
+	const best = candidates[0];
+	if (!best) return null;
 	return {
-		hex: bestToken.hex,
-		step: bestToken.classification.scale,
-		baseChromaName: inferBaseChromaNameFromHex(bestToken.hex),
+		hex: best.hex,
+		step: best.step,
+		baseChromaName: best.baseChromaName,
 	};
 }
 

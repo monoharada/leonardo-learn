@@ -11,8 +11,9 @@
 import { type CVDType, simulateCVD } from "@/accessibility/cvd-simulator";
 import { calculateCVDScore } from "@/accessibility/distinguishability";
 import { Color } from "@/core/color";
-import { parseKeyColor, state } from "./state";
-import type { CVDSimulationType } from "./types";
+import { parseKeyColor, persistCvdConfusionThreshold, state } from "./state";
+import type { CVDSimulationType, CvdConfusionThreshold } from "./types";
+import { parseCvdConfusionThreshold } from "./utils/cvd-confusion-threshold";
 
 /**
  * 有効なCVDシミュレーションタイプのセット
@@ -232,6 +233,43 @@ export function setupCVDControls(
 
 			// シミュレーション変更コールバックを呼び出し
 			onSimulationChange();
+		};
+	});
+}
+
+/**
+ * CVD混同リスクの判定しきい値スイッチのセットアップ
+ *
+ * 3.5 / 5.0 の2択で切り替え、表示側（要約/バッジ/アクセシビリティビュー）を連動させる。
+ */
+export function setupCvdConfusionThresholdControls(
+	buttons: NodeListOf<Element>,
+	onThresholdChange: () => void,
+): void {
+	function updateButtons(active: CvdConfusionThreshold): void {
+		buttons.forEach((b) => {
+			const threshold = parseCvdConfusionThreshold(
+				(b as HTMLElement).dataset.threshold,
+			);
+			const isActive = threshold === active;
+			setButtonActiveState(b as HTMLElement, isActive);
+		});
+	}
+
+	// 初期状態を反映
+	updateButtons(state.cvdConfusionThreshold);
+
+	buttons.forEach((btn) => {
+		(btn as HTMLElement).onclick = () => {
+			const threshold = parseCvdConfusionThreshold(
+				(btn as HTMLElement).dataset.threshold,
+			);
+			if (!threshold) return;
+
+			state.cvdConfusionThreshold = threshold;
+			persistCvdConfusionThreshold(threshold);
+			updateButtons(threshold);
+			onThresholdChange();
 		};
 	});
 }

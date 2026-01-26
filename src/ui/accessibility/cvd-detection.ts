@@ -20,6 +20,18 @@ import {
 } from "@/accessibility/distinguishability";
 import type { Color } from "@/core/color";
 
+export type DetectCvdConfusionPairsOptions = {
+	/**
+	 * 識別困難と判定する色差のしきい値（ΔEOK）
+	 *
+	 * - 通常色覚で十分に区別可能かどうか（ゲート）
+	 * - CVDシミュレーション後に混同リスクとするかどうか
+	 *
+	 * の両方に使用する。
+	 */
+	threshold?: number;
+};
+
 /**
  * CVD混同リスクのペア情報
  */
@@ -42,12 +54,8 @@ export interface NamedColorForDetection {
 }
 
 /**
- * 一般色覚で十分に区別可能と判定する閾値（ΔEOK）
- * これ以上離れている色ペアのみCVD混同チェックを実施
+ * CVDタイプの日本語名マッピング
  */
-const NORMAL_DISTINGUISHABLE_THRESHOLD = DISTINGUISHABILITY_THRESHOLD;
-
-/** CVDタイプの日本語名マッピング */
 const cvdTypeLabelsJa: Record<CVDType, string> = {
 	protanopia: "P型（1型2色覚）",
 	deuteranopia: "D型（2型2色覚）",
@@ -125,8 +133,10 @@ export function detectColorConflicts(
  */
 export function detectCvdConfusionPairs(
 	colors: NamedColorForDetection[],
+	options: DetectCvdConfusionPairsOptions = {},
 ): CvdConfusionPair[] {
 	const pairs: CvdConfusionPair[] = [];
+	const threshold = options.threshold ?? DISTINGUISHABILITY_THRESHOLD;
 
 	for (let i = 0; i < colors.length; i++) {
 		for (let j = i + 1; j < colors.length; j++) {
@@ -139,7 +149,7 @@ export function detectCvdConfusionPairs(
 
 			// 一般色覚で十分に区別可能な場合のみCVDチェック
 			// （既に識別困難なペアはCVD関係なく問題）
-			if (normalDeltaE >= NORMAL_DISTINGUISHABLE_THRESHOLD) {
+			if (normalDeltaE >= threshold) {
 				// 全CVDタイプでシミュレーション（P型/D型/T型/全色盲）
 				for (const cvdType of getAllCVDTypes()) {
 					const sim1 = simulateCVD(color1.color, cvdType);
@@ -147,7 +157,7 @@ export function detectCvdConfusionPairs(
 					const cvdDeltaE = calculateDeltaE(sim1, sim2);
 
 					// 境界検証と同じ閾値を使用
-					if (cvdDeltaE < DISTINGUISHABILITY_THRESHOLD) {
+					if (cvdDeltaE < threshold) {
 						pairs.push({
 							index1: i,
 							index2: j,

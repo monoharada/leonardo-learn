@@ -41,7 +41,7 @@ export interface BoundaryValidationResult {
 	rightName: string;
 	/** 色差（ΔE） */
 	deltaE: number;
-	/** 識別可能かどうか（ΔEOK >= 5.0） */
+	/** 識別可能かどうか（ΔEOK >= threshold） */
 	isDistinguishable: boolean;
 }
 
@@ -56,6 +56,11 @@ export interface SortResult {
 	/** ソートタイプ */
 	sortType: SortType;
 }
+
+export type SortValidationOptions = {
+	/** 識別可能性の判定しきい値（ΔEOK）。未指定時はデフォルト閾値を使用。 */
+	threshold?: number;
+};
 
 // DISTINGUISHABILITY_THRESHOLD is imported from @/accessibility/distinguishability
 
@@ -151,8 +156,10 @@ export function sortByDeltaE(colors: NamedColor[]): NamedColor[] {
  */
 export function validateBoundaries(
 	colors: NamedColor[],
+	options: SortValidationOptions = {},
 ): BoundaryValidationResult[] {
 	const results: BoundaryValidationResult[] = [];
+	const threshold = options.threshold ?? DISTINGUISHABILITY_THRESHOLD;
 
 	for (let i = 0; i < colors.length - 1; i++) {
 		const left = colors[i];
@@ -165,7 +172,7 @@ export function validateBoundaries(
 			leftName: left.name,
 			rightName: right.name,
 			deltaE,
-			isDistinguishable: deltaE >= DISTINGUISHABILITY_THRESHOLD,
+			isDistinguishable: deltaE >= threshold,
 		});
 	}
 
@@ -190,10 +197,11 @@ const sortFunctions: Record<SortType, (colors: NamedColor[]) => NamedColor[]> =
 export function sortColorsWithValidation(
 	colors: NamedColor[],
 	sortType: SortType,
+	options: SortValidationOptions = {},
 ): SortResult {
 	const sortFn = sortFunctions[sortType];
 	const sortedColors = sortFn(colors);
-	const boundaryValidations = validateBoundaries(sortedColors);
+	const boundaryValidations = validateBoundaries(sortedColors, options);
 
 	return {
 		sortedColors,

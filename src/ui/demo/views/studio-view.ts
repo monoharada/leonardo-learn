@@ -11,6 +11,10 @@
  */
 
 import { wcagContrast } from "culori";
+import {
+	calculateSimpleDeltaE,
+	DISTINGUISHABILITY_THRESHOLD,
+} from "@/accessibility/distinguishability";
 import { generateCandidates } from "@/core/accent/accent-candidate-service";
 import { Color } from "@/core/color";
 import {
@@ -41,25 +45,14 @@ import type {
 } from "../types";
 import { stripStepSuffix } from "../types";
 import { copyTextToClipboard } from "../utils/clipboard";
-import {
-	adjustLightnessForContrast,
-	type DadsSnapResult,
-	inferBaseChromaNameFromHex,
-	matchesPreset,
-	resolvePresetMinContrast,
-	selectHueDistantColors,
-	snapToNearestDadsToken,
-} from "../utils/dads-snap";
+import { formatCvdConfusionThreshold } from "../utils/cvd-confusion-threshold";
+import type { DadsSnapCandidate, DadsSnapResult } from "../utils/dads-snap";
 import {
 	resolveAccentSourcePalette,
 	resolveWarningPattern,
 } from "../utils/palette-utils";
-import {
-	createPalettePreview,
-	createSeededRandom,
-	mapPaletteToPreviewColors,
-	type PalettePreviewColors,
-} from "./palette-preview";
+import type { PalettePreviewColors } from "./palette-preview";
+import { studioViewDeps } from "./studio-view-deps";
 
 export interface StudioViewCallbacks {
 	onColorClick: (options: ColorDetailModalOptions) => void;
@@ -238,8 +231,9 @@ function getDadsInfoWithChromaName(
 	const dadsInfo =
 		dadsTokens.length > 0 ? findDadsColorByHex(dadsTokens, hex) : undefined;
 	const baseChromaName = dadsInfo?.hue
-		? (HUE_DISPLAY_NAMES[dadsInfo.hue] ?? inferBaseChromaNameFromHex(hex))
-		: inferBaseChromaNameFromHex(hex);
+		? (HUE_DISPLAY_NAMES[dadsInfo.hue] ??
+			studioViewDeps.inferBaseChromaNameFromHex(hex))
+		: studioViewDeps.inferBaseChromaNameFromHex(hex);
 	return { dadsInfo, baseChromaName };
 }
 
@@ -285,7 +279,7 @@ function computePaletteColors(
 
 	// Apply contrast adjustment for semantic colors when needed
 	const bgHex = DEFAULT_STUDIO_BACKGROUND;
-	const minContrast = resolvePresetMinContrast(preset);
+	const minContrast = studioViewDeps.resolvePresetMinContrast(preset);
 
 	return {
 		primaryHex,
@@ -295,9 +289,21 @@ function computePaletteColors(
 		accentHex,
 		accentHexes,
 		semantic: {
-			error: adjustLightnessForContrast(errorHex, bgHex, minContrast),
-			success: adjustLightnessForContrast(successHex, bgHex, minContrast),
-			warning: adjustLightnessForContrast(warningHex, bgHex, minContrast),
+			error: studioViewDeps.adjustLightnessForContrast(
+				errorHex,
+				bgHex,
+				minContrast,
+			),
+			success: studioViewDeps.adjustLightnessForContrast(
+				successHex,
+				bgHex,
+				minContrast,
+			),
+			warning: studioViewDeps.adjustLightnessForContrast(
+				warningHex,
+				bgHex,
+				minContrast,
+			),
 		},
 	};
 }
@@ -307,7 +313,7 @@ function buildPreviewColors(
 	backgroundHex: string,
 	preset: StudioPresetType,
 ): PalettePreviewColors {
-	return mapPaletteToPreviewColors({
+	return studioViewDeps.mapPaletteToPreviewColors({
 		primaryHex: input.primaryHex,
 		accentHex: input.accentHex,
 		semanticColors: {
@@ -331,10 +337,12 @@ async function selectRandomPrimaryFromDads(
 	const chromatic = dadsTokens.filter(
 		(t) => t.classification.category === "chromatic",
 	);
-	const presetFiltered = chromatic.filter((t) => matchesPreset(t.hex, preset));
+	const presetFiltered = chromatic.filter((t) =>
+		studioViewDeps.matchesPreset(t.hex, preset),
+	);
 	const baseList = presetFiltered.length > 0 ? presetFiltered : chromatic;
 
-	const minContrast = resolvePresetMinContrast(preset);
+	const minContrast = studioViewDeps.resolvePresetMinContrast(preset);
 	const contrastFiltered = baseList.filter((t) => {
 		const ratio = wcagContrast(backgroundHex, t.hex);
 		return ratio >= minContrast;
@@ -362,12 +370,16 @@ async function selectRandomPrimaryFromDads(
 	const dadsHue = selected.classification.hue;
 	const baseChromaName =
 		(dadsHue ? HUE_DISPLAY_NAMES[dadsHue] : undefined) ||
-		inferBaseChromaNameFromHex(selected.hex) ||
+		studioViewDeps.inferBaseChromaNameFromHex(selected.hex) ||
 		"Blue";
 
 	// 明度調整が必要な場合のみ適用（フォールバック時）
 	const finalHex = needsAdjustment
-		? adjustLightnessForContrast(selected.hex, backgroundHex, minContrast)
+		? studioViewDeps.adjustLightnessForContrast(
+				selected.hex,
+				backgroundHex,
+				minContrast,
+			)
 		: selected.hex;
 
 	return { hex: finalHex, step, baseChromaName };
@@ -416,10 +428,10 @@ async function selectRandomAccentCandidates(
 	});
 	if (!response.ok) return [];
 
-	const minContrast = resolvePresetMinContrast(preset);
+	const minContrast = studioViewDeps.resolvePresetMinContrast(preset);
 	const allCandidates = response.result.candidates;
 	const presetFiltered = allCandidates.filter((c) =>
-		matchesPreset(c.hex, preset),
+		studioViewDeps.matchesPreset(c.hex, preset),
 	);
 	const base = presetFiltered.length > 0 ? presetFiltered : allCandidates;
 
@@ -435,7 +447,11 @@ async function selectRandomAccentCandidates(
 		// フォールバック: 明度調整してコントラストを確保
 		candidates = base.map((c) => ({
 			...c,
-			hex: adjustLightnessForContrast(c.hex, backgroundHex, minContrast),
+			hex: studioViewDeps.adjustLightnessForContrast(
+				c.hex,
+				backgroundHex,
+				minContrast,
+			),
 		}));
 	}
 
@@ -455,60 +471,246 @@ async function selectRandomAccentCandidates(
 	}));
 }
 
-/**
- * 補色拡張: Primary補色 + Secondary補色（Primary+210°）の2色を生成
- * 計算結果は最も近いDADSトークンにスナップする
- */
-function selectComplementaryExtendedAccents(
-	primaryHex: string,
+type StudioSemanticColors = {
+	error: string;
+	success: string;
+	warning: string;
+};
+
+function computeStudioSemanticColors(
 	dadsTokens: DadsToken[],
 	preset: StudioPresetType,
-): DadsSnapResult[] {
-	const primaryColor = new Color(primaryHex);
-	const primaryOklch = primaryColor.oklch;
-	const hue = primaryOklch?.h ?? 0;
-	const lightness = primaryOklch?.l ?? 0.5;
-	const chroma = primaryOklch?.c ?? 0.1;
+	backgroundHex: string,
+): StudioSemanticColors {
+	const warningPattern = resolveWarningPattern(state.semanticColorConfig);
+	const warningHue = warningPattern === "orange" ? "orange" : "yellow";
+	const warningStep = warningPattern === "orange" ? 600 : 700;
 
-	const results: DadsSnapResult[] = [];
-
-	// Accent 1: 補色（+180°）
-	const complementHue = (hue + 180) % 360;
-	const accent1Color = new Color({
-		mode: "oklch",
-		l: lightness,
-		c: chroma,
-		h: complementHue,
-	});
-	const accent1Calculated = accent1Color.toHex();
-	const snapped1 = snapToNearestDadsToken(
-		accent1Calculated,
+	const errorHex = getDadsSemanticHex(dadsTokens, "red", 800, "#FF2800");
+	const successHex = getDadsSemanticHex(dadsTokens, "green", 600, "#35A16B");
+	const warningHex = getDadsSemanticHex(
 		dadsTokens,
-		preset,
+		warningHue,
+		warningStep,
+		"#D7C447",
 	);
-	if (snapped1) {
-		results.push(snapped1);
+
+	const minContrast = studioViewDeps.resolvePresetMinContrast(preset);
+
+	return {
+		error: studioViewDeps.adjustLightnessForContrast(
+			errorHex,
+			backgroundHex,
+			minContrast,
+		),
+		success: studioViewDeps.adjustLightnessForContrast(
+			successHex,
+			backgroundHex,
+			minContrast,
+		),
+		warning: studioViewDeps.adjustLightnessForContrast(
+			warningHex,
+			backgroundHex,
+			minContrast,
+		),
+	};
+}
+
+const HARMONY_DADS_SNAP_CANDIDATES = 8;
+
+// 色覚多様性対策: 色相差がCVDで潰れても区別できるよう、明度差も確保する
+const MIN_OKLCH_LIGHTNESS_DISTANCE = 0.12;
+
+// NOTE: Keep generation scoring independent from the UI toggle (`state.cvdConfusionThreshold`).
+// The toggle is for display (summary/badge/a11y view), while generation should remain stable
+// for a given seed/preset.
+const GENERATION_CVD_CONFUSION_THRESHOLD = DISTINGUISHABILITY_THRESHOLD;
+
+function normalizeHexKey(hex: string): string {
+	return hex.trim().toLowerCase();
+}
+
+function uniqueCandidatesByHex(
+	candidates: DadsSnapCandidate[],
+): DadsSnapCandidate[] {
+	const seen = new Set<string>();
+	const result: DadsSnapCandidate[] = [];
+	for (const candidate of candidates) {
+		const key = normalizeHexKey(candidate.hex);
+		if (seen.has(key)) continue;
+		seen.add(key);
+		result.push(candidate);
+	}
+	return result;
+}
+
+function selectHarmonySnappedCandidates(options: {
+	primaryHex: string;
+	targetHexes: string[];
+	targetCount: number;
+	dadsTokens: DadsToken[];
+	preset: StudioPresetType;
+	backgroundHex: string;
+	semantic: StudioSemanticColors;
+}): DadsSnapResult[] {
+	const { targetHexes, dadsTokens, preset, backgroundHex, semantic } = options;
+	if (targetHexes.length === 0) return [];
+
+	// Tests may pass empty DADS tokens; keep a fallback path compatible with mocking.
+	if (dadsTokens.length === 0) {
+		const results: DadsSnapResult[] = [];
+		for (const hex of targetHexes) {
+			const snapped = studioViewDeps.snapToNearestDadsToken(
+				hex,
+				dadsTokens,
+				preset,
+			);
+			if (snapped) results.push(snapped);
+		}
+		return results;
 	}
 
-	// Accent 2: 補色から+30°（Split Complementary風: Primary+210°）
-	const splitHue = (hue + 210) % 360;
-	const accent2Color = new Color({
-		mode: "oklch",
-		l: lightness,
-		c: chroma,
-		h: splitHue,
-	});
-	const accent2Calculated = accent2Color.toHex();
-	const snapped2 = snapToNearestDadsToken(
-		accent2Calculated,
-		dadsTokens,
-		preset,
+	const candidateLists: DadsSnapCandidate[][] = targetHexes.map((hex) =>
+		studioViewDeps.findNearestDadsTokenCandidates(
+			hex,
+			dadsTokens,
+			preset,
+			HARMONY_DADS_SNAP_CANDIDATES,
+		),
 	);
-	if (snapped2) {
-		results.push(snapped2);
+
+	// Defensive fallback: keep previous behavior if candidates could not be built.
+	if (candidateLists.some((list) => list.length === 0)) {
+		const results: DadsSnapResult[] = [];
+		for (const hex of targetHexes) {
+			const snapped = studioViewDeps.snapToNearestDadsToken(
+				hex,
+				dadsTokens,
+				preset,
+			);
+			if (snapped) results.push(snapped);
+		}
+		return results;
 	}
 
-	return results;
+	const minContrast = studioViewDeps.resolvePresetMinContrast(preset);
+	const toEffectiveHex = (hex: string): string => {
+		const ratio = wcagContrast(backgroundHex, hex) ?? 0;
+		if (ratio >= minContrast) return hex;
+		return studioViewDeps.adjustLightnessForContrast(
+			hex,
+			backgroundHex,
+			minContrast,
+		);
+	};
+
+	const primaryColor = new Color(options.primaryHex);
+	const semanticSuccess = new Color(semantic.success);
+	const semanticWarning = new Color(semantic.warning);
+	const semanticError = new Color(semantic.error);
+
+	const expectedUnique = Math.min(options.targetCount, targetHexes.length);
+
+	let bestCombo: DadsSnapCandidate[] | null = null;
+	let bestScore = Number.POSITIVE_INFINITY;
+
+	const evaluateCombo = (combo: DadsSnapCandidate[]): void => {
+		const normalized = uniqueCandidatesByHex(combo).slice(
+			0,
+			options.targetCount,
+		);
+		const missingPenalty = Math.max(0, expectedUnique - normalized.length);
+
+		// Contrast adjustments happen after selection; evaluate against the effective hexes.
+		const accentHexes = normalized.map((c) => toEffectiveHex(c.hex));
+		const accentColors = accentHexes.map((hex) => new Color(hex));
+
+		// Penalize colors that become indistinguishable in normal vision (prevents "cheating").
+		const allColors: Color[] = [
+			primaryColor,
+			...accentColors,
+			semanticSuccess,
+			semanticWarning,
+			semanticError,
+		];
+		const isAccentIndex = (index: number): boolean =>
+			index >= 1 && index < 1 + accentColors.length;
+
+		let normalTooCloseCount = 0;
+		let lightnessPenalty = 0;
+		for (let i = 0; i < allColors.length; i++) {
+			for (let j = i + 1; j < allColors.length; j++) {
+				if (!isAccentIndex(i) && !isAccentIndex(j)) continue;
+				const a = allColors[i];
+				const b = allColors[j];
+				if (!a || !b) continue;
+				const dE = calculateSimpleDeltaE(a, b);
+				if (dE < DISTINGUISHABILITY_THRESHOLD) normalTooCloseCount++;
+
+				const dL = Math.abs(a.oklch.l - b.oklch.l);
+				if (dL < MIN_OKLCH_LIGHTNESS_DISTANCE) {
+					lightnessPenalty +=
+						(MIN_OKLCH_LIGHTNESS_DISTANCE - dL) / MIN_OKLCH_LIGHTNESS_DISTANCE;
+				}
+			}
+		}
+
+		const sumDeltaE = normalized.reduce((sum, c) => sum + c.deltaE, 0);
+		const baseScore =
+			missingPenalty * 100_000 +
+			normalTooCloseCount * 10_000 +
+			lightnessPenalty * 10_000 +
+			sumDeltaE;
+
+		// `cvdPairs.length` is always non-negative, so the final score is never lower than
+		// `baseScore`. If we're already worse than the best score, skip the expensive CVD check.
+		if (baseScore >= bestScore) return;
+
+		const namedColors = [
+			{ name: "Primary", color: primaryColor },
+			...accentColors.map((color, index) => ({
+				name: `Accent ${index + 1}`,
+				color,
+			})),
+			{ name: "Success", color: semanticSuccess },
+			{ name: "Warning", color: semanticWarning },
+			{ name: "Error", color: semanticError },
+		];
+		const cvdPairs = detectCvdConfusionPairs(namedColors, {
+			threshold: GENERATION_CVD_CONFUSION_THRESHOLD,
+		});
+
+		const score = baseScore + cvdPairs.length * 1_000;
+
+		if (score < bestScore) {
+			bestScore = score;
+			bestCombo = combo.slice();
+		}
+	};
+
+	const dfs = (index: number, combo: DadsSnapCandidate[]): void => {
+		if (index >= candidateLists.length) {
+			evaluateCombo(combo);
+			return;
+		}
+
+		const list = candidateLists[index] ?? [];
+		for (const candidate of list) {
+			combo.push(candidate);
+			dfs(index + 1, combo);
+			combo.pop();
+		}
+	};
+
+	dfs(0, []);
+
+	const picked: DadsSnapCandidate[] = bestCombo ?? [];
+	return picked.map((c) => ({
+		hex: c.hex,
+		step: c.step,
+		baseChromaName:
+			c.baseChromaName || studioViewDeps.inferBaseChromaNameFromHex(c.hex),
+	}));
 }
 
 /**
@@ -527,31 +729,82 @@ async function selectHarmonyAccentCandidates(
 	await initializeHarmonyDads();
 
 	const primaryColor = new Color(primaryHex);
-	const minContrast = resolvePresetMinContrast(preset);
+	const minContrast = studioViewDeps.resolvePresetMinContrast(preset);
+	const semantic = computeStudioSemanticColors(
+		dadsTokens,
+		preset,
+		backgroundHex,
+	);
 
 	// ハーモニーベースの色を生成
 	let harmonyAccents: DadsSnapResult[];
 
 	if (harmonyType === HarmonyType.COMPLEMENTARY) {
-		harmonyAccents = selectComplementaryExtendedAccents(
+		const primaryOklch = primaryColor.oklch;
+		const hue = primaryOklch?.h ?? 0;
+		const lightness = primaryOklch?.l ?? 0.5;
+		const chroma = primaryOklch?.c ?? 0.1;
+
+		const complementHue = (hue + 180) % 360;
+		const splitHue = (hue + 210) % 360;
+
+		const accent1Calculated = new Color({
+			mode: "oklch",
+			l: lightness,
+			c: chroma,
+			h: complementHue,
+		}).toHex();
+		const accent2Calculated = new Color({
+			mode: "oklch",
+			l: lightness,
+			c: chroma,
+			h: splitHue,
+		}).toHex();
+
+		harmonyAccents = selectHarmonySnappedCandidates({
 			primaryHex,
+			targetHexes: [accent1Calculated, accent2Calculated],
+			targetCount,
 			dadsTokens,
 			preset,
-		);
+			backgroundHex,
+			semantic,
+		});
 	} else {
 		const harmonyPalette = generateHarmonyPalette(primaryColor, harmonyType);
 		const accentColors = harmonyPalette.filter(
 			(sc) => sc.role === "secondary" || sc.role === "accent",
 		);
-		// ハーモニー計算結果を最も近いDADSトークンにスナップ
-		harmonyAccents = [];
-		for (const sc of accentColors) {
-			const calculatedHex = sc.keyColor.toHex();
-			const snapped = snapToNearestDadsToken(calculatedHex, dadsTokens, preset);
-			if (snapped) {
-				harmonyAccents.push(snapped);
-			}
+		const targetHexes = accentColors.map((sc) => sc.keyColor.toHex());
+		harmonyAccents = selectHarmonySnappedCandidates({
+			primaryHex,
+			targetHexes,
+			targetCount,
+			dadsTokens,
+			preset,
+			backgroundHex,
+			semantic,
+		});
+	}
+
+	// 正規化: 重複を排除し、要求数を超える場合はクランプする
+	// - complementary拡張（+180/+210）で同じDADSトークンにスナップされるケースがある
+	// - tetradic/square は候補が3色出るため、UIのアクセント数（2-4）と一致させる
+	const uniqueByHex = (accents: DadsSnapResult[]): DadsSnapResult[] => {
+		const seen = new Set<string>();
+		const result: DadsSnapResult[] = [];
+		for (const accent of accents) {
+			const key = accent.hex.trim().toLowerCase();
+			if (seen.has(key)) continue;
+			seen.add(key);
+			result.push(accent);
 		}
+		return result;
+	};
+
+	harmonyAccents = uniqueByHex(harmonyAccents);
+	if (harmonyAccents.length > targetCount) {
+		harmonyAccents = harmonyAccents.slice(0, targetCount);
 	}
 
 	// 不足分を補完
@@ -563,7 +816,7 @@ async function selectHarmonyAccentCandidates(
 		];
 
 		const needed = targetCount - harmonyAccents.length;
-		const complementary = selectHueDistantColors(
+		const complementary = studioViewDeps.selectHueDistantColors(
 			existingHues,
 			needed,
 			dadsTokens,
@@ -575,6 +828,9 @@ async function selectHarmonyAccentCandidates(
 		harmonyAccents = [...harmonyAccents, ...complementary];
 	}
 
+	// 最終クランプ（補完後も含めて targetCount に揃える）
+	harmonyAccents = uniqueByHex(harmonyAccents).slice(0, targetCount);
+
 	// コントラスト不足の色に明度調整を適用
 	return harmonyAccents.map((accent) => {
 		const currentContrast = wcagContrast(backgroundHex, accent.hex);
@@ -583,7 +839,11 @@ async function selectHarmonyAccentCandidates(
 		}
 		return {
 			...accent,
-			hex: adjustLightnessForContrast(accent.hex, backgroundHex, minContrast),
+			hex: studioViewDeps.adjustLightnessForContrast(
+				accent.hex,
+				backgroundHex,
+				minContrast,
+			),
 		};
 	});
 }
@@ -611,7 +871,7 @@ async function rebuildStudioPalettes(options: {
 		harmony: HarmonyType.NONE,
 		baseChromaName:
 			options.primaryBaseChromaName ||
-			inferBaseChromaNameFromHex(options.primaryHex),
+			studioViewDeps.inferBaseChromaNameFromHex(options.primaryHex),
 		step: options.primaryStep,
 	};
 
@@ -621,8 +881,12 @@ async function rebuildStudioPalettes(options: {
 		options.dadsTokens,
 	);
 
-	// Apply contrast adjustment to derived palettes (Secondary/Tertiary) based on preset
-	const minContrast = resolvePresetMinContrast(state.activePreset);
+	// Apply contrast adjustment to derived palettes (Secondary/Tertiary) based on preset.
+	// If a derived palette is backed by a DADS token (`@step` suffix), keep the exact token hex.
+	// (Adjusting would create non-DADS colors while still showing a DADS step.)
+	const minContrast = studioViewDeps.resolvePresetMinContrast(
+		state.activePreset,
+	);
 	const adjustedDerived = derived.map((palette) => {
 		const keyColor = palette.keyColors[0];
 		if (!keyColor) return palette;
@@ -630,8 +894,9 @@ async function rebuildStudioPalettes(options: {
 		// Extract HEX and optional step from keyColor (format: "#hex" or "#hex@step")
 		const [hex, step] = keyColor.split("@");
 		if (!hex) return palette;
+		if (step) return palette;
 
-		const adjustedHex = adjustLightnessForContrast(
+		const adjustedHex = studioViewDeps.adjustLightnessForContrast(
 			hex,
 			backgroundColor,
 			minContrast,
@@ -640,7 +905,7 @@ async function rebuildStudioPalettes(options: {
 
 		return {
 			...palette,
-			keyColors: [step ? `${adjustedHex}@${step}` : adjustedHex],
+			keyColors: [adjustedHex],
 		};
 	});
 
@@ -688,7 +953,7 @@ export async function generateNewStudioPalette(
 	dadsTokens: DadsToken[],
 ): Promise<void> {
 	const studioSeed = state.studioSeed || 0;
-	const rnd = createSeededRandom(studioSeed);
+	const rnd = studioViewDeps.createSeededRandom(studioSeed);
 
 	// Studioの背景は白固定（ニュートラルはカード/ボックス等の要素に使用）
 	const backgroundHex = DEFAULT_STUDIO_BACKGROUND;
@@ -966,7 +1231,7 @@ export async function renderStudioView(
 					let extra: DadsSnapResult[] = [];
 					if (missing > 0) {
 						const seed = (state.studioSeed || 0) ^ desired;
-						const rnd = createSeededRandom(seed);
+						const rnd = studioViewDeps.createSeededRandom(seed);
 						const picked = await selectRandomAccentCandidates(
 							current.primaryHex,
 							state.activePreset,
@@ -1189,11 +1454,13 @@ export async function renderStudioView(
 
 	// パステルプリセット時はアクセント色をコントラスト確保版に変換
 	// プレビュー内のボタン・テキスト要素が読めるようにする
-	const minContrast = resolvePresetMinContrast(state.activePreset);
+	const minContrast = studioViewDeps.resolvePresetMinContrast(
+		state.activePreset,
+	);
 	const resolvedAccentHexes =
 		state.activePreset === "pastel"
 			? rawAccentHexes.map((hex) =>
-					adjustLightnessForContrast(hex, bgHex, minContrast),
+					studioViewDeps.adjustLightnessForContrast(hex, bgHex, minContrast),
 				)
 			: rawAccentHexes;
 
@@ -1696,7 +1963,7 @@ export async function renderStudioView(
 		const existing = current.accentHexes.slice(0, oldAccentCount);
 
 		const seed = (state.studioSeed || 0) ^ newCount ^ Date.now();
-		const rnd = createSeededRandom(seed);
+		const rnd = studioViewDeps.createSeededRandom(seed);
 		// Request more candidates to ensure enough unique colors after filtering
 		const picked = await selectRandomAccentCandidates(
 			current.primaryHex,
@@ -1785,7 +2052,7 @@ export async function renderStudioView(
 		bgHex,
 		state.activePreset,
 	);
-	const preview = createPalettePreview(previewColors, {
+	const preview = studioViewDeps.createPalettePreview(previewColors, {
 		getDisplayHex,
 		kv: state.previewKv,
 		accentHexes: resolvedAccentHexes,
@@ -1814,7 +2081,12 @@ export async function renderStudioView(
 		name,
 		color: new Color(hex),
 	}));
-	const cvdPairs = detectCvdConfusionPairs(namedColors);
+	const thresholdLabel = formatCvdConfusionThreshold(
+		state.cvdConfusionThreshold,
+	);
+	const cvdPairs = detectCvdConfusionPairs(namedColors, {
+		threshold: state.cvdConfusionThreshold,
+	});
 
 	const failCount = a11yItems.filter(
 		({ hex }) => gradeContrast(wcagContrast(bgHex, hex)) === "Fail",
@@ -1824,7 +2096,7 @@ export async function renderStudioView(
 		<h2 class="studio-a11y__title">アクセシビリティ（要約）</h2>
 		<ul class="studio-a11y__list">
 			<li>背景に対してFailの色: <strong>${failCount}</strong></li>
-			<li>CVD混同リスク（${namedColors.length}色のペア）: <strong>${cvdPairs.length}</strong></li>
+			<li>CVD混同リスク（ΔE&lt;${thresholdLabel}）: <strong>${cvdPairs.length}</strong></li>
 		</ul>
 		<button type="button" class="studio-a11y__open dads-button" data-size="sm">詳細（アクセシビリティ）</button>
 	`;

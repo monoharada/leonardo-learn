@@ -13,6 +13,7 @@ import {
 	createPastelColorPair,
 	createSoftBorderColor,
 	filterChromaticDadsTokens,
+	findNearestDadsTokenCandidates,
 	hueDistance,
 	isDadsTokenResult,
 	isHueFarEnough,
@@ -188,6 +189,60 @@ describe("dads-snap utility", () => {
 				expect(result.hex.startsWith("#")).toBe(true);
 				expect(result.hex.includes("var(")).toBe(false);
 			}
+		});
+	});
+
+	describe("findNearestDadsTokenCandidates", () => {
+		it("should return candidates sorted by deltaE (ascending) and limited by the requested count", () => {
+			const inputHex = "#0060C0";
+			const candidates = findNearestDadsTokenCandidates(
+				inputHex,
+				mockDadsTokens,
+				"default",
+				3,
+			);
+
+			expect(candidates.length).toBeGreaterThan(0);
+			expect(candidates.length).toBeLessThanOrEqual(3);
+			expect(
+				candidates.every((c) => isDadsTokenResult(c, mockDadsTokens)),
+			).toBe(true);
+
+			for (let i = 0; i < candidates.length - 1; i++) {
+				const a = candidates[i];
+				const b = candidates[i + 1];
+				if (!a || !b) continue;
+				expect(a.deltaE).toBeLessThanOrEqual(b.deltaE);
+			}
+		});
+
+		it("should match snapToNearestDadsToken when limit=1", () => {
+			const inputHex = "#FF5500";
+			const snapped = snapToNearestDadsToken(
+				inputHex,
+				mockDadsTokens,
+				"default",
+			);
+			const candidates = findNearestDadsTokenCandidates(
+				inputHex,
+				mockDadsTokens,
+				"default",
+				1,
+			);
+
+			expect(snapped).not.toBeNull();
+			expect(candidates.length).toBe(1);
+			expect(candidates[0]?.hex).toBe(snapped?.hex);
+		});
+
+		it("should return [] when limit <= 0", () => {
+			const inputHex = "#0060C0";
+			expect(
+				findNearestDadsTokenCandidates(inputHex, mockDadsTokens, "default", 0),
+			).toEqual([]);
+			expect(
+				findNearestDadsTokenCandidates(inputHex, mockDadsTokens, "default", -1),
+			).toEqual([]);
 		});
 	});
 
