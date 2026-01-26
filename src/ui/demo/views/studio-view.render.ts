@@ -4,6 +4,11 @@ import { updateA11yIssueBadge } from "../a11y-drawer";
 import { getDisplayHex, updateCVDScoreDisplay } from "../cvd-controls";
 import { state, validateBackgroundColor } from "../state";
 import type { StudioPresetType, StudioTheme } from "../types";
+import { setTemporaryButtonText } from "../utils/button-feedback";
+import {
+	EXPORT_BUTTON_CONTENT_HTML,
+	LINK_ICON_SVG,
+} from "../utils/button-markup";
 import { copyTextToClipboard } from "../utils/clipboard";
 import type { DadsSnapResult } from "../utils/dads-snap";
 import type { StudioViewCallbacks } from "./studio-view";
@@ -16,7 +21,6 @@ import {
 	STUDIO_PRESET_LABELS,
 	STUDIO_THEME_LABELS,
 	setLockedColors,
-	setTemporaryButtonText,
 } from "./studio-view.core";
 import {
 	generateNewStudioPalette,
@@ -312,7 +316,7 @@ export async function renderStudioView(
 	shareBtn.className = "studio-share-btn dads-button";
 	shareBtn.dataset.size = "sm";
 	shareBtn.dataset.type = "text";
-	shareBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>共有リンク`;
+	shareBtn.innerHTML = `${LINK_ICON_SVG}共有リンク`;
 	shareBtn.classList.add("studio-toolbar__share-btn");
 	shareBtn.onclick = async () => {
 		if (state.palettes.length === 0) return;
@@ -331,7 +335,7 @@ export async function renderStudioView(
 	exportBtn.className = "studio-export-btn dads-button";
 	exportBtn.dataset.size = "sm";
 	exportBtn.dataset.type = "outline";
-	exportBtn.innerHTML = `<span class="material-symbols-outlined btn-icon">ios_share</span>エクスポート`;
+	exportBtn.innerHTML = EXPORT_BUTTON_CONTENT_HTML;
 	exportBtn.onclick = () => {
 		const exportDialog = document.getElementById(
 			"export-dialog",

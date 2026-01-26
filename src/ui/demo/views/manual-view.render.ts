@@ -27,6 +27,12 @@ import {
 	validateBackgroundColor,
 } from "../state";
 import type { ColorDetailModalOptions, ManualApplyTarget } from "../types";
+import { setTemporaryButtonText } from "../utils/button-feedback";
+import {
+	EXPORT_BUTTON_CONTENT_HTML,
+	LINK_ICON_SVG,
+} from "../utils/button-markup";
+import { copyTextToClipboard } from "../utils/clipboard";
 import {
 	getSelectedApplyTarget,
 	setSelectedApplyTarget,
@@ -35,7 +41,6 @@ import { renderManualDadsContent } from "./manual-view.dads-content";
 import {
 	createSwatchLabel,
 	createSwatchWrapper,
-	LINK_ICON_SVG,
 } from "./manual-view.render-utils";
 import {
 	applyColorToManualSelection,
@@ -695,21 +700,12 @@ export async function renderManualView(
 	shareBtn.dataset.type = "text";
 	shareBtn.innerHTML = `${LINK_ICON_SVG}共有リンク`;
 	shareBtn.onclick = async () => {
-		// Manual Viewの状態をURLに含める
 		const url = buildManualShareUrl(state.manualColorSelection);
-		try {
-			await navigator.clipboard.writeText(url);
-			const originalHTML = shareBtn.innerHTML;
-			shareBtn.textContent = "コピー完了";
-			setTimeout(() => {
-				shareBtn.innerHTML = originalHTML;
-			}, 2000);
-		} catch {
-			shareBtn.textContent = "コピー失敗";
-			setTimeout(() => {
-				shareBtn.innerHTML = `${LINK_ICON_SVG}共有リンク`;
-			}, 2000);
-		}
+		const originalHTML = shareBtn.innerHTML;
+		const ok = await copyTextToClipboard(url);
+		setTemporaryButtonText(shareBtn, ok ? "コピー完了" : "コピー失敗", {
+			resetHTML: originalHTML,
+		});
 	};
 
 	// エクスポートボタン（Material Symbolアイコン付き）
@@ -718,7 +714,7 @@ export async function renderManualView(
 	exportBtn.className = "studio-export-btn dads-button";
 	exportBtn.dataset.size = "sm";
 	exportBtn.dataset.type = "outline";
-	exportBtn.innerHTML = `<span class="material-symbols-outlined btn-icon">ios_share</span>エクスポート`;
+	exportBtn.innerHTML = EXPORT_BUTTON_CONTENT_HTML;
 	exportBtn.onclick = () => {
 		const exportDialog = document.getElementById(
 			"export-dialog",

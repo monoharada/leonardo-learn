@@ -394,46 +394,32 @@ export function selectHueDistantColors(
 	// 選択済みの色相を追跡（既存 + 新規選択分）
 	const usedHues = [...existingHues];
 
-	const candidatesWithContrastAndHue = dadsTokens.filter((token) => {
+	const isChromaticPresetToken = (token: DadsToken): boolean => {
 		if (token.classification.category !== "chromatic") return false;
 		if (!token.hex.startsWith("#")) return false;
+		return matchesPreset(token.hex, preset);
+	};
 
-		const color = new Color(token.hex);
-		const oklch = color.oklch;
-		if (!oklch) return false;
+	const candidatesWithoutContrastCheck = dadsTokens.filter(
+		isChromaticPresetToken,
+	);
 
-		const hue = oklch.h ?? 0;
-		if (!isHueFarEnough(hue, usedHues)) return false;
-		if (!matchesPreset(token.hex, preset)) return false;
+	const candidatesWithContrast = candidatesWithoutContrastCheck.filter(
+		(token) => {
+			const oklch = new Color(token.hex).oklch;
+			if (!oklch) return false;
 
-		const contrast = wcagContrast(token.hex, backgroundHex);
-		if (contrast < minContrast) return false;
+			const contrast = wcagContrast(token.hex, backgroundHex);
+			return contrast >= minContrast;
+		},
+	);
 
-		return true;
-	});
-
-	const candidatesWithContrast = dadsTokens.filter((token) => {
-		if (token.classification.category !== "chromatic") return false;
-		if (!token.hex.startsWith("#")) return false;
-
-		const color = new Color(token.hex);
-		const oklch = color.oklch;
-		if (!oklch) return false;
-
-		if (!matchesPreset(token.hex, preset)) return false;
-
-		const contrast = wcagContrast(token.hex, backgroundHex);
-		if (contrast < minContrast) return false;
-
-		return true;
-	});
-
-	const candidatesWithoutContrastCheck = dadsTokens.filter((token) => {
-		if (token.classification.category !== "chromatic") return false;
-		if (!token.hex.startsWith("#")) return false;
-		if (!matchesPreset(token.hex, preset)) return false;
-		return true;
-	});
+	const candidatesWithContrastAndHue = candidatesWithContrast.filter(
+		(token) => {
+			const hue = new Color(token.hex).oklch?.h ?? 0;
+			return isHueFarEnough(hue, usedHues);
+		},
+	);
 
 	// コントラストは維持し、色相距離のみを緩めてフォールバックする（DADS token を維持する）。
 	const candidates =

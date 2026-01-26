@@ -136,36 +136,6 @@ function getTertiaryHex(palettes: PaletteConfig[]): string | undefined {
 	return getDerivedPaletteHex(palettes, "Tertiary", "tertiary");
 }
 
-const studioButtonTextResetTimers = new WeakMap<
-	HTMLButtonElement,
-	ReturnType<typeof setTimeout>
->();
-
-export function setTemporaryButtonText(
-	btn: HTMLButtonElement,
-	text: string,
-	options?: { durationMs?: number; resetText?: string; resetHTML?: string },
-): void {
-	const durationMs = options?.durationMs ?? 2000;
-	const resetHTML = options?.resetHTML;
-	const resetText = options?.resetText ?? btn.textContent ?? "";
-
-	btn.textContent = text;
-
-	const existing = studioButtonTextResetTimers.get(btn);
-	if (existing) globalThis.clearTimeout(existing);
-
-	const timer = globalThis.setTimeout(() => {
-		if (!btn.isConnected) return;
-		if (resetHTML) {
-			btn.innerHTML = resetHTML;
-		} else {
-			btn.textContent = resetText;
-		}
-	}, durationMs);
-	studioButtonTextResetTimers.set(btn, timer);
-}
-
 let dadsTokensPromise: Promise<DadsToken[]> | null = null;
 export async function getDadsTokens(): Promise<DadsToken[]> {
 	if (!dadsTokensPromise) {

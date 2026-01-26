@@ -332,6 +332,59 @@ export function createUpdateDetailHandler(
 ): UpdateDetailHandler {
 	let selectedScaleIndex = config.fixedScale.keyIndex;
 
+	const dom = {
+		detailSwatch: document.getElementById("detail-swatch"),
+		detailTokenName: document.getElementById("detail-token-name"),
+		detailHex: document.getElementById("detail-hex"),
+		detailLightness: document.getElementById("detail-lightness"),
+		detailChromaName: document.getElementById("detail-chroma-name"),
+		setKeyColorBtn: document.getElementById(
+			"set-key-color-btn",
+		) as HTMLButtonElement | null,
+		dialog: document.getElementById(
+			"color-detail-dialog",
+		) as HTMLDialogElement | null,
+		whiteLabelEl: document.getElementById("detail-white-label"),
+		blackLabelEl: document.getElementById("detail-black-label"),
+		whiteCard: document.getElementById("detail-white-card"),
+		blackCard: document.getElementById("detail-black-card"),
+		miniScale: document.getElementById("detail-mini-scale"),
+	};
+
+	const renderMiniScale = (): void => {
+		if (!dom.miniScale) return;
+		dom.miniScale.replaceChildren();
+
+		const { colors: scaleColors, keyIndex: originalKeyIndex } =
+			config.fixedScale;
+		const currentHighlightIndex =
+			selectedScaleIndex >= 0 ? selectedScaleIndex : originalKeyIndex;
+
+		for (const [i, c] of scaleColors.entries()) {
+			const btn = document.createElement("button");
+			btn.type = "button";
+			btn.className = "dads-mini-scale__item";
+			btn.style.backgroundColor = c.toCss();
+			btn.setAttribute("aria-label", `Color ${c.toHex()}`);
+
+			btn.onclick = () => {
+				selectedScaleIndex = i;
+				updateDetail(c, i);
+			};
+
+			if (i === currentHighlightIndex) {
+				const check = document.createElement("div");
+				check.className = "dads-mini-scale__check";
+				check.textContent = "✓";
+				check.style.color =
+					c.contrast(new Color("#fff")) > 4.5 ? "white" : "black";
+				btn.appendChild(check);
+			}
+
+			dom.miniScale.appendChild(btn);
+		}
+	};
+
 	const updateDetail = (
 		color: Color,
 		selectedIndex: number,
@@ -339,12 +392,6 @@ export function createUpdateDetailHandler(
 	): void => {
 		config.setCurrentColor(color);
 		const colorL = color.oklch.l as number;
-
-		const detailSwatch = document.getElementById("detail-swatch");
-		const detailTokenName = document.getElementById("detail-token-name");
-		const detailHex = document.getElementById("detail-hex");
-		const detailLightness = document.getElementById("detail-lightness");
-		const detailChromaName = document.getElementById("detail-chroma-name");
 
 		const { keyIndex, hexValues, names } = config.fixedScale;
 		const tokenInfo = calculateTokenInfo(
@@ -355,11 +402,12 @@ export function createUpdateDetailHandler(
 			names,
 		);
 
-		if (detailSwatch) detailSwatch.style.backgroundColor = color.toCss();
+		if (dom.detailSwatch)
+			dom.detailSwatch.style.backgroundColor = color.toCss();
 		// トークン名が空の場合は非表示にする（カスタムキーカラーの場合）
-		if (detailTokenName) {
-			detailTokenName.textContent = tokenInfo.tokenName;
-			detailTokenName.style.display = tokenInfo.tokenName ? "" : "none";
+		if (dom.detailTokenName) {
+			dom.detailTokenName.textContent = tokenInfo.tokenName;
+			dom.detailTokenName.style.display = tokenInfo.tokenName ? "" : "none";
 		}
 
 		// 元のHEX値を優先して使用（変換誤差回避）
@@ -367,35 +415,29 @@ export function createUpdateDetailHandler(
 			hexOverride ??
 			(hexValues && selectedIndex >= 0 ? hexValues[selectedIndex] : null) ??
 			color.toHex();
-		if (detailHex) detailHex.textContent = displayHex;
-		if (detailLightness) {
-			detailLightness.textContent = `${Math.round(colorL * 100)}% L`;
+		if (dom.detailHex) dom.detailHex.textContent = displayHex;
+		if (dom.detailLightness) {
+			dom.detailLightness.textContent = `${Math.round(colorL * 100)}% L`;
 		}
-		if (detailChromaName) {
-			detailChromaName.textContent = tokenInfo.chromaDisplayName;
+		if (dom.detailChromaName) {
+			dom.detailChromaName.textContent = tokenInfo.chromaDisplayName;
 		}
 
 		// "Set as key color" button
-		const setKeyColorBtn = document.getElementById(
-			"set-key-color-btn",
-		) as HTMLButtonElement;
-		if (setKeyColorBtn) {
+		if (dom.setKeyColorBtn) {
 			if (config.readOnly) {
-				setKeyColorBtn.style.display = "none";
+				dom.setKeyColorBtn.style.display = "none";
 			} else {
-				setKeyColorBtn.style.display = "";
+				dom.setKeyColorBtn.style.display = "";
 				const paletteName =
 					config.paletteInfo.name || config.paletteInfo.baseChromaName || "";
-				setKeyColorBtn.textContent = `${color.toHex()} を ${paletteName} のパレットの色に指定`;
-				setKeyColorBtn.onclick = () => {
+				dom.setKeyColorBtn.textContent = `${color.toHex()} を ${paletteName} のパレットの色に指定`;
+				dom.setKeyColorBtn.onclick = () => {
 					const newKeyColorHex = color.toHex();
 					syncPalette(state.palettes, newKeyColorHex, config.paletteInfo);
 					syncPalette(state.shadesPalettes, newKeyColorHex, config.paletteInfo);
 
-					const dialog = document.getElementById(
-						"color-detail-dialog",
-					) as HTMLDialogElement;
-					if (dialog) dialog.close();
+					dom.dialog?.close();
 					config.onRenderMain();
 				};
 			}
@@ -406,13 +448,11 @@ export function createUpdateDetailHandler(
 		updateContrastCard(color, state.darkBackgroundColor, "black");
 
 		// Update card labels to show actual background colors
-		const whiteLabelEl = document.getElementById("detail-white-label");
-		const blackLabelEl = document.getElementById("detail-black-label");
-		if (whiteLabelEl) {
-			whiteLabelEl.textContent = `${state.lightBackgroundColor.toUpperCase()} に対するコントラスト`;
+		if (dom.whiteLabelEl) {
+			dom.whiteLabelEl.textContent = `${state.lightBackgroundColor.toUpperCase()} に対するコントラスト`;
 		}
-		if (blackLabelEl) {
-			blackLabelEl.textContent = `${state.darkBackgroundColor.toUpperCase()} に対するコントラスト`;
+		if (dom.blackLabelEl) {
+			dom.blackLabelEl.textContent = `${state.darkBackgroundColor.toUpperCase()} に対するコントラスト`;
 		}
 
 		// Update contrast card styling for both light and dark backgrounds
@@ -428,16 +468,14 @@ export function createUpdateDetailHandler(
 			color,
 			new Color(state.darkBackgroundColor),
 		).contrast;
-		const whiteCard = document.getElementById("detail-white-card");
-		const blackCard = document.getElementById("detail-black-card");
 
-		if (whiteCard && blackCard) {
+		if (dom.whiteCard && dom.blackCard) {
 			if (whiteContrastVal >= blackContrastVal) {
-				whiteCard.dataset.preferred = "true";
-				delete blackCard.dataset.preferred;
+				dom.whiteCard.dataset.preferred = "true";
+				delete dom.blackCard.dataset.preferred;
 			} else {
-				blackCard.dataset.preferred = "true";
-				delete whiteCard.dataset.preferred;
+				dom.blackCard.dataset.preferred = "true";
+				delete dom.whiteCard.dataset.preferred;
 			}
 		}
 
@@ -445,38 +483,7 @@ export function createUpdateDetailHandler(
 		config.drawScrubber();
 
 		// Mini scale
-		const miniScale = document.getElementById("detail-mini-scale");
-		if (miniScale) {
-			miniScale.innerHTML = "";
-			const { colors: scaleColors, keyIndex: originalKeyIndex } =
-				config.fixedScale;
-			const currentHighlightIndex =
-				selectedScaleIndex >= 0 ? selectedScaleIndex : originalKeyIndex;
-
-			scaleColors.forEach((c, i) => {
-				const div = document.createElement("button");
-				div.type = "button";
-				div.className = "dads-mini-scale__item";
-				div.style.backgroundColor = c.toCss();
-				div.setAttribute("aria-label", `Color ${c.toHex()}`);
-
-				div.onclick = () => {
-					selectedScaleIndex = i;
-					updateDetail(c, i);
-				};
-
-				if (i === currentHighlightIndex) {
-					const check = document.createElement("div");
-					check.className = "dads-mini-scale__check";
-					check.textContent = "✓";
-					check.style.color =
-						c.contrast(new Color("#fff")) > 4.5 ? "white" : "black";
-					div.appendChild(check);
-				}
-
-				miniScale.appendChild(div);
-			});
-		}
+		renderMiniScale();
 	};
 
 	return {
