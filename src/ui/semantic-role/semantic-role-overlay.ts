@@ -17,7 +17,6 @@ import {
 	selectPriorityRole,
 	transformToCircle,
 	transformToCircleWithBrandAndDads,
-	transformToCircleWithMultipleRoles,
 } from "./circular-swatch-transformer";
 
 /**
@@ -115,9 +114,11 @@ export function applyOverlay(
 	const hasBrandHarmony = brandHarmonyRoles.length > 0;
 	const hasDadsSemanticLink = dadsSemanticLinkRoles.length > 0;
 
+	// NOTE(E2E仕様): DADS公式ロール（source="dads"）のみの場合は円形化しない。
+	// 円形UIは brand harmony を持つスウォッチに限定し、brand + DADS 共存時のみ2行表示にする。
 	const shouldCircularize =
 		backgroundColor !== undefined &&
-		(hasBrandHarmony || hasDadsSemanticLink) &&
+		hasBrandHarmony &&
 		!isUnresolvedBrandSwatch(isBrand, dadsHue, scale);
 
 	if (shouldCircularize) {
@@ -131,15 +132,8 @@ export function applyOverlay(
 				dadsSemanticLinkRoles,
 				backgroundColor,
 			);
-		} else if (hasDadsSemanticLink) {
-			// Case B: DADS semantic/link のみ
-			transformToCircleWithMultipleRoles(
-				swatchElement,
-				dadsSemanticLinkRoles,
-				backgroundColor,
-			);
 		} else {
-			// Case C: brand harmony のみ（既存動作）
+			// Case B: brand harmony のみ（既存動作）
 			transformToCircle(swatchElement, priorityRole, backgroundColor);
 		}
 	}

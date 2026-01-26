@@ -236,7 +236,10 @@ describe("accessibility-view", () => {
 		it("should NOT render Key Colors section heading", async () => {
 			const fs = await import("node:fs");
 			const path = await import("node:path");
-			const filePath = path.join(import.meta.dir, "accessibility-view.ts");
+			const filePath = path.join(
+				import.meta.dir,
+				"accessibility-view.render.ts",
+			);
 			const content = fs.readFileSync(filePath, "utf-8");
 
 			// "キーカラー＋セマンティックカラーの識別性確認" という見出しがないこと
@@ -248,7 +251,10 @@ describe("accessibility-view", () => {
 		it("should still generate keyColorsMap for use in sorting validation", async () => {
 			const fs = await import("node:fs");
 			const path = await import("node:path");
-			const filePath = path.join(import.meta.dir, "accessibility-view.ts");
+			const filePath = path.join(
+				import.meta.dir,
+				"accessibility-view.render.ts",
+			);
 			const content = fs.readFileSync(filePath, "utf-8");
 
 			// keyColorsMap生成コードは残っている
@@ -262,7 +268,10 @@ describe("accessibility-view", () => {
 		it("should NOT call renderDistinguishabilityAnalysis for key colors section", async () => {
 			const fs = await import("node:fs");
 			const path = await import("node:path");
-			const filePath = path.join(import.meta.dir, "accessibility-view.ts");
+			const filePath = path.join(
+				import.meta.dir,
+				"accessibility-view.render.ts",
+			);
 			const content = fs.readFileSync(filePath, "utf-8");
 
 			// keyColorsSectionへのrenderDistinguishabilityAnalysis呼び出しがないこと
@@ -279,7 +288,7 @@ describe("accessibility-view", () => {
 		it("should NOT mention removed Key Colors section in explanation", async () => {
 			const fs = await import("node:fs");
 			const path = await import("node:path");
-			const filePath = path.join(import.meta.dir, "accessibility-view.ts");
+			const filePath = path.join(import.meta.dir, "accessibility-view.core.ts");
 			const content = fs.readFileSync(filePath, "utf-8");
 
 			// 削除されたセクションへの言及がないこと
@@ -292,7 +301,10 @@ describe("accessibility-view", () => {
 		it("should mention all-pair validation in explanation", async () => {
 			const fs = await import("node:fs");
 			const path = await import("node:path");
-			const filePath = path.join(import.meta.dir, "accessibility-view.ts");
+			const filePath = path.join(
+				import.meta.dir,
+				"accessibility-view.distinguishability.ts",
+			);
 			const content = fs.readFileSync(filePath, "utf-8");
 
 			// 全ペア検証への言及があること
@@ -308,7 +320,10 @@ describe("accessibility-view", () => {
 		it("should insert alertBox BEFORE tabs in renderSortingValidationSection", async () => {
 			const fs = await import("node:fs");
 			const path = await import("node:path");
-			const filePath = path.join(import.meta.dir, "accessibility-view.ts");
+			const filePath = path.join(
+				import.meta.dir,
+				"accessibility-view.sorting-validation.ts",
+			);
 			const content = fs.readFileSync(filePath, "utf-8");
 
 			// タブより前に差し込むこと（insertBeforeを使用）
@@ -326,7 +341,10 @@ describe("accessibility-view", () => {
 		it("should show CVD confusion count in updateAlertBox", async () => {
 			const fs = await import("node:fs");
 			const path = await import("node:path");
-			const filePath = path.join(import.meta.dir, "accessibility-view.ts");
+			const filePath = path.join(
+				import.meta.dir,
+				"accessibility-view.sorting-validation.ts",
+			);
 			const content = fs.readFileSync(filePath, "utf-8");
 
 			// updateAlertBox内でCVD混同リスク件数を表示
@@ -337,11 +355,16 @@ describe("accessibility-view", () => {
 		it("should display simplified alert message without separate pair counts", async () => {
 			const fs = await import("node:fs");
 			const path = await import("node:path");
-			const filePath = path.join(import.meta.dir, "accessibility-view.ts");
+			const filePath = path.join(
+				import.meta.dir,
+				"accessibility-view.sorting-validation.ts",
+			);
 			const content = fs.readFileSync(filePath, "utf-8");
 
 			// updateAlertBox関数を抽出
-			const updateAlertBoxStart = content.indexOf("const updateAlertBox = ()");
+			const updateAlertBoxStart = content.indexOf(
+				"function updateAlertBox(): void",
+			);
 			const updateAlertBoxEnd = content.indexOf(
 				"updateAlertBox();",
 				updateAlertBoxStart,
@@ -381,7 +404,10 @@ describe("accessibility-view", () => {
 		it("should NOT render CVD confusion details box in accessibility-view", async () => {
 			const fs = await import("node:fs");
 			const path = await import("node:path");
-			const filePath = path.join(import.meta.dir, "accessibility-view.ts");
+			const filePath = path.join(
+				import.meta.dir,
+				"accessibility-view.sorting-validation.ts",
+			);
 			const content = fs.readFileSync(filePath, "utf-8");
 
 			expect(content).not.toContain("function renderCvdConfusionDetails");
@@ -391,7 +417,10 @@ describe("accessibility-view", () => {
 		it("should provide banner links for boundary and confusion issues", async () => {
 			const fs = await import("node:fs");
 			const path = await import("node:path");
-			const filePath = path.join(import.meta.dir, "accessibility-view.ts");
+			const filePath = path.join(
+				import.meta.dir,
+				"accessibility-view.sorting-validation.ts",
+			);
 			const content = fs.readFileSync(filePath, "utf-8");
 
 			// 通知バナー内のリンクは kind を持ち、クリック時に boundary / confusion で分岐する
@@ -408,7 +437,10 @@ describe("accessibility-view", () => {
 		it("should NOT create summary div in renderAllCvdBoundaryValidations", async () => {
 			const fs = await import("node:fs");
 			const path = await import("node:path");
-			const filePath = path.join(import.meta.dir, "accessibility-view.ts");
+			const filePath = path.join(
+				import.meta.dir,
+				"accessibility-view.sorting-validation.ts",
+			);
 			const content = fs.readFileSync(filePath, "utf-8");
 
 			// renderAllCvdBoundaryValidations関数内でsummary divを作成していないこと
@@ -436,7 +468,10 @@ describe("accessibility-view", () => {
 		it("should use state.lightBackgroundColor for container background", async () => {
 			const fs = await import("node:fs");
 			const path = await import("node:path");
-			const filePath = path.join(import.meta.dir, "accessibility-view.ts");
+			const filePath = path.join(
+				import.meta.dir,
+				"accessibility-view.render.ts",
+			);
 			const content = fs.readFileSync(filePath, "utf-8");
 
 			// state.lightBackgroundColorを参照してコンテナ背景色を設定
@@ -446,7 +481,10 @@ describe("accessibility-view", () => {
 		it("should apply background color to container element", async () => {
 			const fs = await import("node:fs");
 			const path = await import("node:path");
-			const filePath = path.join(import.meta.dir, "accessibility-view.ts");
+			const filePath = path.join(
+				import.meta.dir,
+				"accessibility-view.render.ts",
+			);
 			const content = fs.readFileSync(filePath, "utf-8");
 
 			// container.style.backgroundColorを設定
@@ -456,7 +494,10 @@ describe("accessibility-view", () => {
 		it("should reference Requirements 5.2 or 5.5 in comments", async () => {
 			const fs = await import("node:fs");
 			const path = await import("node:path");
-			const filePath = path.join(import.meta.dir, "accessibility-view.ts");
+			const filePath = path.join(
+				import.meta.dir,
+				"accessibility-view.render.ts",
+			);
 			const content = fs.readFileSync(filePath, "utf-8");
 
 			// Requirementsの参照（モジュールヘッダまたはコメント内）
@@ -469,7 +510,10 @@ describe("accessibility-view", () => {
 		it("should import state from ../state module", async () => {
 			const fs = await import("node:fs");
 			const path = await import("node:path");
-			const filePath = path.join(import.meta.dir, "accessibility-view.ts");
+			const filePath = path.join(
+				import.meta.dir,
+				"accessibility-view.render.ts",
+			);
 			const content = fs.readFileSync(filePath, "utf-8");
 
 			// stateのインポート
