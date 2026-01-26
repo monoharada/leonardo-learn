@@ -39,9 +39,11 @@ mock.module("../a11y-drawer", () => ({
 }));
 
 mock.module("./studio-view-deps", () => ({
-	createPalettePreview: () => document.createElement("div"),
-	createSeededRandom: () => () => 0.5,
-	mapPaletteToPreviewColors: () => ({}),
+	studioViewDeps: {
+		createPalettePreview: () => document.createElement("div"),
+		createSeededRandom: () => () => 0.5,
+		mapPaletteToPreviewColors: () => ({}),
+	},
 }));
 
 mock.module("@/core/tokens/dads-data-provider", () => ({

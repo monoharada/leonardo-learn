@@ -28,9 +28,11 @@ let detectCvdConfusionPairsCalls = 0;
 let lastDetectCvdConfusionThreshold: number | undefined;
 
 mock.module("./studio-view-deps", () => ({
-	createPalettePreview: () => document.createElement("div"),
-	createSeededRandom: () => () => rndValue,
-	mapPaletteToPreviewColors: () => ({}),
+	studioViewDeps: {
+		createPalettePreview: () => document.createElement("div"),
+		createSeededRandom: () => () => rndValue,
+		mapPaletteToPreviewColors: () => ({}),
+	},
 }));
 
 mock.module("../cvd-controls", () => ({

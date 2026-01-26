@@ -62,11 +62,7 @@ import {
 	resolveWarningPattern,
 } from "../utils/palette-utils";
 import type { PalettePreviewColors } from "./palette-preview";
-import {
-	createPalettePreview,
-	createSeededRandom,
-	mapPaletteToPreviewColors,
-} from "./studio-view-deps";
+import { studioViewDeps } from "./studio-view-deps";
 
 export interface StudioViewCallbacks {
 	onColorClick: (options: ColorDetailModalOptions) => void;
@@ -314,7 +310,7 @@ function buildPreviewColors(
 	backgroundHex: string,
 	preset: StudioPresetType,
 ): PalettePreviewColors {
-	return mapPaletteToPreviewColors({
+	return studioViewDeps.mapPaletteToPreviewColors({
 		primaryHex: input.primaryHex,
 		accentHex: input.accentHex,
 		semanticColors: {
@@ -913,7 +909,7 @@ export async function generateNewStudioPalette(
 	dadsTokens: DadsToken[],
 ): Promise<void> {
 	const studioSeed = state.studioSeed || 0;
-	const rnd = createSeededRandom(studioSeed);
+	const rnd = studioViewDeps.createSeededRandom(studioSeed);
 
 	// Studioの背景は白固定（ニュートラルはカード/ボックス等の要素に使用）
 	const backgroundHex = DEFAULT_STUDIO_BACKGROUND;
@@ -1191,7 +1187,7 @@ export async function renderStudioView(
 					let extra: DadsSnapResult[] = [];
 					if (missing > 0) {
 						const seed = (state.studioSeed || 0) ^ desired;
-						const rnd = createSeededRandom(seed);
+						const rnd = studioViewDeps.createSeededRandom(seed);
 						const picked = await selectRandomAccentCandidates(
 							current.primaryHex,
 							state.activePreset,
@@ -1921,7 +1917,7 @@ export async function renderStudioView(
 		const existing = current.accentHexes.slice(0, oldAccentCount);
 
 		const seed = (state.studioSeed || 0) ^ newCount ^ Date.now();
-		const rnd = createSeededRandom(seed);
+		const rnd = studioViewDeps.createSeededRandom(seed);
 		// Request more candidates to ensure enough unique colors after filtering
 		const picked = await selectRandomAccentCandidates(
 			current.primaryHex,
@@ -2010,7 +2006,7 @@ export async function renderStudioView(
 		bgHex,
 		state.activePreset,
 	);
-	const preview = createPalettePreview(previewColors, {
+	const preview = studioViewDeps.createPalettePreview(previewColors, {
 		getDisplayHex,
 		kv: state.previewKv,
 		accentHexes: resolvedAccentHexes,
