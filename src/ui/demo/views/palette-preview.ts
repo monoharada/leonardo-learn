@@ -1032,9 +1032,30 @@ function getThemeColors(
 }
 
 export function buildDadsPreviewMarkup(): string {
+	return [
+		buildDadsPreviewShellOpen(),
+		buildDadsPreviewHeaderMarkup(),
+		buildDadsPreviewMainMarkup(),
+		buildDadsPreviewFooterMarkup(),
+		buildDadsPreviewShellClose(),
+	].join("");
+}
+
+function buildDadsPreviewShellOpen(): string {
 	return `
 <div class="preview-page">
-	<div class="preview-surface">
+	<div class="preview-surface">`;
+}
+
+function buildDadsPreviewShellClose(): string {
+	return `
+	</div>
+</div>
+`;
+}
+
+function buildDadsPreviewHeaderMarkup(): string {
+	return `
 		<header class="preview-header">
 			<div class="preview-container preview-header__inner">
 				<a class="preview-brand" href="#" aria-label="ブランドサイト（プレビュー）">
@@ -1047,9 +1068,26 @@ export function buildDadsPreviewMarkup(): string {
 					<a class="dads-link" href="#">お問い合わせ</a>
 				</nav>
 			</div>
-		</header>
+		</header>`;
+}
 
-		<main class="preview-main">
+function buildDadsPreviewMainMarkup(): string {
+	return [
+		`
+
+		<main class="preview-main">`,
+		buildDadsPreviewHeroSectionMarkup(),
+		buildDadsPreviewTwoColSectionMarkup(),
+		buildDadsPreviewFacilitiesSectionMarkup(),
+		buildDadsPreviewIllustrationCardsSectionMarkup(),
+		buildDadsPreviewEditorialSectionMarkup(),
+		`
+		</main>`,
+	].join("");
+}
+
+function buildDadsPreviewHeroSectionMarkup(): string {
+	return `
 			<section class="preview-hero" aria-label="ヒーロー">
 				<div class="preview-container">
 					<div class="preview-hero__layout">
@@ -1078,12 +1116,16 @@ export function buildDadsPreviewMarkup(): string {
 						</div>
 					</div>
 				</div>
-			</section>
+			</section>`;
+}
+
+function buildDadsPreviewTwoColSectionMarkup(): string {
+	return `
 
 			<section class="preview-section preview-section--twocol" aria-label="行政サービス案内">
 				<div class="preview-container">
 					<div class="preview-twocol__header">
-						<hgroup class="dads-heading" data-size="24">
+						<hgroup class="dads-heading" data-size="45">
 							<h2 class="dads-heading__heading">行政サービス案内</h2>
 						</hgroup>
 					</div>
@@ -1129,7 +1171,11 @@ export function buildDadsPreviewMarkup(): string {
 						</div>
 					</div>
 				</div>
-			</section>
+			</section>`;
+}
+
+function buildDadsPreviewFacilitiesSectionMarkup(): string {
+	return `
 
 			<section class="preview-section preview-section--facilities" aria-label="カテゴリ案内">
 				<div class="preview-container">
@@ -1138,11 +1184,9 @@ export function buildDadsPreviewMarkup(): string {
 							<h2 class="dads-heading__heading">手続き案内</h2>
 						</hgroup>
 						<div class="preview-facilities__left">
-							<hgroup class="dads-heading" data-size="36">
-								<p class="dads-heading__heading">行政サービス案内</p>
-							</hgroup>
 							<hgroup class="dads-heading" data-size="45">
-								<p class="dads-heading__heading">桜川市 オンライン窓口</p>
+								<p class="dads-heading__shoulder">行政サービス案内</p>
+								<h2 class="dads-heading__heading">桜川市 オンライン窓口</h2>
 							</hgroup>
 							<p class="preview-facilities__meta">市民課（架空）</p>
 							<hgroup class="dads-heading" data-size="20">
@@ -1164,12 +1208,16 @@ export function buildDadsPreviewMarkup(): string {
 						</nav>
 					</div>
 				</div>
-			</section>
+			</section>`;
+}
+
+function buildDadsPreviewIllustrationCardsSectionMarkup(): string {
+	return `
 
 			<section class="preview-section preview-section--illustration-cards" aria-label="市民サービスの利用シーン">
 				<div class="preview-container">
 					<div class="preview-section-head">
-						<hgroup class="dads-heading" data-size="36">
+						<hgroup class="dads-heading" data-size="45">
 							<h2 class="dads-heading__heading">市民サービスの利用シーン</h2>
 						</hgroup>
 						<div class="preview-section-head__body">
@@ -1182,12 +1230,16 @@ export function buildDadsPreviewMarkup(): string {
 						<!-- Illustration cards will be inserted dynamically -->
 					</div>
 				</div>
-			</section>
+			</section>`;
+}
+
+function buildDadsPreviewEditorialSectionMarkup(): string {
+	return `
 
 			<section class="preview-section preview-section--editorial" aria-label="設計">
 				<div class="preview-container">
 					<div class="preview-section-head">
-						<hgroup class="dads-heading" data-size="36">
+						<hgroup class="dads-heading" data-size="45">
 							<h2 class="dads-heading__heading">設計</h2>
 						</hgroup>
 						<div class="preview-section-head__body">
@@ -1281,17 +1333,17 @@ export function buildDadsPreviewMarkup(): string {
 						</div>
 					</div>
 				</div>
-			</section>
-		</main>
+			</section>`;
+}
+
+function buildDadsPreviewFooterMarkup(): string {
+	return `
 
 		<footer class="preview-footer">
 			<div class="preview-container">
 				<small>© 2026 カラートークン生成ツール（プレビュー）</small>
 			</div>
-		</footer>
-	</div>
-</div>
-`;
+		</footer>`;
 }
 
 /**
@@ -1391,19 +1443,24 @@ export function createPalettePreview(
 		// SVGをそのまま挿入（CSS変数で色を制御）
 		illustrationContainer.innerHTML = illustrationPeopleSvgText;
 
+		const getDisplayVarOrFallback = (name: string, fallbackHex: string) =>
+			containerStyle.getPropertyValue(name).trim() ||
+			getDisplayHex(fallbackHex);
+
 		// 表示色（CVD変換後）をCSS変数の値から取得して単一ソース化
-		const textDisplay =
-			containerStyle.getPropertyValue("--preview-text").trim() ||
-			getDisplayHex(colors.text);
-		const tableSurfaceDisplay =
-			containerStyle.getPropertyValue("--preview-accent").trim() ||
-			getDisplayHex(colors.cardAccent);
-		const accent3Display =
-			containerStyle.getPropertyValue("--preview-accent-3").trim() ||
-			getDisplayHex(accentHex3);
-		const illustrationBgDisplay =
-			containerStyle.getPropertyValue("--preview-illustration-bg").trim() ||
-			getDisplayHex(illustrationBgBase);
+		const textDisplay = getDisplayVarOrFallback("--preview-text", colors.text);
+		const tableSurfaceDisplay = getDisplayVarOrFallback(
+			"--preview-accent",
+			colors.cardAccent,
+		);
+		const accent3Display = getDisplayVarOrFallback(
+			"--preview-accent-3",
+			accentHex3,
+		);
+		const illustrationBgDisplay = getDisplayVarOrFallback(
+			"--preview-illustration-bg",
+			illustrationBgBase,
+		);
 
 		// 手元カード（--iv-accent3）はテーブル面（--iv-accent）の上に重なるため、
 		// コントラストチェックはテーブル面に対して行う
