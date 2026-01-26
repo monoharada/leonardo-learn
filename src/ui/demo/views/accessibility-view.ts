@@ -15,13 +15,15 @@ import {
 	getCVDTypeName,
 	simulateCVD,
 } from "@/accessibility/cvd-simulator";
-import { DISTINGUISHABILITY_THRESHOLD } from "@/accessibility/distinguishability";
 import { Color } from "@/core/color";
 import {
 	getAllSortTypes,
 	getSortTypeName,
 	type NamedColor,
 	type SortType,
+	sortByDeltaE,
+	sortByHue,
+	sortByLightness,
 	sortColorsWithValidation,
 } from "@/ui/accessibility/color-sorting";
 import {
@@ -30,6 +32,7 @@ import {
 } from "@/ui/accessibility/cvd-detection";
 import { parseKeyColor, state } from "../state";
 import type { Color as ColorType } from "../types";
+import { formatCvdConfusionThreshold } from "../utils/cvd-confusion-threshold";
 import {
 	createColorSwatch,
 	createConflictIndicator,
@@ -170,6 +173,9 @@ function createAccessibilityExplanationDisclosure(): HTMLDetailsElement {
 	const explanationContent = document.createElement("div");
 	explanationContent.className =
 		"dads-disclosure__content dads-a11y-explanation__content";
+	const thresholdLabel = formatCvdConfusionThreshold(
+		state.cvdConfusionThreshold,
+	);
 	explanationContent.innerHTML = `
 		<p>
 			この画面では、多様な色覚特性を持つユーザーが、あなたのカラーパレットをどのように知覚するかをシミュレーションし、
@@ -185,7 +191,7 @@ function createAccessibilityExplanationDisclosure(): HTMLDetailsElement {
 		<ul>
 			<li><strong>シミュレーション手法:</strong> Brettel (1997) および Viénot (1999) のアルゴリズムを使用し、P型（1型）、D型（2型）、T型（3型）、全色盲の知覚を再現しています。</li>
 			<li><strong>色差計算 (ΔEOK):</strong> OKLab色空間におけるユークリッド距離（× 100スケール）を用いて、色の知覚的な差を計算しています。</li>
-			<li><strong>警告基準:</strong> シミュレーション後の色差（DeltaE）が <strong>5.0未満</strong> の場合、色が識別困難であると判断し、<span class="dads-cvd-conflict-icon" style="display:inline-flex; position:static; transform:none; width:16px; height:16px; font-size:10px; margin:0 4px;">!</span>アイコンで警告を表示します。</li>
+			<li><strong>警告基準:</strong> シミュレーション後の色差（DeltaE）が <strong>${thresholdLabel}未満</strong> の場合、色が識別困難であると判断し、<span class="dads-cvd-conflict-icon" style="display:inline-flex; position:static; transform:none; width:16px; height:16px; font-size:10px; margin:0 4px;">!</span>アイコンで警告を表示します。</li>
 		</ul>
 	`;
 
@@ -212,14 +218,28 @@ function getCvdConfusionPairAnchorId(
 	return `dads-a11y-cvd-confusion-${cvdType}-${a}-${b}`;
 }
 
+function sortNamedColors(
+	colors: NamedColor[],
+	sortType: SortType,
+): NamedColor[] {
+	switch (sortType) {
+		case "deltaE":
+			return sortByDeltaE(colors);
+		case "lightness":
+			return sortByLightness(colors);
+		case "hue":
+		default:
+			return sortByHue(colors);
+	}
+}
+
 function getColorNameDistanceInSort(
 	colors: NamedColor[],
 	target: CvdConfusionFocusTarget,
 	sortType: SortType,
 ): number | null {
 	const simulatedColors = simulateNamedColorsForType(colors, target.cvdType);
-	const sortResult = sortColorsWithValidation(simulatedColors, sortType);
-	const names = sortResult.sortedColors.map((c) => c.name);
+	const names = sortNamedColors(simulatedColors, sortType).map((c) => c.name);
 	const index1 = names.indexOf(target.colorName1);
 	const index2 = names.indexOf(target.colorName2);
 	if (index1 < 0 || index2 < 0) return null;
@@ -267,8 +287,7 @@ function focusCvdComparisonIssue(
 	row.scrollIntoView({ block: "center" });
 
 	const simulatedColors = simulateNamedColorsForType(colors, target.cvdType);
-	const sortResult = sortColorsWithValidation(simulatedColors, sortType);
-	const names = sortResult.sortedColors.map((c) => c.name);
+	const names = sortNamedColors(simulatedColors, sortType).map((c) => c.name);
 	const index1 = names.indexOf(target.colorName1);
 	const index2 = names.indexOf(target.colorName2);
 
@@ -445,7 +464,7 @@ export function renderDistinguishabilityAnalysis(
 		const conflicts = detectColorConflicts(
 			simulatedColors,
 			adjacentOnly,
-			DISTINGUISHABILITY_THRESHOLD,
+			state.cvdConfusionThreshold,
 		);
 
 		for (const item of simulatedColors) {
@@ -616,7 +635,9 @@ function renderCvdBoundaryRow(
 					color: simulateCVD(item.color, cvdType),
 				}));
 
-	const result = sortColorsWithValidation(simulatedColors, sortType);
+	const result = sortColorsWithValidation(simulatedColors, sortType, {
+		threshold: state.cvdConfusionThreshold,
+	});
 
 	const row = document.createElement("div");
 	row.className = "dads-a11y-cvd-boundary-row";
@@ -747,6 +768,7 @@ function renderAllCvdBoundaryValidations(
  */
 function getBoundaryValidationSummary(
 	colors: NamedColor[],
+	threshold: number,
 ): BoundaryValidationSummary {
 	const validationTypes: BoundaryValidationType[] = [
 		"normal",
@@ -765,7 +787,9 @@ function getBoundaryValidationSummary(
 							color: simulateCVD(item.color, validationType),
 						}));
 
-			const result = sortColorsWithValidation(simulatedColors, sortType);
+			const result = sortColorsWithValidation(simulatedColors, sortType, {
+				threshold,
+			});
 			for (const validation of result.boundaryValidations) {
 				if (validation.isDistinguishable) continue;
 				issues.push({
@@ -823,8 +847,16 @@ function renderSortingValidationSection(
 		return;
 	}
 
-	const cvdConfusionPairs = detectCvdConfusionPairs(namedColors);
-	const boundarySummary = getBoundaryValidationSummary(namedColors);
+	const cvdThresholdLabel = formatCvdConfusionThreshold(
+		state.cvdConfusionThreshold,
+	);
+	const cvdConfusionPairs = detectCvdConfusionPairs(namedColors, {
+		threshold: state.cvdConfusionThreshold,
+	});
+	const boundarySummary = getBoundaryValidationSummary(
+		namedColors,
+		state.cvdConfusionThreshold,
+	);
 
 	const boundaryIssuesByPair = new Map<string, BoundaryValidationIssue[]>();
 	for (const issue of boundarySummary.issues) {
@@ -978,7 +1010,9 @@ function renderSortingValidationSection(
 
 			const breakdown = [
 				boundaryIssueCount > 0 ? `隣接境界 ${boundaryIssueCount}件` : null,
-				cvdConfusionCount > 0 ? `CVD混同 ${cvdConfusionCount}件` : null,
+				cvdConfusionCount > 0
+					? `CVD混同（ΔE<${cvdThresholdLabel}） ${cvdConfusionCount}件`
+					: null,
 			]
 				.filter(Boolean)
 				.join(" / ");

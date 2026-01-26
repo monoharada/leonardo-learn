@@ -134,6 +134,10 @@ describe("constants.ts", () => {
 			expect(DEFAULT_STATE.cvdSimulation).toBe("normal");
 		});
 
+		it("cvdConfusionThresholdが3.5であること", () => {
+			expect(DEFAULT_STATE.cvdConfusionThreshold).toBe(3.5);
+		});
+
 		it("selectedHarmonyConfigがnullであること", () => {
 			expect(DEFAULT_STATE.selectedHarmonyConfig).toBeNull();
 		});

@@ -14,12 +14,14 @@ import { applyDemoTextColor } from "./theme";
 import type {
 	BackgroundColorValidationResult,
 	ColorMode,
+	CvdConfusionThreshold,
 	DemoState,
 	KeyColorWithStep,
 	ManualColorSelection,
 	PaletteConfig,
 	SemanticColorConfig,
 } from "./types";
+import { parseCvdConfusionThreshold } from "./utils/cvd-confusion-threshold";
 
 /**
  * 背景色のlocalStorageキー
@@ -37,6 +39,12 @@ export const SEMANTIC_COLOR_CONFIG_STORAGE_KEY = "leonardo-semanticColorConfig";
  */
 export const MANUAL_COLOR_SELECTION_STORAGE_KEY =
 	"leonardo-manualColorSelection";
+
+/**
+ * CVD混同リスク判定しきい値のlocalStorageキー
+ */
+export const CVD_CONFUSION_THRESHOLD_STORAGE_KEY =
+	"leonardo-cvdConfusionThreshold";
 
 /**
  * 背景色の永続化データ形式（ライト/ダーク両方）
@@ -320,6 +328,38 @@ export function loadSemanticColorConfig(): SemanticColorConfig {
 	} catch {
 		// JSON.parseエラーやlocalStorageエラー
 		return { ...DEFAULT_SEMANTIC_COLOR_CONFIG };
+	}
+}
+
+/**
+ * CVD混同リスクの判定しきい値をlocalStorageに永続化する
+ */
+export function persistCvdConfusionThreshold(
+	threshold: CvdConfusionThreshold,
+): void {
+	try {
+		localStorage.setItem(
+			CVD_CONFUSION_THRESHOLD_STORAGE_KEY,
+			String(threshold),
+		);
+	} catch {
+		// localStorageが利用できない場合は無視
+	}
+}
+
+/**
+ * localStorageからCVD混同リスクの判定しきい値を読み込む
+ */
+export function loadCvdConfusionThreshold(): CvdConfusionThreshold {
+	const defaultValue = DEFAULT_STATE.cvdConfusionThreshold;
+	try {
+		const stored = localStorage.getItem(CVD_CONFUSION_THRESHOLD_STORAGE_KEY);
+		if (stored === null) return defaultValue;
+
+		return parseCvdConfusionThreshold(stored) ?? defaultValue;
+	} catch {
+		// JSON.parseエラーやlocalStorageエラー
+		return defaultValue;
 	}
 }
 

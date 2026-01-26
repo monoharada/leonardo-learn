@@ -123,6 +123,9 @@ export interface AccentHarmonyTypeConfig {
 /** CVDシミュレーションタイプ。"normal"はシミュレーションなし。 */
 export type CVDSimulationType = "normal" | CVDType;
 
+/** CVD混同リスク判定のΔEしきい値（ΔEOK = OKLab距離×100） */
+export type CvdConfusionThreshold = 3.5 | 5.0;
+
 /** マニュアルビュー用の色選択状態 */
 export interface ManualColorSelection {
 	/** 背景色（HEX形式） */
@@ -159,6 +162,8 @@ export interface DemoState {
 	lightnessDistribution: LightnessDistribution;
 	viewMode: ViewMode;
 	cvdSimulation: CVDSimulationType;
+	/** CVD混同リスク判定のΔEしきい値（3.5 / 5.0） */
+	cvdConfusionThreshold: CvdConfusionThreshold;
 	/** @deprecated Section 7以降はselectedAccentFilterを使用 */
 	selectedHarmonyConfig: HarmonyTypeConfig | null;
 	selectedAccentFilter: HarmonyFilterType;
