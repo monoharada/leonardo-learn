@@ -32,6 +32,31 @@ mock.module("./studio-view-deps", () => ({
 		createPalettePreview: () => document.createElement("div"),
 		createSeededRandom: () => () => rndValue,
 		mapPaletteToPreviewColors: () => ({}),
+		adjustLightnessForContrast: (
+			hex: string,
+			backgroundHex: string,
+			targetContrast: number,
+		) => adjustLightnessFn(hex, backgroundHex, targetContrast),
+		findNearestDadsTokenCandidates: () => nearestCandidatesQueue.shift() ?? [],
+		inferBaseChromaNameFromHex: () => "Mock",
+		matchesPreset: () => true,
+		resolvePresetMinContrast: () => 0,
+		selectHueDistantColors: (_existingHues: number[], needed: number) => {
+			const results: Array<{
+				hex: string;
+				step: number;
+				baseChromaName: string;
+			}> = [];
+			for (let i = 0; i < needed; i++) {
+				const hex = hueDistantQueue.shift() ?? "#445566";
+				results.push({ hex, step: 600, baseChromaName: "Mock" });
+			}
+			return results;
+		},
+		snapToNearestDadsToken: () => {
+			const hex = snapHexQueue.shift() ?? "#112233";
+			return { hex, step: 600, baseChromaName: "Mock" };
+		},
 	},
 }));
 
@@ -155,34 +180,6 @@ mock.module("@/core/harmony", () => {
 		initializeHarmonyDads: async () => {},
 	};
 });
-
-mock.module("../utils/dads-snap", () => ({
-	adjustLightnessForContrast: (
-		hex: string,
-		backgroundHex: string,
-		targetContrast: number,
-	) => adjustLightnessFn(hex, backgroundHex, targetContrast),
-	findNearestDadsTokenCandidates: () => nearestCandidatesQueue.shift() ?? [],
-	inferBaseChromaNameFromHex: () => "Mock",
-	matchesPreset: () => true,
-	resolvePresetMinContrast: () => 0,
-	selectHueDistantColors: (_existingHues: number[], needed: number) => {
-		const results: Array<{
-			hex: string;
-			step: number;
-			baseChromaName: string;
-		}> = [];
-		for (let i = 0; i < needed; i++) {
-			const hex = hueDistantQueue.shift() ?? "#445566";
-			results.push({ hex, step: 600, baseChromaName: "Mock" });
-		}
-		return results;
-	},
-	snapToNearestDadsToken: () => {
-		const hex = snapHexQueue.shift() ?? "#112233";
-		return { hex, step: 600, baseChromaName: "Mock" };
-	},
-}));
 
 describe("studio-view accent generation", () => {
 	const originalDocument = globalThis.document;

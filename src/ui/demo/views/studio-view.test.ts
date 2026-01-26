@@ -43,6 +43,22 @@ mock.module("./studio-view-deps", () => ({
 		createPalettePreview: () => document.createElement("div"),
 		createSeededRandom: () => () => 0.5,
 		mapPaletteToPreviewColors: () => ({}),
+		adjustLightnessForContrast: (hex: string) => hex,
+		findNearestDadsTokenCandidates: () => [],
+		inferBaseChromaNameFromHex: () => "Mock",
+		matchesPreset: () => true,
+		resolvePresetMinContrast: () => 0,
+		selectHueDistantColors: (_existingHues: number[], needed: number) =>
+			Array.from({ length: needed }, () => ({
+				hex: "#445566",
+				step: 600,
+				baseChromaName: "Mock",
+			})),
+		snapToNearestDadsToken: (hex: string) => ({
+			hex,
+			step: 600,
+			baseChromaName: "Mock",
+		}),
 	},
 }));
 

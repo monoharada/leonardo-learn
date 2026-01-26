@@ -46,17 +46,7 @@ import type {
 import { stripStepSuffix } from "../types";
 import { copyTextToClipboard } from "../utils/clipboard";
 import { formatCvdConfusionThreshold } from "../utils/cvd-confusion-threshold";
-import {
-	adjustLightnessForContrast,
-	type DadsSnapCandidate,
-	type DadsSnapResult,
-	findNearestDadsTokenCandidates,
-	inferBaseChromaNameFromHex,
-	matchesPreset,
-	resolvePresetMinContrast,
-	selectHueDistantColors,
-	snapToNearestDadsToken,
-} from "../utils/dads-snap";
+import type { DadsSnapCandidate, DadsSnapResult } from "../utils/dads-snap";
 import {
 	resolveAccentSourcePalette,
 	resolveWarningPattern,
@@ -241,8 +231,9 @@ function getDadsInfoWithChromaName(
 	const dadsInfo =
 		dadsTokens.length > 0 ? findDadsColorByHex(dadsTokens, hex) : undefined;
 	const baseChromaName = dadsInfo?.hue
-		? (HUE_DISPLAY_NAMES[dadsInfo.hue] ?? inferBaseChromaNameFromHex(hex))
-		: inferBaseChromaNameFromHex(hex);
+		? (HUE_DISPLAY_NAMES[dadsInfo.hue] ??
+			studioViewDeps.inferBaseChromaNameFromHex(hex))
+		: studioViewDeps.inferBaseChromaNameFromHex(hex);
 	return { dadsInfo, baseChromaName };
 }
 
@@ -288,7 +279,7 @@ function computePaletteColors(
 
 	// Apply contrast adjustment for semantic colors when needed
 	const bgHex = DEFAULT_STUDIO_BACKGROUND;
-	const minContrast = resolvePresetMinContrast(preset);
+	const minContrast = studioViewDeps.resolvePresetMinContrast(preset);
 
 	return {
 		primaryHex,
@@ -298,9 +289,21 @@ function computePaletteColors(
 		accentHex,
 		accentHexes,
 		semantic: {
-			error: adjustLightnessForContrast(errorHex, bgHex, minContrast),
-			success: adjustLightnessForContrast(successHex, bgHex, minContrast),
-			warning: adjustLightnessForContrast(warningHex, bgHex, minContrast),
+			error: studioViewDeps.adjustLightnessForContrast(
+				errorHex,
+				bgHex,
+				minContrast,
+			),
+			success: studioViewDeps.adjustLightnessForContrast(
+				successHex,
+				bgHex,
+				minContrast,
+			),
+			warning: studioViewDeps.adjustLightnessForContrast(
+				warningHex,
+				bgHex,
+				minContrast,
+			),
 		},
 	};
 }
@@ -334,10 +337,12 @@ async function selectRandomPrimaryFromDads(
 	const chromatic = dadsTokens.filter(
 		(t) => t.classification.category === "chromatic",
 	);
-	const presetFiltered = chromatic.filter((t) => matchesPreset(t.hex, preset));
+	const presetFiltered = chromatic.filter((t) =>
+		studioViewDeps.matchesPreset(t.hex, preset),
+	);
 	const baseList = presetFiltered.length > 0 ? presetFiltered : chromatic;
 
-	const minContrast = resolvePresetMinContrast(preset);
+	const minContrast = studioViewDeps.resolvePresetMinContrast(preset);
 	const contrastFiltered = baseList.filter((t) => {
 		const ratio = wcagContrast(backgroundHex, t.hex);
 		return ratio >= minContrast;
@@ -365,12 +370,16 @@ async function selectRandomPrimaryFromDads(
 	const dadsHue = selected.classification.hue;
 	const baseChromaName =
 		(dadsHue ? HUE_DISPLAY_NAMES[dadsHue] : undefined) ||
-		inferBaseChromaNameFromHex(selected.hex) ||
+		studioViewDeps.inferBaseChromaNameFromHex(selected.hex) ||
 		"Blue";
 
 	// 明度調整が必要な場合のみ適用（フォールバック時）
 	const finalHex = needsAdjustment
-		? adjustLightnessForContrast(selected.hex, backgroundHex, minContrast)
+		? studioViewDeps.adjustLightnessForContrast(
+				selected.hex,
+				backgroundHex,
+				minContrast,
+			)
 		: selected.hex;
 
 	return { hex: finalHex, step, baseChromaName };
@@ -419,10 +428,10 @@ async function selectRandomAccentCandidates(
 	});
 	if (!response.ok) return [];
 
-	const minContrast = resolvePresetMinContrast(preset);
+	const minContrast = studioViewDeps.resolvePresetMinContrast(preset);
 	const allCandidates = response.result.candidates;
 	const presetFiltered = allCandidates.filter((c) =>
-		matchesPreset(c.hex, preset),
+		studioViewDeps.matchesPreset(c.hex, preset),
 	);
 	const base = presetFiltered.length > 0 ? presetFiltered : allCandidates;
 
@@ -438,7 +447,11 @@ async function selectRandomAccentCandidates(
 		// フォールバック: 明度調整してコントラストを確保
 		candidates = base.map((c) => ({
 			...c,
-			hex: adjustLightnessForContrast(c.hex, backgroundHex, minContrast),
+			hex: studioViewDeps.adjustLightnessForContrast(
+				c.hex,
+				backgroundHex,
+				minContrast,
+			),
 		}));
 	}
 
@@ -482,12 +495,24 @@ function computeStudioSemanticColors(
 		"#D7C447",
 	);
 
-	const minContrast = resolvePresetMinContrast(preset);
+	const minContrast = studioViewDeps.resolvePresetMinContrast(preset);
 
 	return {
-		error: adjustLightnessForContrast(errorHex, backgroundHex, minContrast),
-		success: adjustLightnessForContrast(successHex, backgroundHex, minContrast),
-		warning: adjustLightnessForContrast(warningHex, backgroundHex, minContrast),
+		error: studioViewDeps.adjustLightnessForContrast(
+			errorHex,
+			backgroundHex,
+			minContrast,
+		),
+		success: studioViewDeps.adjustLightnessForContrast(
+			successHex,
+			backgroundHex,
+			minContrast,
+		),
+		warning: studioViewDeps.adjustLightnessForContrast(
+			warningHex,
+			backgroundHex,
+			minContrast,
+		),
 	};
 }
 
@@ -535,14 +560,18 @@ function selectHarmonySnappedCandidates(options: {
 	if (dadsTokens.length === 0) {
 		const results: DadsSnapResult[] = [];
 		for (const hex of targetHexes) {
-			const snapped = snapToNearestDadsToken(hex, dadsTokens, preset);
+			const snapped = studioViewDeps.snapToNearestDadsToken(
+				hex,
+				dadsTokens,
+				preset,
+			);
 			if (snapped) results.push(snapped);
 		}
 		return results;
 	}
 
 	const candidateLists: DadsSnapCandidate[][] = targetHexes.map((hex) =>
-		findNearestDadsTokenCandidates(
+		studioViewDeps.findNearestDadsTokenCandidates(
 			hex,
 			dadsTokens,
 			preset,
@@ -554,17 +583,25 @@ function selectHarmonySnappedCandidates(options: {
 	if (candidateLists.some((list) => list.length === 0)) {
 		const results: DadsSnapResult[] = [];
 		for (const hex of targetHexes) {
-			const snapped = snapToNearestDadsToken(hex, dadsTokens, preset);
+			const snapped = studioViewDeps.snapToNearestDadsToken(
+				hex,
+				dadsTokens,
+				preset,
+			);
 			if (snapped) results.push(snapped);
 		}
 		return results;
 	}
 
-	const minContrast = resolvePresetMinContrast(preset);
+	const minContrast = studioViewDeps.resolvePresetMinContrast(preset);
 	const toEffectiveHex = (hex: string): string => {
 		const ratio = wcagContrast(backgroundHex, hex) ?? 0;
 		if (ratio >= minContrast) return hex;
-		return adjustLightnessForContrast(hex, backgroundHex, minContrast);
+		return studioViewDeps.adjustLightnessForContrast(
+			hex,
+			backgroundHex,
+			minContrast,
+		);
 	};
 
 	const primaryColor = new Color(options.primaryHex);
@@ -671,7 +708,8 @@ function selectHarmonySnappedCandidates(options: {
 	return picked.map((c) => ({
 		hex: c.hex,
 		step: c.step,
-		baseChromaName: c.baseChromaName || inferBaseChromaNameFromHex(c.hex),
+		baseChromaName:
+			c.baseChromaName || studioViewDeps.inferBaseChromaNameFromHex(c.hex),
 	}));
 }
 
@@ -691,7 +729,7 @@ async function selectHarmonyAccentCandidates(
 	await initializeHarmonyDads();
 
 	const primaryColor = new Color(primaryHex);
-	const minContrast = resolvePresetMinContrast(preset);
+	const minContrast = studioViewDeps.resolvePresetMinContrast(preset);
 	const semantic = computeStudioSemanticColors(
 		dadsTokens,
 		preset,
@@ -778,7 +816,7 @@ async function selectHarmonyAccentCandidates(
 		];
 
 		const needed = targetCount - harmonyAccents.length;
-		const complementary = selectHueDistantColors(
+		const complementary = studioViewDeps.selectHueDistantColors(
 			existingHues,
 			needed,
 			dadsTokens,
@@ -801,7 +839,11 @@ async function selectHarmonyAccentCandidates(
 		}
 		return {
 			...accent,
-			hex: adjustLightnessForContrast(accent.hex, backgroundHex, minContrast),
+			hex: studioViewDeps.adjustLightnessForContrast(
+				accent.hex,
+				backgroundHex,
+				minContrast,
+			),
 		};
 	});
 }
@@ -829,7 +871,7 @@ async function rebuildStudioPalettes(options: {
 		harmony: HarmonyType.NONE,
 		baseChromaName:
 			options.primaryBaseChromaName ||
-			inferBaseChromaNameFromHex(options.primaryHex),
+			studioViewDeps.inferBaseChromaNameFromHex(options.primaryHex),
 		step: options.primaryStep,
 	};
 
@@ -842,7 +884,9 @@ async function rebuildStudioPalettes(options: {
 	// Apply contrast adjustment to derived palettes (Secondary/Tertiary) based on preset.
 	// If a derived palette is backed by a DADS token (`@step` suffix), keep the exact token hex.
 	// (Adjusting would create non-DADS colors while still showing a DADS step.)
-	const minContrast = resolvePresetMinContrast(state.activePreset);
+	const minContrast = studioViewDeps.resolvePresetMinContrast(
+		state.activePreset,
+	);
 	const adjustedDerived = derived.map((palette) => {
 		const keyColor = palette.keyColors[0];
 		if (!keyColor) return palette;
@@ -852,7 +896,7 @@ async function rebuildStudioPalettes(options: {
 		if (!hex) return palette;
 		if (step) return palette;
 
-		const adjustedHex = adjustLightnessForContrast(
+		const adjustedHex = studioViewDeps.adjustLightnessForContrast(
 			hex,
 			backgroundColor,
 			minContrast,
@@ -1410,11 +1454,13 @@ export async function renderStudioView(
 
 	// パステルプリセット時はアクセント色をコントラスト確保版に変換
 	// プレビュー内のボタン・テキスト要素が読めるようにする
-	const minContrast = resolvePresetMinContrast(state.activePreset);
+	const minContrast = studioViewDeps.resolvePresetMinContrast(
+		state.activePreset,
+	);
 	const resolvedAccentHexes =
 		state.activePreset === "pastel"
 			? rawAccentHexes.map((hex) =>
-					adjustLightnessForContrast(hex, bgHex, minContrast),
+					studioViewDeps.adjustLightnessForContrast(hex, bgHex, minContrast),
 				)
 			: rawAccentHexes;
 

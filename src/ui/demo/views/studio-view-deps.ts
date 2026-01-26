@@ -2,7 +2,8 @@
  * Studio view runtime dependencies
  *
  * This indirection exists so tests can mock Studio dependencies without globally
- * mocking `./palette-preview`, which is also directly tested in this repo.
+ * mocking `./palette-preview` or `../utils/dads-snap`, which are also directly
+ * tested in this repo.
  *
  * NOTE: Avoid `export { ... } from "./palette-preview"` here.
  * Bun can treat pure re-export modules as aliases, and mocking this module may end up
@@ -10,6 +11,15 @@
  * object makes the module boundary clear.
  */
 
+import {
+	adjustLightnessForContrast,
+	findNearestDadsTokenCandidates,
+	inferBaseChromaNameFromHex,
+	matchesPreset,
+	resolvePresetMinContrast,
+	selectHueDistantColors,
+	snapToNearestDadsToken,
+} from "../utils/dads-snap";
 import {
 	createPalettePreview,
 	createSeededRandom,
@@ -20,4 +30,11 @@ export const studioViewDeps = {
 	createPalettePreview,
 	createSeededRandom,
 	mapPaletteToPreviewColors,
+	adjustLightnessForContrast,
+	findNearestDadsTokenCandidates,
+	inferBaseChromaNameFromHex,
+	matchesPreset,
+	resolvePresetMinContrast,
+	selectHueDistantColors,
+	snapToNearestDadsToken,
 } as const;
