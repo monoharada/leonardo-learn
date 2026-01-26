@@ -3549,7 +3549,7 @@
 
 .dads-preview--dads-html .preview-card-illustration__body p {
 	margin: 0;
-	font-size: 0.875rem;
+	font-size: 1rem;
 	line-height: 1.6;
 	color: var(--preview-text, var(--color-neutral-solid-gray-800));
 }
@@ -3741,10 +3741,17 @@
 	}
 }
 
+/* イラストカードセクション: 見出しとリード文を縦積み */
+.dads-preview--dads-html .preview-section--illustration-cards
+	.preview-section-head {
+	grid-template-columns: 1fr;
+	gap: 1rem;
+}
+
 .dads-preview--dads-html .preview-section-head__desc {
 	margin: 0;
 	color: var(--color-neutral-solid-gray-800);
-	font-size: 0.9375rem;
+	font-size: 1rem;
 	line-height: 1.8;
 	letter-spacing: 0.02em;
 }
@@ -5600,4 +5607,86 @@
 .dads-a11y-cvd-boundary-row:focus,
 .dads-cvd-strip__swatch:focus {
 	outline: none;
+}
+
+/* ==========================================================================
+   イラストカードセクション
+   ========================================================================== */
+
+.dads-preview--dads-html .preview-illustration-grid {
+	margin-top: 2rem;
+}
+
+.dads-preview--dads-html .preview-illustration-card {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	padding: 0;
+	border: 1px solid var(--preview-border, var(--color-neutral-solid-gray-200));
+	border-radius: 0.5rem;
+	overflow: hidden;
+}
+
+@media (hover: hover) {
+	.dads-preview--dads-html .preview-illustration-card:hover {
+		border-color: var(--preview-link, var(--color-primitive-blue-1000));
+		box-shadow: 0 0 0 2px var(--preview-link, var(--color-primitive-blue-1000));
+	}
+}
+
+.dads-preview--dads-html .preview-illustration-card:focus-within {
+	border-color: var(--preview-link, var(--color-primitive-blue-1000));
+	box-shadow: 0 0 0 2px var(--preview-link, var(--color-primitive-blue-1000));
+}
+
+.dads-preview--dads-html .preview-illustration-card__image {
+	aspect-ratio: 1365 / 768;
+	overflow: hidden;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: var(
+		--preview-illustration-bg,
+		var(--preview-card, var(--color-neutral-solid-gray-50))
+	);
+}
+
+.dads-preview--dads-html .preview-illustration-card__image svg {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+.dads-preview--dads-html .preview-illustration-card__title {
+	font-size: 1rem;
+	font-weight: 600;
+	line-height: 1.4;
+	margin: 0;
+	padding: 1rem 1rem 0;
+}
+
+.dads-preview--dads-html .preview-illustration-card__title a {
+	color: inherit;
+	text-decoration: underline;
+	text-decoration-thickness: 1px;
+	text-underline-offset: 2px;
+}
+
+.dads-preview--dads-html .preview-illustration-card__title a::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	z-index: 1;
+}
+
+.dads-preview--dads-html .preview-illustration-card__title a:hover {
+	text-decoration-thickness: 2px;
+}
+
+.dads-preview--dads-html .preview-illustration-card__description {
+	font-size: 1rem;
+	line-height: 1.6;
+	color: var(--preview-text, var(--color-neutral-solid-gray-600));
+	margin: 0;
+	padding: 0.5rem 1rem 1rem;
 }

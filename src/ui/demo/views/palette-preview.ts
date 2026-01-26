@@ -15,6 +15,19 @@
 
 import { formatHex, interpolate, oklch, parse, wcagContrast } from "culori";
 import { getContrastTextColor } from "@/ui/semantic-role/circular-swatch-transformer";
+// イラストカードセクション用SVG
+import illustrationM10Svg from "../../../../public/images/illustrations/m_10_white.svg" with {
+	type: "text",
+};
+import illustrationM11Svg from "../../../../public/images/illustrations/m_11_warmgray.svg" with {
+	type: "text",
+};
+import illustrationM12Svg from "../../../../public/images/illustrations/m_12_white.svg" with {
+	type: "text",
+};
+import illustrationM14Svg from "../../../../public/images/illustrations/m_14_white.svg" with {
+	type: "text",
+};
 import iconAuthSvg from "../assets/icons/authentication_line.svg" with {
 	type: "text",
 };
@@ -846,6 +859,38 @@ function replaceIconColor(svgText: string): string {
 }
 
 /**
+ * イラストSVGの色をCSS変数に置き換える
+ *
+ * @param svgText - SVGテキスト
+ * @param primaryVar - プライマリ色のCSS変数名
+ * @param secondaryVar - セカンダリ色のCSS変数名
+ * @returns 色が置き換えられたSVGテキスト
+ */
+function replaceIllustrationColors(
+	svgText: string,
+	primaryVar: string,
+	secondaryVar: string,
+): string {
+	if (typeof DOMParser === "undefined") return svgText;
+
+	const doc = new DOMParser().parseFromString(svgText, "image/svg+xml");
+	const svg = doc.querySelector("svg");
+	if (!svg) return svgText;
+
+	const setFill = (selector: string, fill: string) => {
+		for (const el of svg.querySelectorAll(selector)) {
+			el.setAttribute("fill", fill);
+		}
+	};
+
+	setFill(".illustration-colorizable", `var(${primaryVar})`);
+	setFill(".illustration-colorizable-secondary", `var(${secondaryVar})`);
+	setFill(".illustration-colorizable-tertiary", "var(--preview-text)");
+
+	return svg.outerHTML || svgText;
+}
+
+/**
  * ラベルの折返しヒント（・の直後にwbr）をDOMとして付与
  *
  * @param target - ラベル要素
@@ -882,6 +927,57 @@ const FACILITY_TILES = [
 	{ svg: iconMotherChildSvg, label: "妊娠・出産", href: "#" },
 	{ svg: iconAuthSvg, label: "申請・認証", href: "#" },
 ] as const;
+
+/**
+ * イラストカードセクション用の設定
+ */
+const ILLUSTRATION_CARDS = [
+	{
+		svg: illustrationM10Svg,
+		title: "申請・届出（オンライン）",
+		description: "各種申請や届出を、いつでもオンラインで手続きできます。",
+		href: "#",
+	},
+	{
+		svg: illustrationM11Svg,
+		title: "郵送での書類提出",
+		description: "申請書類をポストへ投函して提出。郵送での受付も案内します。",
+		href: "#",
+	},
+	{
+		svg: illustrationM12Svg,
+		title: "窓口相談・予約",
+		description: "来庁前に相談や予約ができ、必要書類も事前に確認できます。",
+		href: "#",
+	},
+	{
+		svg: illustrationM14Svg,
+		title: "自宅に届く通知",
+		description: "通知書や交付書類が自宅に届き、大切なお知らせを受け取れます。",
+		href: "#",
+	},
+] as const;
+
+/**
+ * イラストカードに適用するパレット色のCSS変数（循環させる）
+ */
+const ILLUSTRATION_CARD_COLOR_VARS = [
+	"--preview-accent",
+	"--preview-accent-2",
+	"--preview-accent-3",
+	"--preview-tertiary",
+] as const;
+
+/**
+ * Get color variable at cyclic index (modulo guarantees valid index)
+ */
+function getIllustrationColorVar(
+	index: number,
+): (typeof ILLUSTRATION_CARD_COLOR_VARS)[number] {
+	return ILLUSTRATION_CARD_COLOR_VARS[
+		index % ILLUSTRATION_CARD_COLOR_VARS.length
+	] as (typeof ILLUSTRATION_CARD_COLOR_VARS)[number];
+}
 
 /**
  * テーマに応じた色設定を返す
@@ -929,9 +1025,30 @@ function getThemeColors(
 }
 
 export function buildDadsPreviewMarkup(): string {
+	return [
+		buildDadsPreviewShellOpen(),
+		buildDadsPreviewHeaderMarkup(),
+		buildDadsPreviewMainMarkup(),
+		buildDadsPreviewFooterMarkup(),
+		buildDadsPreviewShellClose(),
+	].join("");
+}
+
+function buildDadsPreviewShellOpen(): string {
 	return `
 <div class="preview-page">
-	<div class="preview-surface">
+	<div class="preview-surface">`;
+}
+
+function buildDadsPreviewShellClose(): string {
+	return `
+	</div>
+</div>
+`;
+}
+
+function buildDadsPreviewHeaderMarkup(): string {
+	return `
 		<header class="preview-header">
 			<div class="preview-container preview-header__inner">
 				<a class="preview-brand" href="#" aria-label="ブランドサイト（プレビュー）">
@@ -944,9 +1061,26 @@ export function buildDadsPreviewMarkup(): string {
 					<a class="dads-link" href="#">お問い合わせ</a>
 				</nav>
 			</div>
-		</header>
+		</header>`;
+}
 
-		<main class="preview-main">
+function buildDadsPreviewMainMarkup(): string {
+	return [
+		`
+
+		<main class="preview-main">`,
+		buildDadsPreviewHeroSectionMarkup(),
+		buildDadsPreviewTwoColSectionMarkup(),
+		buildDadsPreviewFacilitiesSectionMarkup(),
+		buildDadsPreviewIllustrationCardsSectionMarkup(),
+		buildDadsPreviewEditorialSectionMarkup(),
+		`
+		</main>`,
+	].join("");
+}
+
+function buildDadsPreviewHeroSectionMarkup(): string {
+	return `
 			<section class="preview-hero" aria-label="ヒーロー">
 				<div class="preview-container">
 					<div class="preview-hero__layout">
@@ -975,12 +1109,16 @@ export function buildDadsPreviewMarkup(): string {
 						</div>
 					</div>
 				</div>
-			</section>
+			</section>`;
+}
+
+function buildDadsPreviewTwoColSectionMarkup(): string {
+	return `
 
 			<section class="preview-section preview-section--twocol" aria-label="行政サービス案内">
 				<div class="preview-container">
 					<div class="preview-twocol__header">
-						<hgroup class="dads-heading" data-size="24">
+						<hgroup class="dads-heading" data-size="45">
 							<h2 class="dads-heading__heading">行政サービス案内</h2>
 						</hgroup>
 					</div>
@@ -1026,7 +1164,11 @@ export function buildDadsPreviewMarkup(): string {
 						</div>
 					</div>
 				</div>
-			</section>
+			</section>`;
+}
+
+function buildDadsPreviewFacilitiesSectionMarkup(): string {
+	return `
 
 			<section class="preview-section preview-section--facilities" aria-label="カテゴリ案内">
 				<div class="preview-container">
@@ -1035,11 +1177,9 @@ export function buildDadsPreviewMarkup(): string {
 							<h2 class="dads-heading__heading">手続き案内</h2>
 						</hgroup>
 						<div class="preview-facilities__left">
-							<hgroup class="dads-heading" data-size="36">
-								<p class="dads-heading__heading">行政サービス案内</p>
-							</hgroup>
 							<hgroup class="dads-heading" data-size="45">
-								<p class="dads-heading__heading">桜川市 オンライン窓口</p>
+								<p class="dads-heading__shoulder">行政サービス案内</p>
+								<h2 class="dads-heading__heading">桜川市 オンライン窓口</h2>
 							</hgroup>
 							<p class="preview-facilities__meta">市民課（架空）</p>
 							<hgroup class="dads-heading" data-size="20">
@@ -1061,12 +1201,38 @@ export function buildDadsPreviewMarkup(): string {
 						</nav>
 					</div>
 				</div>
-			</section>
+			</section>`;
+}
+
+function buildDadsPreviewIllustrationCardsSectionMarkup(): string {
+	return `
+
+			<section class="preview-section preview-section--illustration-cards" aria-label="市民サービスの利用シーン">
+				<div class="preview-container">
+					<div class="preview-section-head">
+						<hgroup class="dads-heading" data-size="45">
+							<h2 class="dads-heading__heading">市民サービスの利用シーン</h2>
+						</hgroup>
+						<div class="preview-section-head__body">
+							<p class="preview-section-head__desc">
+								申請・窓口・郵送など、行政サービスの代表的な場面に配色を当てはめて印象を確認できます。
+							</p>
+						</div>
+					</div>
+					<div class="preview-topics preview-illustration-grid" data-illustration-grid="1">
+						<!-- Illustration cards will be inserted dynamically -->
+					</div>
+				</div>
+			</section>`;
+}
+
+function buildDadsPreviewEditorialSectionMarkup(): string {
+	return `
 
 			<section class="preview-section preview-section--editorial" aria-label="設計">
 				<div class="preview-container">
 					<div class="preview-section-head">
-						<hgroup class="dads-heading" data-size="36">
+						<hgroup class="dads-heading" data-size="45">
 							<h2 class="dads-heading__heading">設計</h2>
 						</hgroup>
 						<div class="preview-section-head__body">
@@ -1160,17 +1326,17 @@ export function buildDadsPreviewMarkup(): string {
 						</div>
 					</div>
 				</div>
-			</section>
-		</main>
+			</section>`;
+}
+
+function buildDadsPreviewFooterMarkup(): string {
+	return `
 
 		<footer class="preview-footer">
 			<div class="preview-container">
 				<small>© 2026 カラートークン生成ツール（プレビュー）</small>
 			</div>
-		</footer>
-	</div>
-</div>
-`;
+		</footer>`;
 }
 
 /**
@@ -1270,19 +1436,24 @@ export function createPalettePreview(
 		// SVGをそのまま挿入（CSS変数で色を制御）
 		illustrationContainer.innerHTML = illustrationPeopleSvgText;
 
+		const getDisplayVarOrFallback = (name: string, fallbackHex: string) =>
+			containerStyle.getPropertyValue(name).trim() ||
+			getDisplayHex(fallbackHex);
+
 		// 表示色（CVD変換後）をCSS変数の値から取得して単一ソース化
-		const textDisplay =
-			containerStyle.getPropertyValue("--preview-text").trim() ||
-			getDisplayHex(colors.text);
-		const tableSurfaceDisplay =
-			containerStyle.getPropertyValue("--preview-accent").trim() ||
-			getDisplayHex(colors.cardAccent);
-		const accent3Display =
-			containerStyle.getPropertyValue("--preview-accent-3").trim() ||
-			getDisplayHex(accentHex3);
-		const illustrationBgDisplay =
-			containerStyle.getPropertyValue("--preview-illustration-bg").trim() ||
-			getDisplayHex(illustrationBgBase);
+		const textDisplay = getDisplayVarOrFallback("--preview-text", colors.text);
+		const tableSurfaceDisplay = getDisplayVarOrFallback(
+			"--preview-accent",
+			colors.cardAccent,
+		);
+		const accent3Display = getDisplayVarOrFallback(
+			"--preview-accent-3",
+			accentHex3,
+		);
+		const illustrationBgDisplay = getDisplayVarOrFallback(
+			"--preview-illustration-bg",
+			illustrationBgBase,
+		);
 
 		// 手元カード（--iv-accent3）はテーブル面（--iv-accent）の上に重なるため、
 		// コントラストチェックはテーブル面に対して行う
@@ -1330,6 +1501,52 @@ export function createPalettePreview(
 				box.append(icon);
 				wrapper.append(box, label);
 				return wrapper;
+			}),
+		);
+	}
+
+	// ---- Illustration cards grid ----
+	const illustrationGridContainer = container.querySelector<HTMLElement>(
+		'[data-illustration-grid="1"]',
+	);
+	if (illustrationGridContainer) {
+		illustrationGridContainer.replaceChildren(
+			...ILLUSTRATION_CARDS.map((card, index) => {
+				const primaryVar = getIllustrationColorVar(index);
+				const secondaryVar = getIllustrationColorVar(index + 1);
+				const colorizedSvg = replaceIllustrationColors(
+					card.svg,
+					primaryVar,
+					secondaryVar,
+				);
+
+				const cardElement = document.createElement("article");
+				cardElement.className = "preview-illustration-card";
+
+				const imageWrapper = document.createElement("div");
+				imageWrapper.className = "preview-illustration-card__image";
+				imageWrapper.innerHTML = colorizedSvg;
+
+				// Add aria attributes for decorative SVG
+				const svg = imageWrapper.querySelector("svg");
+				if (svg) {
+					svg.setAttribute("aria-hidden", "true");
+					svg.setAttribute("focusable", "false");
+				}
+
+				const title = document.createElement("h3");
+				title.className = "preview-illustration-card__title";
+				const link = document.createElement("a");
+				link.href = card.href;
+				link.textContent = card.title;
+				title.appendChild(link);
+
+				const description = document.createElement("p");
+				description.className = "preview-illustration-card__description";
+				description.textContent = card.description;
+
+				cardElement.append(imageWrapper, title, description);
+				return cardElement;
 			}),
 		);
 	}

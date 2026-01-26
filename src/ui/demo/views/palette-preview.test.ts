@@ -668,4 +668,93 @@ describe("palette-preview module", () => {
 			});
 		});
 	});
+
+	describe("Illustration Cards DOM（イラストカード）", () => {
+		let createPalettePreview: typeof import("./palette-preview").createPalettePreview;
+
+		beforeAll(async () => {
+			({ createPalettePreview } = await import("./palette-preview"));
+		});
+
+		it("should render 4 illustration cards with expected structure", () => {
+			withJSDOMGlobals(() => {
+				const container = createPalettePreview(makePreviewColors(), {
+					getDisplayHex: identityGetDisplayHex,
+				});
+
+				const cards = container.querySelectorAll(".preview-illustration-card");
+				expect(cards.length).toBe(4);
+
+				for (const card of cards) {
+					expect(
+						card.querySelector(".preview-illustration-card__image"),
+					).toBeTruthy();
+					expect(
+						card.querySelector(".preview-illustration-card__title"),
+					).toBeTruthy();
+					expect(
+						card.querySelector(".preview-illustration-card__description"),
+					).toBeTruthy();
+				}
+			});
+		});
+
+		it("should insert SVGs with aria-hidden for decorative images", () => {
+			withJSDOMGlobals(() => {
+				const container = createPalettePreview(makePreviewColors(), {
+					getDisplayHex: identityGetDisplayHex,
+				});
+
+				const svgs = container.querySelectorAll(
+					".preview-illustration-card__image svg",
+				);
+				expect(svgs.length).toBe(4);
+
+				for (const svg of svgs) {
+					expect(svg.getAttribute("aria-hidden")).toBe("true");
+					expect(svg.getAttribute("focusable")).toBe("false");
+				}
+			});
+		});
+
+		it("should colorize SVG fills with CSS variables", () => {
+			withJSDOMGlobals(() => {
+				const container = createPalettePreview(makePreviewColors(), {
+					getDisplayHex: identityGetDisplayHex,
+				});
+
+				const svg = container.querySelector(
+					".preview-illustration-card__image svg",
+				);
+				expect(svg).toBeTruthy();
+
+				// Check for CSS variable fills (var(--preview-*) pattern)
+				const allElements = svg?.querySelectorAll("*") ?? [];
+				const colorizedPaths = Array.from(allElements).filter((el) => {
+					const fill = el.getAttribute("fill");
+					return fill?.startsWith("var(--preview-");
+				});
+				expect(colorizedPaths.length).toBeGreaterThan(0);
+			});
+		});
+
+		it("should render cards with correct titles", () => {
+			withJSDOMGlobals(() => {
+				const container = createPalettePreview(makePreviewColors(), {
+					getDisplayHex: identityGetDisplayHex,
+				});
+
+				const titles = Array.from(
+					container.querySelectorAll(".preview-illustration-card__title"),
+				).map((el) => el.textContent?.trim());
+
+				expect(titles).toEqual([
+					"申請・届出（オンライン）",
+					"郵送での書類提出",
+					"窓口相談・予約",
+					"自宅に届く通知",
+				]);
+			});
+		});
+	});
 });
