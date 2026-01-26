@@ -64,12 +64,17 @@ const DADS_STEP_SUFFIX_PATTERN = /\s+\d+$/;
  * @param primaryPalette プライマリパレット
  * @param backgroundColor 背景色（コントラスト計算用）
  * @param dadsTokens DADSトークン配列（オプション、渡すとDADSモードで導出）
+ * @param options 導出コントラストの上書き（必要な場合のみ）
  * @returns セカンダリ・ターシャリパレット配列
  */
 export function createDerivedPalettes(
 	primaryPalette: PaletteConfig,
 	backgroundColor: string,
 	dadsTokens?: DadsToken[],
+	options?: {
+		secondaryUiContrast?: number;
+		tertiaryContrast?: number;
+	},
 ): PaletteConfig[] {
 	const timestamp = Date.now();
 	const primaryHex = primaryPalette.keyColors[0];
@@ -113,6 +118,8 @@ export function createDerivedPalettes(
 		primaryColor: cleanPrimaryHex,
 		backgroundColor,
 		dadsMode,
+		secondaryUiContrast: options?.secondaryUiContrast,
+		tertiaryContrast: options?.tertiaryContrast,
 	});
 
 	// Secondary パレット構築

@@ -300,7 +300,19 @@ function findDadsStepForContrast(
 		return null;
 	}
 
-	// コントラスト差でソート
+	// 目標コントラストを満たす候補がある場合は、超過分が最小のものを優先する。
+	// （「近いが未達」の色を選ぶと UI 側の minContrast を下回りやすい）
+	const meetsTarget = candidates.filter((c) => c.contrast >= targetContrast);
+	if (meetsTarget.length > 0) {
+		meetsTarget.sort(
+			(a, b) =>
+				a.contrast - targetContrast - (b.contrast - targetContrast) ||
+				a.diff - b.diff,
+		);
+		return meetsTarget[0] ?? null;
+	}
+
+	// 目標を満たす候補がない場合は、最も近い候補を返す（フォールバック）
 	candidates.sort((a, b) => a.diff - b.diff);
 
 	// 最も近い候補を返す

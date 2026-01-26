@@ -373,8 +373,6 @@ export function isHueFarEnough(hue: number, existingHues: number[]): boolean {
  * 既存色相と十分に離れた色をDADSトークンから選択
  * ハーモニーで生成された色が不足している場合の補完用
  *
- * コントラストが不足する場合は `adjustLightnessForContrast` でフォールバック
- *
  * @param existingHues - 既存の色相配列
  * @param needed - 必要な色数
  * @param dadsTokens - DADSトークン配列
@@ -396,8 +394,7 @@ export function selectHueDistantColors(
 	// 選択済みの色相を追跡（既存 + 新規選択分）
 	const usedHues = [...existingHues];
 
-	// Step 1: コントラストを含む全条件を満たす候補を抽出
-	const candidatesWithContrast = dadsTokens.filter((token) => {
+	const candidatesWithContrastAndHue = dadsTokens.filter((token) => {
 		if (token.classification.category !== "chromatic") return false;
 		if (!token.hex.startsWith("#")) return false;
 
@@ -415,8 +412,7 @@ export function selectHueDistantColors(
 		return true;
 	});
 
-	// Step 2: コントラストチェックなしの候補（フォールバック用）
-	const candidatesWithoutContrastCheck = dadsTokens.filter((token) => {
+	const candidatesWithContrast = dadsTokens.filter((token) => {
 		if (token.classification.category !== "chromatic") return false;
 		if (!token.hex.startsWith("#")) return false;
 
@@ -424,45 +420,57 @@ export function selectHueDistantColors(
 		const oklch = color.oklch;
 		if (!oklch) return false;
 
-		const hue = oklch.h ?? 0;
-		if (!isHueFarEnough(hue, usedHues)) return false;
 		if (!matchesPreset(token.hex, preset)) return false;
+
+		const contrast = wcagContrast(token.hex, backgroundHex);
+		if (contrast < minContrast) return false;
 
 		return true;
 	});
 
-	// コントラストを満たす候補が十分にあればそれを使用、なければフォールバック
-	const needsFallback = candidatesWithContrast.length < needed;
-	const candidates = needsFallback
-		? candidatesWithoutContrastCheck
-		: candidatesWithContrast;
+	const candidatesWithoutContrastCheck = dadsTokens.filter((token) => {
+		if (token.classification.category !== "chromatic") return false;
+		if (!token.hex.startsWith("#")) return false;
+		if (!matchesPreset(token.hex, preset)) return false;
+		return true;
+	});
+
+	// コントラストは維持し、色相距離のみを緩めてフォールバックする（DADS token を維持する）。
+	const candidates =
+		candidatesWithContrastAndHue.length >= needed
+			? candidatesWithContrastAndHue
+			: candidatesWithContrast.length > 0
+				? candidatesWithContrast
+				: candidatesWithoutContrastCheck;
 
 	// Fisher-Yatesシャッフルで均等にランダム化
 	const shuffled = fisherYatesShuffle(candidates, rnd);
 
 	const selected: DadsSnapResult[] = [];
+	const selectedHexes = new Set<string>();
 
-	// 色相が被らないように順次選択
-	for (const token of shuffled) {
-		if (selected.length >= needed) break;
+	const addIfOk = (token: DadsToken, allowNearHue: boolean): void => {
+		if (selected.length >= needed) return;
+		const key = token.hex.trim().toLowerCase();
+		if (selectedHexes.has(key)) return;
 
-		const color = new Color(token.hex);
-		const hue = color.oklch?.h ?? 0;
+		const hue = new Color(token.hex).oklch?.h ?? 0;
+		if (!allowNearHue && !isHueFarEnough(hue, usedHues)) return;
 
-		// この候補が既に選択した色と十分に離れているか再チェック
-		if (isHueFarEnough(hue, usedHues)) {
-			// フォールバック時は明度調整を適用
-			const finalHex = needsFallback
-				? adjustLightnessForContrast(token.hex, backgroundHex, minContrast)
-				: token.hex;
+		selected.push({
+			hex: token.hex,
+			step: token.classification.scale,
+			baseChromaName: inferBaseChromaNameFromHex(token.hex),
+		});
+		selectedHexes.add(key);
+		usedHues.push(hue);
+	};
 
-			selected.push({
-				hex: finalHex,
-				step: token.classification.scale,
-				baseChromaName: inferBaseChromaNameFromHex(token.hex),
-			});
-			usedHues.push(hue);
-		}
+	// まずは色相距離を守って選択（可能な限り）
+	for (const token of shuffled) addIfOk(token, false);
+	// 足りない場合のみ、色相距離制約を緩めて補完
+	if (selected.length < needed) {
+		for (const token of shuffled) addIfOk(token, true);
 	}
 
 	return selected;

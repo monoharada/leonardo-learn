@@ -121,10 +121,13 @@ describe("シェードビュー統合テスト", () => {
 					"#22C55E",
 				);
 
-				// DADS semantic/link ロールは円形化される（バッジ廃止、スウォッチ内ラベル表示）
+				// DADS公式ロール（source="dads"）は円形化しない（E2E仕様に合わせる）
 				expect(swatchElement.classList.contains("dads-swatch--circular")).toBe(
-					true,
+					false,
 				);
+				expect(
+					swatchElement.querySelector(".dads-swatch__role-label"),
+				).toBeNull();
 				// tabindexが設定されていること（オーバーレイは適用される）
 				expect(swatchElement.getAttribute("tabindex")).toBe("0");
 			}
