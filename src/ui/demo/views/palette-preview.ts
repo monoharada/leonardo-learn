@@ -976,6 +976,17 @@ const ILLUSTRATION_CARD_COLOR_VARS = [
 ] as const;
 
 /**
+ * Get color variable at cyclic index (modulo guarantees valid index)
+ */
+function getIllustrationColorVar(
+	index: number,
+): (typeof ILLUSTRATION_CARD_COLOR_VARS)[number] {
+	return ILLUSTRATION_CARD_COLOR_VARS[
+		index % ILLUSTRATION_CARD_COLOR_VARS.length
+	] as (typeof ILLUSTRATION_CARD_COLOR_VARS)[number];
+}
+
+/**
  * テーマに応じた色設定を返す
  *
  * - pinpoint: 最小限の色使い（リンクはDADS青、見出しは黒）
@@ -1451,15 +1462,8 @@ export function createPalettePreview(
 	if (illustrationGridContainer) {
 		illustrationGridContainer.replaceChildren(
 			...ILLUSTRATION_CARDS.map((card, index) => {
-				// Non-null assertions safe: modulo guarantees valid index
-				const primaryVar =
-					ILLUSTRATION_CARD_COLOR_VARS[
-						index % ILLUSTRATION_CARD_COLOR_VARS.length
-					]!;
-				const secondaryVar =
-					ILLUSTRATION_CARD_COLOR_VARS[
-						(index + 1) % ILLUSTRATION_CARD_COLOR_VARS.length
-					]!;
+				const primaryVar = getIllustrationColorVar(index);
+				const secondaryVar = getIllustrationColorVar(index + 1);
 				const colorizedSvg = replaceIllustrationColors(
 					card.svg,
 					primaryVar,
