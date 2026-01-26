@@ -61,12 +61,12 @@ import {
 	resolveAccentSourcePalette,
 	resolveWarningPattern,
 } from "../utils/palette-utils";
+import type { PalettePreviewColors } from "./palette-preview";
 import {
 	createPalettePreview,
 	createSeededRandom,
 	mapPaletteToPreviewColors,
-	type PalettePreviewColors,
-} from "./palette-preview";
+} from "./studio-view-deps";
 
 export interface StudioViewCallbacks {
 	onColorClick: (options: ColorDetailModalOptions) => void;

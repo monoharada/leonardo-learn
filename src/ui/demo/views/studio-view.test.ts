@@ -38,7 +38,7 @@ mock.module("../a11y-drawer", () => ({
 	updateA11yIssueBadge: () => {},
 }));
 
-mock.module("./palette-preview", () => ({
+mock.module("./studio-view-deps", () => ({
 	createPalettePreview: () => document.createElement("div"),
 	createSeededRandom: () => () => 0.5,
 	mapPaletteToPreviewColors: () => ({}),
