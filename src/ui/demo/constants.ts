@@ -168,6 +168,7 @@ export const DEFAULT_STATE: DemoState = {
 	lightnessDistribution: "linear",
 	viewMode: "studio",
 	cvdSimulation: "normal",
+	cvdConfusionThreshold: 3.5,
 	selectedHarmonyConfig: null,
 	selectedAccentFilter: "all",
 	cudMode: "guide",

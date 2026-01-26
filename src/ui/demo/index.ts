@@ -22,7 +22,11 @@ import {
 } from "./a11y-drawer";
 import { openColorDetailModal } from "./color-detail-modal";
 import { HUE_DISPLAY_NAMES } from "./constants";
-import { setupCVDControls, updateCVDScoreDisplay } from "./cvd-controls";
+import {
+	setupCVDControls,
+	setupCvdConfusionThresholdControls,
+	updateCVDScoreDisplay,
+} from "./cvd-controls";
 import { updateEditor } from "./editor";
 import {
 	setupDirectExportButtons,
@@ -32,7 +36,12 @@ import { fromManualUrlState, parseManualUrlHash } from "./manual-url-state";
 import { setupNavigation, updateViewButtons } from "./navigation";
 import { createDerivedPalettes, handleGenerate } from "./palette-generator";
 import { renderSidebar } from "./sidebar";
-import { loadBackgroundColors, loadSemanticColorConfig, state } from "./state";
+import {
+	loadBackgroundColors,
+	loadCvdConfusionThreshold,
+	loadSemanticColorConfig,
+	state,
+} from "./state";
 import { parseStudioUrlHash } from "./studio-url-state";
 import type { ColorDetailModalOptions, ManualColorSelection } from "./types";
 import { clampAccentCount } from "./utils/palette-utils";
@@ -115,6 +124,7 @@ function restorePersistedState(): void {
 	state.lightBackgroundColor = restoredBackground.light;
 	state.darkBackgroundColor = restoredBackground.dark;
 	state.semanticColorConfig = loadSemanticColorConfig();
+	state.cvdConfusionThreshold = loadCvdConfusionThreshold();
 }
 
 /**
@@ -412,6 +422,12 @@ export async function runDemo(): Promise<void> {
 		updateCVDScoreDisplay();
 		renderMain();
 	});
+	setupCvdConfusionThresholdControls(
+		document.querySelectorAll("#cvdConfusionThresholdButtons button"),
+		() => {
+			renderMain();
+		},
+	);
 	setupAddPaletteButton();
 	setupA11yDrawer();
 

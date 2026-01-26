@@ -105,7 +105,9 @@ export function updateA11yIssueBadge(): void {
 		return;
 	}
 
-	const pairs = detectCvdConfusionPairs(namedColors);
+	const pairs = detectCvdConfusionPairs(namedColors, {
+		threshold: state.cvdConfusionThreshold,
+	});
 	badge.hidden = pairs.length === 0;
 	badge.textContent =
 		pairs.length > 0 ? (pairs.length > 99 ? "99+" : String(pairs.length)) : "";

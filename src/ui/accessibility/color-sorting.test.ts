@@ -179,6 +179,26 @@ describe("validateBoundaries", () => {
 		expect(validations[0]?.deltaE).toBeLessThan(3.0);
 	});
 
+	it("thresholdを指定して識別判定を切り替えられる", () => {
+		// ΔEが3.5〜5.0の間になるグレーを用意（3.5ではOK、5.0では警告）
+		const colors: NamedColor[] = [
+			{ name: "Gray1", color: new Color("#5c5c5c") },
+			{ name: "Gray2", color: new Color("#6a6a6a") },
+		];
+
+		const relaxed = validateBoundaries(colors, { threshold: 3.5 });
+		expect(relaxed).toHaveLength(1);
+		expect(relaxed[0]?.deltaE).toBeGreaterThanOrEqual(3.5);
+		expect(relaxed[0]?.deltaE).toBeLessThan(5.0);
+		expect(relaxed[0]?.isDistinguishable).toBe(true);
+
+		const strict = validateBoundaries(colors, { threshold: 5.0 });
+		expect(strict).toHaveLength(1);
+		expect(strict[0]?.deltaE).toBeGreaterThanOrEqual(3.5);
+		expect(strict[0]?.deltaE).toBeLessThan(5.0);
+		expect(strict[0]?.isDistinguishable).toBe(false);
+	});
+
 	it("空配列を処理できる", () => {
 		const validations = validateBoundaries([]);
 		expect(validations).toHaveLength(0);

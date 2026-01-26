@@ -10,12 +10,15 @@ import { HarmonyType } from "@/core/harmony";
 import { DEFAULT_STATE } from "./constants";
 import {
 	BACKGROUND_COLOR_STORAGE_KEY,
+	CVD_CONFUSION_THRESHOLD_STORAGE_KEY,
 	determineColorMode,
 	getActivePalette,
 	loadBackgroundColors,
+	loadCvdConfusionThreshold,
 	loadSemanticColorConfig,
 	parseKeyColor,
 	persistBackgroundColors,
+	persistCvdConfusionThreshold,
 	persistSemanticColorConfig,
 	resetState,
 	SEMANTIC_COLOR_CONFIG_STORAGE_KEY,
@@ -84,6 +87,7 @@ describe("state module", () => {
 			expect(state.lightnessDistribution).toBe("linear");
 			expect(state.viewMode).toBe("studio");
 			expect(state.cvdSimulation).toBe("normal");
+			expect(state.cvdConfusionThreshold).toBe(3.5);
 			expect(state.selectedHarmonyConfig).toBeNull();
 			expect(state.cudMode).toBe("guide");
 		});
@@ -258,6 +262,37 @@ describe("state module", () => {
 	describe("BACKGROUND_COLOR_STORAGE_KEY", () => {
 		it("should be leonardo-backgroundColor", () => {
 			expect(BACKGROUND_COLOR_STORAGE_KEY).toBe("leonardo-backgroundColor");
+		});
+	});
+
+	describe("CVD_CONFUSION_THRESHOLD_STORAGE_KEY", () => {
+		it("should be leonardo-cvdConfusionThreshold", () => {
+			expect(CVD_CONFUSION_THRESHOLD_STORAGE_KEY).toBe(
+				"leonardo-cvdConfusionThreshold",
+			);
+		});
+	});
+
+	describe("CVD confusion threshold persistence", () => {
+		beforeEach(() => {
+			localStorage.clear();
+		});
+
+		it("should persist and load 3.5", () => {
+			persistCvdConfusionThreshold(3.5);
+			expect(loadCvdConfusionThreshold()).toBe(3.5);
+		});
+
+		it("should persist and load 5.0", () => {
+			persistCvdConfusionThreshold(5.0);
+			expect(loadCvdConfusionThreshold()).toBe(5.0);
+		});
+
+		it("should return default when stored value is invalid", () => {
+			localStorage.setItem(CVD_CONFUSION_THRESHOLD_STORAGE_KEY, "invalid");
+			expect(loadCvdConfusionThreshold()).toBe(
+				DEFAULT_STATE.cvdConfusionThreshold,
+			);
 		});
 	});
 
