@@ -281,6 +281,11 @@ export function findNearestDadsTokenCandidates(
 	const targetOklab = toOklab(hex);
 	if (!targetOklab) return [];
 
+	const finalLimit = Number.isFinite(limit)
+		? Math.max(0, Math.floor(limit))
+		: 0;
+	if (finalLimit === 0) return [];
+
 	const chromaticTokens = filterChromaticDadsTokens(dadsTokens);
 
 	const filteredTokens = chromaticTokens.filter((token) =>
@@ -299,7 +304,6 @@ export function findNearestDadsTokenCandidates(
 
 	scored.sort((a, b) => a.deltaE - b.deltaE);
 
-	const finalLimit = Math.max(1, Math.floor(limit));
 	return scored.slice(0, finalLimit).map(({ token, deltaE }) => ({
 		hex: token.hex,
 		step: token.classification.scale,

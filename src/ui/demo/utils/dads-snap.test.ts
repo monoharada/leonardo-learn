@@ -234,6 +234,16 @@ describe("dads-snap utility", () => {
 			expect(candidates.length).toBe(1);
 			expect(candidates[0]?.hex).toBe(snapped?.hex);
 		});
+
+		it("should return [] when limit <= 0", () => {
+			const inputHex = "#0060C0";
+			expect(
+				findNearestDadsTokenCandidates(inputHex, mockDadsTokens, "default", 0),
+			).toEqual([]);
+			expect(
+				findNearestDadsTokenCandidates(inputHex, mockDadsTokens, "default", -1),
+			).toEqual([]);
+		});
 	});
 
 	describe("hueDistance", () => {

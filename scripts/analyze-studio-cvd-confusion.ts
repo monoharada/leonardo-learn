@@ -51,7 +51,7 @@ import {
 	snapToNearestDadsToken,
 } from "../src/ui/demo/utils/dads-snap";
 import { resolveWarningPattern } from "../src/ui/demo/utils/palette-utils";
-import { createSeededRandom } from "../src/ui/demo/views/palette-preview";
+import { createSeededRandom } from "../src/ui/demo/utils/seeded-random";
 
 const BACKGROUND_HEX = "#ffffff";
 
