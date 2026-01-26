@@ -1799,29 +1799,29 @@ export async function renderStudioView(
 	const a11y = document.createElement("section");
 	a11y.className = "studio-a11y";
 
-	const accentNamedColors = resolvedAccentHexes.map((hex, index) => ({
-		name: `Accent ${index + 1}`,
+	const a11yItems = [
+		{ name: "Primary", hex: paletteColors.primaryHex },
+		...resolvedAccentHexes.map((hex, index) => ({
+			name: `Accent ${index + 1}`,
+			hex,
+		})),
+		{ name: "Success", hex: paletteColors.semantic.success },
+		{ name: "Warning", hex: paletteColors.semantic.warning },
+		{ name: "Error", hex: paletteColors.semantic.error },
+	];
+
+	const namedColors = a11yItems.map(({ name, hex }) => ({
+		name,
 		color: new Color(hex),
 	}));
-	const namedColors = [
-		{ name: "Primary", color: new Color(paletteColors.primaryHex) },
-		...accentNamedColors,
-		{ name: "Success", color: new Color(paletteColors.semantic.success) },
-		{ name: "Warning", color: new Color(paletteColors.semantic.warning) },
-		{ name: "Error", color: new Color(paletteColors.semantic.error) },
-	];
 	const cvdPairs = detectCvdConfusionPairs(namedColors);
 
-	const failCount = [
-		paletteColors.primaryHex,
-		...resolvedAccentHexes,
-		paletteColors.semantic.success,
-		paletteColors.semantic.warning,
-		paletteColors.semantic.error,
-	].filter((hex) => gradeContrast(wcagContrast(bgHex, hex)) === "Fail").length;
+	const failCount = a11yItems.filter(
+		({ hex }) => gradeContrast(wcagContrast(bgHex, hex)) === "Fail",
+	).length;
 
 	a11y.innerHTML = `
-		<div class="studio-a11y__title">アクセシビリティ（要約）</div>
+		<h2 class="studio-a11y__title">アクセシビリティ（要約）</h2>
 		<ul class="studio-a11y__list">
 			<li>背景に対してFailの色: <strong>${failCount}</strong></li>
 			<li>CVD混同リスク（${namedColors.length}色のペア）: <strong>${cvdPairs.length}</strong></li>

@@ -1294,6 +1294,10 @@ body:has(:modal) {
 	margin: 0;
 	font: inherit;
 }
+/* ショルダーテキストと見出しの間の余白を詰める */
+.dads-preview--dads-html .dads-heading__shoulder + .dads-heading__heading {
+	margin-top: -0.15em;
+}
 .dads-heading__icon {
 	margin-right: calc(0.4em - 0.25em);
 }

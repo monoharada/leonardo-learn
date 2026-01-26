@@ -3549,7 +3549,7 @@
 
 .dads-preview--dads-html .preview-card-illustration__body p {
 	margin: 0;
-	font-size: 0.875rem;
+	font-size: 1rem;
 	line-height: 1.6;
 	color: var(--preview-text, var(--color-neutral-solid-gray-800));
 }
@@ -3751,7 +3751,7 @@
 .dads-preview--dads-html .preview-section-head__desc {
 	margin: 0;
 	color: var(--color-neutral-solid-gray-800);
-	font-size: 0.9375rem;
+	font-size: 1rem;
 	line-height: 1.8;
 	letter-spacing: 0.02em;
 }
@@ -5684,7 +5684,7 @@
 }
 
 .dads-preview--dads-html .preview-illustration-card__description {
-	font-size: 0.875rem;
+	font-size: 1rem;
 	line-height: 1.6;
 	color: var(--preview-text, var(--color-neutral-solid-gray-600));
 	margin: 0;

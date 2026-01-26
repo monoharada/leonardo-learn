@@ -1224,9 +1224,11 @@
 }
 
 .studio-a11y__title {
-	font-size: 0.95rem;
-	font-weight: var(--font-weight-bold, 700);
-	margin-bottom: 0.5rem;
+	margin: 0 0 var(--space-md, 1rem);
+	font-size: var(--font-size-28, 1.75rem);
+	font-weight: var(--font-weight-700, 700);
+	line-height: var(--line-height-150, 1.5);
+	color: var(--color-text, #111827);
 }
 
 .studio-a11y__list {
