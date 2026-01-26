@@ -500,6 +500,11 @@ const HARMONY_DADS_SNAP_CANDIDATES = 8;
 // 色覚多様性対策: 色相差がCVDで潰れても区別できるよう、明度差も確保する
 const MIN_OKLCH_LIGHTNESS_DISTANCE = 0.12;
 
+// NOTE: Keep generation scoring independent from the UI toggle (`state.cvdConfusionThreshold`).
+// The toggle is for display (summary/badge/a11y view), while generation should remain stable
+// for a given seed/preset.
+const GENERATION_CVD_CONFUSION_THRESHOLD = DISTINGUISHABILITY_THRESHOLD;
+
 function normalizeHexKey(hex: string): string {
 	return hex.trim().toLowerCase();
 }
@@ -617,6 +622,17 @@ function selectHarmonySnappedCandidates(options: {
 			}
 		}
 
+		const sumDeltaE = normalized.reduce((sum, c) => sum + c.deltaE, 0);
+		const baseScore =
+			missingPenalty * 100_000 +
+			normalTooCloseCount * 10_000 +
+			lightnessPenalty * 10_000 +
+			sumDeltaE;
+
+		// `cvdPairs.length` is always non-negative, so the final score is never lower than
+		// `baseScore`. If we're already worse than the best score, skip the expensive CVD check.
+		if (baseScore >= bestScore) return;
+
 		const namedColors = [
 			{ name: "Primary", color: primaryColor },
 			...accentColors.map((color, index) => ({
@@ -627,15 +643,11 @@ function selectHarmonySnappedCandidates(options: {
 			{ name: "Warning", color: semanticWarning },
 			{ name: "Error", color: semanticError },
 		];
-		const cvdPairs = detectCvdConfusionPairs(namedColors);
+		const cvdPairs = detectCvdConfusionPairs(namedColors, {
+			threshold: GENERATION_CVD_CONFUSION_THRESHOLD,
+		});
 
-		const sumDeltaE = normalized.reduce((sum, c) => sum + c.deltaE, 0);
-		const score =
-			missingPenalty * 100_000 +
-			normalTooCloseCount * 10_000 +
-			lightnessPenalty * 10_000 +
-			cvdPairs.length * 1_000 +
-			sumDeltaE;
+		const score = baseScore + cvdPairs.length * 1_000;
 
 		if (score < bestScore) {
 			bestScore = score;

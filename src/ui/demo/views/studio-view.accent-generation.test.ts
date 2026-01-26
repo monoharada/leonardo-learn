@@ -8,18 +8,24 @@ import {
 	mock,
 } from "bun:test";
 import { JSDOM } from "jsdom";
+import type { DadsToken } from "@/core/tokens/types";
 import { resetState, state } from "../state";
 import type { PaletteConfig } from "../types";
 
 let rndValue = 0.5;
 let snapHexQueue: string[] = [];
 let hueDistantQueue: string[] = [];
+let nearestCandidatesQueue: Array<
+	Array<{ hex: string; step: number; baseChromaName: string; deltaE: number }>
+> = [];
 let derivedPalettesQueue: PaletteConfig[] = [];
 let adjustLightnessFn: (
 	hex: string,
 	backgroundHex: string,
 	targetContrast: number,
 ) => string = (hex) => hex;
+let detectCvdConfusionPairsCalls = 0;
+let lastDetectCvdConfusionThreshold: number | undefined;
 
 mock.module("./palette-preview", () => ({
 	createPalettePreview: () => document.createElement("div"),
@@ -62,6 +68,17 @@ mock.module("@/core/accent/accent-candidate-service", () => ({
 		ok: true as const,
 		result: { candidates: [], calculationTimeMs: 0 },
 	}),
+}));
+
+mock.module("@/ui/accessibility/cvd-detection", () => ({
+	detectCvdConfusionPairs: (
+		_colors: unknown,
+		options?: { threshold?: number },
+	) => {
+		detectCvdConfusionPairsCalls++;
+		lastDetectCvdConfusionThreshold = options?.threshold;
+		return [];
+	},
 }));
 
 mock.module("@/core/harmony", () => {
@@ -143,7 +160,7 @@ mock.module("../utils/dads-snap", () => ({
 		backgroundHex: string,
 		targetContrast: number,
 	) => adjustLightnessFn(hex, backgroundHex, targetContrast),
-	findNearestDadsTokenCandidates: () => [],
+	findNearestDadsTokenCandidates: () => nearestCandidatesQueue.shift() ?? [],
 	inferBaseChromaNameFromHex: () => "Mock",
 	matchesPreset: () => true,
 	resolvePresetMinContrast: () => 0,
@@ -178,8 +195,11 @@ describe("studio-view accent generation", () => {
 		rndValue = 0.5;
 		snapHexQueue = [];
 		hueDistantQueue = [];
+		nearestCandidatesQueue = [];
 		derivedPalettesQueue = [];
 		adjustLightnessFn = (hex) => hex;
+		detectCvdConfusionPairsCalls = 0;
+		lastDetectCvdConfusionThreshold = undefined;
 
 		const dom = new JSDOM(
 			'<!doctype html><html><body><input type="hidden" id="keyColors" value="#3366cc" /></body></html>',
@@ -259,6 +279,51 @@ describe("studio-view accent generation", () => {
 		const accentHexes = getAccentHexes();
 		expect(accentHexes.length).toBe(2);
 		expect(new Set(accentHexes.map((h) => h.toLowerCase())).size).toBe(2);
+	});
+
+	it("should use a fixed CVD threshold for generation scoring (independent from state.cvdConfusionThreshold)", async () => {
+		// complementary
+		rndValue = 0.2;
+		state.cvdConfusionThreshold = 3.5;
+
+		// Force candidate-scoring path (non-empty DADS tokens + non-empty candidate lists)
+		const dadsTokens: DadsToken[] = [
+			{
+				id: "dads-blue-600",
+				hex: "#112233",
+				nameJa: "dummy",
+				nameEn: "dummy",
+				classification: { category: "chromatic", hue: "blue", scale: 600 },
+				source: "dads",
+			},
+		];
+		nearestCandidatesQueue = [
+			[{ hex: "#112233", step: 600, baseChromaName: "Mock", deltaE: 0.1 }],
+			[{ hex: "#445566", step: 600, baseChromaName: "Mock", deltaE: 0.2 }],
+		];
+
+		state.studioAccentCount = 2;
+		state.studioSeed = 12345;
+		state.activePreset = "default";
+		state.lockedColors.primary = true;
+		state.lockedColors.accent = false;
+
+		state.palettes = [
+			{
+				id: "primary-1",
+				name: "Primary",
+				keyColors: ["#3366cc"],
+				ratios: [21, 15, 10, 7, 4.5, 3, 1],
+				harmony: "none",
+			} satisfies PaletteConfig,
+		];
+		state.activeId = "primary-1";
+
+		const { generateNewStudioPalette } = await import("./studio-view");
+		await generateNewStudioPalette(dadsTokens);
+
+		expect(detectCvdConfusionPairsCalls).toBe(1);
+		expect(lastDetectCvdConfusionThreshold).toBe(5.0);
 	});
 
 	it("should not overwrite DADS-derived Secondary/Tertiary hex when @step suffix is present", async () => {
