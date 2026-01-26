@@ -75,7 +75,9 @@ export function openColorDetailModal(
 	const applySelect = document.getElementById(
 		"apply-target-select",
 	) as HTMLSelectElement | null;
-	const applyBtn = document.getElementById("apply-btn");
+	const applyBtn = document.getElementById(
+		"apply-btn",
+	) as HTMLButtonElement | null;
 
 	if (applySection) {
 		applySection.style.display = showApplySection ? "flex" : "none";
@@ -95,6 +97,27 @@ export function openColorDetailModal(
 	// ダイアログクローズ時にabort()が呼ばれ、全てのイベントリスナーが自動的に削除される
 	const abortController = createAbortController();
 
+	// Applyボタンの一時フィードバックはclose/連打で競合しないように管理する
+	let applyFeedbackTimeoutId: ReturnType<typeof setTimeout> | null = null;
+	const resetApplyButtonFeedback = (): void => {
+		if (!applyBtn) return;
+
+		if (applyFeedbackTimeoutId !== null) {
+			clearTimeout(applyFeedbackTimeoutId);
+			applyFeedbackTimeoutId = null;
+		}
+
+		applyBtn.classList.remove("applied");
+		const originalHtml = applyBtn.dataset.originalHtml ?? applyBtn.innerHTML;
+		applyBtn.dataset.originalHtml = originalHtml;
+		applyBtn.innerHTML = originalHtml;
+	};
+
+	resetApplyButtonFeedback();
+	abortController.signal.addEventListener("abort", resetApplyButtonFeedback, {
+		once: true,
+	});
+
 	// 適用ボタンのイベントハンドラを設定
 	if (showApplySection && applyBtn && applySelect) {
 		applyBtn.addEventListener(
@@ -111,13 +134,15 @@ export function openColorDetailModal(
 				applyColorToManualSelection(target, hex);
 
 				// 成功フィードバックを表示
-				const originalText = applyBtn.textContent;
+				resetApplyButtonFeedback();
 				applyBtn.textContent = "適用完了";
 				applyBtn.classList.add("applied");
 
-				setTimeout(() => {
-					applyBtn.textContent = originalText;
-					applyBtn.classList.remove("applied");
+				applyFeedbackTimeoutId = setTimeout(() => {
+					if (abortController.signal.aborted) {
+						return;
+					}
+					resetApplyButtonFeedback();
 				}, 1500);
 
 				// コールバックを呼び出してツールバーを再描画

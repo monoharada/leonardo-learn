@@ -304,11 +304,11 @@ function findDadsStepForContrast(
 	// （「近いが未達」の色を選ぶと UI 側の minContrast を下回りやすい）
 	const meetsTarget = candidates.filter((c) => c.contrast >= targetContrast);
 	if (meetsTarget.length > 0) {
-		meetsTarget.sort(
-			(a, b) =>
-				a.contrast - targetContrast - (b.contrast - targetContrast) ||
-				a.diff - b.diff,
-		);
+		meetsTarget.sort((a, b) => {
+			const aExcess = a.contrast - targetContrast;
+			const bExcess = b.contrast - targetContrast;
+			return aExcess - bExcess || a.diff - b.diff;
+		});
 		return meetsTarget[0] ?? null;
 	}
 

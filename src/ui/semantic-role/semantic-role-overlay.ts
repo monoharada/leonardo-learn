@@ -114,6 +114,8 @@ export function applyOverlay(
 	const hasBrandHarmony = brandHarmonyRoles.length > 0;
 	const hasDadsSemanticLink = dadsSemanticLinkRoles.length > 0;
 
+	// NOTE(E2E仕様): DADS公式ロール（source="dads"）のみの場合は円形化しない。
+	// 円形UIは brand harmony を持つスウォッチに限定し、brand + DADS 共存時のみ2行表示にする。
 	const shouldCircularize =
 		backgroundColor !== undefined &&
 		hasBrandHarmony &&
