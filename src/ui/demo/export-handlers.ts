@@ -30,8 +30,11 @@ import {
 } from "@/ui/style-constants";
 import { syncModalOpenState } from "./modal-scroll-lock";
 import { parseKeyColor, state } from "./state";
+import type { PaletteConfig } from "./types";
 
 let exportDialogTriggerClickHandler: ((e: MouseEvent) => void) | null = null;
+let exportDialogWithCloseHandler: HTMLDialogElement | null = null;
+let exportDialogCloseHandler: ((e: Event) => void) | null = null;
 
 /**
  * エクスポートフォーマット
@@ -51,37 +54,40 @@ function getActiveWarningPattern(): "yellow" | "orange" {
 	return config.warningPattern;
 }
 
-/**
- * 現在の選択状態（Primary/Secondary/Tertiary/Accent）を
- * 1ロール=1トークンとしてエクスポート用に取得する。
- */
-export function generateExportRoleColors(): Record<string, Color> {
-	const colors: Record<string, Color> = {};
+type ExportRoleAssignment = {
+	roleKey: string;
+	palette: PaletteConfig;
+};
 
-	const palettesToExport =
-		state.shadesPalettes.length > 0 ? state.shadesPalettes : state.palettes;
+function getPalettesToExport(): PaletteConfig[] {
+	return state.shadesPalettes.length > 0
+		? state.shadesPalettes
+		: state.palettes;
+}
+
+function getExportRoleAssignments(
+	palettes: PaletteConfig[],
+): ExportRoleAssignment[] {
+	const assignments: ExportRoleAssignment[] = [];
 
 	let primaryAssigned = false;
 	let accentIndex = 1;
 
-	for (const p of palettesToExport) {
-		const keyColorInput = p.keyColors[0];
+	for (const palette of palettes) {
+		const keyColorInput = palette.keyColors[0];
 		if (!keyColorInput) continue;
 
-		const { color: hex } = parseKeyColor(keyColorInput);
-		const keyColor = new Color(hex);
-
-		const lowerName = p.name.toLowerCase();
+		const lowerName = palette.name.toLowerCase();
 		let roleKey: string | null = null;
 
 		// 明示的な役割（名前/derivedFrom優先）
 		if (
-			p.derivedFrom?.derivationType === "secondary" ||
+			palette.derivedFrom?.derivationType === "secondary" ||
 			lowerName === "secondary"
 		) {
 			roleKey = "secondary";
 		} else if (
-			p.derivedFrom?.derivationType === "tertiary" ||
+			palette.derivedFrom?.derivationType === "tertiary" ||
 			lowerName === "tertiary"
 		) {
 			roleKey = "tertiary";
@@ -104,6 +110,52 @@ export function generateExportRoleColors(): Record<string, Color> {
 		}
 
 		if (!roleKey) continue;
+		assignments.push({ roleKey, palette });
+	}
+
+	return assignments;
+}
+
+function getSemanticLinkAliasVarRefEntries(
+	warningPattern: "yellow" | "orange",
+): Array<[cssVar: string, value: string]> {
+	const warningHue = warningPattern === "yellow" ? "yellow" : "orange";
+	const warningDefaultStep = warningPattern === "yellow" ? 700 : 600;
+	const warningStrongStep = warningPattern === "yellow" ? 900 : 800;
+
+	return [
+		["--color-success", "var(--color-primitive-green-600)"],
+		["--color-success-strong", "var(--color-primitive-green-800)"],
+		["--color-error", "var(--color-primitive-red-800)"],
+		["--color-error-strong", "var(--color-primitive-red-900)"],
+		[
+			"--color-warning",
+			`var(--color-primitive-${warningHue}-${warningDefaultStep})`,
+		],
+		[
+			"--color-warning-strong",
+			`var(--color-primitive-${warningHue}-${warningStrongStep})`,
+		],
+		["--color-link", "var(--color-primitive-blue-1000)"],
+		["--color-link-visited", "var(--color-primitive-magenta-900)"],
+		["--color-link-active", "var(--color-primitive-orange-800)"],
+	];
+}
+
+/**
+ * 現在の選択状態（Primary/Secondary/Tertiary/Accent）を
+ * 1ロール=1トークンとしてエクスポート用に取得する。
+ */
+export function generateExportRoleColors(): Record<string, Color> {
+	const colors: Record<string, Color> = {};
+
+	for (const { roleKey, palette } of getExportRoleAssignments(
+		getPalettesToExport(),
+	)) {
+		const keyColorInput = palette.keyColors[0];
+		if (!keyColorInput) continue;
+		const { color: hex } = parseKeyColor(keyColorInput);
+		const keyColor = new Color(hex);
 		colors[roleKey] = keyColor;
 	}
 
@@ -182,7 +234,10 @@ function buildDadsTokenTree<TLeaf>(
 			// success-1 / error-2
 			if (kind === "success" || kind === "error") {
 				const index = parts[1];
-				if (!index) continue;
+				if (!index) {
+					semantic[suffix] = makeLeaf(token);
+					continue;
+				}
 				if (!semantic[kind] || typeof semantic[kind] !== "object") {
 					semantic[kind] = {};
 				}
@@ -194,7 +249,10 @@ function buildDadsTokenTree<TLeaf>(
 			if (kind === "warning") {
 				const pattern = parts[1];
 				const index = parts[2];
-				if (!pattern || !index) continue;
+				if (!pattern || !index) {
+					semantic[suffix] = makeLeaf(token);
+					continue;
+				}
 				if (!semantic.warning || typeof semantic.warning !== "object") {
 					semantic.warning = {};
 				}
@@ -270,50 +328,16 @@ function exportCssWithDadsTokens(): string {
 	lines.push("");
 
 	// Role tokens（Primary/Secondary/Tertiary/Accent）: 1ロール=1トークン
-	const palettesToExport =
-		state.shadesPalettes.length > 0 ? state.shadesPalettes : state.palettes;
-
-	let primaryAssigned = false;
-	let accentIndex = 1;
-	for (const p of palettesToExport) {
-		const lowerName = p.name.toLowerCase();
-
-		let roleKey: string | null = null;
-		if (
-			p.derivedFrom?.derivationType === "secondary" ||
-			lowerName === "secondary"
-		) {
-			roleKey = "secondary";
-		} else if (
-			p.derivedFrom?.derivationType === "tertiary" ||
-			lowerName === "tertiary"
-		) {
-			roleKey = "tertiary";
-		} else if (lowerName === "primary") {
-			roleKey = "primary";
-			primaryAssigned = true;
-		} else {
-			const accentMatch = lowerName.match(/^accent\s*(\d+)$/);
-			if (accentMatch?.[1]) {
-				roleKey = `accent-${accentMatch[1]}`;
-			} else if (!primaryAssigned) {
-				roleKey = "primary";
-				primaryAssigned = true;
-			} else {
-				roleKey = `accent-${accentIndex}`;
-				accentIndex++;
-			}
-		}
-
-		if (!roleKey) continue;
-
-		const dadsRef = getPaletteDadsPrimitiveRef(p);
+	for (const { roleKey, palette } of getExportRoleAssignments(
+		getPalettesToExport(),
+	)) {
+		const dadsRef = getPaletteDadsPrimitiveRef(palette);
 		if (dadsRef) {
 			lines.push(`  --color-${roleKey}: ${dadsRef};`);
 			continue;
 		}
 
-		const keyColorInput = p.keyColors[0];
+		const keyColorInput = palette.keyColors[0];
 		if (!keyColorInput) continue;
 		const { color: hex } = parseKeyColor(keyColorInput);
 		lines.push(`  --color-${roleKey}: ${hex};`);
@@ -322,25 +346,11 @@ function exportCssWithDadsTokens(): string {
 	lines.push("");
 
 	// Semantic/link tokens（アプリ向け短縮エイリアス）
-	const warningPattern = getActiveWarningPattern();
-	const warningHue = warningPattern === "yellow" ? "yellow" : "orange";
-	const warningDefaultStep = warningPattern === "yellow" ? 700 : 600;
-	const warningStrongStep = warningPattern === "yellow" ? 900 : 800;
-
-	lines.push("  --color-success: var(--color-primitive-green-600);");
-	lines.push("  --color-success-strong: var(--color-primitive-green-800);");
-	lines.push("  --color-error: var(--color-primitive-red-800);");
-	lines.push("  --color-error-strong: var(--color-primitive-red-900);");
-	lines.push(
-		`  --color-warning: var(--color-primitive-${warningHue}-${warningDefaultStep});`,
-	);
-	lines.push(
-		`  --color-warning-strong: var(--color-primitive-${warningHue}-${warningStrongStep});`,
-	);
-
-	lines.push("  --color-link: var(--color-primitive-blue-1000);");
-	lines.push("  --color-link-visited: var(--color-primitive-magenta-900);");
-	lines.push("  --color-link-active: var(--color-primitive-orange-800);");
+	for (const [cssVar, value] of getSemanticLinkAliasVarRefEntries(
+		getActiveWarningPattern(),
+	)) {
+		lines.push(`  ${cssVar}: ${value};`);
+	}
 
 	lines.push("}");
 
@@ -361,50 +371,16 @@ function buildExportCssVariableMap(): Record<string, string> {
 	}
 
 	// Role tokens（Primary/Secondary/Tertiary/Accent）: 1ロール=1トークン
-	const palettesToExport =
-		state.shadesPalettes.length > 0 ? state.shadesPalettes : state.palettes;
-
-	let primaryAssigned = false;
-	let accentIndex = 1;
-	for (const p of palettesToExport) {
-		const lowerName = p.name.toLowerCase();
-
-		let roleKey: string | null = null;
-		if (
-			p.derivedFrom?.derivationType === "secondary" ||
-			lowerName === "secondary"
-		) {
-			roleKey = "secondary";
-		} else if (
-			p.derivedFrom?.derivationType === "tertiary" ||
-			lowerName === "tertiary"
-		) {
-			roleKey = "tertiary";
-		} else if (lowerName === "primary") {
-			roleKey = "primary";
-			primaryAssigned = true;
-		} else {
-			const accentMatch = lowerName.match(/^accent\s*(\d+)$/);
-			if (accentMatch?.[1]) {
-				roleKey = `accent-${accentMatch[1]}`;
-			} else if (!primaryAssigned) {
-				roleKey = "primary";
-				primaryAssigned = true;
-			} else {
-				roleKey = `accent-${accentIndex}`;
-				accentIndex++;
-			}
-		}
-
-		if (!roleKey) continue;
-
-		const dadsRef = getPaletteDadsPrimitiveRef(p);
+	for (const { roleKey, palette } of getExportRoleAssignments(
+		getPalettesToExport(),
+	)) {
+		const dadsRef = getPaletteDadsPrimitiveRef(palette);
 		if (dadsRef) {
 			vars[`--color-${roleKey}`] = dadsRef;
 			continue;
 		}
 
-		const keyColorInput = p.keyColors[0];
+		const keyColorInput = palette.keyColors[0];
 		if (!keyColorInput) continue;
 		const { color: hex } = parseKeyColor(keyColorInput);
 		vars[`--color-${roleKey}`] = hex;
@@ -412,23 +388,11 @@ function buildExportCssVariableMap(): Record<string, string> {
 
 	// Semantic/link tokens（アプリ向け短縮エイリアス）
 	if (hasDadsTokens) {
-		const warningPattern = getActiveWarningPattern();
-		const warningHue = warningPattern === "yellow" ? "yellow" : "orange";
-		const warningDefaultStep = warningPattern === "yellow" ? 700 : 600;
-		const warningStrongStep = warningPattern === "yellow" ? 900 : 800;
-
-		vars["--color-success"] = "var(--color-primitive-green-600)";
-		vars["--color-success-strong"] = "var(--color-primitive-green-800)";
-		vars["--color-error"] = "var(--color-primitive-red-800)";
-		vars["--color-error-strong"] = "var(--color-primitive-red-900)";
-		vars["--color-warning"] =
-			`var(--color-primitive-${warningHue}-${warningDefaultStep})`;
-		vars["--color-warning-strong"] =
-			`var(--color-primitive-${warningHue}-${warningStrongStep})`;
-
-		vars["--color-link"] = "var(--color-primitive-blue-1000)";
-		vars["--color-link-visited"] = "var(--color-primitive-magenta-900)";
-		vars["--color-link-active"] = "var(--color-primitive-orange-800)";
+		for (const [cssVar, value] of getSemanticLinkAliasVarRefEntries(
+			getActiveWarningPattern(),
+		)) {
+			vars[cssVar] = value;
+		}
 	}
 
 	return vars;
@@ -817,9 +781,26 @@ export function setupExportHandlers(elements: ExportElements): void {
 	};
 
 	if (exportDialog) {
-		exportDialog.addEventListener("close", () => {
+		if (exportDialogWithCloseHandler && exportDialogCloseHandler) {
+			exportDialogWithCloseHandler.removeEventListener(
+				"close",
+				exportDialogCloseHandler,
+			);
+		}
+
+		exportDialogCloseHandler = () => {
 			syncModalOpenState();
-		});
+		};
+		exportDialogWithCloseHandler = exportDialog;
+
+		exportDialog.addEventListener("close", exportDialogCloseHandler);
+	} else if (exportDialogWithCloseHandler && exportDialogCloseHandler) {
+		exportDialogWithCloseHandler.removeEventListener(
+			"close",
+			exportDialogCloseHandler,
+		);
+		exportDialogWithCloseHandler = null;
+		exportDialogCloseHandler = null;
 	}
 
 	if (exportBtn) {
