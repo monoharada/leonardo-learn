@@ -125,6 +125,15 @@ SCREENSHOTS=(
     "03-a11y-drawer.png"
     "04-swatch-popover.png"
     "05-export-dialog.png"
+    "10-pastel-hero.png"
+    "11-pastel-branding.png"
+    "12-vibrant-hero.png"
+    "13-vibrant-branding.png"
+    "14-dark-hero.png"
+    "15-dark-branding.png"
+    "16-highcontrast-hero.png"
+    "17-default-pinpoint.png"
+    "18-default-branding.png"
 )
 
 ALL_VALID=true
@@ -157,7 +166,7 @@ for screenshot in "${SCREENSHOTS[@]}"; do
         height=$(echo "$dimensions" | cut -d'x' -f2)
 
         # Flag files that are exactly 720px (likely viewport-only captures)
-        if [ "$height" == "720" ] && [[ "$screenshot" == *"view"* ]] && [[ "$screenshot" != "01-harmony-view"* ]]; then
+        if [ "$height" == "720" ] && [[ "$screenshot" == *"view"* ]]; then
             echo "⚠️  Potential issue (720px height): $screenshot - $dimensions"
             echo "   (Expected full-page capture to be taller for scrollable views)"
         else

@@ -4,7 +4,7 @@
 - `.context/screenshots/` の全キャプチャを、Practical UI 2nd + DADS優先の観点で評価し、**色味ではなく色の役割・使い分け**と**レイアウト/階層/グルーピング**に基づく改善示唆を提示する。
 
 ## 背景
-- 対象: `.context/screenshots/` 配下の18枚  
+- 対象: `.context/screenshots/` 配下の15枚  
   `00-studio-view.png` / `01-manual-view.png` / `02-cvd-protanopia.png` / `03-a11y-drawer.png` / `04-swatch-popover.png` / `05-export-dialog.png` / `10-pastel-hero.png` / `11-pastel-branding.png` / `12-vibrant-hero.png` / `13-vibrant-branding.png` / `14-dark-hero.png` / `15-dark-branding.png` / `16-highcontrast-hero.png` / `17-default-pinpoint.png` / `18-default-branding.png`
 - アプリの性質上、色はランダムであるため**色相/好み評価は対象外**。
 
@@ -39,7 +39,7 @@
 - 評価レポート（Markdown）を作成する。
 
 ## 受入基準
-- [ ] 18枚すべてに個別の評価がある  
+- [ ] 15枚すべてに個別の評価がある  
 - [ ] 色相の良し悪しに言及していない  
 - [ ] 色の役割混線（AP-C2等）の有無が明記されている  
 - [ ] レイアウト/階層/グルーピングの指摘がある  
@@ -52,9 +52,9 @@
 - 複数テーマ（pastel/vibrant/dark/highcontrast）により、**同一UIの評価軸がぶれる**恐れがある。
 
 ## 作業項目（Action items）
-1. 対象スクリーンを分類（機能画面/ヒーロー/ブランド系）する（完了条件: 18枚のカテゴリ分け表ができている）
+1. 対象スクリーンを分類（機能画面/ヒーロー/ブランド系）する（完了条件: 15枚のカテゴリ分け表ができている）
 2. 評価ルーブリックを確定（Practical UIのクイック診断＋アンチパターン＋a11y最小）する（完了条件: 評価テンプレが1つ定義される）
-3. 各スクリーンを評価し観察メモを作る（完了条件: 18枚分の観察メモが埋まる）
+3. 各スクリーンを評価し観察メモを作る（完了条件: 15枚分の観察メモが埋まる）
 4. 観察メモをアンチパターン/DADS観点にマッピングする（完了条件: 問題点が分類付きで整理される）
 5. 横断的な共通課題・強みを抽出する（完了条件: 共通点リストが作成される）
 6. 優先度（高/中/低）付きの改善提案を作成する（完了条件: 各提案に優先度が付く）

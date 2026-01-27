@@ -27,6 +27,8 @@ interface CaptureConfig {
 	setup: (page: Page) => Promise<void>;
 	fullPage?: boolean;
 	dialogSelector?: string;
+	/** When true, capture must exist & be non-empty (defaults to true). */
+	required?: boolean;
 }
 
 /** Common page initialization */
@@ -34,6 +36,9 @@ async function initPage(page: Page, view: "studio" | "manual" = "studio") {
 	await page.goto(DEFAULT_BASE_URL, { waitUntil: "networkidle" });
 	await page.waitForTimeout(2000);
 	await page.click(`#view-${view}`);
+	await page.waitForSelector(`#view-${view}[data-active="true"]`, {
+		timeout: DEFAULT_TIMEOUT,
+	});
 	await waitForApp(page, DEFAULT_TIMEOUT);
 }
 
@@ -56,8 +61,11 @@ async function selectPresetAndTheme(
 	await page.waitForTimeout(500);
 
 	// Use JavaScript to click buttons (they may be in a popup above the viewport)
-	await page.evaluate(
+	const { presetClicked, themeClicked } = await page.evaluate(
 		({ preset, theme }) => {
+			let presetClicked = false;
+			let themeClicked = false;
+
 			// Find and click preset button
 			const presetGroup = document.querySelector(
 				'.dads-button-group[aria-label="ジェネレートプリセット"]',
@@ -66,7 +74,10 @@ async function selectPresetAndTheme(
 				const presetBtn = Array.from(
 					presetGroup.querySelectorAll("button"),
 				).find((btn) => btn.textContent?.trim() === preset);
-				if (presetBtn) (presetBtn as HTMLButtonElement).click();
+				if (presetBtn) {
+					(presetBtn as HTMLButtonElement).click();
+					presetClicked = true;
+				}
 			}
 
 			// Find and click theme button
@@ -77,10 +88,44 @@ async function selectPresetAndTheme(
 				const themeBtn = Array.from(themeGroup.querySelectorAll("button")).find(
 					(btn) => btn.textContent?.trim() === theme,
 				);
-				if (themeBtn) (themeBtn as HTMLButtonElement).click();
+				if (themeBtn) {
+					(themeBtn as HTMLButtonElement).click();
+					themeClicked = true;
+				}
 			}
+
+			return { presetClicked, themeClicked };
 		},
 		{ preset, theme },
+	);
+	if (!presetClicked) {
+		throw new Error(`Preset button not found: ${preset}`);
+	}
+	if (!themeClicked) {
+		throw new Error(`Theme button not found: ${theme}`);
+	}
+
+	// Confirm that the selected state is applied (render is async)
+	await page.waitForFunction(
+		({ preset, theme }) => {
+			const presetBtn = Array.from(
+				document.querySelectorAll(
+					'.dads-button-group[aria-label="ジェネレートプリセット"] button',
+				),
+			).find((btn) => btn.textContent?.trim() === preset);
+			const themeBtn = Array.from(
+				document.querySelectorAll(
+					'.dads-button-group[aria-label="テーマ"] button',
+				),
+			).find((btn) => btn.textContent?.trim() === theme);
+
+			return (
+				presetBtn?.getAttribute("data-active") === "true" &&
+				themeBtn?.getAttribute("data-active") === "true"
+			);
+		},
+		{ preset, theme },
+		{ timeout: DEFAULT_TIMEOUT },
 	);
 	await page.waitForTimeout(500);
 
@@ -302,6 +347,7 @@ async function main(): Promise<void> {
 
 	const { browser, page } = await createBrowserSession();
 	let successCount = 0;
+	const requiredFailures: string[] = [];
 
 	try {
 		for (const config of CAPTURES) {
@@ -315,6 +361,10 @@ async function main(): Promise<void> {
 
 		for (const config of CAPTURES) {
 			const result = validateScreenshot(path.join(OUTPUT_DIR, config.filename));
+			const isRequired = config.required !== false;
+			if (isRequired && (!result.exists || result.isEmpty)) {
+				requiredFailures.push(config.filename);
+			}
 			console.log(
 				result.exists
 					? `  ${config.filename}: ${result.sizeKB} KB`
@@ -325,7 +375,14 @@ async function main(): Promise<void> {
 		await closeBrowserSafely(browser);
 	}
 
-	if (successCount < 10) process.exit(1);
+	if (requiredFailures.length > 0) {
+		console.error(
+			`\nMissing required screenshots (${requiredFailures.length}): ${requiredFailures.join(
+				", ",
+			)}\n`,
+		);
+		process.exit(1);
+	}
 }
 
 main();
