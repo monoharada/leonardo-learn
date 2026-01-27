@@ -797,10 +797,22 @@ export function setupExportHandlers(elements: ExportElements): void {
 	};
 
 	const openExportDialog = () => {
-		if (!exportDialog) return;
-		if (exportDialog.hasAttribute("open")) return;
 		updateExportPreview();
-		exportDialog.showModal();
+		if (!exportDialog) return;
+
+		const isOpen = exportDialog.open || exportDialog.hasAttribute("open");
+		if (!isOpen) {
+			try {
+				if (typeof exportDialog.showModal === "function") {
+					exportDialog.showModal();
+				} else {
+					exportDialog.setAttribute("open", "");
+				}
+			} catch {
+				// JSDOMなどでshowModalが未実装の場合でもプレビュー表示は維持する
+				exportDialog.setAttribute("open", "");
+			}
+		}
 		syncModalOpenState();
 	};
 
@@ -819,12 +831,15 @@ export function setupExportHandlers(elements: ExportElements): void {
 			document.removeEventListener("click", exportDialogTriggerClickHandler);
 		}
 
-		exportDialogTriggerClickHandler = (e: MouseEvent) => {
-			if (!exportDialog) return;
-			const target = e.target;
-			if (!target || typeof (target as Element).closest !== "function") return;
-			const trigger = (target as Element).closest(".studio-export-btn");
+		exportDialogTriggerClickHandler = (event: MouseEvent) => {
+			const target = event.target as
+				| (EventTarget & { closest?: (selector: string) => Element | null })
+				| null;
+			if (!target?.closest) return;
+
+			const trigger = target.closest(".studio-export-btn");
 			if (!trigger) return;
+
 			openExportDialog();
 		};
 
