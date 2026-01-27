@@ -715,12 +715,6 @@ export async function renderManualView(
 	exportBtn.dataset.size = "sm";
 	exportBtn.dataset.type = "outline";
 	exportBtn.innerHTML = EXPORT_BUTTON_CONTENT_HTML;
-	exportBtn.onclick = () => {
-		const exportDialog = document.getElementById(
-			"export-dialog",
-		) as HTMLDialogElement | null;
-		if (exportDialog) exportDialog.showModal();
-	};
 
 	controls.appendChild(shareBtn);
 	controls.appendChild(exportBtn);

@@ -10,9 +10,9 @@ import * as path from "node:path";
 import { type Browser, chromium, type Page } from "playwright";
 
 // Common configuration constants
-export const DEFAULT_BASE_URL = "http://localhost:3000";
+export const DEFAULT_BASE_URL = process.env.BASE_URL || "http://localhost:3000";
 export const DEFAULT_OUTPUT_DIR = ".context/screenshots";
-export const DEFAULT_TIMEOUT = 5000;
+export const DEFAULT_TIMEOUT = 30000;
 export const DEFAULT_VIEWPORT = { width: 1440, height: 900 };
 
 export interface BrowserSessionOptions {
@@ -120,13 +120,20 @@ export async function waitForHarmonyView(
 }
 
 /**
- * Waits for the app element to be visible.
+ * Waits for the app element to have content rendered.
  */
 export async function waitForApp(
 	page: Page,
 	timeout: number = DEFAULT_TIMEOUT,
 ): Promise<void> {
-	await page.waitForSelector("#app:not([hidden])", { timeout });
+	// Wait for #app to have children (content loaded)
+	await page.waitForFunction(
+		() => {
+			const app = document.querySelector("#app");
+			return app && app.children.length > 0;
+		},
+		{ timeout },
+	);
 }
 
 /**
