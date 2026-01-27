@@ -234,16 +234,51 @@ export function setupExportHandlers(elements: ExportElements): void {
 		}
 	};
 
-	if (exportBtn && exportDialog) {
+	const openExportDialog = () => {
+		updateExportPreview();
+		if (!exportDialog) return;
+
+		const isOpen = exportDialog.open || exportDialog.hasAttribute("open");
+		if (!isOpen) {
+			try {
+				if (typeof exportDialog.showModal === "function") {
+					exportDialog.showModal();
+				} else {
+					exportDialog.setAttribute("open", "");
+				}
+			} catch {
+				// JSDOMなどでshowModalが未実装の場合でもプレビュー表示は維持する
+				exportDialog.setAttribute("open", "");
+			}
+		}
+		syncModalOpenState();
+	};
+
+	if (exportDialog) {
 		exportDialog.addEventListener("close", () => {
 			syncModalOpenState();
 		});
+	}
 
+	if (exportBtn) {
 		exportBtn.onclick = () => {
-			updateExportPreview();
-			exportDialog.showModal();
-			syncModalOpenState();
+			openExportDialog();
 		};
+	}
+
+	// Studio/Manual では Export ボタンが動的生成されるためクリックを委譲する
+	if (typeof document !== "undefined") {
+		document.addEventListener("click", (event) => {
+			const target = event.target as
+				| (EventTarget & { closest?: (selector: string) => Element | null })
+				| null;
+			if (!target?.closest) return;
+
+			const trigger = target.closest(".studio-export-btn");
+			if (!trigger) return;
+
+			openExportDialog();
+		});
 	}
 
 	exportFormatButtons.forEach((btn) => {
