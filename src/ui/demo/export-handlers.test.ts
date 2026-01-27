@@ -233,7 +233,10 @@ describe("export-handlers", () => {
 
 			// close イベントでもscroll lock状態が解除される
 			exportDialog.removeAttribute("open");
-			exportDialog.dispatchEvent(new dom!.window.Event("close"));
+			if (!dom) {
+				throw new Error("Expected JSDOM to be initialized in beforeEach");
+			}
+			exportDialog.dispatchEvent(new dom.window.Event("close"));
 
 			expect(document.documentElement.classList.contains("is-modal-open")).toBe(
 				false,
