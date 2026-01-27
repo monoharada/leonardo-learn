@@ -73,6 +73,9 @@ describe("CSSExporter", () => {
 
 			expect(result.css).toContain("@supports (color: oklch(0% 0 0))");
 			expect(result.css).toContain(":root {");
+
+			// :root (hex) + @supports (:root oklch) の2回だけ定義される
+			expect((result.css.match(/--color-primary:/g) ?? []).length).toBe(2);
 		});
 
 		it("複数の色をエクスポートできる", () => {
@@ -199,6 +202,7 @@ describe("CSSExporter", () => {
 			});
 
 			expect(result.css).toContain("@supports (color: oklch(0% 0 0))");
+			expect((result.css.match(/--color-primary-500:/g) ?? []).length).toBe(2);
 		});
 
 		it("OKLCH値が正しくフォーマットされる", () => {

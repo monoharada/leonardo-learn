@@ -66,7 +66,7 @@ function toOklchString(color: Color): string {
  * @returns DTCGエクスポート結果
  */
 export function exportToDTCG(
-	colors: Record<string, Color>,
+	colors: Record<string, Color | string>,
 	options: DTCGExportOptions = {},
 ): DTCGExportResult {
 	const { indent = 2, colorSpace = "oklch" } = options;
@@ -77,8 +77,13 @@ export function exportToDTCG(
 
 	const colorTokens = tokens.color as Record<string, DTCGToken>;
 
-	for (const [name, color] of Object.entries(colors)) {
-		const value = colorSpace === "oklch" ? toOklchString(color) : color.toHex();
+	for (const [name, colorValue] of Object.entries(colors)) {
+		const value =
+			typeof colorValue === "string"
+				? colorValue
+				: colorSpace === "oklch"
+					? toOklchString(colorValue)
+					: colorValue.toHex();
 
 		colorTokens[name] = {
 			$value: value,
@@ -234,19 +239,19 @@ export function exportWithAliases(
 }
 
 /**
- * DADS semantic/link トークンを実値で出力（同期版）
+ * DADS semantic/link トークンを実値（Color）で取得（同期版）
  *
  * キャッシュされたDADSトークンを使用してsemantic/linkトークンを生成する。
  * 事前にloadDadsTokens()が呼ばれていることを前提とする。
  *
  * @param warningPattern - Warning のパターン（"yellow" | "orange"）
- * @returns semantic/link トークンのレコード
+ * @returns semantic/link Color のレコード
  */
-export function exportDadsSemanticLinkTokensSync(
+export function exportDadsSemanticLinkColorsSync(
 	warningPattern: "yellow" | "orange",
 ): {
-	semantic: Record<string, DTCGToken>;
-	link: Record<string, DTCGToken>;
+	semantic: Record<string, Color>;
+	link: Record<string, Color>;
 } {
 	const cachedTokens = getCachedDadsTokens();
 	if (!cachedTokens) {
@@ -263,8 +268,8 @@ export function exportDadsSemanticLinkTokensSync(
 		);
 	}
 
-	const semantic: Record<string, DTCGToken> = {};
-	const link: Record<string, DTCGToken> = {};
+	const semantic: Record<string, Color> = {};
+	const link: Record<string, Color> = {};
 
 	for (const dadsColor of DADS_COLORS) {
 		// semantic と link のみ（accent は除外）
@@ -280,23 +285,50 @@ export function exportDadsSemanticLinkTokensSync(
 			if (isOrange && warningPattern !== "orange") continue;
 		}
 
-		// DADS トークンから OKLCH 値を取得
+		// DADS トークンから Color を取得
 		const dadsHue = chromaNameToDadsHue(dadsColor.chromaName);
 		if (!dadsHue) continue;
 
 		const token = tokenByHueScale.get(`${dadsHue}:${dadsColor.step}`);
 		if (!token) continue;
 
-		const outputToken: DTCGToken = {
-			$value: toOklchString(new Color(token.hex)),
-			$type: "color",
-		};
+		const color = new Color(token.hex);
 
 		if (dadsColor.category === "semantic") {
-			semantic[dadsColor.name] = outputToken;
+			semantic[dadsColor.name] = color;
 		} else {
-			link[dadsColor.name] = outputToken;
+			link[dadsColor.name] = color;
 		}
+	}
+
+	return { semantic, link };
+}
+
+/**
+ * DADS semantic/link トークンを実値で出力（同期版）
+ *
+ * キャッシュされたDADSトークンを使用してsemantic/linkトークンを生成する。
+ * 事前にloadDadsTokens()が呼ばれていることを前提とする。
+ *
+ * @param warningPattern - Warning のパターン（"yellow" | "orange"）
+ * @returns semantic/link トークンのレコード
+ */
+export function exportDadsSemanticLinkTokensSync(
+	warningPattern: "yellow" | "orange",
+): {
+	semantic: Record<string, DTCGToken>;
+	link: Record<string, DTCGToken>;
+} {
+	const colors = exportDadsSemanticLinkColorsSync(warningPattern);
+
+	const semantic: Record<string, DTCGToken> = {};
+	for (const [name, color] of Object.entries(colors.semantic)) {
+		semantic[name] = { $value: toOklchString(color), $type: "color" };
+	}
+
+	const link: Record<string, DTCGToken> = {};
+	for (const [name, color] of Object.entries(colors.link)) {
+		link[name] = { $value: toOklchString(color), $type: "color" };
 	}
 
 	return { semantic, link };
