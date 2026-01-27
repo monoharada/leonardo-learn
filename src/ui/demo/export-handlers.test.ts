@@ -4,12 +4,22 @@
  * @module @/ui/demo/export-handlers.test
  */
 
-import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import {
+	afterEach,
+	beforeAll,
+	beforeEach,
+	describe,
+	expect,
+	it,
+} from "bun:test";
+import { JSDOM } from "jsdom";
 import { Color } from "@/core/color";
+import { loadDadsTokens } from "@/core/tokens/dads-data-provider";
 import {
 	downloadFile,
 	generateExportColors,
 	getExportContent,
+	setupExportHandlers,
 } from "./export-handlers";
 import { resetState, state } from "./state";
 
@@ -140,6 +150,77 @@ describe("export-handlers", () => {
 			// JSONとしてパース可能
 			const parsed = JSON.parse(content);
 			expect(parsed).toBeDefined();
+		});
+	});
+
+	describe("semantic/link token inclusion (CSS/Tailwind)", () => {
+		beforeAll(async () => {
+			await loadDadsTokens();
+		});
+
+		beforeEach(() => {
+			state.shadesPalettes = [
+				{
+					id: "test-primary",
+					name: "Primary",
+					keyColors: ["#0066CC"],
+					ratios: [21, 15, 10, 7, 4.5, 3, 1],
+					harmony: "none" as never,
+					baseChromaName: "Blue",
+					step: 600,
+				},
+			];
+		});
+
+		it("should include semantic/link variables in CSS export", () => {
+			const content = getExportContent("css");
+
+			expect(content).toContain("--color-success:");
+			expect(content).toContain("--color-error:");
+			expect(content).toContain("--color-warning:");
+			expect(content).toContain("--color-link:");
+
+			// Primary は 1トークンのみ（スケールは出さない）
+			expect(content).toContain("--color-primary:");
+			expect(content).not.toContain("--color-primary-50:");
+		});
+
+		it("should include semantic/link sections with DEFAULT in Tailwind export", () => {
+			const content = getExportContent("tailwind");
+
+			expect(content).toContain('"success"');
+			expect(content).toContain('"DEFAULT"');
+			expect(content).toContain('"error"');
+			expect(content).toContain('"warning"');
+			expect(content).toContain('"link"');
+
+			// Primary は 1トークンのみ（primary-50 などは出さない）
+			expect(content).toContain('"primary"');
+			expect(content).not.toContain("primary-50");
+
+			// DADS primitives should be included
+			expect(content).toContain('"dads"');
+			expect(content).toContain('"primitive"');
+
+			// Tailwind export should be standalone: include CSS variable definitions
+			expect(content).toContain("plugins");
+			expect(content).toContain("addBase");
+			expect(content).toContain('"--color-primary"');
+			expect(content).toContain('"--color-primitive-blue-50"');
+		});
+
+		it("should include DADS primitives in JSON export", () => {
+			const content = getExportContent("json");
+			const parsed = JSON.parse(content);
+
+			// color.dads.primitive.blue.50 が存在する
+			expect(parsed).toHaveProperty("color.dads.primitive.blue.50.$value");
+			expect(parsed.color.dads.primitive.blue["50"].$type).toBe("color");
+
+			// role tokens should alias to DADS primitives when possible
+			expect(parsed.color.primary.$value).toBe(
+				"{color.dads.primitive.blue.600}",
+			);
 		});
 	});
 
@@ -310,6 +391,92 @@ describe("export-handlers", () => {
 				true,
 			);
 			expect(Object.keys(colors).some((k) => k.startsWith("error-"))).toBe(
+				true,
+			);
+		});
+	});
+
+	describe("export dialog open (delegated trigger)", () => {
+		let previousDocument: typeof document | undefined;
+		let previousHTMLElement: typeof HTMLElement | undefined;
+		let previousMouseEvent: typeof MouseEvent | undefined;
+
+		beforeEach(() => {
+			resetState();
+
+			previousDocument = global.document;
+			previousHTMLElement = global.HTMLElement;
+			previousMouseEvent = global.MouseEvent;
+
+			const dom = new JSDOM("<!DOCTYPE html><html><body></body></html>");
+			global.document = dom.window.document;
+			global.HTMLElement = dom.window.HTMLElement as typeof HTMLElement;
+			global.MouseEvent = dom.window.MouseEvent as typeof MouseEvent;
+
+			state.shadesPalettes = [
+				{
+					id: "test-primary",
+					name: "Primary",
+					keyColors: ["#0066CC"],
+					ratios: [21, 15, 10, 7, 4.5, 3, 1],
+					harmony: "none" as never,
+				},
+			];
+		});
+
+		afterEach(() => {
+			global.document = previousDocument as typeof document;
+			global.HTMLElement = previousHTMLElement as typeof HTMLElement;
+			global.MouseEvent = previousMouseEvent as typeof MouseEvent;
+		});
+
+		it("should populate export preview when clicking .studio-export-btn", () => {
+			const exportDialog = document.createElement("dialog");
+			const exportArea = document.createElement("textarea");
+			const formatButtons = document.createElement("div");
+
+			formatButtons.id = "export-format-buttons";
+			formatButtons.innerHTML = `
+				<button data-format="css" data-active="true">CSS</button>
+				<button data-format="tailwind">Tailwind</button>
+				<button data-format="json">JSON</button>
+			`;
+
+			Object.defineProperty(exportDialog, "showModal", {
+				value: () => {
+					exportDialog.setAttribute("open", "");
+				},
+				configurable: true,
+			});
+
+			document.body.appendChild(exportDialog);
+			document.body.appendChild(exportArea);
+			document.body.appendChild(formatButtons);
+
+			setupExportHandlers({
+				exportBtn: null,
+				exportDialog,
+				exportArea,
+				exportFormatButtons: document.querySelectorAll(
+					"#export-format-buttons button",
+				),
+				exportCopyBtn: null,
+				exportDownloadBtn: null,
+			});
+
+			const trigger = document.createElement("button");
+			trigger.className = "studio-export-btn";
+			document.body.appendChild(trigger);
+
+			expect(exportArea.value).toBe("");
+			trigger.dispatchEvent(
+				new MouseEvent("click", {
+					bubbles: true,
+				}),
+			);
+
+			expect(exportArea.value).not.toBe("");
+			expect(document.documentElement.classList.contains("is-modal-open")).toBe(
 				true,
 			);
 		});

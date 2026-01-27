@@ -336,12 +336,6 @@ export async function renderStudioView(
 	exportBtn.dataset.size = "sm";
 	exportBtn.dataset.type = "outline";
 	exportBtn.innerHTML = EXPORT_BUTTON_CONTENT_HTML;
-	exportBtn.onclick = () => {
-		const exportDialog = document.getElementById(
-			"export-dialog",
-		) as HTMLDialogElement | null;
-		if (exportDialog) exportDialog.showModal();
-	};
 
 	// UX最適化されたボタン配置:
 	// [swatches] | [戻る | 生成] [設定] | [共有リンク] [エクスポート]

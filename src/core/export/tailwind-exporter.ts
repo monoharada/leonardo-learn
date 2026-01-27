@@ -5,7 +5,7 @@
  * OKLCH値を使用したモダンなカラー定義を生成します。
  */
 
-import type { Color } from "../color";
+import { Color } from "../color";
 
 /**
  * Tailwindエクスポートオプション
@@ -22,10 +22,9 @@ export interface TailwindExportOptions {
 /**
  * Tailwindカラー設定
  */
-export type TailwindColorConfig = Record<
-	string,
-	string | Record<string, string>
->;
+export interface TailwindColorConfig {
+	[key: string]: string | TailwindColorConfig;
+}
 
 /**
  * Tailwindエクスポート結果
@@ -35,6 +34,10 @@ export interface TailwindExportResult {
 	colors: TailwindColorConfig;
 	/** JavaScript設定文字列 */
 	config: string;
+}
+
+export interface TailwindColorInput {
+	[key: string]: Color | string | TailwindColorInput;
 }
 
 /**
@@ -54,17 +57,33 @@ function toOklchString(color: Color): string {
  * @returns Tailwindエクスポート結果
  */
 export function exportToTailwind(
-	colors: Record<string, Color>,
+	colors: TailwindColorInput,
 	options: TailwindExportOptions = {},
 ): TailwindExportResult {
 	const { indent = 2, colorSpace = "oklch", esModule = false } = options;
 
-	const tailwindColors: TailwindColorConfig = {};
+	const convert = (input: TailwindColorInput): TailwindColorConfig => {
+		const output: TailwindColorConfig = {};
 
-	for (const [name, color] of Object.entries(colors)) {
-		const value = colorSpace === "oklch" ? toOklchString(color) : color.toHex();
-		tailwindColors[name] = value;
-	}
+		for (const [name, value] of Object.entries(input)) {
+			if (typeof value === "string") {
+				output[name] = value;
+				continue;
+			}
+
+			if (value instanceof Color) {
+				output[name] =
+					colorSpace === "oklch" ? toOklchString(value) : value.toHex();
+				continue;
+			}
+
+			output[name] = convert(value);
+		}
+
+		return output;
+	};
+
+	const tailwindColors = convert(colors);
 
 	const config = generateConfigString(tailwindColors, indent, esModule);
 

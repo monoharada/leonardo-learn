@@ -9,13 +9,20 @@
  */
 
 import { Color } from "@/core/color";
-import { exportToCSS } from "@/core/export/css-exporter";
+import { hexToRgba } from "@/core/export/css-exporter";
 import {
+	exportDadsSemanticLinkColorsSync,
 	exportDadsSemanticLinkTokensSync,
 	exportToDTCG,
 } from "@/core/export/dtcg-exporter";
 import { exportToTailwind } from "@/core/export/tailwind-exporter";
 import { findColorForContrast, isWarmYellowHue } from "@/core/solver";
+import {
+	findDadsColorByHex,
+	getCachedDadsTokens,
+	getDadsHueFromDisplayName,
+} from "@/core/tokens/dads-data-provider";
+import type { DadsToken } from "@/core/tokens/types";
 import {
 	getContrastRatios,
 	STEP_NAMES,
@@ -23,6 +30,8 @@ import {
 } from "@/ui/style-constants";
 import { syncModalOpenState } from "./modal-scroll-lock";
 import { parseKeyColor, state } from "./state";
+
+let exportDialogTriggerClickHandler: ((e: MouseEvent) => void) | null = null;
 
 /**
  * エクスポートフォーマット
@@ -40,6 +49,495 @@ function getActiveWarningPattern(): "yellow" | "orange" {
 		return config.resolvedWarningPattern || "yellow";
 	}
 	return config.warningPattern;
+}
+
+/**
+ * 現在の選択状態（Primary/Secondary/Tertiary/Accent）を
+ * 1ロール=1トークンとしてエクスポート用に取得する。
+ */
+export function generateExportRoleColors(): Record<string, Color> {
+	const colors: Record<string, Color> = {};
+
+	const palettesToExport =
+		state.shadesPalettes.length > 0 ? state.shadesPalettes : state.palettes;
+
+	let primaryAssigned = false;
+	let accentIndex = 1;
+
+	for (const p of palettesToExport) {
+		const keyColorInput = p.keyColors[0];
+		if (!keyColorInput) continue;
+
+		const { color: hex } = parseKeyColor(keyColorInput);
+		const keyColor = new Color(hex);
+
+		const lowerName = p.name.toLowerCase();
+		let roleKey: string | null = null;
+
+		// 明示的な役割（名前/derivedFrom優先）
+		if (
+			p.derivedFrom?.derivationType === "secondary" ||
+			lowerName === "secondary"
+		) {
+			roleKey = "secondary";
+		} else if (
+			p.derivedFrom?.derivationType === "tertiary" ||
+			lowerName === "tertiary"
+		) {
+			roleKey = "tertiary";
+		} else if (lowerName === "primary") {
+			roleKey = "primary";
+			primaryAssigned = true;
+		} else {
+			const accentMatch = lowerName.match(/^accent\s*(\d+)$/);
+			if (accentMatch?.[1]) {
+				roleKey = `accent-${accentMatch[1]}`;
+			} else if (!primaryAssigned) {
+				// フォールバック: 先頭の非derivedをPrimary扱い
+				roleKey = "primary";
+				primaryAssigned = true;
+			} else {
+				// フォールバック: 残りはAccentとして連番付与
+				roleKey = `accent-${accentIndex}`;
+				accentIndex++;
+			}
+		}
+
+		if (!roleKey) continue;
+		colors[roleKey] = keyColor;
+	}
+
+	return colors;
+}
+
+function getDadsCssVariableName(token: DadsToken): string {
+	const suffix = token.id.replace(/^dads-/, "");
+	if (token.classification.category === "chromatic") {
+		return `--color-primitive-${suffix}`;
+	}
+	return `--color-${suffix}`;
+}
+
+function getDadsCssValue(token: DadsToken): string {
+	if (token.alpha !== undefined && token.alpha !== 1) {
+		return hexToRgba(token.hex, token.alpha);
+	}
+	return token.hex;
+}
+
+function buildDadsTokenTree<TLeaf>(
+	dadsTokens: DadsToken[],
+	makeLeaf: (token: DadsToken) => TLeaf,
+): {
+	primitive: Record<string, Record<string, TLeaf>>;
+	neutral: Record<string, TLeaf | Record<string, TLeaf>>;
+	semantic: Record<
+		string,
+		TLeaf | Record<string, TLeaf | Record<string, TLeaf>>
+	>;
+} {
+	const primitive: Record<string, Record<string, TLeaf>> = {};
+	const neutral: Record<string, TLeaf | Record<string, TLeaf>> = {};
+	const semantic: Record<
+		string,
+		TLeaf | Record<string, TLeaf | Record<string, TLeaf>>
+	> = {};
+
+	for (const token of dadsTokens) {
+		const category = token.classification.category;
+		if (category === "chromatic") {
+			const hue = token.classification.hue;
+			const scale = token.classification.scale;
+			if (!hue || !scale) continue;
+			if (!primitive[hue]) primitive[hue] = {};
+			primitive[hue][String(scale)] = makeLeaf(token);
+			continue;
+		}
+
+		if (category === "neutral") {
+			const suffix = token.id.replace(/^dads-neutral-/, "");
+			const scale = token.classification.scale;
+
+			// white/black などスケールを持たないものはフラットで保持
+			if (!scale) {
+				neutral[suffix] = makeLeaf(token);
+				continue;
+			}
+
+			const groupKey = suffix.replace(new RegExp(`-${scale}$`), "");
+			const group = neutral[groupKey];
+			if (!group || typeof group !== "object") {
+				neutral[groupKey] = {};
+			}
+			(neutral[groupKey] as Record<string, TLeaf>)[String(scale)] =
+				makeLeaf(token);
+			continue;
+		}
+
+		if (category === "semantic") {
+			const suffix = token.id.replace(/^dads-semantic-/, "");
+			const parts = suffix.split("-");
+			const kind = parts[0];
+
+			// success-1 / error-2
+			if (kind === "success" || kind === "error") {
+				const index = parts[1];
+				if (!index) continue;
+				if (!semantic[kind] || typeof semantic[kind] !== "object") {
+					semantic[kind] = {};
+				}
+				(semantic[kind] as Record<string, TLeaf>)[index] = makeLeaf(token);
+				continue;
+			}
+
+			// warning-yellow-1 / warning-orange-2
+			if (kind === "warning") {
+				const pattern = parts[1];
+				const index = parts[2];
+				if (!pattern || !index) continue;
+				if (!semantic.warning || typeof semantic.warning !== "object") {
+					semantic.warning = {};
+				}
+				const warningGroup = semantic.warning as Record<
+					string,
+					TLeaf | Record<string, TLeaf>
+				>;
+				if (
+					!warningGroup[pattern] ||
+					typeof warningGroup[pattern] !== "object"
+				) {
+					warningGroup[pattern] = {};
+				}
+				(warningGroup[pattern] as Record<string, TLeaf>)[index] =
+					makeLeaf(token);
+				continue;
+			}
+
+			// それ以外はフラット
+			semantic[suffix] = makeLeaf(token);
+		}
+	}
+
+	return { primitive, neutral, semantic };
+}
+
+function getPaletteDadsPrimitiveRef(palette: {
+	baseChromaName?: string;
+	step?: number;
+	keyColors: string[];
+}): string | null {
+	const keyColorInput = palette.keyColors[0];
+	if (!keyColorInput) return null;
+
+	const cachedTokens = getCachedDadsTokens();
+	if (!cachedTokens) return null;
+
+	const { color: hex } = parseKeyColor(keyColorInput);
+
+	// 1) baseChromaName + step があればそれを優先（Studio/Derived/Accent候補で付与される）
+	if (palette.baseChromaName && palette.step) {
+		const hue = getDadsHueFromDisplayName(palette.baseChromaName);
+		if (hue) {
+			return `var(--color-primitive-${hue}-${palette.step})`;
+		}
+	}
+
+	// 2) HEX がDADSプリミティブと完全一致する場合はそれを参照
+	const dadsInfo = findDadsColorByHex(cachedTokens, hex);
+	if (dadsInfo) {
+		return `var(--color-primitive-${dadsInfo.hue}-${dadsInfo.scale})`;
+	}
+
+	return null;
+}
+
+function exportCssWithDadsTokens(): string {
+	const dadsTokens = getCachedDadsTokens();
+	if (!dadsTokens || dadsTokens.length === 0) {
+		return "";
+	}
+
+	const lines: string[] = [];
+	lines.push(":root {");
+
+	// DADS tokens（公式プリミティブ+セマンティックをそのまま展開）
+	for (const token of dadsTokens) {
+		const varName = getDadsCssVariableName(token);
+		const value = getDadsCssValue(token);
+		lines.push(`  ${varName}: ${value};`);
+	}
+
+	lines.push("");
+
+	// Role tokens（Primary/Secondary/Tertiary/Accent）: 1ロール=1トークン
+	const palettesToExport =
+		state.shadesPalettes.length > 0 ? state.shadesPalettes : state.palettes;
+
+	let primaryAssigned = false;
+	let accentIndex = 1;
+	for (const p of palettesToExport) {
+		const lowerName = p.name.toLowerCase();
+
+		let roleKey: string | null = null;
+		if (
+			p.derivedFrom?.derivationType === "secondary" ||
+			lowerName === "secondary"
+		) {
+			roleKey = "secondary";
+		} else if (
+			p.derivedFrom?.derivationType === "tertiary" ||
+			lowerName === "tertiary"
+		) {
+			roleKey = "tertiary";
+		} else if (lowerName === "primary") {
+			roleKey = "primary";
+			primaryAssigned = true;
+		} else {
+			const accentMatch = lowerName.match(/^accent\s*(\d+)$/);
+			if (accentMatch?.[1]) {
+				roleKey = `accent-${accentMatch[1]}`;
+			} else if (!primaryAssigned) {
+				roleKey = "primary";
+				primaryAssigned = true;
+			} else {
+				roleKey = `accent-${accentIndex}`;
+				accentIndex++;
+			}
+		}
+
+		if (!roleKey) continue;
+
+		const dadsRef = getPaletteDadsPrimitiveRef(p);
+		if (dadsRef) {
+			lines.push(`  --color-${roleKey}: ${dadsRef};`);
+			continue;
+		}
+
+		const keyColorInput = p.keyColors[0];
+		if (!keyColorInput) continue;
+		const { color: hex } = parseKeyColor(keyColorInput);
+		lines.push(`  --color-${roleKey}: ${hex};`);
+	}
+
+	lines.push("");
+
+	// Semantic/link tokens（アプリ向け短縮エイリアス）
+	const warningPattern = getActiveWarningPattern();
+	const warningHue = warningPattern === "yellow" ? "yellow" : "orange";
+	const warningDefaultStep = warningPattern === "yellow" ? 700 : 600;
+	const warningStrongStep = warningPattern === "yellow" ? 900 : 800;
+
+	lines.push("  --color-success: var(--color-primitive-green-600);");
+	lines.push("  --color-success-strong: var(--color-primitive-green-800);");
+	lines.push("  --color-error: var(--color-primitive-red-800);");
+	lines.push("  --color-error-strong: var(--color-primitive-red-900);");
+	lines.push(
+		`  --color-warning: var(--color-primitive-${warningHue}-${warningDefaultStep});`,
+	);
+	lines.push(
+		`  --color-warning-strong: var(--color-primitive-${warningHue}-${warningStrongStep});`,
+	);
+
+	lines.push("  --color-link: var(--color-primitive-blue-1000);");
+	lines.push("  --color-link-visited: var(--color-primitive-magenta-900);");
+	lines.push("  --color-link-active: var(--color-primitive-orange-800);");
+
+	lines.push("}");
+
+	return lines.join("\n");
+}
+
+function buildExportCssVariableMap(): Record<string, string> {
+	const vars: Record<string, string> = {};
+
+	const dadsTokens = getCachedDadsTokens();
+	const hasDadsTokens = !!(dadsTokens && dadsTokens.length > 0);
+
+	if (hasDadsTokens && dadsTokens) {
+		for (const token of dadsTokens) {
+			const varName = getDadsCssVariableName(token);
+			vars[varName] = getDadsCssValue(token);
+		}
+	}
+
+	// Role tokens（Primary/Secondary/Tertiary/Accent）: 1ロール=1トークン
+	const palettesToExport =
+		state.shadesPalettes.length > 0 ? state.shadesPalettes : state.palettes;
+
+	let primaryAssigned = false;
+	let accentIndex = 1;
+	for (const p of palettesToExport) {
+		const lowerName = p.name.toLowerCase();
+
+		let roleKey: string | null = null;
+		if (
+			p.derivedFrom?.derivationType === "secondary" ||
+			lowerName === "secondary"
+		) {
+			roleKey = "secondary";
+		} else if (
+			p.derivedFrom?.derivationType === "tertiary" ||
+			lowerName === "tertiary"
+		) {
+			roleKey = "tertiary";
+		} else if (lowerName === "primary") {
+			roleKey = "primary";
+			primaryAssigned = true;
+		} else {
+			const accentMatch = lowerName.match(/^accent\s*(\d+)$/);
+			if (accentMatch?.[1]) {
+				roleKey = `accent-${accentMatch[1]}`;
+			} else if (!primaryAssigned) {
+				roleKey = "primary";
+				primaryAssigned = true;
+			} else {
+				roleKey = `accent-${accentIndex}`;
+				accentIndex++;
+			}
+		}
+
+		if (!roleKey) continue;
+
+		const dadsRef = getPaletteDadsPrimitiveRef(p);
+		if (dadsRef) {
+			vars[`--color-${roleKey}`] = dadsRef;
+			continue;
+		}
+
+		const keyColorInput = p.keyColors[0];
+		if (!keyColorInput) continue;
+		const { color: hex } = parseKeyColor(keyColorInput);
+		vars[`--color-${roleKey}`] = hex;
+	}
+
+	// Semantic/link tokens（アプリ向け短縮エイリアス）
+	if (hasDadsTokens) {
+		const warningPattern = getActiveWarningPattern();
+		const warningHue = warningPattern === "yellow" ? "yellow" : "orange";
+		const warningDefaultStep = warningPattern === "yellow" ? 700 : 600;
+		const warningStrongStep = warningPattern === "yellow" ? 900 : 800;
+
+		vars["--color-success"] = "var(--color-primitive-green-600)";
+		vars["--color-success-strong"] = "var(--color-primitive-green-800)";
+		vars["--color-error"] = "var(--color-primitive-red-800)";
+		vars["--color-error-strong"] = "var(--color-primitive-red-900)";
+		vars["--color-warning"] =
+			`var(--color-primitive-${warningHue}-${warningDefaultStep})`;
+		vars["--color-warning-strong"] =
+			`var(--color-primitive-${warningHue}-${warningStrongStep})`;
+
+		vars["--color-link"] = "var(--color-primitive-blue-1000)";
+		vars["--color-link-visited"] = "var(--color-primitive-magenta-900)";
+		vars["--color-link-active"] = "var(--color-primitive-orange-800)";
+	}
+
+	return vars;
+}
+
+function exportTailwindConfigWithCssVars(
+	colors: Parameters<typeof exportToTailwind>[0],
+	rootVariables: Record<string, string>,
+	options: { indent?: number; esModule?: boolean } = {},
+): string {
+	const { indent = 2, esModule = false } = options;
+	const indentStr = " ".repeat(indent);
+
+	const tailwindColors = exportToTailwind(colors, {
+		esModule,
+	}).colors;
+
+	const colorsJson = JSON.stringify(tailwindColors, null, indent);
+	const rootVarsJson = JSON.stringify(rootVariables, null, indent);
+
+	const colorsBlock = colorsJson
+		.split("\n")
+		.join(`\n${indentStr}${indentStr}${indentStr}`);
+	const rootVarsBlock = rootVarsJson
+		.split("\n")
+		.join(`\n${indentStr}${indentStr}${indentStr}${indentStr}`);
+
+	if (esModule) {
+		return `export default {
+${indentStr}theme: {
+${indentStr}${indentStr}extend: {
+${indentStr}${indentStr}${indentStr}colors: ${colorsBlock}
+${indentStr}${indentStr}}
+${indentStr}},
+${indentStr}plugins: [
+${indentStr}${indentStr}function ({ addBase }) {
+${indentStr}${indentStr}${indentStr}addBase({
+${indentStr}${indentStr}${indentStr}${indentStr}":root": ${rootVarsBlock}
+${indentStr}${indentStr}${indentStr}});
+${indentStr}${indentStr}}
+${indentStr}]
+}`;
+	}
+
+	return `module.exports = {
+${indentStr}theme: {
+${indentStr}${indentStr}extend: {
+${indentStr}${indentStr}${indentStr}colors: ${colorsBlock}
+${indentStr}${indentStr}}
+${indentStr}},
+${indentStr}plugins: [
+${indentStr}${indentStr}function ({ addBase }) {
+${indentStr}${indentStr}${indentStr}addBase({
+${indentStr}${indentStr}${indentStr}${indentStr}":root": ${rootVarsBlock}
+${indentStr}${indentStr}${indentStr}});
+${indentStr}${indentStr}}
+${indentStr}]
+}`;
+}
+
+function buildDtcgRoleTokenValues(
+	baseColors: Record<string, Color>,
+): Record<string, Color | string> {
+	const dadsTokens = getCachedDadsTokens();
+	if (!dadsTokens || dadsTokens.length === 0) {
+		return baseColors;
+	}
+
+	const cssVars = buildExportCssVariableMap();
+	const output: Record<string, Color | string> = {};
+
+	for (const [name, color] of Object.entries(baseColors)) {
+		const varValue = cssVars[`--color-${name}`];
+		const match = varValue?.match(
+			/^var\(--color-primitive-([a-z0-9-]+)-(\d+)\)$/,
+		);
+		if (match?.[1] && match[2]) {
+			output[name] = `{color.dads.primitive.${match[1]}.${match[2]}}`;
+			continue;
+		}
+		output[name] = color;
+	}
+
+	return output;
+}
+
+function generateDadsSemanticLinkExportColors(): Record<string, Color> {
+	const warningPattern = getActiveWarningPattern();
+	const { semantic, link } = exportDadsSemanticLinkColorsSync(warningPattern);
+
+	const colors: Record<string, Color> = {};
+
+	const add = (key: string, color: Color | undefined) => {
+		if (!color) return;
+		colors[key] = color;
+	};
+
+	add("success", semantic["Success-1"]);
+	add("success-strong", semantic["Success-2"]);
+	add("error", semantic["Error-1"]);
+	add("error-strong", semantic["Error-2"]);
+	add("warning", semantic["Warning-YL1"] ?? semantic["Warning-OR1"]);
+	add("warning-strong", semantic["Warning-YL2"] ?? semantic["Warning-OR2"]);
+
+	add("link", link["Link-Default"]);
+	add("link-visited", link["Link-Visited"]);
+	add("link-active", link["Link-Active"]);
+
+	return colors;
 }
 
 /**
@@ -181,31 +679,95 @@ export function downloadFile(
  * @returns エクスポート内容の文字列
  */
 export function getExportContent(format: ExportFormat): string {
-	const colors = generateExportColors();
+	const baseColors = generateExportRoleColors();
 
 	switch (format) {
 		case "css": {
-			const result = exportToCSS(colors, {
-				includeWideGamutFallback: true,
-			});
-			return result.css;
+			const css = exportCssWithDadsTokens();
+			if (css) return css;
+
+			// フォールバック（DADS未ロード時）
+			const colors = {
+				...baseColors,
+				...generateDadsSemanticLinkExportColors(),
+			};
+			const lines: string[] = [];
+			lines.push(":root {");
+			for (const [name, color] of Object.entries(colors)) {
+				lines.push(`  --color-${name}: ${color.toHex()};`);
+			}
+			lines.push("}");
+			return lines.join("\n");
 		}
 		case "tailwind": {
-			const result = exportToTailwind(colors, {
+			const colors: Parameters<typeof exportToTailwind>[0] = {};
+
+			for (const name of Object.keys(baseColors)) {
+				colors[name] = `var(--color-${name})`;
+			}
+
+			const dadsTokens = getCachedDadsTokens();
+			const hasDadsTokens = !!(dadsTokens && dadsTokens.length > 0);
+
+			// Semantic/link tokens as nested sections (Tailwind "DEFAULT" pattern)
+			if (hasDadsTokens) {
+				colors.success = {
+					DEFAULT: "var(--color-success)",
+					strong: "var(--color-success-strong)",
+				};
+				colors.error = {
+					DEFAULT: "var(--color-error)",
+					strong: "var(--color-error-strong)",
+				};
+				colors.warning = {
+					DEFAULT: "var(--color-warning)",
+					strong: "var(--color-warning-strong)",
+				};
+				colors.link = {
+					DEFAULT: "var(--color-link)",
+					visited: "var(--color-link-visited)",
+					active: "var(--color-link-active)",
+				};
+
+				const tree = buildDadsTokenTree(dadsTokens, (t) => {
+					const varName = getDadsCssVariableName(t);
+					return `var(${varName})`;
+				});
+				colors.dads = tree;
+			}
+
+			const rootVars = buildExportCssVariableMap();
+			return exportTailwindConfigWithCssVars(colors, rootVars, {
 				esModule: false,
 			});
-			return result.config;
 		}
 		case "json": {
-			const baseResult = exportToDTCG(colors);
+			const baseResult = exportToDTCG(buildDtcgRoleTokenValues(baseColors));
 
 			// Warning パターンを取得
 			const warningPattern = getActiveWarningPattern();
 
 			// DADS semantic/link トークンを追加
-			const dadsTokens = exportDadsSemanticLinkTokensSync(warningPattern);
+			const dadsSemanticLink = exportDadsSemanticLinkTokensSync(warningPattern);
 
-			return JSON.stringify({ ...baseResult.tokens, ...dadsTokens }, null, 2);
+			const output: Record<string, unknown> = {
+				...baseResult.tokens,
+				...dadsSemanticLink,
+			};
+
+			const dadsTokens = getCachedDadsTokens();
+			if (dadsTokens && dadsTokens.length > 0) {
+				const tree = buildDadsTokenTree(dadsTokens, (t) => ({
+					$value: getDadsCssValue(t),
+					$type: "color" as const,
+				}));
+				const colorGroup =
+					(output.color as Record<string, unknown> | undefined) ?? {};
+				colorGroup.dads = tree;
+				output.color = colorGroup;
+			}
+
+			return JSON.stringify(output, null, 2);
 		}
 	}
 }
@@ -234,16 +796,39 @@ export function setupExportHandlers(elements: ExportElements): void {
 		}
 	};
 
-	if (exportBtn && exportDialog) {
+	const openExportDialog = () => {
+		if (!exportDialog) return;
+		if (exportDialog.hasAttribute("open")) return;
+		updateExportPreview();
+		exportDialog.showModal();
+		syncModalOpenState();
+	};
+
+	if (exportDialog) {
 		exportDialog.addEventListener("close", () => {
 			syncModalOpenState();
 		});
+	}
 
-		exportBtn.onclick = () => {
-			updateExportPreview();
-			exportDialog.showModal();
-			syncModalOpenState();
+	if (exportBtn) {
+		exportBtn.onclick = openExportDialog;
+	}
+
+	if (typeof document !== "undefined") {
+		if (exportDialogTriggerClickHandler) {
+			document.removeEventListener("click", exportDialogTriggerClickHandler);
+		}
+
+		exportDialogTriggerClickHandler = (e: MouseEvent) => {
+			if (!exportDialog) return;
+			const target = e.target;
+			if (!target || typeof (target as Element).closest !== "function") return;
+			const trigger = (target as Element).closest(".studio-export-btn");
+			if (!trigger) return;
+			openExportDialog();
 		};
+
+		document.addEventListener("click", exportDialogTriggerClickHandler);
 	}
 
 	exportFormatButtons.forEach((btn) => {
@@ -310,24 +895,14 @@ export function setupDirectExportButtons(
 ): void {
 	if (cssBtn) {
 		cssBtn.onclick = () => {
-			const colors = generateExportColors();
-			const result = exportToCSS(colors, {
-				prefix: "color",
-				includeWideGamutFallback: true,
-			});
-			downloadFile(result.css, "colors.css", "text/css");
+			downloadFile(getExportContent("css"), "colors.css", "text/css");
 		};
 	}
 
 	if (tailwindBtn) {
 		tailwindBtn.onclick = () => {
-			const colors = generateExportColors();
-			const result = exportToTailwind(colors, {
-				colorSpace: "oklch",
-				esModule: false,
-			});
 			downloadFile(
-				result.config,
+				getExportContent("tailwind"),
 				"tailwind.colors.js",
 				"application/javascript",
 			);
@@ -336,11 +911,11 @@ export function setupDirectExportButtons(
 
 	if (jsonBtn) {
 		jsonBtn.onclick = () => {
-			const colors = generateExportColors();
-			const result = exportToDTCG(colors, {
-				colorSpace: "oklch",
-			});
-			downloadFile(result.json, "colors.tokens.json", "application/json");
+			downloadFile(
+				getExportContent("json"),
+				"colors.tokens.json",
+				"application/json",
+			);
 		};
 	}
 }

@@ -78,6 +78,54 @@ describe("TailwindExporter", () => {
 
 			expect(result.config).toContain("    theme:");
 		});
+
+		it("文字列値（CSS変数参照など）をそのまま出力できる", () => {
+			const colors = {
+				primary: "var(--color-primary)",
+			};
+
+			const result = exportToTailwind(colors);
+
+			expect(result.colors.primary).toBe("var(--color-primary)");
+			expect(result.config).toContain("var(--color-primary)");
+		});
+
+		it("ネストされた文字列値をそのまま出力できる", () => {
+			const colors = {
+				link: {
+					DEFAULT: "var(--color-link)",
+					visited: "var(--color-link-visited)",
+				},
+			};
+
+			const result = exportToTailwind(colors);
+
+			const link = result.colors.link as Record<string, string>;
+			expect(link.DEFAULT).toBe("var(--color-link)");
+			expect(link.visited).toBe("var(--color-link-visited)");
+		});
+
+		it("深いネスト構造を生成できる", () => {
+			const colors = {
+				dads: {
+					primitive: {
+						blue: {
+							"50": "var(--color-primitive-blue-50)",
+						},
+					},
+				},
+			};
+
+			const result = exportToTailwind(colors);
+
+			const dads = result.colors.dads as Record<string, unknown>;
+			const primitive = dads.primitive as Record<string, unknown>;
+			const blue = primitive.blue as Record<string, string>;
+			expect(blue["50"]).toBe("var(--color-primitive-blue-50)");
+			expect(result.config).toContain('"dads"');
+			expect(result.config).toContain('"primitive"');
+			expect(result.config).toContain('"blue"');
+		});
 	});
 
 	describe("exportScalesToTailwind", () => {

@@ -144,7 +144,10 @@ export function exportToCSS(
 		// sRGB fallback
 		cssLines.push(`${indentStr}${varName}: ${hex};${cudComment}`);
 		// OKLCH値（モダンブラウザ用）
-		cssLines.push(`${indentStr}${varName}: ${oklchValue};`);
+		// includeWideGamutFallback=true の場合は @supports 側に集約する
+		if (!includeWideGamutFallback) {
+			cssLines.push(`${indentStr}${varName}: ${oklchValue};`);
+		}
 	}
 
 	cssLines.push("}");
@@ -414,7 +417,10 @@ export function exportScalesToCSS(
 				: "";
 
 			cssLines.push(`${indentStr}${varName}: ${hex};${cudComment}`);
-			cssLines.push(`${indentStr}${varName}: ${oklchValue};`);
+			// includeWideGamutFallback=true の場合は @supports 側に集約する
+			if (!includeWideGamutFallback) {
+				cssLines.push(`${indentStr}${varName}: ${oklchValue};`);
+			}
 		}
 	}
 
