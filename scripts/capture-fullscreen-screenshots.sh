@@ -120,12 +120,11 @@ echo ""
 
 SCREENSHOTS=(
     "00-studio-view.png"
-    "01-harmony-view.png"
-    "02-palette-view.png"
-    "03-shades-view.png"
-    "04-accessibility-view.png"
-    "05-color-detail-modal.png"
-    "06-export-dialog.png"
+    "01-manual-view.png"
+    "02-cvd-protanopia.png"
+    "03-a11y-drawer.png"
+    "04-swatch-popover.png"
+    "05-export-dialog.png"
 )
 
 ALL_VALID=true
