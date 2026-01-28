@@ -103,12 +103,12 @@ export function createDerivedPalettes(
 				baseChromaName,
 				primaryStep: dadsInfo.scale,
 			};
-		} else if (primaryPalette.baseChromaName) {
-			// baseChromaNameが設定されている場合もDADSモードを使用
+		} else if (primaryPalette.step && primaryPalette.baseChromaName) {
+			// Primary が DADS として扱われている場合（@step 付き等）は DADS モードを維持する
 			dadsMode = {
 				tokens: dadsTokens,
 				baseChromaName: primaryPalette.baseChromaName,
-				primaryStep: primaryPalette.step as DadsChromaScale | undefined,
+				primaryStep: primaryPalette.step as DadsChromaScale,
 			};
 		}
 	}
@@ -117,6 +117,7 @@ export function createDerivedPalettes(
 	const derived = deriveSecondaryTertiary({
 		primaryColor: cleanPrimaryHex,
 		backgroundColor,
+		seed: state.studioSeed,
 		dadsMode,
 		secondaryUiContrast: options?.secondaryUiContrast,
 		tertiaryContrast: options?.tertiaryContrast,

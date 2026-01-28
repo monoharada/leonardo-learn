@@ -29,6 +29,8 @@ const HUE_ORDER: readonly DadsColorHue[] = [
 	"purple",
 ] as const;
 
+const DADS_HUE_SET = new Set<DadsColorHue>(HUE_ORDER);
+
 /**
  * 色相の日本語名マッピング
  */
@@ -86,6 +88,10 @@ const EN_TO_HUE: Record<string, DadsColorHue> = {
 export function getDadsHueFromDisplayName(
 	displayName: string,
 ): DadsColorHue | undefined {
+	// Already a DadsColorHue (e.g. "blue", "light-blue")
+	if (DADS_HUE_SET.has(displayName as DadsColorHue)) {
+		return displayName as DadsColorHue;
+	}
 	return EN_TO_HUE[displayName];
 }
 
