@@ -137,15 +137,21 @@ export interface DadsColorScale {
 }
 
 /**
- * トークンキャッシュ
+ * トークンキャッシュ（結果）
  */
 let tokenCache: DadsToken[] | null = null;
+
+/**
+ * トークンキャッシュ（Promise）
+ * 並行呼び出し時の重複パースを防止
+ */
+let tokenCachePromise: Promise<DadsToken[]> | null = null;
 
 /**
  * DADSトークンを読み込む
  *
  * @digital-go-jp/design-tokensのCSSから自動的にトークンを読み込む
- * 結果はキャッシュされる
+ * 結果はキャッシュされる。並行呼び出し時も重複パースを防止する。
  *
  * @returns DADSトークン配列
  */
@@ -154,20 +160,28 @@ export async function loadDadsTokens(): Promise<DadsToken[]> {
 		return tokenCache;
 	}
 
-	try {
-		// 静的インポートしたCSSテキストを使用
-		const result = parseDadsPrimitives(dadsCssText);
-
-		if (result.warnings.length > 0) {
-			console.warn("DADS token parse warnings:", result.warnings);
-		}
-
-		tokenCache = result.tokens;
-		return result.tokens;
-	} catch (error) {
-		console.error("Failed to load DADS tokens:", error);
-		throw new Error("DADSトークンの読み込みに失敗しました");
+	if (tokenCachePromise) {
+		return tokenCachePromise;
 	}
+
+	tokenCachePromise = (async () => {
+		try {
+			// 静的インポートしたCSSテキストを使用
+			const result = parseDadsPrimitives(dadsCssText);
+
+			if (result.warnings.length > 0) {
+				console.warn("DADS token parse warnings:", result.warnings);
+			}
+
+			tokenCache = result.tokens;
+			return result.tokens;
+		} catch (error) {
+			console.error("Failed to load DADS tokens:", error);
+			throw new Error("DADSトークンの読み込みに失敗しました");
+		}
+	})();
+
+	return tokenCachePromise;
 }
 
 /**
@@ -175,6 +189,7 @@ export async function loadDadsTokens(): Promise<DadsToken[]> {
  */
 export function clearTokenCache(): void {
 	tokenCache = null;
+	tokenCachePromise = null;
 }
 
 /**

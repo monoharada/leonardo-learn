@@ -26,9 +26,9 @@ export interface DerivationConfig {
 	 * NOTE: UIの表示トグルとは独立して、導出の安定性/再現性のために使用する。
 	 */
 	seed?: string | number;
-	/** セカンダリのUI要素用最小コントラスト（デフォルト: 3.0） */
+	/** セカンダリのUI要素用最小コントラスト（デフォルト: 3.0, WCAG AA UIコンポーネント準拠） */
 	secondaryUiContrast?: number;
-	/** ターシャリの最小コントラスト（デフォルト: 1.5） */
+	/** ターシャリの最小コントラスト（デフォルト: 3.0, WCAG AA UIコンポーネント準拠） */
 	tertiaryContrast?: number;
 	/**
 	 * DADS導出モード設定

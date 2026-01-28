@@ -162,7 +162,7 @@ export async function renderManualView(
 
 	// キーカラー変更ハンドラ（セカンダリー・ターシャリーを自動生成）
 	// - DADS準拠: Secondary/Tertiary は Primary と同色相の明度違い
-	// - Tertiary は Secondary と反対の明度方向
+	// - Tertiary は Secondary と反対方向を優先（コントラスト/CVD制約で同方向もあり得る）
 	// - Primary が DADS の場合のみ DADSトークンから選択（非DADSを出さない）
 	const handleKeyColorChange = (hex: string) => {
 		manualKeyColorChangeSeq += 1;

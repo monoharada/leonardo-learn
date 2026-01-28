@@ -554,6 +554,7 @@ export async function rebuildStudioPalettes(options: {
 		primaryPalette,
 		backgroundColor,
 		options.dadsTokens,
+		{ secondaryUiContrast: minContrast, tertiaryContrast: minContrast },
 	);
 
 	// Apply contrast adjustment to derived palettes (Secondary/Tertiary) based on preset.

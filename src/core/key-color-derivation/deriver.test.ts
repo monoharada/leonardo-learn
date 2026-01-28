@@ -69,13 +69,13 @@ describe("deriveSecondaryTertiary", () => {
 			expect(result.secondary.tone).toBeGreaterThan(result.primary.tone);
 		});
 
-		it("ターシャリはプライマリより明るくなる", () => {
+		it("ターシャリはセカンダリと反対方向になる", () => {
 			const result = deriveSecondaryTertiary({
 				primaryColor: "#3366cc",
 				backgroundColor: lightBg,
 			});
 
-			// Tertiary は Secondary と反対方向（DADS仕様）
+			// Tertiary は Secondary と反対方向（非DADSモードでは保証）
 			expect(result.tertiary.lightnessDirection).toBe("darker");
 			expect(result.tertiary.tone).toBeLessThan(result.primary.tone);
 		});
@@ -129,13 +129,13 @@ describe("deriveSecondaryTertiary", () => {
 			expect(result.secondary.tone).not.toBe(result.primary.tone);
 		});
 
-		it("ターシャリはダーク背景に近づく（暗い方向）", () => {
+		it("ターシャリはセカンダリと反対方向になる（ダーク背景）", () => {
 			const result = deriveSecondaryTertiary({
 				primaryColor: "#6699ff",
 				backgroundColor: darkBg,
 			});
 
-			// Tertiary は Secondary と反対方向（DADS仕様）
+			// Tertiary は Secondary と反対方向（非DADSモードでは保証）
 			expect(result.tertiary.lightnessDirection).toBe("lighter");
 			expect(result.tertiary.contrastRatio).toBeGreaterThanOrEqual(3.0);
 		});
