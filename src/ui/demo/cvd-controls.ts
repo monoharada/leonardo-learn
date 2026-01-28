@@ -14,6 +14,7 @@ import { Color } from "@/core/color";
 import { parseKeyColor, persistCvdConfusionThreshold, state } from "./state";
 import type { CVDSimulationType, CvdConfusionThreshold } from "./types";
 import { parseCvdConfusionThreshold } from "./utils/cvd-confusion-threshold";
+import { extractKeySurfaceColor } from "./utils/key-background";
 
 /**
  * 有効なCVDシミュレーションタイプのセット
@@ -131,6 +132,18 @@ export function generateKeyColors(): Record<string, Color> {
 			.replace(/\s+/g, "-");
 		colors[paletteName] = new Color(hex);
 	}
+
+	// キーサーフェスカラーを追加（CVDシミュレーション対象に含める）
+	const keySurfaceColor = extractKeySurfaceColor({
+		palettes: palettesForScore,
+		backgroundHex: state.lightBackgroundColor || "#ffffff",
+		textHex: state.darkBackgroundColor || "#000000",
+		preset: state.activePreset,
+	});
+	if (keySurfaceColor) {
+		colors["key-surface"] = keySurfaceColor;
+	}
+
 	return colors;
 }
 

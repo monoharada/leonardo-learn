@@ -217,7 +217,7 @@ export function computePaletteColors(
 	);
 
 	// Apply contrast adjustment for semantic colors when needed
-	const bgHex = DEFAULT_STUDIO_BACKGROUND;
+	const bgHex = state.lightBackgroundColor || DEFAULT_STUDIO_BACKGROUND;
 	const minContrast = studioViewDeps.resolvePresetMinContrast(preset);
 
 	return {

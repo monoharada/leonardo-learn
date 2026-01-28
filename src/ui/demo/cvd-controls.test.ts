@@ -173,11 +173,16 @@ describe("cvd-controls", () => {
 					harmony: "complementary",
 				},
 			];
+			state.lightBackgroundColor = "#ffffff";
+			state.darkBackgroundColor = "#000000";
+			state.activePreset = "default";
 
 			const result = generateKeyColors();
 
-			expect(Object.keys(result)).toHaveLength(1);
+			// valid パレット + key-surface の2つ
+			expect(Object.keys(result)).toHaveLength(2);
 			expect(result.valid).toBeDefined();
+			expect(result["key-surface"]).toBeDefined();
 		});
 
 		it("should parse keyColor with step notation", () => {
@@ -196,6 +201,79 @@ describe("cvd-controls", () => {
 
 			// @以降のstepは無視されて色のみ抽出される
 			expect(result.brand?.toHex()).toBe("#ff0000");
+		});
+
+		it("should include key-surface color when primary palette exists", () => {
+			state.shadesPalettes = [];
+			state.palettes = [
+				{
+					id: "palette-1",
+					name: "Primary",
+					keyColors: ["#3b82f6"],
+					ratios: [3.0],
+					harmony: "complementary",
+				},
+			];
+			state.lightBackgroundColor = "#ffffff";
+			state.darkBackgroundColor = "#000000";
+			state.activePreset = "default";
+
+			const result = generateKeyColors();
+
+			// キーバックグラウンドが含まれることを確認
+			expect(result["key-surface"]).toBeDefined();
+			expect(result["key-surface"]?.toHex()).toMatch(/^#[0-9a-f]{6}$/i);
+		});
+
+		it("should not include key-surface when no primary palette exists", () => {
+			state.shadesPalettes = [];
+			state.palettes = [];
+
+			const result = generateKeyColors();
+
+			expect(result["key-surface"]).toBeUndefined();
+		});
+
+		it("should not include key-surface when all palettes are derived", () => {
+			state.shadesPalettes = [];
+			state.palettes = [
+				{
+					id: "palette-1",
+					name: "Derived",
+					keyColors: ["#ff0000"],
+					ratios: [3.0],
+					harmony: "complementary",
+					derivedFrom: "some-parent",
+				},
+			];
+
+			const result = generateKeyColors();
+
+			// derivedFromがあるパレットはPrimaryではないので、key-surfaceは生成されない
+			expect(result["key-surface"]).toBeUndefined();
+		});
+
+		it("should generate key-surface based on current background color", () => {
+			state.shadesPalettes = [];
+			state.palettes = [
+				{
+					id: "palette-1",
+					name: "Primary",
+					keyColors: ["#0066cc"],
+					ratios: [3.0],
+					harmony: "complementary",
+				},
+			];
+			state.lightBackgroundColor = "#f0f0f0";
+			state.darkBackgroundColor = "#1a1a1a";
+			state.activePreset = "default";
+
+			const result = generateKeyColors();
+
+			// キーバックグラウンドは背景色とプライマリ色の混合
+			expect(result["key-surface"]).toBeDefined();
+			// プライマリ色とは異なることを確認（混合されているため）
+			expect(result["key-surface"]?.toHex()).not.toBe("#0066cc");
 		});
 	});
 

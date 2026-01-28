@@ -37,6 +37,7 @@ import {
 	LINK_ICON_SVG,
 } from "../utils/button-markup";
 import { copyTextToClipboard } from "../utils/clipboard";
+import { resolveKeyBackgroundColor } from "../utils/key-background";
 import {
 	getSelectedApplyTarget,
 	setSelectedApplyTarget,
@@ -577,6 +578,13 @@ export async function renderManualView(
 	// キーカラーがない場合はデフォルト色を使用
 	const primaryHex =
 		state.manualColorSelection.keyColor || DEFAULT_MANUAL_KEY_COLOR;
+	const keySurfaceHex = resolveKeyBackgroundColor({
+		primaryHex,
+		backgroundHex: state.lightBackgroundColor || "#ffffff",
+		textHex: state.darkBackgroundColor || "#000000",
+		preset: state.activePreset,
+		dadsTokens: await loadDadsTokens().catch(() => []),
+	}).hex;
 	swatchesContainer.appendChild(
 		createColorSwatchWithPopover(
 			"キーカラー",
@@ -593,11 +601,16 @@ export async function renderManualView(
 		createFilledSwatch("セカンダリ", secondaryHex, false),
 	);
 
-	// ターシャリースウォッチ（表示のみ、キーカラーから自動生成、zone-end）
+	// ターシャリースウォッチ（表示のみ、キーカラーから自動生成）
 	const tertiaryHex =
 		state.manualColorSelection.tertiaryColor || DEFAULT_MANUAL_TERTIARY_COLOR;
 	swatchesContainer.appendChild(
-		createFilledSwatch("ターシャリ", tertiaryHex, true),
+		createFilledSwatch("ターシャリ", tertiaryHex, false),
+	);
+
+	// キーサーフェス（表示のみ、キーカラー + 背景色から自動生成、zone-end）
+	swatchesContainer.appendChild(
+		createFilledSwatch("キーサーフェスカラー", keySurfaceHex, true),
 	);
 
 	// Accent 1〜4 スウォッチ（選択済み or プレースホルダー）
@@ -711,6 +724,7 @@ export async function renderManualView(
 			!state.manualColorSelection.tertiaryColor,
 		),
 	);
+	swatches.appendChild(createSmallSwatch(keySurfaceHex));
 
 	// アクセントインジケーター
 	for (const accentHex of state.manualColorSelection.accentColors) {

@@ -1350,7 +1350,12 @@
 /* マニュアルヘッダー内のラベルを大きく表示 */
 .manual-header-swatches .studio-toolbar-swatch__label {
 	font-size: 0.75rem;
-	max-width: 72px;
+	max-width: 96px;
+	white-space: normal;
+	overflow: visible;
+	text-overflow: clip;
+	overflow-wrap: anywhere;
+	line-height: 1.2;
 }
 
 /* 共有/エクスポートボタン用固定バー */

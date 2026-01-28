@@ -3117,10 +3117,7 @@
 
 .dads-preview--dads-html .preview-hero {
 	padding: 3.5rem 2rem;
-	background: var(
-		--preview-hero-bg,
-		color-mix(in oklch, var(--preview-tertiary) 40%, oklch(0.97 0 0))
-	);
+	background: var(--preview-hero-bg, var(--preview-key-surface));
 }
 
 /* ピンポイント・ブランディングテーマではヒーロー背景を透明に */
@@ -3528,10 +3525,7 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	background: var(
-		--preview-illustration-bg,
-		var(--preview-card, var(--color-neutral-solid-gray-50))
-	);
+	background: var(--preview-illustration-bg, var(--preview-key-surface));
 }
 
 .dads-preview--dads-html .preview-card-illustration__image svg {
@@ -5645,10 +5639,7 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	background: var(
-		--preview-illustration-bg,
-		var(--preview-card, var(--color-neutral-solid-gray-50))
-	);
+	background: var(--preview-illustration-bg, var(--preview-key-surface));
 }
 
 .dads-preview--dads-html .preview-illustration-card__image svg {

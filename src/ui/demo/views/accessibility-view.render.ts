@@ -1,5 +1,6 @@
 import { Color } from "@/core/color";
 import { parseKeyColor, state } from "../state";
+import { extractKeySurfaceColor } from "../utils/key-background";
 import type { AccessibilityViewState } from "./accessibility-view.core";
 import { renderSortingValidationSection } from "./accessibility-view.sorting-validation";
 import type { AccessibilityViewHelpers } from "./accessibility-view.types";
@@ -75,6 +76,17 @@ export function renderAccessibilityView(
 			const { color: hex } = parseKeyColor(keyColorInput);
 			keyColorsMap[p.name] = new Color(hex);
 		}
+	}
+
+	// キーサーフェスカラーを追加（CVDシミュレーション対象に含める）
+	const keySurfaceColor = extractKeySurfaceColor({
+		palettes: state.palettes,
+		backgroundHex: state.lightBackgroundColor || "#ffffff",
+		textHex: state.darkBackgroundColor || "#000000",
+		preset: state.activePreset,
+	});
+	if (keySurfaceColor) {
+		keyColorsMap["key-surface"] = keySurfaceColor;
 	}
 
 	// helpers.applySimulation is retained for future dynamic simulation switching

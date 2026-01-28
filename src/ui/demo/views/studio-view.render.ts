@@ -11,6 +11,7 @@ import {
 } from "../utils/button-markup";
 import { copyTextToClipboard } from "../utils/clipboard";
 import type { DadsSnapResult } from "../utils/dads-snap";
+import { resolveKeyBackgroundColor } from "../utils/key-background";
 import type { StudioViewCallbacks } from "./studio-view";
 import {
 	computePaletteColors,
@@ -78,7 +79,8 @@ export async function renderStudioView(
 
 	container.className = "dads-section dads-studio";
 	container.innerHTML = "";
-	container.style.backgroundColor = DEFAULT_STUDIO_BACKGROUND;
+	container.style.backgroundColor =
+		state.lightBackgroundColor || DEFAULT_STUDIO_BACKGROUND;
 
 	const toolbar = document.createElement("section");
 	toolbar.className = "studio-toolbar";
@@ -138,7 +140,8 @@ export async function renderStudioView(
 				// 既存Primaryを維持しつつ、アクセントだけ再生成（必要な場合のみ）
 				if (state.palettes.length > 0) {
 					const current = computePaletteColors(dadsTokens, state.activePreset);
-					const backgroundHex = DEFAULT_STUDIO_BACKGROUND;
+					const backgroundHex =
+						state.lightBackgroundColor || DEFAULT_STUDIO_BACKGROUND;
 					const existing = current.accentHexes;
 					const desired = Math.max(2, Math.min(4, state.studioAccentCount));
 
@@ -357,6 +360,18 @@ export async function renderStudioView(
 
 	const paletteColors = computePaletteColors(dadsTokens, state.activePreset);
 	const bgHex = state.lightBackgroundColor || DEFAULT_STUDIO_BACKGROUND;
+	const { baseChromaName: primaryBaseChromaName } = getDadsInfoWithChromaName(
+		dadsTokens,
+		paletteColors.primaryHex,
+	);
+	const keySurface = resolveKeyBackgroundColor({
+		primaryHex: paletteColors.primaryHex,
+		backgroundHex: bgHex,
+		textHex: state.darkBackgroundColor || "#000000",
+		preset: state.activePreset,
+		dadsTokens,
+		primaryBaseChromaName,
+	});
 
 	const desiredAccentCount = Math.max(2, Math.min(4, state.studioAccentCount));
 	const accentHexes = paletteColors.accentHexes.slice(0, desiredAccentCount);
@@ -787,7 +802,7 @@ export async function renderStudioView(
 		swatches.appendChild(secondarySwatch);
 	}
 
-	// Tertiary color swatch (if exists) with zone-end
+	// Tertiary color swatch (if exists)
 	if (paletteColors.tertiaryHex) {
 		const tertiaryDadsInfo = findDadsColorByHex(
 			dadsTokens,
@@ -801,18 +816,20 @@ export async function renderStudioView(
 			undefined,
 			tertiaryDadsInfo?.token.id,
 		);
-		tertiarySwatch.classList.add("studio-toolbar-swatch--zone-end");
 		swatches.appendChild(tertiarySwatch);
-	} else if (paletteColors.secondaryHex) {
-		// Secondaryはあるがtertiaryがない場合、最後のswatchにzone-endを付ける
-		const lastSwatch = swatches.lastElementChild;
-		if (lastSwatch) {
-			lastSwatch.classList.add("studio-toolbar-swatch--zone-end");
-		}
-	} else {
-		// Secondary/Tertiaryがない場合、Primaryにzone-endを付ける
-		primarySwatch.classList.add("studio-toolbar-swatch--zone-end");
 	}
+
+	const keySurfaceDadsInfo = findDadsColorByHex(dadsTokens, keySurface.hex);
+	const keySurfaceSwatch = createToolbarSwatchWithPopover(
+		"キーサーフェスカラー",
+		keySurface.hex,
+		null,
+		undefined,
+		undefined,
+		keySurfaceDadsInfo?.token.id,
+	);
+	keySurfaceSwatch.classList.add("studio-toolbar-swatch--zone-end");
+	swatches.appendChild(keySurfaceSwatch);
 
 	// Helper to decrease accent count (for delete button)
 	const handleDeleteAccent = async () => {
@@ -864,5 +881,6 @@ export async function renderStudioView(
 		paletteColors,
 		resolvedAccentHexes,
 		bgHex,
+		keySurfaceHex: keySurface.hex,
 	});
 }

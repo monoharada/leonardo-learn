@@ -530,11 +530,12 @@ describe("palette-preview module", () => {
 			});
 		});
 
-		it("--preview-kv-bg と --preview-illustration-bg は異なる値を持つ", () => {
+		it("--preview-kv-bg と --preview-illustration-bg は共に key-surface と同じ値を持つ", () => {
 			withJSDOMGlobals(() => {
 				const container = createPalettePreview(makePreviewColors(), {
 					getDisplayHex: identityGetDisplayHex,
 					tertiaryHex: "#FF6B6B",
+					keySurfaceHex: "#E0F0F5",
 				});
 
 				const kvBg = getStyleVar(container, "--preview-kv-bg");
@@ -542,10 +543,14 @@ describe("palette-preview module", () => {
 					container,
 					"--preview-illustration-bg",
 				);
+				const keySurface = getStyleVar(container, "--preview-key-surface");
 
 				expect(kvBg).not.toBe("");
 				expect(illustrationBg).not.toBe("");
-				expect(kvBg).not.toBe(illustrationBg);
+				expect(keySurface).not.toBe("");
+				// KV背景とイラスト背景は共に key-surface を使用
+				expect(kvBg).toBe(illustrationBg);
+				expect(kvBg).toBe(keySurface);
 			});
 		});
 

@@ -7,6 +7,7 @@
  */
 
 import { formatHex, interpolate, oklch, parse } from "culori";
+import { clamp01 } from "@/utils/color-space";
 import type { StudioTheme } from "../types";
 import {
 	iconAuthSvg,
@@ -30,10 +31,6 @@ import type {
 	PalettePreviewColors,
 	PalettePreviewOptions,
 } from "./palette-preview.types";
-
-function clamp01(value: number): number {
-	return Math.min(1, Math.max(0, value));
-}
 
 function adjustOklchLightness(hex: string, deltaL: number): string {
 	const parsed = parse(hex);
@@ -62,7 +59,7 @@ function deriveButtonStateColors(primaryHex: string): {
 
 type ThemeColorsInput = {
 	primaryHex: string;
-	tertiaryHex: string;
+	keySurfaceHex: string;
 	dadsLinkColor: string;
 };
 
@@ -74,34 +71,29 @@ type ThemeColorsOutput = {
 };
 
 /**
- * 色を白と混ぜて薄い色を作る
+ * 色を背景色と混ぜて薄い色を作る
  *
  * @param hex 元の色（HEX形式）
- * @param ratio 混合比率（0-1、0=白、1=元の色）
+ * @param baseHex ベース（背景）色（HEX形式）
+ * @param ratio 混合比率（0-1、0=baseHex、1=元の色）
  * @returns 薄くなった色（HEX形式）
  */
-function tintColor(hex: string, ratio: number): string {
+function tintColor(hex: string, baseHex: string, ratio: number): string {
 	const color = parse(hex);
 	if (!color) return hex;
 
-	const white = parse("#ffffff");
-	if (!white) return hex;
+	const base = parse(baseHex);
+	if (!base) return hex;
 
-	const tint = interpolate([white, color], "oklch");
+	const tint = interpolate([base, color], "oklch");
 	const result = tint(ratio);
 	return formatHex(result) || hex;
 }
 
 /**
- * 薄い色の比率（40%の色 + 60%の白、oklch(0.97 0 0)相当）
+ * Key Background 未指定時のフォールバック比率（背景 + Primary を少しだけ混ぜる）
  */
-const TINT_RATIO = 0.4;
-
-/**
- * イラスト背景用の薄い色の比率（25%の色 + 75%の白）
- * KV背景(0.4)より明らかに薄い色
- */
-const ILLUSTRATION_TINT_RATIO = 0.25;
+const KEY_BACKGROUND_FALLBACK_RATIO = 0.16;
 
 /**
  * アイコンSVGの色を currentColor に統一（CSS側で色を制御する）
@@ -247,7 +239,7 @@ function getThemeColors(
 	theme: StudioTheme,
 	input: ThemeColorsInput,
 ): ThemeColorsOutput {
-	const { primaryHex, tertiaryHex, dadsLinkColor } = input;
+	const { primaryHex, keySurfaceHex, dadsLinkColor } = input;
 
 	// 背景が白の場合のニュートラル黒
 	const neutralBlack = "#1A1A1A";
@@ -268,14 +260,14 @@ function getThemeColors(
 				linkColor: primaryHex,
 				headingColor: primaryHex,
 				heroBg: "transparent",
-				stripBg: tintColor(tertiaryHex, TINT_RATIO),
+				stripBg: keySurfaceHex,
 			};
 		default:
 			// ヒーロー背景に薄い色（現状維持）
 			return {
 				linkColor: primaryHex,
 				headingColor: primaryHex,
-				heroBg: tintColor(tertiaryHex, TINT_RATIO),
+				heroBg: keySurfaceHex,
 				stripBg: "transparent",
 			};
 	}
@@ -615,6 +607,13 @@ export function createPalettePreview(
 	const tertiaryHex = options.tertiaryHex ?? colors.cardAccent;
 	const theme = options.theme ?? "hero";
 	const preset = options.preset;
+	const keySurfaceHex =
+		options.keySurfaceHex ??
+		tintColor(
+			colors.headline,
+			colors.background,
+			KEY_BACKGROUND_FALLBACK_RATIO,
+		);
 
 	// DADS標準のリンク色（青）
 	const DADS_LINK_COLOR = "#0017C1";
@@ -622,7 +621,7 @@ export function createPalettePreview(
 	// テーマ別の色設定を計算
 	const themeColors = getThemeColors(theme, {
 		primaryHex: colors.headline,
-		tertiaryHex,
+		keySurfaceHex,
 		dadsLinkColor: DADS_LINK_COLOR,
 	});
 
@@ -632,11 +631,10 @@ export function createPalettePreview(
 	const resolvedLinkColor =
 		preset === "pastel" ? colors.linkText : themeColors.linkColor;
 
-	const kvBgBase = tintColor(tertiaryHex, TINT_RATIO);
-	const illustrationBgBase = tintColor(tertiaryHex, ILLUSTRATION_TINT_RATIO);
 	const previewVars: Record<string, string> = {
 		"--preview-bg": colors.background,
 		"--preview-text": colors.text,
+		"--preview-key-surface": keySurfaceHex,
 		"--preview-card": colors.card,
 		"--preview-border": colors.border,
 		"--preview-primary": colors.button,
@@ -657,10 +655,9 @@ export function createPalettePreview(
 		"--preview-link": resolvedLinkColor,
 		"--preview-hero-bg": themeColors.heroBg,
 		"--preview-strip-bg": themeColors.stripBg,
-		// KV背景は常にターシャリー色（テーマに関係なく薄い色）
-		"--preview-kv-bg": kvBgBase,
-		// イラスト背景はKVより薄い色（ILLUSTRATION_TINT_RATIO = 0.25）
-		"--preview-illustration-bg": illustrationBgBase,
+		// KV背景・イラスト背景は共に key-surface を使用
+		"--preview-kv-bg": keySurfaceHex,
+		"--preview-illustration-bg": keySurfaceHex,
 	};
 	for (const [name, value] of Object.entries(previewVars)) {
 		// "transparent" や空文字列の場合はCSS変数を設定しない（フォールバック値が使われる）
@@ -709,7 +706,7 @@ export function createPalettePreview(
 		);
 		const illustrationBgDisplay = getDisplayVarOrFallback(
 			"--preview-illustration-bg",
-			illustrationBgBase,
+			keySurfaceHex,
 		);
 
 		// 手元カード（--iv-accent3）はテーブル面（--iv-accent）の上に重なるため、
