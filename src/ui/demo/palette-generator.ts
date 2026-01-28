@@ -53,6 +53,8 @@ function toHarmonyType(harmonyType: HarmonyFilterType): HarmonyType {
  */
 const DADS_STEP_SUFFIX_PATTERN = /\s+\d+$/;
 
+const DEFAULT_RATIOS = [21, 15, 10, 7, 4.5, 3, 1] as const;
+
 /**
  * プライマリパレットからセカンダリ・ターシャリパレットを導出する
  *
@@ -123,45 +125,34 @@ export function createDerivedPalettes(
 		tertiaryContrast: options?.tertiaryContrast,
 	});
 
-	// Secondary パレット構築
-	const secondaryKeyColor = derived.secondary.step
-		? `${derived.secondary.color.toHex()}@${derived.secondary.step}`
-		: derived.secondary.color.toHex();
+	const createDerivedPaletteConfig = (
+		name: "Secondary" | "Tertiary",
+		role: "secondary" | "tertiary",
+	): PaletteConfig => {
+		const derivedColor = derived[role];
+		const keyColorString = derivedColor.step
+			? `${derivedColor.color.toHex()}@${derivedColor.step}`
+			: derivedColor.color.toHex();
 
-	const secondaryPalette: PaletteConfig = {
-		id: `derived-secondary-${timestamp}`,
-		name: "Secondary",
-		keyColors: [secondaryKeyColor],
-		ratios: [21, 15, 10, 7, 4.5, 3, 1],
-		harmony: HarmonyType.NONE,
-		baseChromaName: dadsMode?.baseChromaName,
-		step: derived.secondary.step,
-		derivedFrom: {
-			primaryPaletteId: primaryPalette.id,
-			derivationType: "secondary",
-		},
+		return {
+			id: `derived-${role}-${timestamp}`,
+			name,
+			keyColors: [keyColorString],
+			ratios: [...DEFAULT_RATIOS],
+			harmony: HarmonyType.NONE,
+			baseChromaName: dadsMode?.baseChromaName,
+			step: derivedColor.step,
+			derivedFrom: {
+				primaryPaletteId: primaryPalette.id,
+				derivationType: role,
+			},
+		};
 	};
 
-	// Tertiary パレット構築
-	const tertiaryKeyColor = derived.tertiary.step
-		? `${derived.tertiary.color.toHex()}@${derived.tertiary.step}`
-		: derived.tertiary.color.toHex();
-
-	const tertiaryPalette: PaletteConfig = {
-		id: `derived-tertiary-${timestamp}`,
-		name: "Tertiary",
-		keyColors: [tertiaryKeyColor],
-		ratios: [21, 15, 10, 7, 4.5, 3, 1],
-		harmony: HarmonyType.NONE,
-		baseChromaName: dadsMode?.baseChromaName,
-		step: derived.tertiary.step,
-		derivedFrom: {
-			primaryPaletteId: primaryPalette.id,
-			derivationType: "tertiary",
-		},
-	};
-
-	return [secondaryPalette, tertiaryPalette];
+	return [
+		createDerivedPaletteConfig("Secondary", "secondary"),
+		createDerivedPaletteConfig("Tertiary", "tertiary"),
+	];
 }
 
 /**
@@ -194,7 +185,7 @@ export function createPalettesFromHarmonyColors(
 			id: `harmony-brand-${timestamp}`,
 			name: "Primary",
 			keyColors: [brandColor],
-			ratios: [21, 15, 10, 7, 4.5, 3, 1],
+			ratios: [...DEFAULT_RATIOS],
 			harmony: toHarmonyType(harmonyType),
 		};
 		palettes.push(brandPalette);
@@ -227,7 +218,7 @@ export function createPalettesFromHarmonyColors(
 				id: `harmony-accent${i + 1}-${timestamp}`,
 				name: `Accent ${i + 1}`,
 				keyColors: [accentColor],
-				ratios: [21, 15, 10, 7, 4.5, 3, 1],
+				ratios: [...DEFAULT_RATIOS],
 				harmony: HarmonyType.NONE,
 				baseChromaName,
 				step: candidate?.step,
@@ -282,7 +273,7 @@ export function handleGenerate(
 			id: `sys-${index}-${sc.name.toLowerCase().replace(/\s+/g, "-")}`,
 			name: sc.name,
 			keyColors: [keyColorString],
-			ratios: [21, 15, 10, 7, 4.5, 3, 1],
+			ratios: [...DEFAULT_RATIOS],
 			harmony: paletteHarmony,
 			baseChromaName: sc.baseChromaName,
 			step: sc.step, // DADSモード用
@@ -318,7 +309,7 @@ export function handleGenerate(
 			id: `shades-${index}-${sc.baseChromaName?.toLowerCase().replace(/\s+/g, "-") || displayName.toLowerCase().replace(/\s+/g, "-")}`,
 			name: displayName,
 			keyColors: [hexValue],
-			ratios: [21, 15, 10, 7, 4.5, 3, 1],
+			ratios: [...DEFAULT_RATIOS],
 			harmony: HarmonyType.NONE,
 			baseChromaName: sc.baseChromaName,
 			step: sc.step, // DADSモード用

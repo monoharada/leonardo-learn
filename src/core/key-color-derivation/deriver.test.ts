@@ -8,9 +8,38 @@ import { describe, expect, it } from "bun:test";
 import { getAllCVDTypes, simulateCVD } from "../../accessibility/cvd-simulator";
 import { calculateSimpleDeltaE } from "../../accessibility/distinguishability";
 import { Color } from "../color";
-import type { DadsToken } from "../tokens/types";
+import type { DadsChromaScale, DadsColorHue, DadsToken } from "../tokens/types";
 import { deriveSecondaryTertiary } from "./deriver";
 import { DADS_CONTRAST_DEFAULTS } from "./types";
+
+function dadsToken(options: {
+	hue: DadsColorHue;
+	scale: DadsChromaScale;
+	hex: string;
+	id?: string;
+	nameJa?: string;
+	nameEn?: string;
+}): DadsToken {
+	return {
+		id: options.id ?? `dads-${options.hue}-${options.scale}`,
+		hex: options.hex,
+		nameJa: options.nameJa ?? `${options.hue} ${options.scale}`,
+		nameEn: options.nameEn ?? `${options.hue} ${options.scale}`,
+		classification: {
+			category: "chromatic",
+			hue: options.hue,
+			scale: options.scale,
+		},
+		source: "dads",
+	};
+}
+
+function dadsTokenSet(
+	hue: DadsColorHue,
+	entries: Array<{ scale: DadsChromaScale; hex: string }>,
+): DadsToken[] {
+	return entries.map((entry) => dadsToken({ hue, ...entry }));
+}
 
 function expectPairDistinguishable(color1: Color, color2: Color): void {
 	// Normal vision (ΔEOK = 100x-scaled OKLCH distance)
@@ -227,47 +256,25 @@ describe("deriveSecondaryTertiary", () => {
 	});
 
 	describe("DADSモード", () => {
+		const orangeTokens = dadsTokenSet("orange", [
+			{ scale: 500, hex: "#ff7628" },
+			{ scale: 600, hex: "#fb5b01" },
+			{ scale: 700, hex: "#e25100" },
+			{ scale: 800, hex: "#c74700" },
+			{ scale: 900, hex: "#ac3e00" },
+			{ scale: 1000, hex: "#8b3200" },
+			{ scale: 1100, hex: "#6d2700" },
+			{ scale: 1200, hex: "#541e00" },
+		]);
+
 		it("ライト背景: Light Blue 800 → Secondary 600 / Tertiary 1000（DADS例に寄せる）", async () => {
 			// DADS key color example (Light Blue): Primary 800 / Secondary 600 / Tertiary 1000
 			// NOTE: This test uses an inlined minimal token set to avoid cross-test module mocks.
-			const tokens: DadsToken[] = [
-				{
-					id: "dads-light-blue-600",
-					hex: "#008BF2",
-					nameJa: "ライトブルー 600",
-					nameEn: "Light Blue 600",
-					classification: {
-						category: "chromatic",
-						hue: "light-blue",
-						scale: 600,
-					},
-					source: "dads",
-				},
-				{
-					id: "dads-light-blue-800",
-					hex: "#0066BE",
-					nameJa: "ライトブルー 800",
-					nameEn: "Light Blue 800",
-					classification: {
-						category: "chromatic",
-						hue: "light-blue",
-						scale: 800,
-					},
-					source: "dads",
-				},
-				{
-					id: "dads-light-blue-1000",
-					hex: "#00428C",
-					nameJa: "ライトブルー 1000",
-					nameEn: "Light Blue 1000",
-					classification: {
-						category: "chromatic",
-						hue: "light-blue",
-						scale: 1000,
-					},
-					source: "dads",
-				},
-			];
+			const tokens: DadsToken[] = dadsTokenSet("light-blue", [
+				{ scale: 600, hex: "#008BF2" },
+				{ scale: 800, hex: "#0066BE" },
+				{ scale: 1000, hex: "#00428C" },
+			]);
 			const primaryHex = "#0066BE";
 
 			const result = deriveSecondaryTertiary({
@@ -287,78 +294,15 @@ describe("deriveSecondaryTertiary", () => {
 		});
 
 		it("ライト背景: Orange 600 は Secondary=500 を避け、CVD混同回避（ΔE>=5.0）を満たす", () => {
-			const tokens: DadsToken[] = [
-				{
-					id: "dads-orange-500",
-					hex: "#ff7628",
-					nameJa: "オレンジ 500",
-					nameEn: "Orange 500",
-					classification: { category: "chromatic", hue: "orange", scale: 500 },
-					source: "dads",
-				},
-				{
-					id: "dads-orange-600",
-					hex: "#fb5b01",
-					nameJa: "オレンジ 600",
-					nameEn: "Orange 600",
-					classification: { category: "chromatic", hue: "orange", scale: 600 },
-					source: "dads",
-				},
-				{
-					id: "dads-orange-700",
-					hex: "#e25100",
-					nameJa: "オレンジ 700",
-					nameEn: "Orange 700",
-					classification: { category: "chromatic", hue: "orange", scale: 700 },
-					source: "dads",
-				},
-				{
-					id: "dads-orange-800",
-					hex: "#c74700",
-					nameJa: "オレンジ 800",
-					nameEn: "Orange 800",
-					classification: { category: "chromatic", hue: "orange", scale: 800 },
-					source: "dads",
-				},
-				{
-					id: "dads-orange-900",
-					hex: "#ac3e00",
-					nameJa: "オレンジ 900",
-					nameEn: "Orange 900",
-					classification: { category: "chromatic", hue: "orange", scale: 900 },
-					source: "dads",
-				},
-				{
-					id: "dads-orange-1000",
-					hex: "#8b3200",
-					nameJa: "オレンジ 1000",
-					nameEn: "Orange 1000",
-					classification: { category: "chromatic", hue: "orange", scale: 1000 },
-					source: "dads",
-				},
-				{
-					id: "dads-orange-1100",
-					hex: "#6d2700",
-					nameJa: "オレンジ 1100",
-					nameEn: "Orange 1100",
-					classification: { category: "chromatic", hue: "orange", scale: 1100 },
-					source: "dads",
-				},
-				{
-					id: "dads-orange-1200",
-					hex: "#541e00",
-					nameJa: "オレンジ 1200",
-					nameEn: "Orange 1200",
-					classification: { category: "chromatic", hue: "orange", scale: 1200 },
-					source: "dads",
-				},
-			];
-
 			const result = deriveSecondaryTertiary({
 				primaryColor: "#fb5b01",
 				backgroundColor: "#ffffff",
 				seed: 0,
-				dadsMode: { tokens, baseChromaName: "orange", primaryStep: 600 },
+				dadsMode: {
+					tokens: orangeTokens,
+					baseChromaName: "orange",
+					primaryStep: 600,
+				},
 			});
 
 			expect(result.secondary.step).toBe(800);
@@ -370,78 +314,11 @@ describe("deriveSecondaryTertiary", () => {
 		});
 
 		it("ライト背景: Orange 600 の Tertiary は seed で 1000/1100 が揺れる（再現可能）", () => {
-			const tokens: DadsToken[] = [
-				{
-					id: "dads-orange-500",
-					hex: "#ff7628",
-					nameJa: "オレンジ 500",
-					nameEn: "Orange 500",
-					classification: { category: "chromatic", hue: "orange", scale: 500 },
-					source: "dads",
-				},
-				{
-					id: "dads-orange-600",
-					hex: "#fb5b01",
-					nameJa: "オレンジ 600",
-					nameEn: "Orange 600",
-					classification: { category: "chromatic", hue: "orange", scale: 600 },
-					source: "dads",
-				},
-				{
-					id: "dads-orange-700",
-					hex: "#e25100",
-					nameJa: "オレンジ 700",
-					nameEn: "Orange 700",
-					classification: { category: "chromatic", hue: "orange", scale: 700 },
-					source: "dads",
-				},
-				{
-					id: "dads-orange-800",
-					hex: "#c74700",
-					nameJa: "オレンジ 800",
-					nameEn: "Orange 800",
-					classification: { category: "chromatic", hue: "orange", scale: 800 },
-					source: "dads",
-				},
-				{
-					id: "dads-orange-900",
-					hex: "#ac3e00",
-					nameJa: "オレンジ 900",
-					nameEn: "Orange 900",
-					classification: { category: "chromatic", hue: "orange", scale: 900 },
-					source: "dads",
-				},
-				{
-					id: "dads-orange-1000",
-					hex: "#8b3200",
-					nameJa: "オレンジ 1000",
-					nameEn: "Orange 1000",
-					classification: { category: "chromatic", hue: "orange", scale: 1000 },
-					source: "dads",
-				},
-				{
-					id: "dads-orange-1100",
-					hex: "#6d2700",
-					nameJa: "オレンジ 1100",
-					nameEn: "Orange 1100",
-					classification: { category: "chromatic", hue: "orange", scale: 1100 },
-					source: "dads",
-				},
-				{
-					id: "dads-orange-1200",
-					hex: "#541e00",
-					nameJa: "オレンジ 1200",
-					nameEn: "Orange 1200",
-					classification: { category: "chromatic", hue: "orange", scale: 1200 },
-					source: "dads",
-				},
-			];
-
 			const base = {
 				primaryColor: "#fb5b01",
 				backgroundColor: "#ffffff",
 				dadsMode: {
-					tokens,
+					tokens: orangeTokens,
 					baseChromaName: "orange",
 					primaryStep: 600 as const,
 				},
@@ -466,72 +343,16 @@ describe("deriveSecondaryTertiary", () => {
 		});
 
 		it("ライト背景: Red 600 は Secondary=500 を避け、CVD混同回避（ΔE>=5.0）を満たす", () => {
-			const tokens: DadsToken[] = [
-				{
-					id: "dads-red-500",
-					hex: "#ff5454",
-					nameJa: "赤 500",
-					nameEn: "Red 500",
-					classification: { category: "chromatic", hue: "red", scale: 500 },
-					source: "dads",
-				},
-				{
-					id: "dads-red-600",
-					hex: "#fe3939",
-					nameJa: "赤 600",
-					nameEn: "Red 600",
-					classification: { category: "chromatic", hue: "red", scale: 600 },
-					source: "dads",
-				},
-				{
-					id: "dads-red-700",
-					hex: "#fa0000",
-					nameJa: "赤 700",
-					nameEn: "Red 700",
-					classification: { category: "chromatic", hue: "red", scale: 700 },
-					source: "dads",
-				},
-				{
-					id: "dads-red-800",
-					hex: "#ec0000",
-					nameJa: "赤 800",
-					nameEn: "Red 800",
-					classification: { category: "chromatic", hue: "red", scale: 800 },
-					source: "dads",
-				},
-				{
-					id: "dads-red-900",
-					hex: "#ce0000",
-					nameJa: "赤 900",
-					nameEn: "Red 900",
-					classification: { category: "chromatic", hue: "red", scale: 900 },
-					source: "dads",
-				},
-				{
-					id: "dads-red-1000",
-					hex: "#a90000",
-					nameJa: "赤 1000",
-					nameEn: "Red 1000",
-					classification: { category: "chromatic", hue: "red", scale: 1000 },
-					source: "dads",
-				},
-				{
-					id: "dads-red-1100",
-					hex: "#850000",
-					nameJa: "赤 1100",
-					nameEn: "Red 1100",
-					classification: { category: "chromatic", hue: "red", scale: 1100 },
-					source: "dads",
-				},
-				{
-					id: "dads-red-1200",
-					hex: "#620000",
-					nameJa: "赤 1200",
-					nameEn: "Red 1200",
-					classification: { category: "chromatic", hue: "red", scale: 1200 },
-					source: "dads",
-				},
-			];
+			const tokens: DadsToken[] = dadsTokenSet("red", [
+				{ scale: 500, hex: "#ff5454" },
+				{ scale: 600, hex: "#fe3939" },
+				{ scale: 700, hex: "#fa0000" },
+				{ scale: 800, hex: "#ec0000" },
+				{ scale: 900, hex: "#ce0000" },
+				{ scale: 1000, hex: "#a90000" },
+				{ scale: 1100, hex: "#850000" },
+				{ scale: 1200, hex: "#620000" },
+			]);
 
 			const result = deriveSecondaryTertiary({
 				primaryColor: "#fe3939",

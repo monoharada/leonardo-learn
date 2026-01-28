@@ -21,21 +21,6 @@ import { DADS_CONTRAST_DEFAULTS } from "./types";
 
 type LightnessDirection = "lighter" | "darker";
 
-const DADS_HUE_ORDER: readonly DadsColorHue[] = [
-	"blue",
-	"light-blue",
-	"cyan",
-	"green",
-	"lime",
-	"yellow",
-	"orange",
-	"red",
-	"magenta",
-	"purple",
-] as const;
-
-const DADS_HUE_SET = new Set<DadsColorHue>(DADS_HUE_ORDER);
-
 const EN_TO_HUE: Record<string, DadsColorHue> = {
 	Blue: "blue",
 	"Light Blue": "light-blue",
@@ -48,6 +33,8 @@ const EN_TO_HUE: Record<string, DadsColorHue> = {
 	Magenta: "magenta",
 	Purple: "purple",
 };
+
+const DADS_HUE_SET = new Set<DadsColorHue>(Object.values(EN_TO_HUE));
 
 function getDadsHueFromBaseChromaName(
 	baseChromaName: string,
@@ -74,6 +61,23 @@ const KEY_COLOR_DISTINGUISHABILITY_THRESHOLD = 5.0;
  * トーンからこの値だけ明るい/暗い方向にずらしてフォールバック色を生成する。
  */
 const FALLBACK_TONE_OFFSET = 15;
+
+function flipDirection(direction: LightnessDirection): LightnessDirection {
+	return direction === "lighter" ? "darker" : "lighter";
+}
+
+function getPreferredSecondaryDirection(
+	isLightBackground: boolean,
+	primaryContrast: number,
+	secondaryUiContrast: number,
+): LightnessDirection {
+	const towardBackground: LightnessDirection = isLightBackground
+		? "lighter"
+		: "darker";
+	return primaryContrast >= secondaryUiContrast
+		? towardBackground
+		: flipDirection(towardBackground);
+}
 
 /**
  * フォールバック色を生成する
@@ -156,6 +160,13 @@ function isKeyColorPairDistinguishable(color1: Color, color2: Color): boolean {
 	return true;
 }
 
+function normalizeSeed(seed: DerivationConfig["seed"]): string {
+	if (seed === undefined) return "";
+	if (typeof seed === "number")
+		return Number.isFinite(seed) ? String(seed) : "0";
+	return seed;
+}
+
 function fnv1a32(input: string): number {
 	let hash = 0x811c9dc5;
 	for (let i = 0; i < input.length; i++) {
@@ -176,15 +187,7 @@ function pickBySeed<T>(
 	if (items.length === 1) return items[0] as T;
 	if (seed === undefined) return items[0] as T;
 
-	const seedString =
-		typeof seed === "number"
-			? Number.isFinite(seed)
-				? String(seed)
-				: "0"
-			: typeof seed === "string"
-				? seed
-				: "0";
-	const key = `${seedString}|${salt}`;
+	const key = `${normalizeSeed(seed)}|${salt}`;
 	const hash = fnv1a32(key);
 	const index = hash % items.length;
 	return items[index] as T;
@@ -434,15 +437,11 @@ function deriveFromDadsTokens(
 		});
 	}
 
-	const towardBackgroundDirection: LightnessDirection = isLight
-		? "lighter"
-		: "darker";
-	const preferredSecondaryDirection: LightnessDirection =
-		primaryContrast >= secondaryUiContrast
-			? towardBackgroundDirection
-			: towardBackgroundDirection === "lighter"
-				? "darker"
-				: "lighter";
+	const preferredSecondaryDirection = getPreferredSecondaryDirection(
+		isLight,
+		primaryContrast,
+		secondaryUiContrast,
+	);
 
 	const clampScale = (value: number): number =>
 		Math.min(1200, Math.max(50, value));
@@ -615,8 +614,9 @@ function deriveFromDadsTokens(
 			dadsTokenId: chosen.tertiary.tokenId,
 		};
 	} else {
-		const tertiaryDirection: LightnessDirection =
-			preferredSecondaryDirection === "lighter" ? "darker" : "lighter";
+		const tertiaryDirection: LightnessDirection = flipDirection(
+			preferredSecondaryDirection,
+		);
 		tertiary = createFallbackColor(
 			hue,
 			chroma,
@@ -704,15 +704,11 @@ export function deriveSecondaryTertiary(
 				: primaryTone - MIN_TONE_OFFSET,
 		);
 
-	const towardBackgroundDirection: LightnessDirection = isLight
-		? "lighter"
-		: "darker";
-	const preferredSecondaryDirection: LightnessDirection =
-		primaryContrast >= secondaryUiContrast
-			? towardBackgroundDirection
-			: towardBackgroundDirection === "lighter"
-				? "darker"
-				: "lighter";
+	const preferredSecondaryDirection = getPreferredSecondaryDirection(
+		isLight,
+		primaryContrast,
+		secondaryUiContrast,
+	);
 
 	type HctPair = {
 		secondaryDirection: LightnessDirection;

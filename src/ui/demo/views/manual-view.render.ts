@@ -127,6 +127,12 @@ export async function renderManualView(
 	};
 	document.addEventListener("click", manualViewClickHandler);
 
+	const rerender = (): void => {
+		void renderManualView(container, callbacks).catch((err) => {
+			console.error("Failed to re-render manual view:", err);
+		});
+	};
+
 	// 色変更ハンドラを作成
 	const handleBackgroundColorChange = (hex: string) => {
 		state.lightBackgroundColor = hex;
@@ -142,9 +148,7 @@ export async function renderManualView(
 			mainContentEl.style.backgroundColor = hex;
 		}
 
-		void renderManualView(container, callbacks).catch((err) => {
-			console.error("Failed to re-render manual view:", err);
-		});
+		rerender();
 	};
 
 	const handleTextColorChange = (hex: string) => {
@@ -153,9 +157,7 @@ export async function renderManualView(
 			state.lightBackgroundColor,
 			state.darkBackgroundColor,
 		);
-		void renderManualView(container, callbacks).catch((err) => {
-			console.error("Failed to re-render manual view:", err);
-		});
+		rerender();
 	};
 
 	// キーカラー変更ハンドラ（セカンダリー・ターシャリーを自動生成）
@@ -216,9 +218,7 @@ export async function renderManualView(
 			persistManualColorSelection(selection);
 
 			// ビューを再描画
-			void renderManualView(container, callbacks).catch((err) => {
-				console.error("Failed to re-render manual view:", err);
-			});
+			rerender();
 		})().catch((err) => {
 			console.error("Failed to derive secondary/tertiary colors:", err);
 		});
@@ -630,7 +630,7 @@ export async function renderManualView(
 			const deleteHandler = canDelete
 				? () => {
 						deleteAccentFromManualSelection(i - 1, () => {
-							void renderManualView(container, callbacks);
+							rerender();
 						});
 					}
 				: undefined;

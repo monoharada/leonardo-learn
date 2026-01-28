@@ -102,6 +102,24 @@ const SCALE_ORDER: readonly DadsChromaScale[] = [
 	50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200,
 ] as const;
 
+function createPlaceholderDadsToken(
+	hue: DadsColorHue,
+	scale: DadsChromaScale,
+): DadsToken {
+	return {
+		id: `dads-${hue}-${scale}`,
+		hex: "#000000",
+		nameJa: `${HUE_NAME_JA[hue]} ${scale}`,
+		nameEn: `${HUE_NAME_EN[hue]} ${scale}`,
+		classification: {
+			category: "chromatic" as const,
+			hue,
+			scale,
+		},
+		source: "dads" as const,
+	};
+}
+
 /**
  * DADSカラースケールの型定義
  */
@@ -182,34 +200,18 @@ export function getDadsColorsByHue(
 	tokens: DadsToken[],
 	hue: DadsColorHue,
 ): DadsColorScale {
-	// 該当色相の有彩色トークンを抽出
-	const hueTokens = tokens.filter(
-		(t) =>
-			t.classification.category === "chromatic" && t.classification.hue === hue,
-	);
+	const tokenByScale = new Map<DadsChromaScale, DadsToken>();
+	for (const token of tokens) {
+		if (token.classification.category !== "chromatic") continue;
+		if (token.classification.hue !== hue) continue;
+		const scale = token.classification.scale as DadsChromaScale | undefined;
+		if (!scale) continue;
+		tokenByScale.set(scale, token);
+	}
 
-	// スケール順にソート
 	const colors = SCALE_ORDER.map((scale) => {
-		const token = hueTokens.find((t) => t.classification.scale === scale);
-		if (!token) {
-			// トークンが見つからない場合はプレースホルダー
-			return {
-				scale,
-				hex: "#000000",
-				token: {
-					id: `dads-${hue}-${scale}`,
-					hex: "#000000",
-					nameJa: `${HUE_NAME_JA[hue]} ${scale}`,
-					nameEn: `${HUE_NAME_EN[hue]} ${scale}`,
-					classification: {
-						category: "chromatic" as const,
-						hue,
-						scale,
-					},
-					source: "dads" as const,
-				},
-			};
-		}
+		const token =
+			tokenByScale.get(scale) ?? createPlaceholderDadsToken(hue, scale);
 		return {
 			scale,
 			hex: token.hex,
