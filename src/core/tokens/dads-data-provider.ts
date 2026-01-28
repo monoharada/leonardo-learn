@@ -29,6 +29,8 @@ const HUE_ORDER: readonly DadsColorHue[] = [
 	"purple",
 ] as const;
 
+const DADS_HUE_SET = new Set<DadsColorHue>(HUE_ORDER);
+
 /**
  * 色相の日本語名マッピング
  */
@@ -86,6 +88,10 @@ const EN_TO_HUE: Record<string, DadsColorHue> = {
 export function getDadsHueFromDisplayName(
 	displayName: string,
 ): DadsColorHue | undefined {
+	// Already a DadsColorHue (e.g. "blue", "light-blue")
+	if (DADS_HUE_SET.has(displayName as DadsColorHue)) {
+		return displayName as DadsColorHue;
+	}
 	return EN_TO_HUE[displayName];
 }
 
@@ -95,6 +101,24 @@ export function getDadsHueFromDisplayName(
 const SCALE_ORDER: readonly DadsChromaScale[] = [
 	50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200,
 ] as const;
+
+function createPlaceholderDadsToken(
+	hue: DadsColorHue,
+	scale: DadsChromaScale,
+): DadsToken {
+	return {
+		id: `dads-${hue}-${scale}`,
+		hex: "#000000",
+		nameJa: `${HUE_NAME_JA[hue]} ${scale}`,
+		nameEn: `${HUE_NAME_EN[hue]} ${scale}`,
+		classification: {
+			category: "chromatic" as const,
+			hue,
+			scale,
+		},
+		source: "dads" as const,
+	};
+}
 
 /**
  * DADSカラースケールの型定義
@@ -113,15 +137,21 @@ export interface DadsColorScale {
 }
 
 /**
- * トークンキャッシュ
+ * トークンキャッシュ（結果）
  */
 let tokenCache: DadsToken[] | null = null;
+
+/**
+ * トークンキャッシュ（Promise）
+ * 並行呼び出し時の重複パースを防止
+ */
+let tokenCachePromise: Promise<DadsToken[]> | null = null;
 
 /**
  * DADSトークンを読み込む
  *
  * @digital-go-jp/design-tokensのCSSから自動的にトークンを読み込む
- * 結果はキャッシュされる
+ * 結果はキャッシュされる。並行呼び出し時も重複パースを防止する。
  *
  * @returns DADSトークン配列
  */
@@ -130,20 +160,28 @@ export async function loadDadsTokens(): Promise<DadsToken[]> {
 		return tokenCache;
 	}
 
-	try {
-		// 静的インポートしたCSSテキストを使用
-		const result = parseDadsPrimitives(dadsCssText);
-
-		if (result.warnings.length > 0) {
-			console.warn("DADS token parse warnings:", result.warnings);
-		}
-
-		tokenCache = result.tokens;
-		return result.tokens;
-	} catch (error) {
-		console.error("Failed to load DADS tokens:", error);
-		throw new Error("DADSトークンの読み込みに失敗しました");
+	if (tokenCachePromise) {
+		return tokenCachePromise;
 	}
+
+	tokenCachePromise = (async () => {
+		try {
+			// 静的インポートしたCSSテキストを使用
+			const result = parseDadsPrimitives(dadsCssText);
+
+			if (result.warnings.length > 0) {
+				console.warn("DADS token parse warnings:", result.warnings);
+			}
+
+			tokenCache = result.tokens;
+			return result.tokens;
+		} catch (error) {
+			console.error("Failed to load DADS tokens:", error);
+			throw new Error("DADSトークンの読み込みに失敗しました");
+		}
+	})();
+
+	return tokenCachePromise;
 }
 
 /**
@@ -151,6 +189,7 @@ export async function loadDadsTokens(): Promise<DadsToken[]> {
  */
 export function clearTokenCache(): void {
 	tokenCache = null;
+	tokenCachePromise = null;
 }
 
 /**
@@ -176,34 +215,18 @@ export function getDadsColorsByHue(
 	tokens: DadsToken[],
 	hue: DadsColorHue,
 ): DadsColorScale {
-	// 該当色相の有彩色トークンを抽出
-	const hueTokens = tokens.filter(
-		(t) =>
-			t.classification.category === "chromatic" && t.classification.hue === hue,
-	);
+	const tokenByScale = new Map<DadsChromaScale, DadsToken>();
+	for (const token of tokens) {
+		if (token.classification.category !== "chromatic") continue;
+		if (token.classification.hue !== hue) continue;
+		const scale = token.classification.scale as DadsChromaScale | undefined;
+		if (!scale) continue;
+		tokenByScale.set(scale, token);
+	}
 
-	// スケール順にソート
 	const colors = SCALE_ORDER.map((scale) => {
-		const token = hueTokens.find((t) => t.classification.scale === scale);
-		if (!token) {
-			// トークンが見つからない場合はプレースホルダー
-			return {
-				scale,
-				hex: "#000000",
-				token: {
-					id: `dads-${hue}-${scale}`,
-					hex: "#000000",
-					nameJa: `${HUE_NAME_JA[hue]} ${scale}`,
-					nameEn: `${HUE_NAME_EN[hue]} ${scale}`,
-					classification: {
-						category: "chromatic" as const,
-						hue,
-						scale,
-					},
-					source: "dads" as const,
-				},
-			};
-		}
+		const token =
+			tokenByScale.get(scale) ?? createPlaceholderDadsToken(hue, scale);
 		return {
 			scale,
 			hex: token.hex,

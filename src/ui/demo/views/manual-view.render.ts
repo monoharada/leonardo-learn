@@ -11,14 +11,17 @@
  * Requirements: 2.1, 2.2, 2.3, 2.4, 5.5, 5.6, 6.3, 6.4
  */
 
-import { Color } from "@/core/color";
-import { generateHarmonyPalette, HarmonyType } from "@/core/harmony";
-import { loadDadsTokens } from "@/core/tokens/dads-data-provider";
+import { deriveSecondaryTertiary } from "@/core/key-color-derivation";
+import {
+	findDadsColorByHex,
+	loadDadsTokens,
+} from "@/core/tokens/dads-data-provider";
 import { DEBOUNCE_DELAY_MS, debounce } from "../background-color-selector";
 import {
 	DEFAULT_MANUAL_KEY_COLOR,
 	DEFAULT_MANUAL_SECONDARY_COLOR,
 	DEFAULT_MANUAL_TERTIARY_COLOR,
+	HUE_DISPLAY_NAMES,
 } from "../constants";
 import { buildManualShareUrl } from "../manual-url-state";
 import {
@@ -62,6 +65,8 @@ export interface ManualViewCallbacks {
  * Stored reference for document-level popover click handler cleanup (prevents memory leak)
  */
 let manualViewClickHandler: ((e: MouseEvent) => void) | null = null;
+
+let manualKeyColorChangeSeq = 0;
 
 /**
  * シェードビューをレンダリングする
@@ -123,6 +128,12 @@ export async function renderManualView(
 	};
 	document.addEventListener("click", manualViewClickHandler);
 
+	const rerender = (): void => {
+		void renderManualView(container, callbacks).catch((err) => {
+			console.error("Failed to re-render manual view:", err);
+		});
+	};
+
 	// 色変更ハンドラを作成
 	const handleBackgroundColorChange = (hex: string) => {
 		state.lightBackgroundColor = hex;
@@ -138,9 +149,7 @@ export async function renderManualView(
 			mainContentEl.style.backgroundColor = hex;
 		}
 
-		void renderManualView(container, callbacks).catch((err) => {
-			console.error("Failed to re-render manual view:", err);
-		});
+		rerender();
 	};
 
 	const handleTextColorChange = (hex: string) => {
@@ -149,46 +158,70 @@ export async function renderManualView(
 			state.lightBackgroundColor,
 			state.darkBackgroundColor,
 		);
-		void renderManualView(container, callbacks).catch((err) => {
-			console.error("Failed to re-render manual view:", err);
-		});
+		rerender();
 	};
 
 	// キーカラー変更ハンドラ（セカンダリー・ターシャリーを自動生成）
+	// - DADS準拠: Secondary/Tertiary は Primary と同色相の明度違い
+	// - Tertiary は Secondary と反対方向を優先（コントラスト/CVD制約で同方向もあり得る）
+	// - Primary が DADS の場合のみ DADSトークンから選択（非DADSを出さない）
 	const handleKeyColorChange = (hex: string) => {
-		const keyColor = new Color(hex);
-		// TRIADICハーモニーでセカンダリー・ターシャリーを生成
-		const palette = generateHarmonyPalette(keyColor, HarmonyType.TRIADIC);
+		manualKeyColorChangeSeq += 1;
+		const seq = manualKeyColorChangeSeq;
 
-		// パレットからセカンダリー・ターシャリーを取得
-		// Note: TRIADICハーモニーでは「Secondary」と「Accent」が返される
-		// マニュアル選択モデルでは「Accent」を「Tertiary」として使用
-		const secondary = palette.find((c) => c.name === "Secondary");
-		const tertiary = palette.find((c) => c.name === "Accent");
+		void (async () => {
+			const backgroundHex = state.lightBackgroundColor || "#ffffff";
 
-		// マニュアル選択状態を更新
-		const selection = state.manualColorSelection;
-		selection.keyColor = hex;
-		selection.secondaryColor =
-			secondary?.keyColor.toHex() ?? DEFAULT_MANUAL_SECONDARY_COLOR;
-		selection.tertiaryColor =
-			tertiary?.keyColor.toHex() ?? DEFAULT_MANUAL_TERTIARY_COLOR;
+			const dadsTokens = await loadDadsTokens().catch((err) => {
+				console.warn(
+					"Failed to load DADS tokens for key color derivation:",
+					err,
+				);
+				return [];
+			});
 
-		// パレット同期
-		applyColorToManualSelection("key", hex);
-		if (selection.secondaryColor) {
-			applyColorToManualSelection("secondary", selection.secondaryColor);
-		}
-		if (selection.tertiaryColor) {
-			applyColorToManualSelection("tertiary", selection.tertiaryColor);
-		}
+			// Latest-wins (avoid out-of-order updates while dragging the color picker)
+			if (seq !== manualKeyColorChangeSeq) return;
 
-		// 永続化
-		persistManualColorSelection(selection);
+			const dadsInfo =
+				dadsTokens.length > 0 ? findDadsColorByHex(dadsTokens, hex) : undefined;
 
-		// ビューを再描画
-		void renderManualView(container, callbacks).catch((err) => {
-			console.error("Failed to re-render manual view:", err);
+			const derived = deriveSecondaryTertiary({
+				primaryColor: hex,
+				backgroundColor: backgroundHex,
+				dadsMode: dadsInfo
+					? {
+							tokens: dadsTokens,
+							baseChromaName: HUE_DISPLAY_NAMES[dadsInfo.hue] ?? dadsInfo.hue,
+							primaryStep: dadsInfo.scale,
+						}
+					: undefined,
+			});
+
+			// マニュアル選択状態を更新
+			const selection = state.manualColorSelection;
+			selection.keyColor = hex;
+			selection.secondaryColor =
+				derived.secondary.color.toHex() ?? DEFAULT_MANUAL_SECONDARY_COLOR;
+			selection.tertiaryColor =
+				derived.tertiary.color.toHex() ?? DEFAULT_MANUAL_TERTIARY_COLOR;
+
+			// パレット同期（P変更で常にS/Tを自動更新）
+			applyColorToManualSelection("key", hex);
+			if (selection.secondaryColor) {
+				applyColorToManualSelection("secondary", selection.secondaryColor);
+			}
+			if (selection.tertiaryColor) {
+				applyColorToManualSelection("tertiary", selection.tertiaryColor);
+			}
+
+			// 永続化
+			persistManualColorSelection(selection);
+
+			// ビューを再描画
+			rerender();
+		})().catch((err) => {
+			console.error("Failed to derive secondary/tertiary colors:", err);
 		});
 	};
 
@@ -610,7 +643,7 @@ export async function renderManualView(
 			const deleteHandler = canDelete
 				? () => {
 						deleteAccentFromManualSelection(i - 1, () => {
-							void renderManualView(container, callbacks);
+							rerender();
 						});
 					}
 				: undefined;
