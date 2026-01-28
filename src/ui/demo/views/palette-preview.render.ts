@@ -7,6 +7,7 @@
  */
 
 import { formatHex, interpolate, oklch, parse } from "culori";
+import { clamp01 } from "@/utils/color-space";
 import type { StudioTheme } from "../types";
 import {
 	iconAuthSvg,
@@ -30,10 +31,6 @@ import type {
 	PalettePreviewColors,
 	PalettePreviewOptions,
 } from "./palette-preview.types";
-
-function clamp01(value: number): number {
-	return Math.min(1, Math.max(0, value));
-}
 
 function adjustOklchLightness(hex: string, deltaL: number): string {
 	const parsed = parse(hex);

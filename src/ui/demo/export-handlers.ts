@@ -215,23 +215,27 @@ function resolveKeyBackgroundExportValue(): {
 	return { hex: result.hex, cssValue };
 }
 
+/** Nested token tree structure for DADS tokens */
+type TokenGroup<TLeaf> = Record<string, TLeaf>;
+type NestedTokenGroup<TLeaf> = Record<string, TLeaf | TokenGroup<TLeaf>>;
+type DeeplyNestedTokenGroup<TLeaf> = Record<
+	string,
+	TLeaf | NestedTokenGroup<TLeaf>
+>;
+
+type DadsTokenTree<TLeaf> = {
+	primitive: Record<string, TokenGroup<TLeaf>>;
+	neutral: NestedTokenGroup<TLeaf>;
+	semantic: DeeplyNestedTokenGroup<TLeaf>;
+};
+
 function buildDadsTokenTree<TLeaf>(
 	dadsTokens: DadsToken[],
 	makeLeaf: (token: DadsToken) => TLeaf,
-): {
-	primitive: Record<string, Record<string, TLeaf>>;
-	neutral: Record<string, TLeaf | Record<string, TLeaf>>;
-	semantic: Record<
-		string,
-		TLeaf | Record<string, TLeaf | Record<string, TLeaf>>
-	>;
-} {
-	const primitive: Record<string, Record<string, TLeaf>> = {};
-	const neutral: Record<string, TLeaf | Record<string, TLeaf>> = {};
-	const semantic: Record<
-		string,
-		TLeaf | Record<string, TLeaf | Record<string, TLeaf>>
-	> = {};
+): DadsTokenTree<TLeaf> {
+	const primitive: DadsTokenTree<TLeaf>["primitive"] = {};
+	const neutral: DadsTokenTree<TLeaf>["neutral"] = {};
+	const semantic: DadsTokenTree<TLeaf>["semantic"] = {};
 
 	for (const token of dadsTokens) {
 		const category = token.classification.category;

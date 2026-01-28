@@ -8,6 +8,13 @@ import {
 } from "culori";
 
 /**
+ * Clamp a value to the range [0, 1]
+ */
+export function clamp01(value: number): number {
+	return Math.min(1, Math.max(0, value));
+}
+
+/**
  * Color object type definition (OKLCH)
  */
 export type ColorObject = Oklch;

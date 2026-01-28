@@ -6,6 +6,7 @@ import {
 	getDadsHueFromDisplayName,
 } from "@/core/tokens/dads-data-provider";
 import type { DadsColorHue, DadsToken } from "@/core/tokens/types";
+import { clamp01 } from "@/utils/color-space";
 import type { StudioPresetType } from "../types";
 import {
 	adjustLightnessForContrast,
@@ -23,10 +24,6 @@ export type KeyBackgroundResult = {
 };
 
 const DEFAULT_KEY_BACKGROUND_MIN_TEXT_CONTRAST = 4.5;
-
-function clamp01(value: number): number {
-	return Math.min(1, Math.max(0, value));
-}
 
 function mixOklch(baseHex: string, tintHex: string, ratio: number): string {
 	const base = parse(baseHex);
@@ -83,18 +80,15 @@ function pickNearestSameHueToken(options: {
 	let bestDeltaE = Number.POSITIVE_INFINITY;
 
 	for (const token of dadsTokens) {
-		const maybeToken = token as unknown as {
-			hex?: unknown;
-			classification?: { category?: unknown; hue?: unknown; scale?: unknown };
-		};
-		if (maybeToken.classification?.category !== "chromatic") continue;
-		if (maybeToken.classification.hue !== hue) continue;
+		const { classification, hex: tokenHex } = token;
+		// Skip tokens without proper classification (e.g., mock data in tests)
+		if (!classification) continue;
+		if (classification.category !== "chromatic") continue;
+		if (classification.hue !== hue) continue;
+		if (!tokenHex?.startsWith("#")) continue;
 
-		const tokenHex = typeof maybeToken.hex === "string" ? maybeToken.hex : "";
-		if (!tokenHex.startsWith("#")) continue;
-
-		const step = maybeToken.classification.scale;
-		if (typeof step !== "number") continue;
+		const step = classification.scale;
+		if (step === undefined) continue;
 
 		const contrast = wcagContrast(textHex, tokenHex) ?? 0;
 		if (contrast < minTextContrast) continue;
