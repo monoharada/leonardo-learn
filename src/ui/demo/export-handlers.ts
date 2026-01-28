@@ -31,6 +31,7 @@ import {
 import { syncModalOpenState } from "./modal-scroll-lock";
 import { parseKeyColor, state } from "./state";
 import type { PaletteConfig } from "./types";
+import { resolveKeyBackgroundColor } from "./utils/key-background";
 
 let exportDialogTriggerClickHandler: ((e: MouseEvent) => void) | null = null;
 let exportDialogWithCloseHandler: HTMLDialogElement | null = null;
@@ -159,6 +160,11 @@ export function generateExportRoleColors(): Record<string, Color> {
 		colors[roleKey] = keyColor;
 	}
 
+	const keySurface = resolveKeyBackgroundExportValue();
+	if (keySurface) {
+		colors["key-surface"] = new Color(keySurface.hex);
+	}
+
 	return colors;
 }
 
@@ -175,6 +181,38 @@ function getDadsCssValue(token: DadsToken): string {
 		return hexToRgba(token.hex, token.alpha);
 	}
 	return token.hex;
+}
+
+function resolveKeyBackgroundExportValue(): {
+	hex: string;
+	cssValue: string;
+} | null {
+	const assignments = getExportRoleAssignments(getPalettesToExport());
+	const primaryPalette = assignments.find(
+		(a) => a.roleKey === "primary",
+	)?.palette;
+	const primaryKeyColor = primaryPalette?.keyColors[0];
+	if (!primaryKeyColor) return null;
+
+	const { color: primaryHex } = parseKeyColor(primaryKeyColor);
+	const backgroundHex = state.lightBackgroundColor || "#ffffff";
+	const textHex = state.darkBackgroundColor || "#000000";
+
+	const cachedTokens = getCachedDadsTokens();
+	const result = resolveKeyBackgroundColor({
+		primaryHex,
+		backgroundHex,
+		textHex,
+		preset: state.activePreset,
+		dadsTokens: cachedTokens ?? undefined,
+		primaryBaseChromaName: primaryPalette?.baseChromaName,
+	});
+
+	const cssValue = result.tokenRef
+		? `var(--color-primitive-${result.tokenRef.hue}-${result.tokenRef.step})`
+		: result.hex;
+
+	return { hex: result.hex, cssValue };
 }
 
 function buildDadsTokenTree<TLeaf>(
@@ -343,6 +381,12 @@ function exportCssWithDadsTokens(): string {
 		lines.push(`  --color-${roleKey}: ${hex};`);
 	}
 
+	// Key Surface（ヒーロー/KV/ストリップ背景のベース）
+	const keySurface = resolveKeyBackgroundExportValue();
+	if (keySurface) {
+		lines.push(`  --color-key-surface: ${keySurface.cssValue};`);
+	}
+
 	lines.push("");
 
 	// Semantic/link tokens（アプリ向け短縮エイリアス）
@@ -384,6 +428,12 @@ function buildExportCssVariableMap(): Record<string, string> {
 		if (!keyColorInput) continue;
 		const { color: hex } = parseKeyColor(keyColorInput);
 		vars[`--color-${roleKey}`] = hex;
+	}
+
+	// Key Surface（ヒーロー/KV/ストリップ背景のベース）
+	const keySurface = resolveKeyBackgroundExportValue();
+	if (keySurface) {
+		vars["--color-key-surface"] = keySurface.cssValue;
 	}
 
 	// Semantic/link tokens（アプリ向け短縮エイリアス）

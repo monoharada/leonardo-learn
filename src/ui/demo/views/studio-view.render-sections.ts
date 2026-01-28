@@ -138,8 +138,15 @@ export function appendPreviewAndA11ySummary(options: {
 	paletteColors: StudioPaletteColors;
 	resolvedAccentHexes: string[];
 	bgHex: string;
+	keySurfaceHex: string;
 }): void {
-	const { container, paletteColors, resolvedAccentHexes, bgHex } = options;
+	const {
+		container,
+		paletteColors,
+		resolvedAccentHexes,
+		bgHex,
+		keySurfaceHex,
+	} = options;
 
 	const previewSection = document.createElement("section");
 	previewSection.className = "studio-preview";
@@ -154,6 +161,7 @@ export function appendPreviewAndA11ySummary(options: {
 		kv: state.previewKv,
 		accentHexes: resolvedAccentHexes,
 		tertiaryHex: paletteColors.tertiaryHex,
+		keySurfaceHex,
 		theme: state.studioTheme,
 		preset: state.activePreset,
 	});

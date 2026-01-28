@@ -51,6 +51,8 @@ export interface PalettePreviewOptions {
 	accentHexes?: string[];
 	/** ターシャリーカラー（ヒーロー背景用） */
 	tertiaryHex?: string;
+	/** キーカラー背景（ヒーロー/KV/ストリップ背景のベース） */
+	keySurfaceHex?: string;
 	/** テーマタイプ（pinpoint / hero / branding） */
 	theme?: StudioTheme;
 	/** プリセットタイプ（パステル用の色調整に使用） */

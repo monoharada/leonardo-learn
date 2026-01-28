@@ -528,7 +528,8 @@ export async function rebuildStudioPalettes(options: {
 	accentCandidates?: DadsSnapResult[];
 }): Promise<void> {
 	const timestamp = Date.now();
-	const backgroundColor = DEFAULT_STUDIO_BACKGROUND;
+	const backgroundColor =
+		state.lightBackgroundColor || DEFAULT_STUDIO_BACKGROUND;
 	const minContrast = studioViewDeps.resolvePresetMinContrast(
 		state.activePreset,
 	);
@@ -631,8 +632,8 @@ export async function generateNewStudioPalette(
 	const studioSeed = state.studioSeed || 0;
 	const rnd = studioViewDeps.createSeededRandom(studioSeed);
 
-	// Studioの背景は白固定（ニュートラルはカード/ボックス等の要素に使用）
-	const backgroundHex = DEFAULT_STUDIO_BACKGROUND;
+	// Studioの生成は現在の body 背景（state.lightBackgroundColor）を基準にする
+	const backgroundHex = state.lightBackgroundColor || DEFAULT_STUDIO_BACKGROUND;
 
 	let primaryHex: string | null = null;
 	let primaryStep: number | undefined;

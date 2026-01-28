@@ -179,6 +179,7 @@ describe("export-handlers", () => {
 			expect(content).toContain("--color-error:");
 			expect(content).toContain("--color-warning:");
 			expect(content).toContain("--color-link:");
+			expect(content).toContain("--color-key-surface:");
 
 			// Primary は 1トークンのみ（スケールは出さない）
 			expect(content).toContain("--color-primary:");
@@ -206,6 +207,7 @@ describe("export-handlers", () => {
 			expect(content).toContain("plugins");
 			expect(content).toContain("addBase");
 			expect(content).toContain('"--color-primary"');
+			expect(content).toContain('"--color-key-surface"');
 			expect(content).toContain('"--color-primitive-blue-50"');
 		});
 
@@ -220,6 +222,10 @@ describe("export-handlers", () => {
 			// role tokens should alias to DADS primitives when possible
 			expect(parsed.color.primary.$value).toBe(
 				"{color.dads.primitive.blue.600}",
+			);
+			expect(parsed).toHaveProperty("color.key-surface.$value");
+			expect(parsed.color["key-surface"].$value).toMatch(
+				/^\{color\.dads\.primitive\.blue\.\d+\}$/,
 			);
 		});
 	});
