@@ -20,9 +20,15 @@ export interface DerivationConfig {
 	primaryColor: string | Color;
 	/** 背景色（コントラスト計算用） */
 	backgroundColor: string | Color;
-	/** セカンダリのUI要素用最小コントラスト（デフォルト: 3.0） */
+	/**
+	 * 擬似ランダム用seed（同じ入力+seedで結果を固定する）
+	 *
+	 * NOTE: UIの表示トグルとは独立して、導出の安定性/再現性のために使用する。
+	 */
+	seed?: string | number;
+	/** セカンダリのUI要素用最小コントラスト（デフォルト: 3.0, WCAG AA UIコンポーネント準拠） */
 	secondaryUiContrast?: number;
-	/** ターシャリの最小コントラスト（デフォルト: 1.5） */
+	/** ターシャリの最小コントラスト（デフォルト: 3.0, WCAG AA UIコンポーネント準拠） */
 	tertiaryContrast?: number;
 	/**
 	 * DADS導出モード設定
@@ -92,6 +98,6 @@ export const DADS_CONTRAST_DEFAULTS = {
 	secondaryUi: 3.0,
 	/** セカンダリ（テキスト用）: WCAG AA準拠 */
 	secondaryText: 4.5,
-	/** ターシャリ（背景差別化用）: 微妙な区別 */
-	tertiary: 1.5,
+	/** ターシャリ（UI要素用）: WCAG AA UIコンポーネント準拠 */
+	tertiary: 3.0,
 } as const;

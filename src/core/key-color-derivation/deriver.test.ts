@@ -5,9 +5,53 @@
  */
 
 import { describe, expect, it } from "bun:test";
+import { getAllCVDTypes, simulateCVD } from "../../accessibility/cvd-simulator";
+import { calculateSimpleDeltaE } from "../../accessibility/distinguishability";
 import { Color } from "../color";
+import type { DadsChromaScale, DadsColorHue, DadsToken } from "../tokens/types";
 import { deriveSecondaryTertiary } from "./deriver";
 import { DADS_CONTRAST_DEFAULTS } from "./types";
+
+function dadsToken(options: {
+	hue: DadsColorHue;
+	scale: DadsChromaScale;
+	hex: string;
+	id?: string;
+	nameJa?: string;
+	nameEn?: string;
+}): DadsToken {
+	return {
+		id: options.id ?? `dads-${options.hue}-${options.scale}`,
+		hex: options.hex,
+		nameJa: options.nameJa ?? `${options.hue} ${options.scale}`,
+		nameEn: options.nameEn ?? `${options.hue} ${options.scale}`,
+		classification: {
+			category: "chromatic",
+			hue: options.hue,
+			scale: options.scale,
+		},
+		source: "dads",
+	};
+}
+
+function dadsTokenSet(
+	hue: DadsColorHue,
+	entries: Array<{ scale: DadsChromaScale; hex: string }>,
+): DadsToken[] {
+	return entries.map((entry) => dadsToken({ hue, ...entry }));
+}
+
+function expectPairDistinguishable(color1: Color, color2: Color): void {
+	// Normal vision (ΔEOK = 100x-scaled OKLCH distance)
+	expect(calculateSimpleDeltaE(color1, color2)).toBeGreaterThanOrEqual(5.0);
+
+	// All CVD types (P/D/T/achromatopsia)
+	for (const cvdType of getAllCVDTypes()) {
+		const sim1 = simulateCVD(color1, cvdType);
+		const sim2 = simulateCVD(color2, cvdType);
+		expect(calculateSimpleDeltaE(sim1, sim2)).toBeGreaterThanOrEqual(5.0);
+	}
+}
 
 describe("deriveSecondaryTertiary", () => {
 	describe("ライト背景", () => {
@@ -25,14 +69,15 @@ describe("deriveSecondaryTertiary", () => {
 			expect(result.secondary.tone).toBeGreaterThan(result.primary.tone);
 		});
 
-		it("ターシャリはプライマリより明るくなる", () => {
+		it("ターシャリはセカンダリと反対方向になる", () => {
 			const result = deriveSecondaryTertiary({
 				primaryColor: "#3366cc",
 				backgroundColor: lightBg,
 			});
 
-			expect(result.tertiary.lightnessDirection).toBe("lighter");
-			expect(result.tertiary.tone).toBeGreaterThan(result.primary.tone);
+			// Tertiary は Secondary と反対方向（非DADSモードでは保証）
+			expect(result.tertiary.lightnessDirection).toBe("darker");
+			expect(result.tertiary.tone).toBeLessThan(result.primary.tone);
 		});
 
 		it("プライマリ、セカンダリ、ターシャリは同じ色相を共有する（sharedHue経由で検証）", () => {
@@ -55,7 +100,7 @@ describe("deriveSecondaryTertiary", () => {
 			});
 
 			// Primary contrast < target → darker direction → 3:1に近づく
-			expect(result.secondary.contrastRatio).toBeGreaterThanOrEqual(2.5);
+			expect(result.secondary.contrastRatio).toBeGreaterThanOrEqual(3.0);
 			expect(result.secondary.lightnessDirection).toBe("darker");
 		});
 
@@ -84,15 +129,15 @@ describe("deriveSecondaryTertiary", () => {
 			expect(result.secondary.tone).not.toBe(result.primary.tone);
 		});
 
-		it("ターシャリはダーク背景に近づく（暗い方向）", () => {
+		it("ターシャリはセカンダリと反対方向になる（ダーク背景）", () => {
 			const result = deriveSecondaryTertiary({
 				primaryColor: "#6699ff",
 				backgroundColor: darkBg,
 			});
 
-			expect(result.tertiary.lightnessDirection).toBe("darker");
-			// Tertiaryのコントラストは目標（1.5）に近い
-			expect(result.tertiary.contrastRatio).toBeLessThan(3.0);
+			// Tertiary は Secondary と反対方向（非DADSモードでは保証）
+			expect(result.tertiary.lightnessDirection).toBe("lighter");
+			expect(result.tertiary.contrastRatio).toBeGreaterThanOrEqual(3.0);
 		});
 
 		it("背景モードがdarkと判定される", () => {
@@ -206,7 +251,122 @@ describe("deriveSecondaryTertiary", () => {
 			expect(DADS_CONTRAST_DEFAULTS.primaryText).toBe(4.5);
 			expect(DADS_CONTRAST_DEFAULTS.secondaryUi).toBe(3.0);
 			expect(DADS_CONTRAST_DEFAULTS.secondaryText).toBe(4.5);
-			expect(DADS_CONTRAST_DEFAULTS.tertiary).toBe(1.5);
+			expect(DADS_CONTRAST_DEFAULTS.tertiary).toBe(3.0);
+		});
+	});
+
+	describe("DADSモード", () => {
+		const orangeTokens = dadsTokenSet("orange", [
+			{ scale: 500, hex: "#ff7628" },
+			{ scale: 600, hex: "#fb5b01" },
+			{ scale: 700, hex: "#e25100" },
+			{ scale: 800, hex: "#c74700" },
+			{ scale: 900, hex: "#ac3e00" },
+			{ scale: 1000, hex: "#8b3200" },
+			{ scale: 1100, hex: "#6d2700" },
+			{ scale: 1200, hex: "#541e00" },
+		]);
+
+		it("ライト背景: Light Blue 800 → Secondary 600 / Tertiary 1000（DADS例に寄せる）", async () => {
+			// DADS key color example (Light Blue): Primary 800 / Secondary 600 / Tertiary 1000
+			// NOTE: This test uses an inlined minimal token set to avoid cross-test module mocks.
+			const tokens: DadsToken[] = dadsTokenSet("light-blue", [
+				{ scale: 600, hex: "#008BF2" },
+				{ scale: 800, hex: "#0066BE" },
+				{ scale: 1000, hex: "#00428C" },
+			]);
+			const primaryHex = "#0066BE";
+
+			const result = deriveSecondaryTertiary({
+				primaryColor: primaryHex,
+				backgroundColor: "#ffffff",
+				dadsMode: {
+					tokens,
+					baseChromaName: "light-blue",
+					primaryStep: 800,
+				},
+			});
+
+			expect(result.secondary.step).toBe(600);
+			expect(result.tertiary.step).toBe(1000);
+			expect(result.secondary.lightnessDirection).toBe("lighter");
+			expect(result.tertiary.lightnessDirection).toBe("darker");
+		});
+
+		it("ライト背景: Orange 600 は Secondary=500 を避け、CVD混同回避（ΔE>=5.0）を満たす", () => {
+			const result = deriveSecondaryTertiary({
+				primaryColor: "#fb5b01",
+				backgroundColor: "#ffffff",
+				seed: 0,
+				dadsMode: {
+					tokens: orangeTokens,
+					baseChromaName: "orange",
+					primaryStep: 600,
+				},
+			});
+
+			expect(result.secondary.step).toBe(800);
+			expect(result.secondary.step).not.toBe(500);
+
+			expectPairDistinguishable(result.primary.color, result.secondary.color);
+			expectPairDistinguishable(result.primary.color, result.tertiary.color);
+			expectPairDistinguishable(result.secondary.color, result.tertiary.color);
+		});
+
+		it("ライト背景: Orange 600 の Tertiary は seed で 1000/1100 が揺れる（再現可能）", () => {
+			const base = {
+				primaryColor: "#fb5b01",
+				backgroundColor: "#ffffff",
+				dadsMode: {
+					tokens: orangeTokens,
+					baseChromaName: "orange",
+					primaryStep: 600 as const,
+				},
+			};
+
+			const a = deriveSecondaryTertiary({ ...base, seed: 12345 });
+			const b = deriveSecondaryTertiary({ ...base, seed: 12345 });
+			expect(b.tertiary.step).toBe(a.tertiary.step);
+
+			const tertiarySteps = new Set<number>();
+			for (const seed of [0, 1, 2, 3, 4, 5]) {
+				const r = deriveSecondaryTertiary({ ...base, seed });
+				if (r.tertiary.step) tertiarySteps.add(r.tertiary.step);
+			}
+
+			expect(tertiarySteps.has(1000)).toBe(true);
+			expect(tertiarySteps.has(1100)).toBe(true);
+
+			for (const step of tertiarySteps) {
+				expect([1000, 1100]).toContain(step);
+			}
+		});
+
+		it("ライト背景: Red 600 は Secondary=500 を避け、CVD混同回避（ΔE>=5.0）を満たす", () => {
+			const tokens: DadsToken[] = dadsTokenSet("red", [
+				{ scale: 500, hex: "#ff5454" },
+				{ scale: 600, hex: "#fe3939" },
+				{ scale: 700, hex: "#fa0000" },
+				{ scale: 800, hex: "#ec0000" },
+				{ scale: 900, hex: "#ce0000" },
+				{ scale: 1000, hex: "#a90000" },
+				{ scale: 1100, hex: "#850000" },
+				{ scale: 1200, hex: "#620000" },
+			]);
+
+			const result = deriveSecondaryTertiary({
+				primaryColor: "#fe3939",
+				backgroundColor: "#ffffff",
+				seed: 0,
+				dadsMode: { tokens, baseChromaName: "red", primaryStep: 600 },
+			});
+
+			expect(result.secondary.step).toBe(800);
+			expect(result.secondary.step).not.toBe(500);
+
+			expectPairDistinguishable(result.primary.color, result.secondary.color);
+			expectPairDistinguishable(result.primary.color, result.tertiary.color);
+			expectPairDistinguishable(result.secondary.color, result.tertiary.color);
 		});
 	});
 
