@@ -1,7 +1,10 @@
 import { describe, expect, it } from "bun:test";
 import { wcagContrast } from "culori";
 import type { DadsToken } from "@/core/tokens/types";
-import { resolveKeyBackgroundColor } from "./key-background";
+import {
+	extractKeySurfaceColor,
+	resolveKeyBackgroundColor,
+} from "./key-background";
 
 const createMockDadsToken = (
 	hex: string,
@@ -92,5 +95,98 @@ describe("resolveKeyBackgroundColor", () => {
 
 		expect(result.tokenRef?.hue).toBe("blue");
 		expect(wcagContrast("#ffffff", result.hex)).toBeGreaterThanOrEqual(4.5);
+	});
+});
+
+describe("extractKeySurfaceColor", () => {
+	it("returns Color when primary palette exists", () => {
+		const palettes = [
+			{ keyColors: ["#0066cc"], derivedFrom: undefined },
+			{ keyColors: ["#ff0000"], derivedFrom: "parent-1" },
+		];
+
+		const result = extractKeySurfaceColor({
+			palettes,
+			backgroundHex: "#ffffff",
+			textHex: "#000000",
+			preset: "default",
+		});
+
+		expect(result).not.toBeNull();
+		expect(result?.toHex()).toMatch(/^#[0-9a-f]{6}$/i);
+	});
+
+	it("returns null when no palettes provided", () => {
+		const result = extractKeySurfaceColor({
+			palettes: [],
+			backgroundHex: "#ffffff",
+			textHex: "#000000",
+			preset: "default",
+		});
+
+		expect(result).toBeNull();
+	});
+
+	it("returns null when all palettes are derived", () => {
+		const palettes = [
+			{ keyColors: ["#ff0000"], derivedFrom: "parent-1" },
+			{ keyColors: ["#00ff00"], derivedFrom: "parent-2" },
+		];
+
+		const result = extractKeySurfaceColor({
+			palettes,
+			backgroundHex: "#ffffff",
+			textHex: "#000000",
+			preset: "default",
+		});
+
+		expect(result).toBeNull();
+	});
+
+	it("returns null when primary palette has no keyColors", () => {
+		const palettes = [{ keyColors: [], derivedFrom: undefined }];
+
+		const result = extractKeySurfaceColor({
+			palettes,
+			backgroundHex: "#ffffff",
+			textHex: "#000000",
+			preset: "default",
+		});
+
+		expect(result).toBeNull();
+	});
+
+	it("passes dadsTokens to resolveKeyBackgroundColor", () => {
+		const dadsTokens: DadsToken[] = [
+			createMockDadsToken("#e6f2ff", "blue", 50),
+			createMockDadsToken("#cce5ff", "blue", 100),
+		];
+		const palettes = [{ keyColors: ["#0066cc"], derivedFrom: undefined }];
+
+		const result = extractKeySurfaceColor({
+			palettes,
+			backgroundHex: "#ffffff",
+			textHex: "#000000",
+			preset: "default",
+			dadsTokens,
+		});
+
+		expect(result).not.toBeNull();
+		// DADSトークンが渡されているため、結果は青系の色になる
+		expect(result?.toHex()).toMatch(/^#[0-9a-f]{6}$/i);
+	});
+
+	it("handles keyColor with step notation (e.g., #color@step)", () => {
+		const palettes = [{ keyColors: ["#0066cc@600"], derivedFrom: undefined }];
+
+		const result = extractKeySurfaceColor({
+			palettes,
+			backgroundHex: "#ffffff",
+			textHex: "#000000",
+			preset: "default",
+		});
+
+		expect(result).not.toBeNull();
+		expect(result?.toHex()).toMatch(/^#[0-9a-f]{6}$/i);
 	});
 });

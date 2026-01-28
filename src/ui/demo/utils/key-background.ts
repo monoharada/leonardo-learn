@@ -7,6 +7,7 @@ import {
 } from "@/core/tokens/dads-data-provider";
 import type { DadsColorHue, DadsToken } from "@/core/tokens/types";
 import { clamp01 } from "@/utils/color-space";
+import { parseKeyColor } from "../state";
 import type { StudioPresetType } from "../types";
 import {
 	adjustLightnessForContrast,
@@ -160,4 +161,37 @@ export function resolveKeyBackgroundColor(options: {
 		hex: picked.hex,
 		tokenRef: { hue, step: picked.step },
 	};
+}
+
+/**
+ * Extract key-surface color from palette array.
+ *
+ * Finds the primary palette (non-derived with key colors) and generates
+ * its corresponding key-surface color using resolveKeyBackgroundColor.
+ *
+ * @param options Configuration for key-surface extraction
+ * @returns Color object for key-surface, or null if no primary palette found
+ */
+export function extractKeySurfaceColor(options: {
+	palettes: Array<{ derivedFrom?: unknown; keyColors: string[] }>;
+	backgroundHex: string;
+	textHex: string;
+	preset: StudioPresetType;
+	dadsTokens?: DadsToken[];
+}): Color | null {
+	const { palettes, backgroundHex, textHex, preset, dadsTokens } = options;
+
+	const primaryPalette = palettes.find((p) => !p.derivedFrom && p.keyColors[0]);
+	if (!primaryPalette || !primaryPalette.keyColors[0]) return null;
+
+	const { color: primaryHex } = parseKeyColor(primaryPalette.keyColors[0]);
+	const keySurface = resolveKeyBackgroundColor({
+		primaryHex,
+		backgroundHex,
+		textHex,
+		preset,
+		dadsTokens,
+	});
+
+	return new Color(keySurface.hex);
 }
